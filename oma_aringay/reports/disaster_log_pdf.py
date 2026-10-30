@@ -96,10 +96,12 @@ def _photo_rows(paths, page_width=PAGE_WIDTH):
 
 
 def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, reference, pdf_title,
-                           pagesize=letter, photo_title='PHOTO DOCUMENTATION'):
+                           pagesize=letter, photo_title='PHOTO DOCUMENTATION', generated_note=None, signatures=()):
     """PDF bytes. header_rows = [(label, value)]; sections = [{'title', 'rows'|'table'|'bullets'|'paragraphs',
     'empty'}] (empty values are left out); photo_paths = files to embed (no section when there are none).
     pagesize / photo_title: optional (the Farmer log keeps the defaults: letter, "PHOTO DOCUMENTATION").
+    generated_note: the closing line when it is not about a saved disaster log (the list reports' Download Report).
+    signatures: labels of signature lines (Prepared by, Noted by) drawn after the last section.
     Raises on failure - callers turn that into a clear error, so a blank/half PDF is never returned."""
     page_width = pagesize[0] - 144   # 1-inch side margins
     S = get_styles()
@@ -147,7 +149,12 @@ def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, referen
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f1f5f9')),
             ]))
-            section(next(numerals), sec['title'], tbl)
+            if sec.get('split'):
+                # A long list report: the table starts under its heading and runs over as many pages as it needs (its head row repeats).
+                story.extend(build_section_heading(next(numerals), sec['title']))
+                story.append(tbl)
+            else:
+                section(next(numerals), sec['title'], tbl)
         elif sec.get('bullets') is not None:
             content = (Paragraph('<br/>'.join(f'&bull; {escape(str(b))}' for b in sec['bullets']), body)
                        if sec['bullets'] else para(sec.get('empty', 'None recorded.'), note))
@@ -164,8 +171,14 @@ def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, referen
         section(next(numerals), f'{photo_title} ({len(photo_paths)})', photo_rows[0])
         story.extend(photo_rows[1:])
 
-    story.append(Spacer(1, 18))
-    story.append(para(f'Generated {fmt_datetime(timezone.now())} from the saved disaster log {reference}.', note))
+    # The closing lines (signatures, then the "generated" note) stay together: they move to the next page as one block, never one alone.
+    closing = [Spacer(1, 18)]
+    if signatures:
+        line = Table([[''] * len(signatures), [para(label, note) for label in signatures]], colWidths=[page_width / len(signatures)] * len(signatures), rowHeights=[22, None])
+        line.setStyle(TableStyle([('LINEABOVE', (0, 1), (-1, 1), 0.7, colors.black), ('LEFTPADDING', (0, 0), (-1, -1), 18), ('RIGHTPADDING', (0, 0), (-1, -1), 18)]))
+        closing += [Spacer(1, 24), line, Spacer(1, 12)]
+    closing.append(para(generated_note or f'Generated {fmt_datetime(timezone.now())} from the saved disaster log {reference}.', note))
+    story.append(KeepTogether(closing))
 
     buf = io.BytesIO()
     pdf = SimpleDocTemplate(buf, pagesize=pagesize, leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72,

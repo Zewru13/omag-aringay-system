@@ -72,7 +72,7 @@ export const SECTIONS = [
       },
       {
         q: 'Can the seed quantity be counted in something other than kg?',
-        a: 'Yes. In Edit Crop the unit next to Qty of Seeds lists kg, bags, pcs and bundles, followed by every unit added in Crop Settings under Units (sacks, cavan and so on). Add a unit there and it appears in this list. The bulk Add Crop table counts seeds in kg.',
+        a: 'Yes. In Edit Crop the unit next to Qty of Seeds lists kg, bags, pcs and bundles, followed by every unit set up in Admin > Harvest Unit Settings (sacks, cavan and so on). Add a unit there and it appears in this list. The bulk Add Crop table counts seeds in kg.',
       },
       {
         q: 'How do I record that a crop has PCIC insurance?',
@@ -207,16 +207,16 @@ export const SECTIONS = [
         a: 'Yes. Open the ⋮ menu of a parcel on Crop Records, or of a row on Aquaculture Monitoring, and choose Print report. It prints the details of that one record and the crop records, or the ponds and cages, that belong to it.',
       },
       {
-        q: 'Can I print the crop and fisheries tables?',
-        a: 'Yes. Crop Records, Crop Monitoring, Aquaculture Monitoring and Capture Monitoring each have a Print Report button. It prints every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Set the filters first.',
+        q: 'Can I print or download the crop and fisheries tables?',
+        a: 'Yes. Crop Records, Crop Monitoring, Aquaculture Monitoring and Capture Monitoring each have a Print Report and a Download Report button. Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
       },
       {
         q: 'How do I filter by date?',
         a: 'Open Filters and use the From and To dates: Planted on Crop Records and Crop Monitoring, Stocked on Aquaculture Monitoring, Trip on Capture Monitoring, and Registered on the farmers, fisherfolk and organization tables. Both ends are included and either can be left empty. The To date cannot be before the From date.',
       },
       {
-        q: 'Can I print the farmer, fisherfolk or organization list?',
-        a: 'Yes. On the Farmers, Fisherfolk and Organizations tables press Print Report. It prints the Registered report for exactly what the table shows, so set the filters first: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
+        q: 'Can I print or download the farmer, fisherfolk or organization list?',
+        a: 'Yes. On the Farmers, Fisherfolk and Organizations tables press Print Report to print, or Download Report to save it as a PDF. Both give the Registered report for exactly what the table shows, so set the filters first: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
       },
     ],
   },

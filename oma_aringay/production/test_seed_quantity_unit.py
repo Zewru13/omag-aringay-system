@@ -1,4 +1,4 @@
-"""The unit of a crop's seed quantity is any unit name (the Edit Crop form lists the ones typed in Settings > Units), not a fixed four."""
+"""The unit of a crop's seed quantity is any unit name (the Edit Crop form lists the ones of Harvest Unit Settings), not a fixed four."""
 import itertools
 from datetime import date
 
@@ -33,7 +33,7 @@ class SeedQuantityUnitTests(APITestCase):
         self.assertEqual(self.crop.seed_quantity_unit, 'sacks')
 
     def test_a_settings_unit_of_the_longest_length_is_saved(self):
-        # Settings > Units takes names up to 40 characters, so the crop must hold the same
+        # Harvest Unit Settings takes names up to 40 characters, so the crop must hold the same
         r = self.client.patch(f'/api/production/monitoring/{self.crop.id}/', {'seed_quantity_unit': 'x' * 40}, format='json')
         self.assertEqual(r.status_code, 200, r.content)
 

@@ -52,7 +52,8 @@ export const TYPE_FIELDS = {
     'Fingerlings/Seeds': { key: 'item_type',      choices: 'fingerling', label: 'Type of Fingerlings / Species', where: 'Fisheries Settings > Species' },
   },
 }
-export const UNITS_WHERE = { crop: 'Crop Settings > Units', fisheries: 'Fisheries Settings > Units' }
+// The unit of the quantity in a distribution (2 sack): one fixed list for crop and fisheries assistance, no setting to maintain.
+export const ASSISTANCE_UNITS = ['kg', 'sack', 'bag', 'piece', 'bundle', 'box', 'liter', 'set']
 
 export const typeFieldFor = (domain, assistanceType) => TYPE_FIELDS[domain]?.[assistanceType] || null
 
