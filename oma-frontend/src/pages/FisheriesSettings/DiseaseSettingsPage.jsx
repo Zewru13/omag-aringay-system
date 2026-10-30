@@ -13,7 +13,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
-// Edit Disease Type. New disease types are added in the list itself (the Add row button under it).
+// Edit Disease Type. New disease types are added in the list itself (the Add button under it).
 function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
   const { showToast } = useToast()
   const [name,        setName]        = useState(diseaseType.name || '')
@@ -223,7 +223,7 @@ export default function DiseaseSettingsPage({ asTab = false }) {
             })}
           </div>
         )}
-        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Disease Type" />}
       </div>
 
       {editingType && (

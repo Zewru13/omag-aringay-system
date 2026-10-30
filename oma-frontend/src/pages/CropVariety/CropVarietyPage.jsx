@@ -40,7 +40,7 @@ const COLUMNS = [
   { key: 'actions',        label: 'ACTIONS' },
 ]
 
-// Edit Variety (with the growth-stage overrides). New varieties are added in the table itself (the Add row button under it): the name, the
+// Edit Variety (with the growth-stage overrides). New varieties are added in the table itself (the Add button under it): the name, the
 // crop and the growth duration; the stage overrides can be set afterwards with Edit.
 function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
   const { showToast } = useToast()
@@ -281,7 +281,7 @@ export default function CropVarietyPage({ asTab = false }) {
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
         <CardHeader title="Varieties" count={varieties.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} label="Add Variety" />}
       </div>
 
       {!isLoading && totalPages > 1 && (

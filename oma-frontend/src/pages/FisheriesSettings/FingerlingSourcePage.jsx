@@ -16,7 +16,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 // Fingerling sources (Fisheries Settings): where fingerlings come from (BFAR, a private hatchery, own production, ...). This is the
 // list Start Production Cycle offers. A stocking keeps the NAME it was saved with, so renaming or deleting a source here never
-// changes records that already used it. New sources are added in the table itself (the Add row button under it); Edit renames one.
+// changes records that already used it. New sources are added in the table itself (the Add button under it); Edit renames one.
 
 const COLUMNS = [
   { key: 'name',    label: 'FINGERLING SOURCE' },
@@ -144,7 +144,7 @@ export default function FingerlingSourcePage({ asTab = false }) {
           bare columns={COLUMNS} data={rows} isLoading={isLoading}
           emptyState={<p className="px-4 py-8 text-center text-sm text-slate-500">No fingerling sources yet. Add one so it can be chosen when a production cycle starts.</p>}
         />
-        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Fingerling Source" />}
       </div>
 
       {editing && (

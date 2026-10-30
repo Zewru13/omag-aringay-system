@@ -26,7 +26,7 @@ const COLUMNS = [
   { key: 'actions',           label: 'ACTIONS' },
 ]
 
-// Edit Input Type. New input types are added in the table itself (the Add row button under it).
+// Edit Input Type. New input types are added in the table itself (the Add button under it).
 function CropInputTypeModal({ inputType, onClose, onSaved }) {
   const { showToast } = useToast()
   const [name,        setName]        = useState(inputType.name || '')
@@ -174,7 +174,7 @@ export default function CropInputTypePage({ asTab = false }) {
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
         <CardHeader title="Input Types" count={inputTypes.length} markerClass="bg-[#1B4D2E]" />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Input Type" />}
       </div>
 
       {editing && (

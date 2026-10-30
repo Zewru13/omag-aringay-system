@@ -17,7 +17,7 @@ import { resetParcelClassifications } from './useParcelClassifications.js'
 
 // Classification Settings: the list of "check all that apply" classifications every farm parcel form offers. Adding one offers it
 // straight away; renaming or deleting never changes parcels that already have it (a parcel keeps the name it was saved with). New ones are
-// added in the table itself (the Add row button under it); Edit renames one.
+// added in the table itself (the Add button under it); Edit renames one.
 
 const COLUMNS = [
   { key: 'name', label: 'CLASSIFICATION' },
@@ -135,7 +135,7 @@ export default function ClassificationSettingsPage() {
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <CardHeader title="Parcel Classifications" count={classifications.length} />
           <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Classification" />}
         </div>
       </div>
 

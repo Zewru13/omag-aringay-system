@@ -3,7 +3,7 @@ import { Check, Plus, X } from 'lucide-react'
 import Button from './Button.jsx'
 import { baseInputClasses } from './FormField.jsx'
 
-// The "Add row" of the admin settings tables (Seed Sources first, now every settings table): the Add row button sits under the table;
+// The "Add row" of the admin settings tables (Seed Sources first, now every settings table): the Add button (named after what is added, e.g. Add Variety) sits under the table;
 // pressing it adds one more row at the top of the table with its boxes empty, and Save / Cancel in that row's last cell. Enter saves,
 // Escape cancels. Editing an existing row stays in its own window. A page keeps one draft with useAddRow, gives DataTable the draft row
 // (made of DraftInput / DraftSelect cells and DraftActions) after its own rows, and puts AddRowFooter under the table.
