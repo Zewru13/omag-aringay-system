@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { ChevronLeft, ChevronRight, Leaf, Pencil, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -8,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -334,29 +334,28 @@ function SuggestionsSection({ cropId }) {
 
 // ── Crop Type Modal ────────────────────────────────────────────────────────────
 
+// Edit Crop (all its details, units and activity suggestions). A new crop is added in the table itself (the Add row button under it) with
+// its name, category, subcategory, growth duration, how it is planted and yield; the rest can be set afterwards with Edit.
 function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(crop)
-  const originalForm = isEdit
-    ? {
-        name:            crop.name            || '',
-        days_to_harvest: crop.days_to_harvest || '',
-        yield_per_ha_kg: crop.yield_per_ha_kg || '',
-        category:        crop.category        || '',
-        subcategory:     crop.subcategory     || '',
-        allowed_units:   crop.allowed_units    || [],
-        planting_type:   crop.planting_type    || 'Seed',
-        vegetative_start_day: crop.vegetative_start_day ?? '',
-        flowering_start_day:  crop.flowering_start_day  ?? '',
-        fruiting_start_day:   crop.fruiting_start_day   ?? '',
-        maturity_start_day:   crop.maturity_start_day   ?? '',
-      }
-    : EMPTY_FORM
+  const originalForm = {
+    name:            crop.name            || '',
+    days_to_harvest: crop.days_to_harvest || '',
+    yield_per_ha_kg: crop.yield_per_ha_kg || '',
+    category:        crop.category        || '',
+    subcategory:     crop.subcategory     || '',
+    allowed_units:   crop.allowed_units    || [],
+    planting_type:   crop.planting_type    || 'Seed',
+    vegetative_start_day: crop.vegetative_start_day ?? '',
+    flowering_start_day:  crop.flowering_start_day  ?? '',
+    fruiting_start_day:   crop.fruiting_start_day   ?? '',
+    maturity_start_day:   crop.maturity_start_day   ?? '',
+  }
   const [form, setForm] = useState(originalForm)
   const [isSubmitting,   setIsSubmitting]   = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
   const [nameError,      setNameError]      = useState('')
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(originalForm)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm)
 
   const set = (field, value) => {
     setForm(f => ({ ...f, [field]: value }))
@@ -398,12 +397,8 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
   const handleConfirm = async () => {
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/production/crop-types/${crop.id}/`, pendingPayload)
-      } else {
-        await api.post('/production/crop-types/', pendingPayload)
-      }
-      showToast(`Crop type ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/production/crop-types/${crop.id}/`, pendingPayload)
+      showToast('Crop type updated.', 'success')
       onSaved()
       onClose()
     } catch (err) {
@@ -422,8 +417,8 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
   return (
     <>
       <ModalShell
-        title={isEdit ? 'Edit Crop' : 'Add New Crop'}
-        subtitle={isEdit ? `Update details for ${crop.name}` : 'Enter crop information below'}
+        title="Edit Crop"
+        subtitle={`Update details for ${crop.name}`}
         icon={Leaf}
         onClose={onClose}
         maxWidth="max-w-3xl"
@@ -431,7 +426,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
           <>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" form="crop-option-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-              {isEdit ? 'Update Crop' : '+ Add Crop'}
+              Update Crop
             </Button>
           </>
         }
@@ -532,13 +527,13 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
 
         </form>
 
-        {isEdit && <SuggestionsSection cropId={crop.id} />}
+        <SuggestionsSection cropId={crop.id} />
       </ModalShell>
 
       {pendingPayload && (
         <ConfirmDialog variant="primary"
           title="Confirm Action"
-          message={isEdit ? `Save changes to "${pendingPayload.name}"?` : `Add "${pendingPayload.name}" as a new crop?`}
+          message={`Save changes to "${pendingPayload.name}"?`}
           confirmLabel="Confirm"
           onConfirm={handleConfirm}
           onCancel={() => setPendingPayload(null)}
@@ -551,14 +546,15 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CropOptionPage({ asTab = false }) {
+  const { showToast } = useToast()
   const [crops,        setCrops]         = useState([])
   const [categories,    setCategories]    = useState([])
   const [subcategories, setSubcategories] = useState([])
   const [isLoading,     setIsLoading]     = useState(true)
   const [error,         setError]         = useState('')
   const [search,        setSearch]        = useState('')
-  const [showModal,     setShowModal]     = useState(false)
   const [editCrop,      setEditCrop]      = useState(null)
+  const add = useAddRow({ name: '', category: '', subcategory: '', days_to_harvest: '', planting_type: 'Seed', yield_per_ha_kg: '' })
   // No default sort key — until staff click a column header, the table
   // shows the backend's own order (newest-first, matching every other list
   // in this app). Defaulting this to 'name' used to force alphabetical
@@ -619,6 +615,27 @@ export default function CropOptionPage({ asTab = false }) {
   const totalPages = Math.max(1, Math.ceil(sortedCrops.length / PAGE_SIZE))
   const paginated  = sortedCrops.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
+  const saveDraft = async () => {
+    const d = add.draft
+    if (!d.name.trim()) { showToast('Type the crop name first.', 'error'); return }
+    if (!d.days_to_harvest) { showToast('Growth duration is required.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/production/crop-types/', {
+        ...EMPTY_FORM, name: d.name.trim(), days_to_harvest: d.days_to_harvest, yield_per_ha_kg: d.yield_per_ha_kg || null,
+        category: d.category || null, subcategory: d.subcategory || null, planting_type: d.planting_type,
+        vegetative_start_day: null, flowering_start_day: null, fruiting_start_day: null, maturity_start_day: null,
+      })
+      showToast('Crop type added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || err?.response?.data?.detail || 'Failed to save crop type.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = paginated.map(c => {
     return {
       ...c,
@@ -628,13 +645,44 @@ export default function CropOptionPage({ asTab = false }) {
       yield_display:    c.yield_per_ha_kg  ? `${Number(c.yield_per_ha_kg).toLocaleString()} kg/ha` : '—',
       actions: (
         <RowActions actions={[
-          { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditCrop(c); setShowModal(true) } },
+          { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditCrop(c) },
         ]} />
       ),
     }
   })
 
-  const actionBtn = <AddButton onClick={() => { setEditCrop(null); setShowModal(true) }}>Add Crop</AddButton>
+  // The new row sits at the end of the table, on the last page.
+  if (add.isOpen && page === totalPages) {
+    const subcats = subcategories.filter(s => !add.draft.category || String(s.category) === String(add.draft.category))
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} aria-label="New crop name" placeholder="e.g. Palay (Rice)"
+        onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      category_name: (
+        <DraftSelect value={add.draft.category} aria-label="Category" onChange={e => add.change({ category: e.target.value, subcategory: '' })}>
+          <option value="">— None —</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </DraftSelect>
+      ),
+      subcategory_name: (
+        <DraftSelect value={add.draft.subcategory} aria-label="Subcategory" onChange={e => add.change({ subcategory: e.target.value })}>
+          <option value="">— None —</option>
+          {subcats.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </DraftSelect>
+      ),
+      days_to_harvest: <DraftInput type="number" min="1" value={add.draft.days_to_harvest} aria-label="Growth duration in days" placeholder="e.g. 110"
+        onChange={e => add.change({ days_to_harvest: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      planting_label: (
+        <DraftSelect value={add.draft.planting_type} aria-label="Planted as" onChange={e => add.change({ planting_type: e.target.value })}>
+          {PLANTING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </DraftSelect>
+      ),
+      yield_display: <DraftInput type="number" min="0" step="any" value={add.draft.yield_per_ha_kg} aria-label="Yield per hectare in kg" placeholder="optional"
+        onChange={e => add.change({ yield_per_ha_kg: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
+  const startRow = () => { setPage(totalPages); add.open() }
 
   const innerContent = (
     <div className="space-y-4">
@@ -643,7 +691,6 @@ export default function CropOptionPage({ asTab = false }) {
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
         searchPlaceholder="Search crops by name, category, or subcategory..."
-        actions={actionBtn}
       />
 
       {error && <ErrorMessage message={error} />}
@@ -690,6 +737,7 @@ export default function CropOptionPage({ asTab = false }) {
             )}
           </tbody>
         </table>
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -719,12 +767,12 @@ export default function CropOptionPage({ asTab = false }) {
         </div>
       )}
 
-      {showModal && (
+      {editCrop && (
         <CropTypeModal
           crop={editCrop}
           categories={categories}
           subcategories={subcategories}
-          onClose={() => { setShowModal(false); setEditCrop(null) }}
+          onClose={() => setEditCrop(null)}
           onSaved={fetchAll}
         />
       )}

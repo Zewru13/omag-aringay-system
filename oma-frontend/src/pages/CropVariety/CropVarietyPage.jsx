@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import { ChevronLeft, ChevronRight, Pencil, Sprout, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -8,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -39,23 +39,24 @@ const COLUMNS = [
   { key: 'actions',        label: 'ACTIONS' },
 ]
 
+// Edit Variety (with the growth-stage overrides). New varieties are added in the table itself (the Add row button under it): the name, the
+// crop and the growth duration; the stage overrides can be set afterwards with Edit.
 function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(variety)
   const original = {
-    name: variety?.name || '',
-    crop_type: variety?.crop_type || '',
-    is_active: variety?.is_active ?? true,
-    days_to_harvest: variety?.days_to_harvest ?? '',
-    vegetative_start_day: variety?.vegetative_start_day ?? '',
-    flowering_start_day:  variety?.flowering_start_day  ?? '',
-    fruiting_start_day:   variety?.fruiting_start_day   ?? '',
-    maturity_start_day:   variety?.maturity_start_day   ?? '',
+    name: variety.name,
+    crop_type: variety.crop_type || '',
+    is_active: variety.is_active ?? true,
+    days_to_harvest: variety.days_to_harvest ?? '',
+    vegetative_start_day: variety.vegetative_start_day ?? '',
+    flowering_start_day:  variety.flowering_start_day  ?? '',
+    fruiting_start_day:   variety.fruiting_start_day   ?? '',
+    maturity_start_day:   variety.maturity_start_day   ?? '',
   }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState('')
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
   const set = (field, value) => {
     setForm(f => ({ ...f, [field]: value }))
@@ -87,12 +88,8 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
         fruiting_start_day:   form.fruiting_start_day   === '' ? null : form.fruiting_start_day,
         maturity_start_day:   form.maturity_start_day   === '' ? null : form.maturity_start_day,
       }
-      if (isEdit) {
-        await api.patch(`/production/varieties/${variety.id}/`, payload)
-      } else {
-        await api.post('/production/varieties/', payload)
-      }
-      showToast(`Variety ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/production/varieties/${variety.id}/`, payload)
+      showToast('Variety updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       const nameErr = err?.response?.data?.name?.[0]
@@ -108,8 +105,8 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Variety' : 'Add New Variety'}
-      subtitle={isEdit ? `Update details for ${variety.name}` : 'Enter variety information below'}
+      title="Edit Variety"
+      subtitle={`Update details for ${variety.name}`}
       icon={Sprout}
       onClose={onClose}
       maxWidth="max-w-sm"
@@ -117,7 +114,7 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="crop-variety-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Variety' : '+ Add Variety'}
+            Update Variety
           </Button>
         </>
       }
@@ -191,8 +188,8 @@ export default function CropVarietyPage({ asTab = false }) {
   const [cropTypes,    setCropTypes]    = useState([])
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
-  const [showModal,    setShowModal]    = useState(false)
   const [editVariety,  setEditVariety]  = useState(null)
+  const add = useAddRow({ name: '', crop_type: '', days_to_harvest: '' })
   const [deletingVariety, setDeletingVariety] = useState(null)
   const [page,         setPage]         = useState(1)
 
@@ -224,6 +221,25 @@ export default function CropVarietyPage({ asTab = false }) {
     [varieties, page],
   )
 
+  const saveDraft = async () => {
+    const { name, crop_type, days_to_harvest } = add.draft
+    if (!name.trim()) { showToast('Type the variety name first.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/production/varieties/', {
+        name: name.trim(), crop_type: crop_type || null, is_active: true,
+        days_to_harvest: days_to_harvest === '' ? null : parseInt(days_to_harvest, 10),
+      })
+      showToast('Variety added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = paginated.map(v => ({
     ...v,
     crop_type_disp: v.crop_type_name || '— General —',
@@ -232,21 +248,39 @@ export default function CropVarietyPage({ asTab = false }) {
       : <span className="text-[#A8BCA8]">— (uses crop's own)</span>,
     actions: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditVariety(v); setShowModal(true) } },
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditVariety(v) },
         { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingVariety(v), tone: 'rose' },
       ]} />
     ),
   }))
 
-  const actionBtn = <AddButton onClick={() => { setEditVariety(null); setShowModal(true) }}>Add Variety</AddButton>
+  // The new row sits at the end of the table, on the last page.
+  if (add.isOpen && page === totalPages) {
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} aria-label="New variety" placeholder="e.g. NSIC Rc222"
+        onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      crop_type_disp: (
+        <DraftSelect value={add.draft.crop_type} aria-label="Crop" onChange={e => add.change({ crop_type: e.target.value })}>
+          <option value="">— General (not crop-specific) —</option>
+          {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </DraftSelect>
+      ),
+      days_to_harvest_disp: <DraftInput type="number" min="1" value={add.draft.days_to_harvest} aria-label="Growth duration in days" placeholder="e.g. 70 (optional)"
+        onChange={e => add.change({ days_to_harvest: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
+  const startRow = () => { setPage(totalPages); add.open() }
 
   const innerContent = (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader title="Varieties" count={varieties.length} action={actionBtn} />
+        <CardHeader title="Varieties" count={varieties.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -268,11 +302,11 @@ export default function CropVarietyPage({ asTab = false }) {
         </div>
       )}
 
-      {showModal && (
+      {editVariety && (
         <CropVarietyModal
           variety={editVariety}
           cropTypes={cropTypes}
-          onClose={() => { setShowModal(false); setEditVariety(null) }}
+          onClose={() => setEditVariety(null)}
           onSaved={fetchAll}
         />
       )}

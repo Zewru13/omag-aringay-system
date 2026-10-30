@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { ListChecks, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
-import AddButton from '../../components/UI/AddButton.jsx'
 import Button from '../../components/UI/Button.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -15,7 +15,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { resetParcelClassifications } from './useParcelClassifications.js'
 
 // Classification Settings: the list of "check all that apply" classifications every farm parcel form offers. Adding one offers it
-// straight away; renaming or deleting never changes parcels that already have it (a parcel keeps the name it was saved with).
+// straight away; renaming or deleting never changes parcels that already have it (a parcel keeps the name it was saved with). New ones are
+// added in the table itself (the Add row button under it); Edit renames one.
 
 const COLUMNS = [
   { key: 'name', label: 'CLASSIFICATION' },
@@ -24,20 +25,18 @@ const COLUMNS = [
 
 function ClassificationModal({ classification, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(classification)
-  const original = { name: classification?.name || '' }
+  const original = { name: classification.name }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) { showToast('Enter the classification name.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) await api.patch(`/farmers/parcel-classifications/${classification.id}/`, form)
-      else await api.post('/farmers/parcel-classifications/', form)
-      showToast(`Classification ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/farmers/parcel-classifications/${classification.id}/`, form)
+      showToast('Classification updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save the classification.', 'error')
@@ -48,8 +47,8 @@ function ClassificationModal({ classification, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Classification' : 'Add Classification'}
-      subtitle={isEdit ? `Update ${classification.name}` : 'A classification a farm parcel can carry'}
+      title="Edit Classification"
+      subtitle={`Update ${classification.name}`}
       icon={ListChecks}
       onClose={onClose}
       maxWidth="max-w-sm"
@@ -57,7 +56,7 @@ function ClassificationModal({ classification, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="parcel-classification-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Classification' : 'Add Classification'}
+            Update Classification
           </Button>
         </>
       )}
@@ -77,7 +76,8 @@ export default function ClassificationSettingsPage() {
   const [classifications, setClassifications] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [editing, setEditing] = useState(undefined)   // undefined = closed, null = adding, object = editing
+  const [editing, setEditing] = useState(null)
+  const add = useAddRow({ name: '' })
   const [deleting, setDeleting] = useState(null)
 
   // `version` bumps after a save or delete, which loads the list again.
@@ -94,6 +94,21 @@ export default function ClassificationSettingsPage() {
 
   const refresh = () => { resetParcelClassifications(); setVersion((v) => v + 1) }
 
+  const saveDraft = async () => {
+    const name = add.draft.name.trim()
+    if (!name) { showToast('Type the classification name first.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/farmers/parcel-classifications/', { name })
+      showToast('Classification added.', 'success')
+      add.close(); refresh()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save the classification.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = classifications.map((c) => ({
     ...c,
     actions: (
@@ -103,18 +118,27 @@ export default function ClassificationSettingsPage() {
       ]} />
     ),
   }))
+  if (add.isOpen) {
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} aria-label="New classification" placeholder="e.g. Irrigated by NIA"
+        onChange={(e) => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
 
   return (
     <PageLayout title="Classification Settings" subtitle="The classifications offered when a farm parcel is added.">
       <div className="space-y-4">
         {error && <ErrorMessage message={error} />}
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <CardHeader title="Parcel Classifications" count={classifications.length} action={<AddButton onClick={() => setEditing(null)}>Add Classification</AddButton>} />
+          <CardHeader title="Parcel Classifications" count={classifications.length} />
           <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
         </div>
       </div>
 
-      {editing !== undefined && <ClassificationModal classification={editing} onClose={() => setEditing(undefined)} onSaved={refresh} />}
+      {editing && <ClassificationModal classification={editing} onClose={() => setEditing(null)} onSaved={refresh} />}
 
       {deleting && (
         <ConfirmDialog
