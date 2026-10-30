@@ -20,10 +20,29 @@ const pad = (n) => String(n).padStart(2, '0')
 
 const printedDate = (now) => new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(now)
 
+const referenceOf = (now) => `LR-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+
+// One record as a printable document (the Print Report of a parcel's or a cycle's ⋮ menu): `details` is [[label, value]] shown as the first
+// section, `sections` the rest as the print document takes them (a table: { title, table: { head, rows, boldRows } }). Empty values show as a dash.
+export function buildDetailReportSpec({ title, noun, details, sections = [], wide = false, now = new Date() }) {
+  const reference = referenceOf(now)
+  return {
+    title,
+    reference,
+    pageSize: 'letter',
+    landscape: wide,
+    header: [['Date printed', printedDate(now)]],
+    sections: [{ title: 'Details', rows: details.map(([label, value]) => [label, value === null || value === undefined || value === '' ? '—' : String(value)]) }, ...sections],
+    photos: [],
+    footerLabel: noun,
+    signatures: ['Prepared by', 'Noted by'],
+  }
+}
+
 // title: the report's heading ('CROP MONITORING REPORT'); noun: what a row is ('crop record'); filters: [[label, value]] for what the
 // table was filtered by (empty values are left out, so an unfiltered table says so); head / rows: the table; wide: landscape paper.
 export function buildListReportSpec({ title, noun, filters = [], head, rows, wide = false, now = new Date() }) {
-  const reference = `LR-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+  const reference = referenceOf(now)
   const applied = filters.filter(([, value]) => value)
   return {
     title,

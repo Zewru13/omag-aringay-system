@@ -2,6 +2,8 @@
 // kinds, the blank line, what is wrong with a line and what is sent. No screen and no network, so it can be tested on its own.
 // The values match FarmersOrganizationEquipment / FisherfolkOrganizationEquipment on the server.
 
+import { equipmentToServer } from '../../utils/equipmentNames.js'
+
 export const FARMERS_EQUIPMENT = [
   'Hand Tractor',
   'Four-Wheel Tractor',
@@ -48,9 +50,10 @@ export const equipmentChoicesFor = (type) => (type === 'farmers' ? FARMERS_EQUIP
 
 export const REMARKS_MAX = 500
 
-export const makeEquipmentLine = (uid, type) => ({
+// A new line starts blank: the equipment is chosen from the list in Settings (see useEquipmentOptions).
+export const makeEquipmentLine = (uid) => ({
   _uid: uid,
-  equipment_name: equipmentChoicesFor(type)[0],
+  equipment_name: '',
   equipment_name_other: '',
   quantity: '1',
   acquisition_date: '',
@@ -77,11 +80,11 @@ export function equipmentLinesProblem(lines, today) {
 }
 
 // One line as the server takes it: the optional cells that are empty are left out, and every line is added in Good condition.
-export function equipmentLinePayload(line) {
-  const payload = { equipment_name: line.equipment_name, quantity: parseInt(line.quantity, 10) }
-  if (line.equipment_name === 'Other') {
-    return { equipment_name: 'Other', equipment_name_other: line.equipment_name_other.trim(), quantity: payload.quantity, ...optional(line) }
-  }
+// A name the server does not list (one added in Settings > Equipment Types) is sent as Other + that name.
+export function equipmentLinePayload(line, type = 'farmers') {
+  const { name, other } = equipmentToServer(line.equipment_name, line.equipment_name_other, equipmentChoicesFor(type))
+  const payload = { equipment_name: name, quantity: parseInt(line.quantity, 10) }
+  if (name === 'Other') payload.equipment_name_other = other
   return { ...payload, ...optional(line) }
 }
 

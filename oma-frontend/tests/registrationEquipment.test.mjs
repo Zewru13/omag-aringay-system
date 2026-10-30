@@ -12,12 +12,11 @@ eq(equipmentChoicesFor('farmers')[0], 'Hand Tractor', 'farmers organizations sta
 eq(equipmentChoicesFor('fisherfolk')[0], 'Fishing Boat/Banca', 'fisherfolk organizations start with fishing equipment')
 eq([FARMERS_EQUIPMENT, FISHERFOLK_EQUIPMENT].map((list) => list[list.length - 1]), ['Other', 'Other'], 'Other is last')
 
-// a new line starts as one unit of the first choice
-eq(makeEquipmentLine(3, 'farmers'), { _uid: 3, equipment_name: 'Hand Tractor', equipment_name_other: '', quantity: '1', acquisition_date: '', remarks: '' }, 'a blank line')
-eq(makeEquipmentLine(4, 'fisherfolk').equipment_name, 'Fishing Boat/Banca', 'a blank fisherfolk line')
+// a new line starts blank (the equipment is chosen from Settings) and as one unit
+eq(makeEquipmentLine(3), { _uid: 3, equipment_name: '', equipment_name_other: '', quantity: '1', acquisition_date: '', remarks: '' }, 'a blank line')
 
 // what is wrong with a line
-const line = (over = {}) => ({ ...makeEquipmentLine(1, 'farmers'), ...over })
+const line = (over = {}) => ({ ...makeEquipmentLine(1), equipment_name: 'Hand Tractor', ...over })
 const today = '2026-10-27'
 eq(equipmentLineProblem(line(), today), '', 'a complete line')
 eq(equipmentLineProblem(line({ equipment_name: '' }), today), 'choose the equipment', 'the equipment is needed')
@@ -40,5 +39,8 @@ eq(equipmentLinePayload(line({ quantity: '3', acquisition_date: '2026-09-01', re
   { equipment_name: 'Hand Tractor', quantity: 3, acquisition_date: '2026-09-01', remarks: 'Donated' }, 'a line as the server takes it')
 eq(equipmentLinePayload(line({ equipment_name: 'Other', equipment_name_other: ' Seed Cleaner ' })),
   { equipment_name: 'Other', equipment_name_other: 'Seed Cleaner', quantity: 1 }, 'Other sends its name; empty optional cells are left out')
+eq(equipmentLinePayload(line({ equipment_name: 'Seed Dryer' })), { equipment_name: 'Other', equipment_name_other: 'Seed Dryer', quantity: 1 }, 'a name added in Settings is sent as Other + its name')
+eq(equipmentLinePayload(line({ equipment_name: 'Fish Cage' }), 'fisherfolk'), { equipment_name: 'Fish Cage', quantity: 1 }, 'a fisherfolk organization checks its own list')
+eq(equipmentLinePayload(line({ equipment_name: 'Hand Tractor' }), 'fisherfolk'), { equipment_name: 'Other', equipment_name_other: 'Hand Tractor', quantity: 1 }, 'a farmers name is not known to a fisherfolk organization')
 
 console.log(`registrationEquipment: ${n} checks passed`)

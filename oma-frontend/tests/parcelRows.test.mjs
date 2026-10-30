@@ -65,8 +65,9 @@ eq(cropProblem(crop({ number_of_trees: '-2' })), 'the number of trees cannot be 
 eq(rowProblem(ok(1, { crops: [crop({ is_main_crop: true }), crop({ is_main_crop: true })] })), 'only one crop can be the main crop', 'two main crops')
 eq(machineryProblem({ machinery_type: 'Hand Tractor', quantity: '0', ownership: 'Owned' }), 'enter a quantity of at least 1', 'machinery quantity')
 eq(machineryProblem({ machinery_type: 'Other', machinery_type_other: '', quantity: '1' }), 'type the machinery name', 'other machinery')
-eq(machineryProblem(makeMachineryRow(1)), '', 'good machinery')
-eq(machineryProblem({ ...makeMachineryRow(1), quantity: '' }), 'enter a quantity of at least 1', 'a machinery line without a quantity')
+eq(machineryProblem(makeMachineryRow(1)), 'choose the machinery', 'a new machinery line starts blank')
+eq(machineryProblem({ ...makeMachineryRow(1), machinery_type: 'Hand Tractor' }), '', 'good machinery')
+eq(machineryProblem({ ...makeMachineryRow(1), machinery_type: 'Hand Tractor', quantity: '' }), 'enter a quantity of at least 1', 'a machinery line without a quantity')
 
 // ── how much land the crops may use
 const five = (over = {}) => ok(1, { area_hectares: '5', ...over })

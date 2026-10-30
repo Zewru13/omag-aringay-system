@@ -125,7 +125,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         email_address:       form.email_address,
         contact_person:      contactPerson,
         contact_number:      form.contact_number,
-        new_equipment:       equipment.map(equipmentLinePayload),
+        new_equipment:       equipment.map((line) => equipmentLinePayload(line, assocType)),
       })
       draft.clear()
       const activation = created?.activation

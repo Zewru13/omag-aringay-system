@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-const { cropMonitoringReport, parcelRecordsReport, aquacultureReport, captureReport, rangeFilter } = await import(new URL('../src/pages/Monitoring/listReports.js', import.meta.url).href)
+const { cropMonitoringReport, parcelRecordsReport, aquacultureReport, captureReport, rangeFilter, parcelReport, cycleReport } = await import(new URL('../src/pages/Monitoring/listReports.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -47,5 +47,33 @@ eq(table(aqua).rows[1].slice(7, 9), ['—', '1,200.50'], 'a harvested cycle show
 const trips = captureReport({ now, filters: [['Date Trip', '']], trips: [{ fisherfolk_name: 'Cora Diaz', fisherfolk_type: 'Capture', trip_date: '2026-02-15', fishing_ground: 'Lingayen Gulf', gear_used: 'Gill net', total_catch_kg: '12.5', top_species: 'Bangus', hours_at_sea: '6.5' }] })
 eq(trips.title, 'CAPTURE MONITORING REPORT', 'capture title')
 eq(table(trips).rows[0], ['1', 'Cora Diaz', 'Capture', 'Feb 15, 2026', 'Lingayen Gulf', 'Gill net', '12.50', 'Bangus', '6.5 h'], 'a trip row')
+
+// ── one parcel
+const one = parcelReport({
+  now,
+  parcel: { id: 4, farmer_name: 'Ana Cruz', rsbsa_number: '01-033', parcel_number: '01-33-02', barangay: 'Basca', area_hectares: '2.00', land_ownership: 'Tenant', land_owner_name: 'Rosa Reyes',
+    land_owner_rsbsa_number: '', farm_type: 'Irrigated', cropping_schedule: 'Single Cropping', classifications: ['Irrigated', 'Organic'] },
+  crops: [{ crop_type_name: 'Palay', variety_used: 'Rc222', date_planted: '2026-05-10', expected_harvest_date: '2026-09-01', area_planted_ha: '1.5', has_pcic_insurance: true, status: 'Planted' }],
+})
+eq(one.title, 'FARM PARCEL REPORT', 'parcel title')
+eq(one.sections[0].rows.find(([k]) => k === 'Land Owner'), ['Land Owner', 'Rosa Reyes'], 'a tenant parcel names its land owner')
+eq(one.sections[0].rows.find(([k]) => k === 'Classifications'), ['Classifications', 'Irrigated, Organic'], 'classifications')
+eq(one.sections[0].rows.find(([k]) => k === 'Tax Declaration Number'), ['Tax Declaration Number', '—'], 'blank details are a dash')
+eq(one.sections[1].table.rows[0], ['1', 'Palay', 'Rc222', 'May 10, 2026', 'Sep 1, 2026', '1.5', 'Yes', 'Planted'], 'a crop on the parcel')
+eq(parcelReport({ now, parcel: { id: 5, land_ownership: 'Owner' }, crops: [] }).sections[0].rows.some(([k]) => k === 'Land Owner'), false, 'an owner parcel has no land owner line')
+eq(parcelReport({ now, parcel: { id: 5, land_ownership: 'Owner' }, crops: [] }).sections[0].rows.find(([k]) => k === 'Parcel Number'), ['Parcel Number', 'Parcel #5'], 'a parcel with no number')
+
+// ── one production cycle
+const record = { fisherfolk_name: 'Pablo Reyes', species_name: 'Tilapia', culture_type: 'Pond', production_cycle_no: 2, date_stocked: '2026-03-01', expected_harvest_date: '2026-07-01', number_of_fingerlings: 250,
+  estimated_harvest_kg: '50', harvest_count: 0, status: 'Stocked', ownership: 'Owner' }
+const cyc = cycleReport({ now, record, cycle: { has_pcic_insurance: true, units: [
+  { unit_type: 'pond', unit_number: 1, length_m: '4.00', width_m: '3.00', size_sqm: '12.00', fingerling_count: 100, has_pcic_insurance: true },
+  { unit_type: 'pond', unit_number: 2, length_m: null, width_m: null, size_sqm: '15.00', fingerling_count: 150, has_pcic_insurance: false }] } })
+eq(cyc.title, 'PRODUCTION CYCLE REPORT', 'cycle title')
+eq(cyc.sections[0].rows.find(([k]) => k === 'PCIC Insured'), ['PCIC Insured', 'Yes'], 'the cycle is insured when a pond is')
+eq(cyc.sections[0].rows.find(([k]) => k === 'Actual Harvest (kg)'), ['Actual Harvest (kg)', '—'], 'no harvest yet')
+eq(cyc.sections[1].title, 'Production Units (Ponds)', 'units section')
+eq(cyc.sections[1].table.rows, [['1', 'Pond 1', '4 m × 3 m', '12', '100', 'Yes'], ['2', 'Pond 2', '—', '15', '150', 'No']], 'ponds with and without dimensions')
+eq(cycleReport({ now, record, cycle: null }).sections.length, 1, 'a record with no cycle prints only its details')
 
 console.log(`listReports: ${n} checks passed`)
