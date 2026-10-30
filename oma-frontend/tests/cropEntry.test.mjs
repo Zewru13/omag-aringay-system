@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 const {
   CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, PLANTING_TYPES, plantingTypeOf, plantingTypeLabel, canChoosePlanting, materialFor, needsLandOwner,
-  chooseCropOwnership, cropOwnershipCell, ownerParcel, withParcelStatus, defaultPlantingMaterial, quantityLabel, quantityHeader, quantityPayload, areaProblem,
+  chooseCropOwnership, cropOwnershipCell, ownerParcel, withParcelStatus, defaultPlantingMaterial, quantityLabel, quantityHeader, quantityPayload, areaProblem, seedUnitOptions,
 } = await import(new URL('../src/pages/CropInformation/cropEntry.js', import.meta.url).href)
 
 let n = 0
@@ -69,5 +69,12 @@ eq(withParcelStatus(stale, { land_ownership: 'Tenant', land_owner_name: 'Rosa' }
 eq(withParcelStatus({ land_status: '', land_owner_name: '' }, { land_ownership: 'Lessee', land_owner_name: '' }).land_status, 'Lessee', 'a lessee parcel')
 eq(withParcelStatus(stale, { land_ownership: '' }), stale, 'a parcel with no ownership leaves the crop as it is')
 eq(withParcelStatus(stale, undefined), stale, 'no parcel chosen yet')
+
+// the unit of the seed quantity: the usual units, then the ones typed in Settings > Units, then the one the record already has
+eq(seedUnitOptions([], ''), ['kg', 'bags', 'pcs', 'bundles'], 'no settings: the usual units')
+eq(seedUnitOptions(null, 'kg'), ['kg', 'bags', 'pcs', 'bundles'], 'settings still loading')
+eq(seedUnitOptions([{ unit: 'sacks' }, { unit: 'Bags' }, { unit: 'cavan' }, { unit: 'sacks' }, { unit: ' ' }], 'kg'), ['kg', 'bags', 'pcs', 'bundles', 'sacks', 'cavan'], 'settings units added once, no repeats of a usual unit (any case), blanks skipped')
+eq(seedUnitOptions([], 'tin'), ['kg', 'bags', 'pcs', 'bundles', 'tin'], 'a unit already saved on the record stays choosable')
+eq(seedUnitOptions([{ unit: 'sacks' }], 'SACKS'), ['kg', 'bags', 'pcs', 'bundles', 'sacks'], 'the saved unit is not listed twice')
 
 console.log(`cropEntry: ${n} checks passed`)

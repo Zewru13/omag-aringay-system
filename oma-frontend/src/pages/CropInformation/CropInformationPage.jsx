@@ -44,9 +44,10 @@ import { useToast } from "../../context/ToastContext.jsx";
 import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
 import PcicBadge from "../../components/UI/PcicBadge.jsx";
 import { PCIC_FILTER_OPTIONS, pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
+import useHarvestUnitWeights from "../Monitoring/useHarvestUnitWeights.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
-import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload } from "./cropEntry.js";
+import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload, seedUnitOptions } from "./cropEntry.js";
 import {
   DEFAULT_GROUP, GROUP_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
@@ -411,6 +412,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     quantity_of_trees: record.quantity_of_trees ? String(record.quantity_of_trees) : "",
   };
   const [form, setForm] = useState(originalData);
+  const unitWeights = useHarvestUnitWeights();   // the units typed in Settings > Units
   const [pcic, setPcic] = useState(() => pcicStateFrom(record));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -815,15 +817,12 @@ function EditCropModal({ record, onClose, onSaved }) {
                   onChange={(e) => set("quantity_of_seeds", e.target.value)}
                 />
                 <select
-                  className={`${baseInputClasses} max-w-[6.5rem]`}
+                  className={`${baseInputClasses} max-w-[9rem]`}
                   aria-label="Unit"
                   value={form.seed_quantity_unit}
                   onChange={(e) => set("seed_quantity_unit", e.target.value)}
                 >
-                  <option value="kg">kg</option>
-                  <option value="bags">bags</option>
-                  <option value="pcs">pcs</option>
-                  <option value="bundles">bundles</option>
+                  {seedUnitOptions(unitWeights, form.seed_quantity_unit).map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
             </div>

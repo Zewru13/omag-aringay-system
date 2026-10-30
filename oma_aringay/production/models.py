@@ -394,10 +394,8 @@ class CropMonitoringRecord(PcicInsurance):
     planting_material = models.CharField(max_length=10, default='Seed', choices=[('Seed', 'Seed'), ('Tree', 'Tree')])
     quantity_of_trees = models.PositiveIntegerField(null=True, blank=True)
     quantity_of_seeds = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    seed_quantity_unit = models.CharField(
-        max_length=20, blank=True, default='kg',
-        choices=[('kg', 'kg'), ('bags', 'bags'), ('pcs', 'pcs'), ('bundles', 'bundles')],
-    )
+    # Any unit name: the Edit Crop form lists kg / bags / pcs / bundles and every unit typed in Settings > Units.
+    seed_quantity_unit = models.CharField(max_length=40, blank=True, default='kg')   # as long as a unit name in Settings > Units
 
     farmer = models.ForeignKey(
         Farmer,
