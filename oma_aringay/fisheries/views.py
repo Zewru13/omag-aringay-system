@@ -896,6 +896,101 @@ class MultiStockDisasterReportCreateView(generics.CreateAPIView):
                     record_label=label, detail=report.disaster_type)
 
 
+class MultiFisherfolkDisasterCreateView(APIView):
+    """POST /fisheries/disaster-reports/event/ - ONE disaster event on the ponds / cages of SEVERAL fisherfolk (a typhoon hits a whole
+    barangay), logged in a single request by Admin / Evaluator. Staff only: a fisherfolk logs their own stocks on /stocks/.
+
+    Body (JSON, or multipart when there are photos - then `fisherfolk_groups` is a JSON string): the shared fields of the single log form
+    (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage, equipment_damaged, ..., photos) and
+    `fisherfolk_groups`: [{ fisherfolk, stock_losses: [{stocking_record, production_unit, fingerlings_lost, is_total_loss}] }].
+    It creates one log per fisherfolk, each planned and validated exactly like /stocks/ (their own stocks only), each with its own copy
+    of the photos, so every log keeps its own recovery, Total Loss and photos. All or nothing: one problem saves nothing."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    MAX_FISHERFOLK = 100
+
+    def post(self, request):
+        import json
+        from django.core.files.base import ContentFile
+        if not hasattr(request.data, 'items'):
+            raise ValidationError({'detail': 'Send the report as a form or a JSON object.'})
+        _check_fisherfolk_disaster_type(request)
+        groups = request.data.get('fisherfolk_groups')
+        if isinstance(groups, str):
+            try:
+                groups = json.loads(groups)
+            except ValueError:
+                raise ValidationError({'fisherfolk_groups': ['The list of fisherfolk could not be read.']})
+        if not isinstance(groups, list) or not groups:
+            raise ValidationError({'fisherfolk_groups': ['Choose at least one pond or cage.']})
+        if len(groups) > self.MAX_FISHERFOLK:
+            raise ValidationError({'fisherfolk_groups': [f'At most {self.MAX_FISHERFOLK} fisherfolk can be logged at once.']})
+        try:
+            owner_ids = [int(g['fisherfolk']) for g in groups]
+        except (TypeError, KeyError, ValueError):
+            raise ValidationError({'fisherfolk_groups': ['Each fisherfolk needs its id.']})
+        if len(set(owner_ids)) != len(owner_ids):
+            raise ValidationError({'fisherfolk_groups': ['The same fisherfolk is listed twice.']})
+        owners = {f.id: f for f in Fisherfolk.objects.filter(pk__in=owner_ids)}
+        if len(owners) != len(owner_ids):
+            raise ValidationError({'fisherfolk_groups': ['One of the fisherfolk could not be found.']})
+
+        photos = _validated_damage_photos(request)
+        contents = [(f.name, f.read()) for f in photos]
+        shared = {k: v for k, v in dict(_disaster_form_data(request)).items()
+                  if k not in ('fisherfolk_groups', 'stock_losses', 'fisherfolk', 'is_total_loss', 'area_affected_ha')}
+
+        planned = []
+        for group in groups:
+            owner = owners[int(group['fisherfolk'])]
+            raw = group.get('stock_losses')
+            if not isinstance(raw, list) or not raw:
+                raise ValidationError({'fisherfolk_groups': [f'{owner.full_name}: choose at least one pond or cage.']})
+            try:
+                plan = disaster_reports.plan_stock_losses(owner.id, raw)
+            except ValidationError as exc:
+                raise ValidationError({'fisherfolk_groups': [f'{owner.full_name}: {_first_message(exc.detail)}']})
+            serializer = FisheriesDisasterReportSerializer(data=dict(shared), context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            planned.append((owner, plan, serializer))
+
+        user = request.user
+        written, report_ids = [], []
+        try:
+            with transaction.atomic():
+                for owner, plan, serializer in planned:
+                    disaster_reports.lock_owner(owner.id)
+                    for stock in plan['stocks']:
+                        assert_not_locked_by_other(user, 'stocking', stock.id)
+                    primary = plan['stocks'][0]
+                    all_closed = set(plan['closes']) == {st.id for st in plan['stocks']}
+                    report = serializer.save(stocking_record=primary, reported_by=user, is_total_loss=all_closed)
+                    disaster_reports.save_stock_losses(report, plan)
+                    for name, blob in contents:
+                        row = FisheriesDisasterReportPhoto.objects.create(disaster_report=report, image=ContentFile(blob, name=name), uploaded_by=user)
+                        written.append(row.image.name)
+                    label = disaster_reports.affected_stocks_label(report)
+                    notify_staff(actor=user, verb='reported a disaster on', record_type='stocking', record_id=primary.id,
+                                 record_label=label, detail=report.disaster_type)
+                    notify_user(recipient=resolve_owner_user(fisherfolk_id=primary.fisherfolk_id), actor=user, verb='reported a disaster on',
+                                record_type='stocking', record_id=primary.id, record_label=label, detail=report.disaster_type)
+                    report_ids.append(report.pk)
+                created = FisheriesDisasterReport.objects.filter(pk__in=report_ids).order_by('id')
+                data = [disaster_reports.report_list_row(r) for r in created]   # the rows the Fisheries Disaster table lists
+        except Exception:
+            _discard_uploaded_files(written)
+            raise
+        return Response(data, status=drf_status.HTTP_201_CREATED)
+
+
+def _first_message(detail):
+    """The first human sentence of a DRF error detail (a string, a list, or a dict of those)."""
+    if isinstance(detail, dict):
+        detail = next(iter(detail.values()), '')
+    if isinstance(detail, (list, tuple)):
+        detail = detail[0] if detail else ''
+    return str(detail)
+
+
 class FisheriesDisasterResolveView(APIView):
     """
     Mark a disaster Recovered. Two paths:
