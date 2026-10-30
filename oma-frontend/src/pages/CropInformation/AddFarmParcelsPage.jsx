@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Trash2, Upload } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import FarmerSearchInput from '../../components/FarmerSearchInput.jsx'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -267,7 +267,8 @@ export default function AddFarmParcelsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [searchParams] = useSearchParams()
-  const startFarmerId = searchParams.get('farmer')
+  // The farmer comes from the address: /farmers/<id>/add-parcels (from Register Farmer or the profile), or ?farmer=<id> (Crop Records).
+  const startFarmerId = useParams().id || searchParams.get('farmer')
   const classifications = useParcelClassifications()
   const offered = (classifications || []).map((c) => c.name)
 
