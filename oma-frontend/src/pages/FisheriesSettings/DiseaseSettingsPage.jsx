@@ -7,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -177,7 +178,16 @@ export default function DiseaseSettingsPage({ asTab = false }) {
           <p className="px-5 py-6 text-center text-sm italic text-slate-400">No disease types configured yet.</p>
         ) : (
           <div className="divide-y divide-[#F0F4F0]">
-            {diseaseTypes.map(dt => {
+            {add.isOpen && (
+              <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-[220px] flex-1">
+                  <DraftInput value={add.draft.name} aria-label="New disease type" placeholder="e.g. White spot syndrome"
+                    onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />
+                </div>
+                <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />
+              </div>
+            )}
+            {newestFirst(diseaseTypes).map(dt => {
               const guide = guideFor(dt.id)
               const isOpen = expanded.has(dt.id)
               return (
@@ -211,15 +221,6 @@ export default function DiseaseSettingsPage({ asTab = false }) {
                 </div>
               )
             })}
-            {add.isOpen && (
-              <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-                <div className="min-w-[220px] flex-1">
-                  <DraftInput value={add.draft.name} aria-label="New disease type" placeholder="e.g. White spot syndrome"
-                    onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />
-                </div>
-                <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />
-              </div>
-            )}
           </div>
         )}
         {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}

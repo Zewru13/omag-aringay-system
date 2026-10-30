@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -105,7 +106,7 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
     }
   }
 
-  const rows = options.map((o) => ({
+  const rows = newestFirst(options).map((o) => ({
     ...o,
     actions: (
       <RowActions actions={[
@@ -115,7 +116,7 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
     ),
   }))
   if (add.isOpen) {
-    rows.push({
+    rows.unshift({
       id: 'new',
       name: <DraftInput value={add.draft.name} maxLength={100} aria-label={`New ${singular.toLowerCase()}`} placeholder={`e.g. ${example}`}
         onChange={(e) => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,

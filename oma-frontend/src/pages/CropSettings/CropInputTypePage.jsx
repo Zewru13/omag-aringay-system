@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -133,7 +134,7 @@ export default function CropInputTypePage({ asTab = false }) {
     }
   }
 
-  const rows = inputTypes.map(it => ({
+  const rows = newestFirst(inputTypes).map(it => ({
     ...it,
     input_type_cell: <StatusPill tone="slate">{it.input_type}</StatusPill>,
     growth_stage_cell: it.growth_stage
@@ -147,7 +148,7 @@ export default function CropInputTypePage({ asTab = false }) {
     ),
   }))
   if (add.isOpen) {
-    rows.push({
+    rows.unshift({
       id: 'new',
       name: <DraftInput value={add.draft.name} aria-label="New input type" placeholder="e.g. Urea"
         onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,

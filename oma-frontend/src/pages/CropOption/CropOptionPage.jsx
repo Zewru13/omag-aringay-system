@@ -8,6 +8,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -600,7 +601,7 @@ export default function CropOptionPage({ asTab = false }) {
   }, [crops, search])
 
   const sortedCrops = useMemo(() => {
-    if (!sortKey) return filteredCrops
+    if (!sortKey) return newestFirst(filteredCrops)
     return [...filteredCrops].sort((a, b) => {
       let aVal = a[sortKey] ?? ''
       let bVal = b[sortKey] ?? ''
@@ -651,10 +652,10 @@ export default function CropOptionPage({ asTab = false }) {
     }
   })
 
-  // The new row sits at the end of the table, on the last page.
-  if (add.isOpen && page === totalPages) {
+  // The new row sits at the top of the table, on the first page (newest first).
+  if (add.isOpen && page === 1) {
     const subcats = subcategories.filter(s => !add.draft.category || String(s.category) === String(add.draft.category))
-    rows.push({
+    rows.unshift({
       id: 'new',
       name: <DraftInput value={add.draft.name} aria-label="New crop name" placeholder="e.g. Palay (Rice)"
         onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
@@ -682,7 +683,7 @@ export default function CropOptionPage({ asTab = false }) {
       actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
     })
   }
-  const startRow = () => { setPage(totalPages); add.open() }
+  const startRow = () => { setPage(1); add.open() }
 
   const innerContent = (
     <div className="space-y-4">
