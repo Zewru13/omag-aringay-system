@@ -49,7 +49,7 @@ import { harvestAmountText, harvestKg, needsTotalKg, quantityPayload, quantityPr
 import useHarvestUnitWeights from './useHarvestUnitWeights.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
-  FORCED_OTHER, FORCED_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeForcedReason, composeReason, forcedProblem,
+  LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestGate, harvestOpensOn,
   harvestTiming, reasonProblem,
 } from './harvestReport.js'
 
@@ -1633,15 +1633,15 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     : null
   const timing = harvestTiming(record.date_planted, expectedHarvestDate, harvestStartDate)
   const harvestVarianceDays = timing.varianceDays
-  const { isEarly, isLate } = timing
-  const reasonRequired = isEarly || isLate
-  // An early harvest is a FORCED HARVEST (the reason is one of FORCED_REASONS); a late one keeps its own reasons.
-  const reasonText = isEarly ? composeForcedReason(reasonChoice, reasonDetail) : composeReason(reasonChoice, reasonDetail)
-  const reasonIssue = isEarly ? forcedProblem(reasonChoice, reasonDetail) : reasonProblem(reasonChoice, reasonDetail)
-  const reasonIsOther = isEarly ? reasonChoice === FORCED_OTHER : reasonChoice === OTHER_REASON
+  const { isLate } = timing
+  // Only a late harvest needs a reason. A harvest before half the growing time is not made here: that is Force Harvest, its own button and form.
+  const reasonRequired = isLate
+  const reasonText = composeReason(reasonChoice, reasonDetail)
+  const reasonIssue = reasonProblem(reasonChoice, reasonDetail)
+  const reasonIsOther = reasonChoice === OTHER_REASON
+  const opensOn = harvestOpensOn(record.date_planted, expectedHarvestDate)
   const changeHarvestDate = (v) => {
     setHarvestStartDate(v)
-    // The early and late lists differ: a reason picked for one is not carried over to the other.
     setReasonChoice(''); setReasonDetail('')
   }
 
@@ -1664,7 +1664,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     setTotalKgError(tErr)
     if (aErr || qErr || tErr) return
     if (reasonRequired && reasonIssue) {
-      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}. ${reasonIssue}`, 'error')
+      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days late. ${reasonIssue}`, 'error')
       return
     }
     setShowConfirm(true)
@@ -1687,10 +1687,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         harvest_start_date:      harvestStartDate,
         area_harvested_hectares: parseFloat(areaHarvested),
         ...quantityPayload({ quantity: quantityHarvested, unit: unitOfMeasure, weight, totalKg }),
-        // An early harvest goes in as a forced harvest (the server writes the readable reason); a late one sends its reason as text.
-        ...(isEarly
-          ? { force_harvest_reason: reasonChoice, force_harvest_detail: reasonDetail.trim() }
-          : { early_late_reason: reasonRequired ? reasonText : '' }),
+        early_late_reason:       reasonRequired ? reasonText : '',
         remarks:                 harvestNotes,
       })
 
@@ -1832,27 +1829,20 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Harvested Date *</label>
             <input type="date" className={baseInputClasses} value={harvestStartDate}
-              max={todayISO()}
+              min={opensOn || undefined} max={todayISO()}
               onChange={e => changeHarvestDate(e.target.value)} />
+            {opensOn && <p className="mt-1 text-[11px] text-[#7A8E7A]">Record Harvest opens at half the growing time (from {opensOn}). Before that, use Force Harvest.</p>}
           </div>
 
           {reasonRequired && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="harvest-reason">
               <p className="text-xs font-medium text-amber-800 mb-2">
-                This is {Math.abs(harvestVarianceDays)} days {isEarly ? 'earlier' : 'later'} than the expected harvest date
-                {isEarly && timing.percentGrown !== null ? ` — the crop has grown ${timing.percentGrown}% of its expected growing time` : ''}.
+                This is {Math.abs(harvestVarianceDays)} days later than the expected harvest date.
               </p>
-              {isEarly && (
-                <p className="mb-2 inline-block rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Forced harvest</p>
-              )}
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                {isEarly ? 'Reason for the forced harvest (harvested before it was ready) *' : 'Reason for late harvest *'}
-              </label>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Reason for late harvest *</label>
               <select className={baseInputClasses} value={reasonChoice} onChange={e => setReasonChoice(e.target.value)}>
                 <option value="">Choose a reason</option>
-                {isEarly
-                  ? FORCED_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)
-                  : LATE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                {LATE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               {reasonChoice && (
                 <div className="mt-2">
@@ -1861,7 +1851,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
                   </label>
                   <input type="text" className={baseInputClasses} value={reasonDetail} maxLength={200}
                     onChange={e => setReasonDetail(e.target.value)}
-                    placeholder={reasonIsOther ? 'What made you harvest early?' : 'e.g. signal no. 3 expected on Friday'} />
+                    placeholder={reasonIsOther ? 'What made the harvest late?' : 'e.g. rain delayed the harvest'} />
                 </div>
               )}
             </div>
@@ -1977,8 +1967,11 @@ function isNearHarvest(row) {
 
 // Mirrors HarvestRecordCreateView.create()'s date_planted_is_estimated block on the backend (the real
 // enforcement - this is client-side UX only, to explain it before the user opens the modal rather than after a
-// rejected submit). A crop can otherwise be harvested at any time: an early harvest asks for a reason in the form.
+// rejected submit). The same goes for the half-growing-time rule.
 function harvestGateInfo(row) {
+  // Record Harvest opens once half of the growing time has passed (today); before that the crop is harvested with Force Harvest.
+  const growth = harvestGate(row.date_planted, row.expected_harvest_date, todayISO())
+  if (growth.gated) return { gated: true, message: growth.message }
   if (row.date_planted_is_estimated) {
     return {
       gated: true,

@@ -1,6 +1,7 @@
 from decimal import Decimal
 from rest_framework import serializers
-from datetime import date
+import math
+from datetime import date, timedelta
 
 from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
@@ -945,11 +946,24 @@ def _validate_harvest_record(data, instance):
                 'harvest_start_date': f'Harvest date cannot be before the date planted ({monitoring_record.date_planted}).'
             })
         if monitoring_record and monitoring_record.expected_harvest_date:
-            variance = (start - monitoring_record.expected_harvest_date).days
-            reason = data.get('early_late_reason', getattr(instance, 'early_late_reason', '')) or ''
-            if abs(variance) > 7 and not reason.strip():
+            expected = monitoring_record.expected_harvest_date
+            forced = bool(data.get('force_harvest_reason') or getattr(instance, 'force_harvest_reason', ''))
+            planted = monitoring_record.date_planted
+            # Record Harvest opens once half of the growing time (planting to expected harvest date) has passed at the harvest date.
+            # Before that the crop is harvested with Force Harvest, which has its own reason and is never held back by this.
+            if not forced and planted and expected > planted and (start - planted).days < (expected - planted).days / 2:
+                halfway = planted + timedelta(days=math.ceil((expected - planted).days / 2))
                 raise serializers.ValidationError({
-                    'early_late_reason': 'A reason is required when the harvest date is more than 7 days early or late.'
+                    'harvest_start_date': (
+                        f'Harvest can only be recorded once at least half of the growing time has passed (from {halfway}). '
+                        'To harvest the crop earlier, use Force Harvest.'
+                    )
+                })
+            variance = (start - expected).days
+            reason = data.get('early_late_reason', getattr(instance, 'early_late_reason', '')) or ''
+            if variance > 7 and not reason.strip():
+                raise serializers.ValidationError({
+                    'early_late_reason': 'A reason is required when the harvest date is more than 7 days late.'
                 })
 
     return data

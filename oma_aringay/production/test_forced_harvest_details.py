@@ -41,10 +41,10 @@ class ForcedHarvestDetailTests(APITestCase):
     def setUp(self):
         self.client.force_authenticate(self.admin)
 
-    def crop(self, parcel, owner=None):
+    def crop(self, parcel, owner=None, planted_days_ago=20):
         return CropMonitoringRecord.objects.create(
             farmer=owner or self.owner, farm_parcel=parcel, farm_location_barangay='Alaska', land_status='Owner', crop_type=self.rice, season='Wet',
-            year=2026, date_planted=date.today() - timedelta(days=20), area_planted_ha='1.00', status='Planted')
+            year=2026, date_planted=date.today() - timedelta(days=planted_days_ago), area_planted_ha='1.00', status='Planted')
 
     def force(self, crops, reason='upcoming_typhoon', detail=''):
         body = {'harvest_date': str(date.today()), 'force_harvest_reason': reason, 'force_harvest_detail': detail, 'remarks': 'before the storm',
@@ -80,7 +80,7 @@ class ForcedHarvestDetailTests(APITestCase):
         self.assertEqual(data['reason'], 'upcoming_typhoon')
 
     def test_a_harvest_that_is_not_forced_has_no_details(self):
-        crop = self.crop(self.parcel_a)
+        crop = self.crop(self.parcel_a, planted_days_ago=60)    # past half its growing time, so Record Harvest is open
         r = self.client.post(CREATE_URL, {'monitoring_record': crop.id, 'farm_parcel': self.parcel_a.id, 'harvest_start_date': str(date.today() - timedelta(days=0)),
                                            'season': 'Wet', 'year': 2026, 'crop_name': 'Detail Rice', 'area_harvested_hectares': '1.00', 'volume_kg': '100',
                                            'unit_of_measure': 'kg', 'early_late_reason': 'Early because of the heat'}, format='json')

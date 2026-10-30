@@ -41,6 +41,29 @@ export function harvestTiming(plantedISO, expectedISO, harvestISO) {
   return { varianceDays, isEarly: varianceDays < -TOLERANCE_DAYS, isLate: varianceDays > TOLERANCE_DAYS, percentGrown }
 }
 
+const isoOf = (day) => new Date(day * 86400000).toISOString().slice(0, 10)
+
+// The first day Record Harvest is open for a crop: half of its growing time (date planted to expected harvest date, rounded up to a whole day)
+// after it was planted. '' when either date is missing or the expected date is not after planting (nothing to measure).
+export function harvestOpensOn(plantedISO, expectedISO) {
+  const planted = dayNumber(plantedISO)
+  const expected = dayNumber(expectedISO)
+  if (Number.isNaN(planted) || Number.isNaN(expected) || expected <= planted) return ''
+  return isoOf(planted + Math.ceil((expected - planted) / 2))
+}
+
+// Is Record Harvest closed on `onISO` (the harvest date)? Before half the growing time the crop is harvested with Force Harvest instead.
+// Mirrors the server's rule (production serializers), which is the real check.
+export function harvestGate(plantedISO, expectedISO, onISO) {
+  const opensOn = harvestOpensOn(plantedISO, expectedISO)
+  if (!opensOn || !onISO || onISO >= opensOn) return { gated: false, message: null, opensOn }
+  return {
+    gated: true,
+    opensOn,
+    message: `Harvest can only be recorded once at least half of the growing time has passed (from ${opensOn}). To harvest the crop earlier, use Force Harvest.`,
+  }
+}
+
 // What is saved in the record's reason field: the chosen reason, plus an optional detail. "Other" is only its detail.
 export function composeReason(choice, detail) {
   const text = String(detail ?? '').trim()

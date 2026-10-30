@@ -88,7 +88,7 @@ class ForcedHarvestTests(APITestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_an_ordinary_early_harvest_with_a_free_text_reason_still_works_and_is_not_forced(self):
-        crop = self.crop()
+        crop = self.crop(planted_days_ago=60)       # past half its growing time, so Record Harvest is open
         r = self.client.post(CREATE_URL, self.body(crop, early_late_reason='Drought'), format='json')
         self.assertEqual(r.status_code, 201, r.content)
         harvest = HarvestRecord.objects.get(pk=r.json()['id'])
