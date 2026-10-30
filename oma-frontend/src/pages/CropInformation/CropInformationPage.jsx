@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Pencil,
   Plus,
+  Printer,
   Upload,
   User,
   Zap,
@@ -30,7 +31,8 @@ import DateRangeFields from "../../components/UI/DateRangeFields.jsx";
 import ListPrintButton from "../../components/ListPrintButton.jsx";
 import { dateRangeParams } from "../../utils/dateRange.js";
 import { fetchAllRows } from "../../utils/listReport.js";
-import { parcelRecordsReport, rangeFilter } from "../Monitoring/listReports.js";
+import { parcelRecordsReport, parcelReport, rangeFilter } from "../Monitoring/listReports.js";
+import { printSpec } from "../Monitoring/disasterReportDocument.js";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
@@ -1123,7 +1125,7 @@ function ParcelCrops({ parcelId, search, barangay, pcic = "", planted = NO_DATES
 // ─── One parcel: its details, "Add crop records", and (when opened) the crops on it ──────────────────────────────────
 
 // A parcel's ⋮ menu (labelled buttons on a phone): add crops to it, force harvest the crops that are not ready yet (a typhoon is coming),
-// or edit it.
+// print its report, or edit it.
 function ParcelActions({ parcel, actions }) {
   return (
     <RowActions
@@ -1135,6 +1137,7 @@ function ParcelActions({ parcel, actions }) {
           key: "force-harvest", label: "Force harvest", icon: Zap, tone: "rose", onClick: () => actions.forceHarvest(parcel),
           disabled: !(parcel.crop_count > 0), disabledReason: "This parcel has no crops to force harvest.",
         },
+        { key: "print", label: "Print report", icon: Printer, onClick: () => actions.print(parcel) },
         { key: "edit", label: "Edit parcel", icon: Pencil, onClick: () => actions.edit(parcel) },
       ]}
     />
@@ -1329,7 +1332,19 @@ export default function CropInformationPage() {
       .get(`/farmers/parcels/${parcel.id}/`)
       .then((r) => setEditingParcel(r.data))
       .catch(() => showToast("Unable to open this parcel. Please try again.", "error"));
-  const parcelActions = { addCrops, edit: editParcel, forceHarvest: setForcingParcel };
+  // Print report: this parcel's details and every crop record on it (any status), built in the browser.
+  const printParcel = async (parcel) => {
+    try {
+      const [detail, crops] = await Promise.all([
+        api.get(`/farmers/parcels/${parcel.id}/`),
+        fetchAllRows(api, "/production/monitoring/", { farm_parcel: parcel.id, status: "Planted,Near Harvest,Harvested,Total Loss" }),
+      ]);
+      await printSpec(parcelReport({ parcel: { ...parcel, ...detail.data, farmer_name: parcel.farmer_name || detail.data.farmer_name }, crops }));
+    } catch {
+      showToast("Failed to print the report.", "error");
+    }
+  };
+  const parcelActions = { addCrops, edit: editParcel, forceHarvest: setForcingParcel, print: printParcel };
   const handlers = { view: setViewingRec, edit: setEditingRec, remarks: setRemarksRec };
   const changeFilter = (setter) => (value) => {
     setter(value);

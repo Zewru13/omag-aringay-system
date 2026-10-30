@@ -15,7 +15,7 @@ import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import ListPrintButton from '../../components/ListPrintButton.jsx'
 import { dateRangeParams } from '../../utils/dateRange.js'
 import { fetchAllRows } from '../../utils/listReport.js'
-import { aquacultureReport, rangeFilter } from '../Monitoring/listReports.js'
+import { aquacultureReport, cycleReport, rangeFilter } from '../Monitoring/listReports.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -914,7 +914,7 @@ function harvestGateInfo(rec) {
 // menu; disasters through Disaster. Evaluator accounts keep the full menu.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName, simplified = false,
-  onViewDetails, onEdit, onViewCycle, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
+  onViewDetails, onEdit, onViewCycle, onPrint, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -925,6 +925,7 @@ function StockingRowActions({
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
     { key: 'cycle', label: 'View Cycle Details & Logs', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
+    { key: 'print', label: 'Print Report', icon: Printer, onClick: onPrint, group: 'crud' },
     // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
     // harvest) and the Health Log Force Harvest are unchanged.
     canForceHarvest(rec) && { key: 'force-harvest', label: 'Force Harvest', icon: Zap, onClick: onForceHarvest, tone: 'rose', group: 'lifecycle' },
@@ -1001,7 +1002,7 @@ function CycleDetailsButton({ rec, onViewCycle }) {
 // Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card expands its
 // ponds/cages as compact cards (same as the table row); the buttons are full-height touch targets for the
 // same actions the row menu offers (Cycle details, View Details, Edit, Record Harvest with the same gate).
-function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onOpenCycle, onViewDetails, onEdit, onRecordHarvest, onForceHarvest }) {
+function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onOpenCycle, onViewDetails, onEdit, onPrint, onRecordHarvest, onForceHarvest }) {
   const canEdit = row.status !== 'Harvested'
   const canHarvest = row.status !== 'Total Loss' && row.status !== 'Harvested'
   const harvestGate = harvestGateInfo(row)
@@ -1067,6 +1068,9 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
                 <Pencil size={15} /> Edit
               </button>
             )}
+            <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onPrint}>
+              <Printer size={15} /> Print
+            </button>
             <button
               type="button" data-testid="card-harvest" data-force={force ? 'true' : 'false'}
               title={harvestTitle} aria-label={harvestTitle} disabled={!netActive} onClick={onRecordHarvest}
@@ -1129,6 +1133,16 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     const next = new URLSearchParams(searchParams)
     next.delete('forced')
     setSearchParams(next, { replace: true })
+  }
+
+  // Print Report: this cycle's details and its ponds / cages, built in the browser (nothing is saved).
+  const printCycle = async (rec) => {
+    try {
+      const cycle = rec.production_cycle ? (await api.get(`/monitoring/aquaculture-cycles/${rec.production_cycle}/`)).data : null
+      await printSpec(cycleReport({ record: rec, cycle }))
+    } catch {
+      showToast('Failed to print the report.', 'error')
+    }
   }
 
   // View Cycle uses the real production_cycle FK — never production_cycle_no.
@@ -1357,6 +1371,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
         onViewCycle={() => handleViewCycle(rec)}
+        onPrint={() => printCycle(rec)}
         onForceHarvest={() => setForceRec(rec)}
         onViewLogs={() => setViewLogsRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
@@ -1450,6 +1465,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 onOpenCycle={() => handleViewCycle(row._rec)}
                 onViewDetails={() => setViewingRec(row._rec)}
                 onEdit={() => setEditingRec(row._rec)}
+                onPrint={() => printCycle(row._rec)}
                 onRecordHarvest={() => setHarvestRec(row._rec)}
                 onForceHarvest={() => setForceRec(row._rec)}
               />

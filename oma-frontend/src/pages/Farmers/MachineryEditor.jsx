@@ -3,6 +3,7 @@ import { Plus, Trash2, Upload } from 'lucide-react'
 import { bulkCellInputClasses } from '../../components/UI/bulkEntryStyles.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useEquipmentOptions from '../../hooks/useEquipmentOptions.js'
 import ParcelCropsImportModal from './ParcelCropsImportModal.jsx'
 import { MACHINERY_OPTIONS, OWNERSHIP_OPTIONS, addImportedMachinery, makeMachineryRow } from './parcelRows.js'
 
@@ -14,6 +15,7 @@ const REMOVE_BTN = 'inline-flex items-center gap-1.5 rounded-md p-1.5 text-rose-
 
 export default function MachineryEditor({ machinery, onChange }) {
   const { showToast } = useToast()
+  const equipmentChoices = useEquipmentOptions('crop', MACHINERY_OPTIONS)   // Crop Settings > Equipment Types
   const nextUid = useRef(1)
   const [isImporting, setIsImporting] = useState(false)
   const update = (uid, patch) => onChange(machinery.map((m) => (m._uid === uid ? { ...m, ...patch } : m)))
@@ -52,7 +54,7 @@ export default function MachineryEditor({ machinery, onChange }) {
               {machinery.map((m, i) => (
                 <tr key={m._uid} className="border-b border-[#F0F4F0] align-top max-md:block max-md:mb-2 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:bg-white max-md:p-3">
                   <td data-label={`Machinery ${i + 1} *`} className={SUB_CELL} style={{ width: 230 }}>
-                    <ComboboxWithOther options={MACHINERY_OPTIONS.filter((o) => o !== 'Other')} value={m.machinery_type} otherValue={m.machinery_type_other}
+                    <ComboboxWithOther options={equipmentChoices} value={m.machinery_type} otherValue={m.machinery_type_other}
                       placeholder="Select machinery…" inputClassName={bulkCellInputClasses} chevronSize={13}
                       onChange={(v) => update(m._uid, { machinery_type: v })} onOtherChange={(v) => update(m._uid, { machinery_type_other: v })} />
                   </td>

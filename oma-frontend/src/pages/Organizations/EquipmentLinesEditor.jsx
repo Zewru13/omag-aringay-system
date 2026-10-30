@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import useEquipmentOptions from '../../hooks/useEquipmentOptions.js'
 import { localToday } from '../../utils/inputGuards.js'
 import { equipmentChoicesFor, makeEquipmentLine } from './registrationEquipment.js'
 
@@ -12,7 +13,8 @@ const labelCls = 'mb-1 block text-[12px] font-medium text-[#4A5E4A]'
 export default function EquipmentLinesEditor({ type, lines, onChange }) {
   const nextUid = useRef(1)
   const update = (uid, patch) => onChange(lines.map((line) => (line._uid === uid ? { ...line, ...patch } : line)))
-  const choices = equipmentChoicesFor(type)
+  // Crop Settings > Equipment Types for a farmers organization, Fisheries Settings > Equipment Types for a fisherfolk one.
+  const choices = useEquipmentOptions(type === 'farmers' ? 'crop' : 'fisheries', equipmentChoicesFor(type))
 
   return (
     <div className="space-y-3">
@@ -32,7 +34,7 @@ export default function EquipmentLinesEditor({ type, lines, onChange }) {
             <div>
               <label className={labelCls}>Equipment <span className="text-rose-500">*</span></label>
               <ComboboxWithOther
-                options={choices.filter((c) => c !== 'Other')}
+                options={choices}
                 value={line.equipment_name}
                 otherValue={line.equipment_name_other}
                 onChange={(v) => update(line._uid, { equipment_name: v })}
@@ -55,7 +57,7 @@ export default function EquipmentLinesEditor({ type, lines, onChange }) {
           </div>
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...lines, makeEquipmentLine(Date.now() + nextUid.current++, type)])}
+      <button type="button" onClick={() => onChange([...lines, makeEquipmentLine(Date.now() + nextUid.current++)])}
         className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
         <Plus size={13} aria-hidden="true" /> Add equipment
       </button>

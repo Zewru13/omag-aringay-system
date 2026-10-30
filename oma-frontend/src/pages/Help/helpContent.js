@@ -125,6 +125,10 @@ export const SECTIONS = [
         a: 'Open the officer and choose End term early. A reason is required: choose Migrated or Transferred Registration, or choose Others and write the reason. The position becomes vacant so someone new can be assigned, and the term stays in Officer History.',
       },
       {
+        q: 'Where do the equipment names in the lists come from?',
+        a: 'From the settings: Crop Settings > Equipment Types for the machinery of a farmer and the equipment of a farmers organization, and Fisheries Settings > Equipment Types for a fisherfolk organization. Add a name there and it appears in the dropdowns. Choose Other to type a name that is not on the list.',
+      },
+      {
         q: 'Can I add equipment when I register an organization?',
         a: 'Yes. The Add Organization form has an Equipment section: press Add equipment for each kind, then choose it, the number of units and optionally the date acquired and remarks. The equipment is saved together with the organization, in Good condition. Leave the section empty if there is none.',
       },
@@ -177,6 +181,10 @@ export const SECTIONS = [
       {
         q: 'How do I print or download a report?',
         a: 'Open Reports, choose the report and its period, and use Preview PDF. Print gives the same PDF as the preview, and Download saves it.',
+      },
+      {
+        q: 'Can I print one parcel or one production cycle?',
+        a: 'Yes. Open the ⋮ menu of a parcel on Crop Records, or of a row on Aquaculture Monitoring, and choose Print report. It prints the details of that one record and the crop records, or the ponds and cages, that belong to it.',
       },
       {
         q: 'Can I print the crop and fisheries tables?',
