@@ -14,6 +14,7 @@ import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOpti
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftState from '../../hooks/useDraftState.js'
 import MachineryEditor from './MachineryEditor.jsx'
+import { useNavigate } from 'react-router-dom'
 import { machineryPayload, machineryProblem } from './parcelRows.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
@@ -108,6 +109,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
   const [birthdateError, setBirthdateError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const navigate = useNavigate()
   const [duplicates, setDuplicates] = useState([])
   const [dupChecking, setDupChecking] = useState(false)
   const dupTimer = useRef(null)
@@ -178,7 +180,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
   const age = computeAge(form.birthdate)
   const isSenior = age !== null && age >= 60
 
-  const handleSubmit = async (event) => {
+  // `thenParcels`: after the farmer is saved, go on to the Add Farm Parcels table for this farmer (see the Farm Parcels section below).
+  const handleSubmit = async (event, thenParcels = false) => {
     event.preventDefault()
     setContactError('')
     setFormError('')
@@ -203,10 +206,12 @@ function AddFarmerModal({ onClose, onSuccess }) {
     setIsSubmitting(true)
 
     try {
-      await api.post('/farmers/', { ...form, is_senior_citizen: isSenior, machinery: machinery.map(machineryPayload) })
+      const { data: created } = await api.post('/farmers/', { ...form, is_senior_citizen: isSenior, machinery: machinery.map(machineryPayload) })
       draft.clear()
       onSuccess()
       onClose()
+      // Still in Registration > Farmers: the parcels page belongs to this farmer and returns to the profile.
+      if (thenParcels && created?.id) navigate(`/farmers/${created.id}/add-parcels`)
     } catch (error) {
       const data = error.response?.data
       const rsbsaMessage = data?.rsbsa_number?.[0] || data?.non_field_errors?.[0]
@@ -423,6 +428,14 @@ function AddFarmerModal({ onClose, onSuccess }) {
 
         <Section title="Agricultural Machinery" description="Optional. The machinery the farmer has or uses, whoever owns it. It can also be added later on the farmer's profile.">
           <MachineryEditor machinery={machinery} onChange={setMachinery} />
+        </Section>
+
+        <Section title="Farm Parcels and Crops" description="Optional. Save the farmer and add their farm parcels, with the crops planted on each, in a table. When you save the parcels you come back to the farmer's profile.">
+          <div>
+            <Button type="button" variant="outline" isLoading={isSubmitting} disabled={isSubmitting} onClick={(e) => handleSubmit(e, true)}>
+              Save Farmer &amp; Add Farm Parcels
+            </Button>
+          </div>
         </Section>
 
         {/* Account Information — the citizen login account itself is set up

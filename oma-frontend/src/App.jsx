@@ -152,6 +152,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Add farm parcels (and their crops) to this farmer, from Register Farmer or the farmer's profile: the Registration > Farmers menu
+              stays selected and Back / Save return to the farmer's profile */}
+          <Route
+            path="/farmers/:id/add-parcels"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AddFarmParcelsPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Old association routes redirect to Farmers hub (pre-existing legacy) */}
           <Route path="/associations" element={<Navigate to="/farmers?tab=organizations" replace />} />
           <Route path="/associations/farmers" element={<Navigate to="/farmers?tab=organizations" replace />} />

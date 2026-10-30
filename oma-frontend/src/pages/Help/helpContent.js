@@ -43,6 +43,10 @@ export const SECTIONS = [
     title: 'Farm parcels and crops',
     items: [
       {
+        q: 'Can I add the farm parcels while I register a farmer?',
+        a: 'Yes. Fill in the Register Farmer form as usual and press Save Farmer and Add Farm Parcels (in the Farm Parcels and Crops section) instead of Save Farmer. The farmer is saved and the Add Farm Parcels table opens for that farmer: one row per parcel, with the crops planted on each. When you save the parcels you come back to the farmer profile, still under Registration > Farmers.',
+      },
+      {
         q: 'What is required when I add a farm parcel?',
         a: 'Parcel Number (all 17 digits), Barangay, Area (ha), Land Ownership, Farm Type and Cropping Schedule. The tax declaration number is optional. Land Ownership is something you choose, it is never filled in for you. A Tenant or Lessee parcel also needs the land owner\'s name.',
       },

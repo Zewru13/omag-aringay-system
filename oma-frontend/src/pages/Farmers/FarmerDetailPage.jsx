@@ -453,7 +453,7 @@ function FarmerDetailPage() {
                 Generate Report
               </Button>
               {(isAdmin || isEvaluator) && (
-                <Button icon={Plus} onClick={() => navigate(`/crop-records/add-parcels?farmer=${id}`)} variant="outline">
+                <Button icon={Plus} onClick={() => navigate(`/farmers/${id}/add-parcels`)} variant="outline">
                   Add Farm Parcel
                 </Button>
               )}
