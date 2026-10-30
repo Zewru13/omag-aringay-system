@@ -27,6 +27,7 @@ path('farmers/', include('farmers.urls')),
     path('monitoring/', include('monitoring.urls')),
     path('reports/', include('reports.urls')),
     path('organizations/', include('associations.urls')),
+    path('backups/', include('backups.urls')),
     path('auditlog/', include('auditlog.urls')),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 ]

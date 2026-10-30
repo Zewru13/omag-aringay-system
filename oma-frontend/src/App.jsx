@@ -11,6 +11,7 @@ import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
 import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
 import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
+import BackupPage from "./pages/Backup/BackupPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
@@ -357,6 +358,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <HarvestUnitSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Backup: one downloadable file with the whole database and the uploaded files (admin only) */}
+          <Route
+            path="/backup"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <BackupPage />
               </ProtectedRoute>
             }
           />

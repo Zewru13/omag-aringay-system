@@ -1,32 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Activity,
-  AlertTriangle,
-  BarChart2,
-  Building2,
-  Package,
-  ChevronDown,
-  ClipboardList,
-  FileBarChart,
-  Fish,
-  HandHeart,
-  Home,
-  LayoutDashboard,
-  Leaf,
-  LineChart,
-  Settings2,
-  HeartHandshake,
-  ListChecks,
-  Scale,
-  ShieldCheck,
-  Sprout,
-  TrendingUp,
-  UserCog,
-  Users,
-  Waves,
-  Wheat,
-  X,
-} from "lucide-react";
+import { Activity, AlertTriangle, BarChart2, Building2, Package, ChevronDown, ClipboardList, FileBarChart, Fish, HandHeart, Home, LayoutDashboard, Leaf, LineChart, Settings2, HeartHandshake, ListChecks, Scale, ShieldCheck, Sprout, TrendingUp, UserCog, Users, Waves, Wheat, X, HardDriveDownload } from "lucide-react";
 import { useLocation, NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import logo from "../../assets/LOGO OMAg.jpg";
@@ -168,6 +141,7 @@ const ADMIN_GROUP = {
     { to: "/classification-settings", icon: ListChecks, label: "Classification Settings" },
     { to: "/harvest-unit-settings", icon: Scale, label: "Harvest Unit Settings" },
     { to: "/users", icon: UserCog, label: "User Management" },
+    { to: "/backup", icon: HardDriveDownload, label: "Backup" },
   ],
 };
 
