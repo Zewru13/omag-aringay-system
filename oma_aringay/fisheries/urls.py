@@ -55,7 +55,6 @@ from .views import (
     StockingVarianceDetailsView,
     StockingProductionUnitsView,
     MultiStockDisasterReportCreateView,
-    MultiFisherfolkDisasterCreateView,
     TripSpeciesEntryDeleteView,
     TripSpeciesEntryListCreateView,
 )
@@ -114,7 +113,6 @@ urlpatterns = [
     path('disasters/<int:pk>/', StockingDisasterReportDeleteView.as_view(), name='fisheries-disaster-delete'),
     path('disaster-reports/', FisheriesDisasterReportListView.as_view(), name='fisheries-disaster-report-list'),
     path('disaster-reports/stocks/', MultiStockDisasterReportCreateView.as_view(), name='fisheries-disaster-report-stocks-create'),
-    path('disaster-reports/event/', MultiFisherfolkDisasterCreateView.as_view(), name='fisheries-disaster-report-event-create'),
     path('disaster-reports/<int:pk>/', FisheriesDisasterReportDocumentView.as_view(), name='fisheries-disaster-report-detail'),
     path('disaster-reports/<int:pk>/pdf/', FisheriesDisasterReportPdfView.as_view(), name='fisheries-disaster-report-pdf'),
     path('stocking/<int:stocking_id>/harvests/', StockingHarvestListCreateView.as_view(), name='stocking-harvests'),

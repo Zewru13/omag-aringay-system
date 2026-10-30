@@ -124,10 +124,6 @@ export const SECTIONS = [
         a: 'Open Filters and use the Occurred From and To dates together with the barangay, disaster type, status and year; either date can be left empty. Print Report and Download Report above the table give the report of the rows the filters match, the same PDF as Reports > Disaster. Each farmer or fisherfolk row has an Actions menu: View Report shows every disaster of that person (within the filters) with Print Report and Download Report inside, and Print and Download give the same PDF straight away. Open the row to see one disaster, with its own Print Disaster Log and Download Disaster Log.',
       },
       {
-        q: 'How do I log one disaster for the ponds and cages of many fisherfolk?',
-        a: 'Open Disaster > Fisheries Disaster and press Log Disaster. Fill in the disaster type, the date, the description and the photos once. Then open each fisherfolk in the list, tick the stocks the disaster hit and, for each pond or cage, type the fingerlings lost or tick Total loss. Search or use the Filters button to find fisherfolk by name, species or barangay. Press Log Disaster to save: one disaster log is made for each fisherfolk (all saved together or none), and the next screen lists them with Print and Download. Each log can then be viewed, recovered and printed on its own.',
-      },
-      {
         q: 'How do Activity Suggestions work?',
         a: 'Activity Suggestions are set per crop in Activity Settings. In a crop\'s View Logs, Get Suggestions shows what is recommended: done activities are grayed out with a checkmark, the others are in full color. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
       },
