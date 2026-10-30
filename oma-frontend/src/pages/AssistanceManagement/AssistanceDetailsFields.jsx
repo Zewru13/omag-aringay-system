@@ -43,9 +43,9 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
           <FormField label="Quantity per Recipient" pillLabel>
             {/* Both boxes keep one fixed width, so the field never stretches or shrinks with the window. */}
             <div className="flex items-center gap-2">
-              <input type="number" min="0" step="any" className={`${baseInputClasses} w-28 shrink-0`} value={form.quantity_amount} placeholder="e.g. 2"
+              <input type="number" min="0" step="any" className={`${baseInputClasses} w-28! shrink-0`} value={form.quantity_amount} placeholder="e.g. 2"
                 onChange={(e) => set('quantity_amount', e.target.value)} aria-label="Quantity per recipient" />
-              <select className={`${baseInputClasses} w-36 shrink-0`} value={form.quantity_unit} onChange={(e) => set('quantity_unit', e.target.value)} aria-label="Unit">
+              <select className={`${baseInputClasses} w-36! shrink-0`} value={form.quantity_unit} onChange={(e) => set('quantity_unit', e.target.value)} aria-label="Unit">
                 <option value="">Unit…</option>
                 {choicesWith(ASSISTANCE_UNITS, form.quantity_unit).map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
