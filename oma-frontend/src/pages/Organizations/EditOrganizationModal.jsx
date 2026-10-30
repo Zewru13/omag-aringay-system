@@ -12,6 +12,8 @@ import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { localToday, tidyPhone } from '../../utils/inputGuards.js'
 import { agencyLabel, agencyOptionsFor } from './agencyOptions.js'
 import { contactFullName } from './organizationContact.js'
+import MembersEditor from './MembersEditor.jsx'
+import { memberLinesProblem, memberOutcome, memberPayload, memberRefusal } from './registrationMembers.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -45,9 +47,10 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
   const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [members, setMembers] = useState([])   // registered people to add to this organization, saved with the update
   const [showConfirm,  setShowConfirm]  = useState(false)
 
-  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm) || members.length > 0
   const datesChanged = form.date_organized !== originalForm.date_organized || form.date_registered !== originalForm.date_registered
 
   const typeLabel = type === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
@@ -89,6 +92,11 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
       setError('Please fill in all required fields.')
       return false
     }
+    const memberProblem = memberLinesProblem(members, form.date_registered || organization.date_registered, localToday())
+    if (memberProblem) {
+      setError(memberProblem)
+      return false
+    }
     return true
   }
 
@@ -115,6 +123,18 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
         contact_person:      form.contact_person.trim(),
         contact_number:      form.contact_number,
       })
+      // New members are added after the update, one by one, through the same rules as the Add Member window of the organization's page.
+      const registered = form.date_registered || organization.date_registered
+      const failures = []
+      for (const line of members) {
+        try {
+          await api.post(`/organizations/${type}/${organization.id}/members/`, memberPayload(line, type, registered, localToday()))
+        } catch (err) {
+          failures.push({ name: line.name, reason: memberRefusal(err.response?.data) })
+        }
+      }
+      const outcome = memberOutcome(members.length, failures)
+      if (outcome.kind !== 'none') showToast(outcome.text, outcome.kind === 'ok' ? 'success' : 'error')
       showToast(`${typeLabel} updated successfully.`, 'success')
       onSuccess()
     } catch (err) {
@@ -251,9 +271,12 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 
-          <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
-            Officers are managed from the organization's detail page, not here.
-          </p>
+          {/* Members: the same Add Members table as the registration form, for the people who are not members yet */}
+          <div className="border-t border-[#F0F4F0] pt-4">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Members</h3>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. Add registered {type === 'farmers' ? 'farmers' : 'fisherfolk'} who are not members yet, with their positions. They are added when you press Update.</p>
+            <MembersEditor type={type} lines={members} onChange={setMembers} registered={form.date_registered || organization.date_registered} organizationId={organization.id} />
+          </div>
 
           {error && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">

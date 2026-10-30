@@ -38,4 +38,8 @@ eq(memberOutcome(3, []), { kind: 'ok', text: '3 members added.' }, 'all added')
 eq(memberOutcome(1, []), { kind: 'ok', text: '1 member added.' }, 'one added')
 eq(memberOutcome(3, [{ name: 'Ben', reason: 'could not be added' }]), { kind: 'partial', text: '2 of 3 members added. Not added: Ben could not be added.' }, 'some refused')
 
+// a position chosen in the Add Members table is kept; an unknown one falls back to Member
+eq(addMemberLine([], { id: 5, full_name: 'Ana Cruz', rsbsa_number: 'R5' }, 1, 'President')[0].position, 'President', 'an officer position')
+eq(addMemberLine([], { id: 5, full_name: 'Ana Cruz', rsbsa_number: 'R5' }, 1, 'Boss')[0].position, 'Member', 'an unknown position')
+
 console.log(`registrationMembers: ${n} checks passed`)

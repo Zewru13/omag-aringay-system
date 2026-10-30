@@ -9,12 +9,12 @@ const personKey = (type) => (type === 'farmers' ? 'farmer' : 'fisherfolk')
 
 // A person found in the registry, as a line of the table: a position of Member, and the date joined left blank (the organization's date
 // registered is used until another is typed).
-export const makeMemberLine = (person, uid) => ({
-  _uid: uid, person_id: person.id, name: person.full_name || '', rsbsa: person.rsbsa_number || '', position: 'Member', date_joined: '',
+export const makeMemberLine = (person, uid, position = 'Member') => ({
+  _uid: uid, person_id: person.id, name: person.full_name || '', rsbsa: person.rsbsa_number || '', position: MEMBER_POSITIONS.includes(position) ? position : 'Member', date_joined: '',
 })
 
 // The line list with this person added, unless they are already on it.
-export const addMemberLine = (lines, person, uid) => (lines.some((l) => l.person_id === person.id) ? lines : [...lines, makeMemberLine(person, uid)])
+export const addMemberLine = (lines, person, uid, position = 'Member') => (lines.some((l) => l.person_id === person.id) ? lines : [...lines, makeMemberLine(person, uid, position)])
 
 // The date a line joins on: the one typed, else the organization's date registered, else today.
 export const joinedOn = (line, registered, today) => line.date_joined || registered || today
