@@ -25,7 +25,7 @@ const SUBCAT_COLUMNS = [
   { key: 'actions',       label: 'ACTIONS' },
 ]
 
-// Edit Category / Edit Subcategory. New ones are added in the tables themselves (the Add row button under each).
+// Edit Category / Edit Subcategory. New ones are added in the tables themselves (the Add button under each).
 function CategoryModal({ category, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalName = category.name
@@ -257,7 +257,7 @@ export default function CropCategoryPage({ asTab = false }) {
         <div className="p-0">
           <DataTable bare columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
         </div>
-        {!isLoading && <AddRowFooter onClick={addCat.open} disabled={addCat.isOpen} label="Add category row" />}
+        {!isLoading && <AddRowFooter onClick={addCat.open} disabled={addCat.isOpen} label="Add Category" />}
       </div>
 
       {/* Subcategories card */}
@@ -266,7 +266,7 @@ export default function CropCategoryPage({ asTab = false }) {
         <div className="p-0">
           <DataTable bare columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
         </div>
-        {!isLoading && <AddRowFooter onClick={addSubcat.open} disabled={addSubcat.isOpen || categories.length === 0} label="Add subcategory row" />}
+        {!isLoading && <AddRowFooter onClick={addSubcat.open} disabled={addSubcat.isOpen || categories.length === 0} label="Add Subcategory" />}
       </div>
 
       {editCat && (

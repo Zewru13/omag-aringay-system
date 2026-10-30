@@ -335,7 +335,7 @@ function SuggestionsSection({ cropId }) {
 
 // ── Crop Type Modal ────────────────────────────────────────────────────────────
 
-// Edit Crop (all its details, units and activity suggestions). A new crop is added in the table itself (the Add row button under it) with
+// Edit Crop (all its details, units and activity suggestions). A new crop is added in the table itself (the Add button under it) with
 // its name, category, subcategory, growth duration, how it is planted and yield; the rest can be set afterwards with Edit.
 function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
   const { showToast } = useToast()
@@ -738,7 +738,7 @@ export default function CropOptionPage({ asTab = false }) {
             )}
           </tbody>
         </table>
-        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} label="Add Crop" />}
       </div>
 
       {!isLoading && totalPages > 1 && (

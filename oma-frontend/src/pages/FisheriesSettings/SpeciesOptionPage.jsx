@@ -232,7 +232,7 @@ function SuggestionsSection({ speciesId }) {
 
 // ── Species Modal ─────────────────────────────────────────────────────────────
 
-// Edit Species (all its details and activity suggestions). A new species is added in the table itself (the Add row button under it) with
+// Edit Species (all its details and activity suggestions). A new species is added in the table itself (the Add button under it) with
 // the columns of the table; the growth-stage days can be set afterwards with Edit.
 function SpeciesModal({ species, categories, onClose, onSaved }) {
   const { showToast } = useToast()
@@ -628,7 +628,7 @@ export default function SpeciesOptionPage({ asTab = false }) {
             )}
           </tbody>
         </table>
-        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} label="Add Species" />}
       </div>
 
       {/* Pagination */}

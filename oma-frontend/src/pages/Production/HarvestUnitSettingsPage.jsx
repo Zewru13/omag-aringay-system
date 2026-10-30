@@ -19,7 +19,7 @@ import { resetHarvestUnitWeights } from '../Monitoring/useHarvestUnitWeights.js'
 // Harvest Unit Settings: how many kg one harvest unit weighs. A harvest is typed in the unit it was counted in (20 sacks) and saved in
 // kg using these weights. A row for one crop wins over the row for the same unit with no crop; a unit with no weight has no standard,
 // and the harvest form then asks for the total kg. Changing a weight never changes a harvest that is already saved. New weights are added in
-// the table itself (the Add row button under it); Edit changes one.
+// the table itself (the Add button under it); Edit changes one.
 
 const COLUMNS = [
   { key: 'unit', label: 'UNIT' },
@@ -196,7 +196,7 @@ export default function HarvestUnitSettingsPage() {
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <CardHeader title="Unit Weights" count={weights.length} />
           <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Unit" />}
         </div>
       </div>
 

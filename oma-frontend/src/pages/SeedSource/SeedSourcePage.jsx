@@ -19,7 +19,7 @@ const COLUMNS = [
   { key: 'actions',     label: 'ACTIONS' },
 ]
 
-// Renaming one seed source. New ones are added in the table itself (the Add row button under it).
+// Renaming one seed source. New ones are added in the table itself (the Add button under it).
 function SeedSourceModal({ source, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { name: source.name, is_active: source.is_active ?? true }
@@ -187,7 +187,7 @@ export default function SeedSourcePage({ asTab = false }) {
               disabled={draft !== null}
               className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3.5 text-[13px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Plus size={14} aria-hidden="true" /> Add row
+              <Plus size={14} aria-hidden="true" /> Add Seed Source
             </button>
           </div>
         )}

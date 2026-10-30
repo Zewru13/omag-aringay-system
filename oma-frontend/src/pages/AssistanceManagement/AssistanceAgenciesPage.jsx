@@ -17,7 +17,7 @@ import { resetAssistanceAgencies } from './useAssistanceAgencies.js'
 
 // Assistance Settings: the list of source agencies that every assistance form offers in its Source Agency dropdown. Renaming or
 // deleting one never changes assistance that was already recorded (records keep the name they were saved with). New agencies are added in
-// the table itself (the Add row button under it); Edit renames one.
+// the table itself (the Add button under it); Edit renames one.
 
 const COLUMNS = [
   { key: 'name', label: 'AGENCY' },
@@ -135,7 +135,7 @@ export default function AssistanceAgenciesPage() {
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <CardHeader title="Source Agencies" count={agencies.length} />
           <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Agency" />}
         </div>
       </div>
 

@@ -17,7 +17,7 @@ import { resetAssistanceChoices } from './useAssistanceChoices.js'
 // One of the lists behind the assistance forms' dropdowns, as a tab of Crop Settings or Fisheries Settings: the types of equipment, the
 // units, and (fisheries) the types of fishing gear. `domain` is crop | fisheries, `kind` equipment | unit | gear. Renaming or deleting a
 // name never changes assistance already recorded (records keep the name they were saved with). New names are added in the table itself
-// (the Add row button under it); Edit renames one.
+// (the Add button under it); Edit renames one.
 const COLUMNS = [
   { key: 'name', label: 'NAME' },
   { key: 'actions', label: 'ACTIONS' },
@@ -130,7 +130,7 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
       <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <CardHeader title={title} count={options.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label={`Add ${singular}`} />}
       </div>
 
       {editing && (

@@ -21,7 +21,7 @@ const COLUMNS = [
   { key: 'actions', label: 'ACTIONS' },
 ]
 
-// Edit Activity Type. New types are added in the table itself (the Add row button under it).
+// Edit Activity Type. New types are added in the table itself (the Add button under it).
 function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { name: activityType.name }
@@ -177,7 +177,7 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
         <CardHeader title="Activity Types" count={types.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
-        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} label="Add Activity Type" />}
       </div>
 
       {!isLoading && totalPages > 1 && (
