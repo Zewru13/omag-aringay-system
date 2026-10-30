@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import { ChevronLeft, ChevronRight, Fish, Pencil, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -8,6 +7,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -231,27 +231,26 @@ function SuggestionsSection({ speciesId }) {
 
 // ── Species Modal ─────────────────────────────────────────────────────────────
 
+// Edit Species (all its details and activity suggestions). A new species is added in the table itself (the Add row button under it) with
+// the columns of the table; the growth-stage days can be set afterwards with Edit.
 function SpeciesModal({ species, categories, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(species)
-  const originalForm = isEdit
-    ? {
-        species_name:               species.species_name               || '',
-        category:                   species.category                   || '',
-        culture_environment:        species.culture_environment        || 'Freshwater',
-        culture_duration_days:      species.culture_duration_days      || '',
-        default_survival_rate_pct:  species.default_survival_rate_pct  || '',
-        default_avg_body_weight_kg: species.default_avg_body_weight_kg || '',
-        fingerling_start_day:       species.fingerling_start_day ?? '',
-        juvenile_start_day:         species.juvenile_start_day   ?? '',
-        adult_start_day:            species.adult_start_day      ?? '',
-      }
-    : EMPTY_FORM
+  const originalForm = {
+    species_name:               species.species_name               || '',
+    category:                   species.category                   || '',
+    culture_environment:        species.culture_environment        || 'Freshwater',
+    culture_duration_days:      species.culture_duration_days      || '',
+    default_survival_rate_pct:  species.default_survival_rate_pct  || '',
+    default_avg_body_weight_kg: species.default_avg_body_weight_kg || '',
+    fingerling_start_day:       species.fingerling_start_day ?? '',
+    juvenile_start_day:         species.juvenile_start_day   ?? '',
+    adult_start_day:            species.adult_start_day      ?? '',
+  }
   const [form,         setForm]         = useState(originalForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
   const [nameError,    setNameError]    = useState('')
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(originalForm)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm)
 
   const set = (field, value) => {
     setForm(f => ({ ...f, [field]: value }))
@@ -291,12 +290,8 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
   const handleConfirm = async () => {
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/fisheries/species/${species.id}/`, pendingPayload)
-      } else {
-        await api.post('/fisheries/species/', pendingPayload)
-      }
-      showToast(`Species ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/fisheries/species/${species.id}/`, pendingPayload)
+      showToast('Species updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       const nameErr = err?.response?.data?.species_name?.[0]
@@ -317,8 +312,8 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
   return (
     <>
       <ModalShell
-        title={isEdit ? 'Edit Species' : 'Add New Species'}
-        subtitle={isEdit ? `Update details for ${species.species_name}` : 'Enter species information below'}
+        title="Edit Species"
+        subtitle={`Update details for ${species.species_name}`}
         icon={Fish}
         onClose={onClose}
         maxWidth="max-w-md"
@@ -326,7 +321,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
           <>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" form="species-option-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-              {isEdit ? 'Update Species' : '+ Add Species'}
+              Update Species
             </Button>
           </>
         }
@@ -420,13 +415,13 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
 
         </form>
 
-        {isEdit && <SuggestionsSection speciesId={species.id} />}
+        <SuggestionsSection speciesId={species.id} />
       </ModalShell>
 
       {pendingPayload && (
         <ConfirmDialog variant="primary"
           title="Confirm Action"
-          message={isEdit ? `Save changes to "${pendingPayload.species_name}"?` : `Add "${pendingPayload.species_name}" as a new species?`}
+          message={`Save changes to "${pendingPayload.species_name}"?`}
           confirmLabel="Confirm"
           onConfirm={handleConfirm}
           onCancel={() => setPendingPayload(null)}
@@ -445,8 +440,8 @@ export default function SpeciesOptionPage({ asTab = false }) {
   const [isLoading,     setIsLoading]     = useState(true)
   const [error,         setError]         = useState('')
   const [search,        setSearch]        = useState('')
-  const [showModal,     setShowModal]     = useState(false)
   const [editSpecies,   setEditSpecies]   = useState(null)
+  const add = useAddRow({ species_name: '', category: '', culture_environment: 'Freshwater', culture_duration_days: '', default_survival_rate_pct: '', default_avg_body_weight_kg: '' })
   const [deletingSpec,  setDeletingSpec]  = useState(null)
   // No default sort key — see CropOptionPage.jsx's identical fix. Until
   // staff click a column header, the table shows the backend's own order
@@ -496,8 +491,34 @@ export default function SpeciesOptionPage({ asTab = false }) {
     return list
   }, [species, search, sortKey, sortAsc])
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const saveDraft = async () => {
+    const d = add.draft
+    if (!d.species_name.trim()) { showToast('Type the species name first.', 'error'); return }
+    if (!d.category) { showToast('Choose a category.', 'error'); return }
+    if (!d.culture_duration_days) { showToast('Culture duration is required.', 'error'); return }
+    if (d.default_survival_rate_pct === '') { showToast('Default survival rate is required.', 'error'); return }
+    if (d.default_avg_body_weight_kg === '') { showToast('Default average body weight is required.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/fisheries/species/', {
+        ...EMPTY_FORM, ...d, species_name: d.species_name.trim(),
+        fingerling_start_day: null, juvenile_start_day: null, adult_start_day: null,
+      })
+      showToast('Species added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      const data = err?.response?.data
+      const field = data && typeof data === 'object' ? Object.entries(data).find(([, v]) => Array.isArray(v) && v[0]) : null
+      showToast(data?.detail || (field ? `${field[0].replace(/_/g, ' ')}: ${field[1][0]}` : 'Failed to save species.'), 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+  const startRow = () => { setPage(totalPages); add.open() }
 
   const innerContent = (
     <div className="space-y-3">
@@ -509,7 +530,6 @@ export default function SpeciesOptionPage({ asTab = false }) {
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
         searchPlaceholder="Search species..."
-        actions={<AddButton onClick={() => { setEditSpecies(null); setShowModal(true) }}>Add Species</AddButton>}
       />
 
       <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -560,15 +580,53 @@ export default function SpeciesOptionPage({ asTab = false }) {
                   </td>
                   <td className="px-4 py-[11px] max-md:block max-md:px-0 max-md:py-1">
                     <RowActions actions={[
-                      { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditSpecies(s); setShowModal(true) } },
+                      { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditSpecies(s) },
                       { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSpec(s), tone: 'rose' },
                     ]} />
                   </td>
                 </tr>
               ))
             )}
+            {/* The new row sits at the end of the table, on the last page. */}
+            {!isLoading && add.isOpen && page === totalPages && (
+              <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9] max-md:block max-md:px-3 max-md:py-2">
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftInput value={add.draft.species_name} aria-label="New species name" placeholder="e.g. Tilapia"
+                    onChange={e => add.change({ species_name: e.target.value })} onSave={saveDraft} onCancel={add.close} />
+                </td>
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftSelect value={add.draft.category} aria-label="Category" onChange={e => add.change({ category: e.target.value })}>
+                    <option value="">— Select —</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </DraftSelect>
+                </td>
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftSelect value={add.draft.culture_environment} aria-label="Environment" onChange={e => add.change({ culture_environment: e.target.value })}>
+                    <option value="Freshwater">Freshwater</option>
+                    <option value="Brackishwater">Brackishwater</option>
+                    <option value="Marine">Marine</option>
+                  </DraftSelect>
+                </td>
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftInput type="number" min="1" value={add.draft.culture_duration_days} aria-label="Culture duration in days" placeholder="e.g. 120"
+                    onChange={e => add.change({ culture_duration_days: e.target.value })} onSave={saveDraft} onCancel={add.close} />
+                </td>
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftInput type="number" min="0" max="100" step="any" value={add.draft.default_survival_rate_pct} aria-label="Survival rate in percent" placeholder="e.g. 80"
+                    onChange={e => add.change({ default_survival_rate_pct: e.target.value })} onSave={saveDraft} onCancel={add.close} />
+                </td>
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftInput type="number" min="0" step="any" value={add.draft.default_avg_body_weight_kg} aria-label="Average weight in kg" placeholder="e.g. 0.25"
+                    onChange={e => add.change({ default_avg_body_weight_kg: e.target.value })} onSave={saveDraft} onCancel={add.close} />
+                </td>
+                <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
+                  <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
       </div>
 
       {/* Pagination */}
@@ -599,11 +657,11 @@ export default function SpeciesOptionPage({ asTab = false }) {
         </div>
       )}
 
-      {showModal && (
+      {editSpecies && (
         <SpeciesModal
           species={editSpecies}
           categories={categories}
-          onClose={() => { setShowModal(false); setEditSpecies(null) }}
+          onClose={() => setEditSpecies(null)}
           onSaved={fetchAll}
         />
       )}

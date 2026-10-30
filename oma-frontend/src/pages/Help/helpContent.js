@@ -204,6 +204,10 @@ export const SECTIONS = [
     title: 'Accounts and settings',
     items: [
       {
+        q: 'How do I add a new item in the settings tables?',
+        a: 'Press Add row under the table. One more row appears at the end of the table with its boxes empty: fill them and press Save (Enter saves, Escape cancels). The same works on every settings table: Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings and Harvest Unit Settings. To change an item that is already there, use Edit in its row menu.',
+      },
+      {
         q: 'I forgot to save a form and went to another page. Is it lost?',
         a: 'No. The long forms (Add Farm Parcels, Add Crop Records, registering a farmer, fisherfolk or organization, adding ponds, and the Distribute assistance windows) keep what you typed in this browser. Open the form again and it is back, with a note and a Discard draft button to start over. A draft is cleared when you save it, discard it or sign out. A chosen photo is not kept, so choose it again.',
       },

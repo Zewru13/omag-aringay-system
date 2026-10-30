@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import { ChevronLeft, ChevronRight, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -8,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -20,14 +20,14 @@ const COLUMNS = [
   { key: 'actions', label: 'ACTIONS' },
 ]
 
+// Edit Activity Type. New types are added in the table itself (the Add row button under it).
 function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(activityType)
-  const original = { name: activityType?.name || '' }
+  const original = { name: activityType.name }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState('')
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
   const set = (field, value) => {
     setForm(f => ({ ...f, [field]: value }))
@@ -39,12 +39,8 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
     if (!form.name.trim()) { showToast('Activity type name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`${endpoint}${activityType.id}/`, form)
-      } else {
-        await api.post(endpoint, form)
-      }
-      showToast(`Activity type ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`${endpoint}${activityType.id}/`, form)
+      showToast('Activity type updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       const nameErr = err?.response?.data?.name?.[0]
@@ -56,8 +52,8 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Activity Type' : 'Add New Activity Type'}
-      subtitle={isEdit ? `Update details for ${activityType.name}` : 'Enter activity type information below'}
+      title="Edit Activity Type"
+      subtitle={`Update details for ${activityType.name}`}
       icon={ListChecks}
       onClose={onClose}
       maxWidth="max-w-sm"
@@ -65,7 +61,7 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="activity-type-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Type' : '+ Add Type'}
+            Update Type
           </Button>
         </>
       }
@@ -80,12 +76,6 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
             placeholder="e.g. Soil Testing"
           />
         </FormField>
-        {!isEdit && (
-          <p className="text-[11px] text-[#7A8E7A] bg-[#F9FAF9] border border-[#E2E8E2] rounded-lg px-3 py-2">
-            Custom activity types use a general-purpose logging form (date, notes, condition). Only the
-            built-in types listed below have specialized fields.
-          </p>
-        )}
       </form>
     </ModalShell>
   )
@@ -96,8 +86,8 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
   const [types,        setTypes]        = useState([])
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
-  const [showModal,    setShowModal]    = useState(false)
   const [editType,     setEditType]     = useState(null)
+  const add = useAddRow({ name: '' })
   const [deletingType, setDeletingType] = useState(null)
   const [page,         setPage]         = useState(1)
 
@@ -123,6 +113,22 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
 
   const builtInSet = useMemo(() => new Set(builtInNames), [builtInNames])
 
+  const saveDraft = async () => {
+    const name = add.draft.name.trim()
+    if (!name) { showToast('Type the activity type name first.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post(endpoint, { name })
+      showToast('Activity type added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = paginated.map(t => {
     const isBuiltIn = builtInSet.has(t.name)
     return {
@@ -139,14 +145,23 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
       ),
       actions: (
         <RowActions actions={[
-          { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditType(t); setShowModal(true) } },
+          { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditType(t) },
           { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingType({ id: t.id, name: t.name }), tone: 'rose' },
         ]} />
       ),
     }
   })
 
-  const actionBtn = <AddButton onClick={() => { setEditType(null); setShowModal(true) }}>Add Activity Type</AddButton>
+  // The new row sits at the end of the table, on the last page.
+  if (add.isOpen && page === totalPages) {
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} aria-label="New activity type" placeholder="e.g. Soil Testing"
+        onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
+  const startRow = () => { setPage(totalPages); add.open() }
 
   const innerContent = (
     <div className="space-y-4">
@@ -159,8 +174,9 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader title="Activity Types" count={types.length} action={actionBtn} />
+        <CardHeader title="Activity Types" count={types.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+        {!isLoading && <AddRowFooter onClick={startRow} disabled={add.isOpen} />}
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -182,11 +198,11 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
         </div>
       )}
 
-      {showModal && (
+      {editType && (
         <ActivityTypeModal
           endpoint={endpoint}
           activityType={editType}
-          onClose={() => { setShowModal(false); setEditType(null) }}
+          onClose={() => setEditType(null)}
           onSaved={fetchAll}
         />
       )}
