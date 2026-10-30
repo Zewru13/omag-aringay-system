@@ -4,6 +4,7 @@
 // with a row, what is sent to the server, how the server's answer maps back onto the rows), with no screen and no network, so
 // they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
+import { equipmentToServer } from '../../utils/equipmentNames.js'
 import { EMPTY_PCIC, pcicError, pcicPayload } from '../../utils/pcic.js'
 import { withParcelStatus } from '../CropInformation/cropEntry.js'
 import { buildCropRecordPayload, cropRecordProblem } from '../Monitoring/cropRecordForm.js'
@@ -99,7 +100,7 @@ export function addImportedMachinery(existing, imported, firstUid) {
   }))]
 }
 
-export const makeMachineryRow = (uid) => ({ _uid: uid, machinery_type: 'Hand Tractor', machinery_type_other: '', quantity: '1', ownership: 'Owned' })
+export const makeMachineryRow = (uid) => ({ _uid: uid, machinery_type: '', machinery_type_other: '', quantity: '1', ownership: 'Owned' })
 
 // Crops read from a crops file, added to the crops already on the row. Each gets its own id and no PCIC insurance (the file has
 // no PCIC form photo, so that stays something to add by hand); a main crop in the file replaces the one already there.
@@ -251,12 +252,11 @@ export function cropPayload(crop) {
   }
 }
 
-export const machineryPayload = (m) => ({
-  machinery_type: m.machinery_type,
-  machinery_type_other: m.machinery_type === 'Other' ? m.machinery_type_other : '',
-  quantity: parseInt(m.quantity, 10) || 1,
-  ownership: m.ownership,
-})
+// The machinery list comes from Crop Settings > Equipment Types; a name the server does not list is sent as Other + that name.
+export const machineryPayload = (m) => {
+  const { name, other } = equipmentToServer(m.machinery_type, m.machinery_type_other, MACHINERY_OPTIONS)
+  return { machinery_type: name, machinery_type_other: other, quantity: parseInt(m.quantity, 10) || 1, ownership: m.ownership }
+}
 
 // `context` is { farmerInfo, cropTypes }: what a crop record needs to be sent (its farmer and organization, the crop catalog).
 export function parcelPayload(row, context) {

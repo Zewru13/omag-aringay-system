@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import { Fish, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -8,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -15,7 +15,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 // Fingerling sources (Fisheries Settings): where fingerlings come from (BFAR, a private hatchery, own production, ...). This is the
 // list Start Production Cycle offers. A stocking keeps the NAME it was saved with, so renaming or deleting a source here never
-// changes records that already used it.
+// changes records that already used it. New sources are added in the table itself (the Add row button under it); Edit renames one.
 
 const COLUMNS = [
   { key: 'name',    label: 'FINGERLING SOURCE' },
@@ -24,23 +24,18 @@ const COLUMNS = [
 
 function SourceModal({ source, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(source)
-  const originalName = source?.name || ''
+  const originalName = source.name
   const [name, setName] = useState(originalName)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const hasChanges = !isEdit || name.trim() !== originalName
+  const hasChanges = name.trim() !== originalName
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!name.trim()) { showToast('Fingerling source name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/fisheries/fingerling-sources/${source.id}/`, { name })
-      } else {
-        await api.post('/fisheries/fingerling-sources/', { name })
-      }
-      showToast(`Fingerling source ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/fisheries/fingerling-sources/${source.id}/`, { name })
+      showToast('Fingerling source updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -51,8 +46,8 @@ function SourceModal({ source, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Fingerling Source' : 'Add Fingerling Source'}
-      subtitle={isEdit ? `Update ${source.name}` : 'Where the fingerlings come from'}
+      title="Edit Fingerling Source"
+      subtitle={`Update ${source.name}`}
       icon={Fish}
       onClose={onClose}
       maxWidth="max-w-xs"
@@ -60,7 +55,7 @@ function SourceModal({ source, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="fingerling-source-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Source' : '+ Add Source'}
+            Update Source
           </Button>
         </>
       }
@@ -86,8 +81,8 @@ export default function FingerlingSourcePage({ asTab = false }) {
   const [sources,   setSources]   = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState('')
-  const [showModal, setShowModal] = useState(false)
   const [editing,   setEditing]   = useState(null)
+  const add = useAddRow({ name: '' })
   const [deleting,  setDeleting]  = useState(null)
 
   const fetchAll = useCallback(async () => {
@@ -104,36 +99,57 @@ export default function FingerlingSourcePage({ asTab = false }) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  const saveDraft = async () => {
+    const name = add.draft.name.trim()
+    if (!name) { showToast('Type the fingerling source name first.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/fisheries/fingerling-sources/', { name })
+      showToast('Fingerling source added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = sources.map(s => ({
     ...s,
     actions: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditing(s); setShowModal(true) } },
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(s) },
         { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeleting(s), tone: 'rose' },
       ]} />
     ),
   }))
+  if (add.isOpen) {
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} maxLength={100} aria-label="New fingerling source" placeholder="e.g. BFAR Regional Hatchery"
+        onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
 
   const innerContent = (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader
-          title="Fingerling Sources"
-          markerClass="bg-[#1B4D2E]"
-          action={<AddButton onClick={() => { setEditing(null); setShowModal(true) }}>Add Fingerling Source</AddButton>}
-        />
+        <CardHeader title="Fingerling Sources" count={sources.length} markerClass="bg-[#1B4D2E]" />
         <DataTable
           bare columns={COLUMNS} data={rows} isLoading={isLoading}
           emptyState={<p className="px-4 py-8 text-center text-sm text-slate-500">No fingerling sources yet. Add one so it can be chosen when a production cycle starts.</p>}
         />
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
       </div>
 
-      {showModal && (
+      {editing && (
         <SourceModal
           source={editing}
-          onClose={() => { setShowModal(false); setEditing(null) }}
+          onClose={() => setEditing(null)}
           onSaved={fetchAll}
         />
       )}

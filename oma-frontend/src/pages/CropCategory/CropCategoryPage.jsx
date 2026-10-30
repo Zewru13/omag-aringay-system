@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import { Leaf, Pencil, Tag, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -8,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -24,25 +24,21 @@ const SUBCAT_COLUMNS = [
   { key: 'actions',       label: 'ACTIONS' },
 ]
 
+// Edit Category / Edit Subcategory. New ones are added in the tables themselves (the Add row button under each).
 function CategoryModal({ category, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(category)
-  const originalName = category?.name || ''
+  const originalName = category.name
   const [name,         setName]         = useState(originalName)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const hasChanges = !isEdit || name !== originalName
+  const hasChanges = name !== originalName
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!name.trim()) { showToast('Category name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/production/crop-categories/${category.id}/`, { name })
-      } else {
-        await api.post('/production/crop-categories/', { name })
-      }
-      showToast(`Category ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/production/crop-categories/${category.id}/`, { name })
+      showToast('Category updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -53,8 +49,8 @@ function CategoryModal({ category, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Category' : 'Add New Category'}
-      subtitle={isEdit ? `Update details for ${category.name}` : 'Enter category information below'}
+      title="Edit Category"
+      subtitle={`Update details for ${category.name}`}
       icon={Leaf}
       onClose={onClose}
       maxWidth="max-w-xs"
@@ -62,7 +58,7 @@ function CategoryModal({ category, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="crop-category-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Category' : '+ Add Category'}
+            Update Category
           </Button>
         </>
       }
@@ -84,14 +80,10 @@ function CategoryModal({ category, onClose, onSaved }) {
 
 function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(subcategory)
-  const originalForm = {
-    name:     subcategory?.name     || '',
-    category: subcategory?.category || (categories[0]?.id ?? ''),
-  }
+  const originalForm = { name: subcategory.name, category: subcategory.category }
   const [form, setForm] = useState(originalForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(originalForm)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm)
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
@@ -101,12 +93,8 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
     if (!form.category)    { showToast('Please select a category.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/production/crop-subcategories/${subcategory.id}/`, form)
-      } else {
-        await api.post('/production/crop-subcategories/', form)
-      }
-      showToast(`Subcategory ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/production/crop-subcategories/${subcategory.id}/`, form)
+      showToast('Subcategory updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to save.', 'error')
@@ -117,8 +105,8 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Subcategory' : 'Add New Subcategory'}
-      subtitle={isEdit ? `Update details for ${subcategory.name}` : 'Enter subcategory information below'}
+      title="Edit Subcategory"
+      subtitle={`Update details for ${subcategory.name}`}
       icon={Tag}
       onClose={onClose}
       maxWidth="max-w-sm"
@@ -126,7 +114,7 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="crop-subcategory-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? '+ Update Subcategory' : '+ Add Subcategory'}
+            Update Subcategory
           </Button>
         </>
       }
@@ -158,9 +146,9 @@ export default function CropCategoryPage({ asTab = false }) {
   const [subcategories, setSubcategories] = useState([])
   const [isLoading,     setIsLoading]     = useState(true)
   const [error,         setError]         = useState('')
-  const [catModal,      setCatModal]      = useState(false)
-  const [subcatModal,   setSubcatModal]   = useState(false)
   const [editCat,       setEditCat]       = useState(null)
+  const addCat = useAddRow({ name: '' })
+  const addSubcat = useAddRow({ name: '', category: '' })
   const [editSubcat,    setEditSubcat]    = useState(null)
   const [deletingCat,   setDeletingCat]   = useState(null)
   const [deletingSubcat,setDeletingSubcat]= useState(null)
@@ -183,11 +171,43 @@ export default function CropCategoryPage({ asTab = false }) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  const saveCategory = async () => {
+    const name = addCat.draft.name.trim()
+    if (!name) { showToast('Type the category name first.', 'error'); return }
+    addCat.setIsSaving(true)
+    try {
+      await api.post('/production/crop-categories/', { name })
+      showToast('Category added.', 'success')
+      addCat.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      addCat.setIsSaving(false)
+    }
+  }
+  const saveSubcategory = async () => {
+    const { name, category } = addSubcat.draft
+    if (!name.trim()) { showToast('Type the subcategory name first.', 'error'); return }
+    if (!category) { showToast('Choose the parent category.', 'error'); return }
+    addSubcat.setIsSaving(true)
+    try {
+      await api.post('/production/crop-subcategories/', { name: name.trim(), category })
+      showToast('Subcategory added.', 'success')
+      addSubcat.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to save.', 'error')
+    } finally {
+      addSubcat.setIsSaving(false)
+    }
+  }
+
   const catRows = categories.map(c => ({
     ...c,
     actions: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditCat(c); setCatModal(true) } },
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditCat(c) },
         { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingCat(c), tone: 'rose' },
       ]} />
     ),
@@ -197,11 +217,34 @@ export default function CropCategoryPage({ asTab = false }) {
     ...s,
     actions: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditSubcat(s); setSubcatModal(true) } },
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditSubcat(s) },
         { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSubcat(s), tone: 'rose' },
       ]} />
     ),
   }))
+
+  if (addCat.isOpen) {
+    catRows.push({
+      id: 'new',
+      name: <DraftInput value={addCat.draft.name} aria-label="New category" placeholder="e.g. Cereals"
+        onChange={e => addCat.change({ name: e.target.value })} onSave={saveCategory} onCancel={addCat.close} />,
+      actions: <DraftActions onSave={saveCategory} onCancel={addCat.close} isSaving={addCat.isSaving} />,
+    })
+  }
+  if (addSubcat.isOpen) {
+    subcatRows.push({
+      id: 'new',
+      name: <DraftInput value={addSubcat.draft.name} aria-label="New subcategory" placeholder="e.g. Rice"
+        onChange={e => addSubcat.change({ name: e.target.value })} onSave={saveSubcategory} onCancel={addSubcat.close} />,
+      category_name: (
+        <DraftSelect value={addSubcat.draft.category} aria-label="Parent category" onChange={e => addSubcat.change({ category: e.target.value })}>
+          <option value="">— Select —</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </DraftSelect>
+      ),
+      actions: <DraftActions onSave={saveSubcategory} onCancel={addSubcat.close} isSaving={addSubcat.isSaving} />,
+    })
+  }
 
   const innerContent = (
     <div className="space-y-4">
@@ -209,40 +252,34 @@ export default function CropCategoryPage({ asTab = false }) {
 
       {/* Categories card */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader
-            title="Crop Categories"
-            markerClass="bg-[#1B4D2E]"
-            action={<AddButton onClick={() => { setEditCat(null); setCatModal(true) }}>Add Category</AddButton>}
-          />
+        <CardHeader title="Crop Categories" count={categories.length} markerClass="bg-[#1B4D2E]" />
         <div className="p-0">
           <DataTable bare columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
         </div>
+        {!isLoading && <AddRowFooter onClick={addCat.open} disabled={addCat.isOpen} label="Add category row" />}
       </div>
 
       {/* Subcategories card */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader
-            title="Crop Subcategories"
-            markerClass="bg-[#2D7A4F]"
-            action={<AddButton onClick={() => { setEditSubcat(null); setSubcatModal(true) }} disabled={categories.length === 0}>Add Subcategory</AddButton>}
-          />
+        <CardHeader title="Crop Subcategories" count={subcategories.length} markerClass="bg-[#2D7A4F]" />
         <div className="p-0">
           <DataTable bare columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
         </div>
+        {!isLoading && <AddRowFooter onClick={addSubcat.open} disabled={addSubcat.isOpen || categories.length === 0} label="Add subcategory row" />}
       </div>
 
-      {catModal && (
+      {editCat && (
         <CategoryModal
           category={editCat}
-          onClose={() => { setCatModal(false); setEditCat(null) }}
+          onClose={() => setEditCat(null)}
           onSaved={fetchAll}
         />
       )}
-      {subcatModal && (
+      {editSubcat && (
         <SubcategoryModal
           subcategory={editSubcat}
           categories={categories}
-          onClose={() => { setSubcatModal(false); setEditSubcat(null) }}
+          onClose={() => setEditSubcat(null)}
           onSaved={fetchAll}
         />
       )}

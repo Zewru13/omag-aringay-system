@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import { Bug, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -7,16 +6,17 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
+// Edit Disease Type. New disease types are added in the list itself (the Add row button under it).
 function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(diseaseType)
-  const [name,        setName]        = useState(diseaseType?.name || '')
-  const [description, setDescription] = useState(diseaseType?.description || '')
+  const [name,        setName]        = useState(diseaseType.name || '')
+  const [description, setDescription] = useState(diseaseType.description || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -25,9 +25,8 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
     setIsSubmitting(true)
     try {
       const payload = { name, description }
-      if (isEdit) await api.patch(`/fisheries/disease-types/${diseaseType.id}/`, payload)
-      else await api.post('/fisheries/disease-types/', payload)
-      showToast(`Disease type ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/fisheries/disease-types/${diseaseType.id}/`, payload)
+      showToast('Disease type updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -38,14 +37,14 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Disease Type' : 'Add Disease Type'}
+      title="Edit Disease Type"
       icon={Bug}
       onClose={onClose}
       maxWidth="max-w-sm"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="disease-type-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Disease Type'}</Button>
+          <Button type="submit" form="disease-type-form" isLoading={isSubmitting}>Save Changes</Button>
         </>
       }
     >
@@ -119,8 +118,8 @@ export default function DiseaseSettingsPage({ asTab = false }) {
   const [isLoading,     setIsLoading]   = useState(true)
   const [error,         setError]       = useState('')
   const [expanded,      setExpanded]    = useState(new Set())
-  const [showTypeModal, setShowTypeModal] = useState(false)
   const [editingType,   setEditingType]   = useState(null)
+  const add = useAddRow({ name: '' })
   const [deletingType,  setDeletingType]  = useState(null)
   const [guideModalFor, setGuideModalFor] = useState(null)
 
@@ -142,6 +141,22 @@ export default function DiseaseSettingsPage({ asTab = false }) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  const saveDraft = async () => {
+    const name = add.draft.name.trim()
+    if (!name) { showToast('Type the disease name first.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/fisheries/disease-types/', { name, description: '' })
+      showToast('Disease type added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const guideFor = (diseaseTypeId) => guides.find(g => g.disease_type === diseaseTypeId)
 
   const toggle = (id) => setExpanded(prev => {
@@ -154,15 +169,11 @@ export default function DiseaseSettingsPage({ asTab = false }) {
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader
-            title="Disease Types & Response Guides"
-            markerClass="bg-[#1B4D2E]"
-            action={<AddButton onClick={() => { setEditingType(null); setShowTypeModal(true) }}>Add Disease Type</AddButton>}
-          />
+        <CardHeader title="Disease Types & Response Guides" count={diseaseTypes.length} markerClass="bg-[#1B4D2E]" />
 
         {isLoading ? (
           <p className="px-5 py-6 text-center text-sm text-slate-400">Loading…</p>
-        ) : diseaseTypes.length === 0 ? (
+        ) : diseaseTypes.length === 0 && !add.isOpen ? (
           <p className="px-5 py-6 text-center text-sm italic text-slate-400">No disease types configured yet.</p>
         ) : (
           <div className="divide-y divide-[#F0F4F0]">
@@ -180,7 +191,7 @@ export default function DiseaseSettingsPage({ asTab = false }) {
                       )}
                     </button>
                     <RowActions actions={[
-                      { key: 'edit', label: 'Edit disease type', icon: Pencil, onClick: () => { setEditingType(dt); setShowTypeModal(true) } },
+                      { key: 'edit', label: 'Edit disease type', icon: Pencil, onClick: () => setEditingType(dt) },
                       { key: 'delete', label: 'Delete disease type', icon: Trash2, onClick: () => setDeletingType(dt), tone: 'rose' },
                     ]} />
                   </div>
@@ -200,12 +211,22 @@ export default function DiseaseSettingsPage({ asTab = false }) {
                 </div>
               )
             })}
+            {add.isOpen && (
+              <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-[220px] flex-1">
+                  <DraftInput value={add.draft.name} aria-label="New disease type" placeholder="e.g. White spot syndrome"
+                    onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />
+                </div>
+                <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />
+              </div>
+            )}
           </div>
         )}
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
       </div>
 
-      {showTypeModal && (
-        <DiseaseTypeModal diseaseType={editingType} onClose={() => { setShowTypeModal(false); setEditingType(null) }} onSaved={fetchAll} />
+      {editingType && (
+        <DiseaseTypeModal diseaseType={editingType} onClose={() => setEditingType(null)} onSaved={fetchAll} />
       )}
 
       {guideModalFor && (

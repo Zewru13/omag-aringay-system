@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ListPlus, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import AddButton from '../../components/UI/AddButton.jsx'
 import Button from '../../components/UI/Button.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -15,16 +15,16 @@ import { resetAssistanceChoices } from './useAssistanceChoices.js'
 
 // One of the lists behind the assistance forms' dropdowns, as a tab of Crop Settings or Fisheries Settings: the types of equipment, the
 // units, and (fisheries) the types of fishing gear. `domain` is crop | fisheries, `kind` equipment | unit | gear. Renaming or deleting a
-// name never changes assistance already recorded (records keep the name they were saved with).
+// name never changes assistance already recorded (records keep the name they were saved with). New names are added in the table itself
+// (the Add row button under it); Edit renames one.
 const COLUMNS = [
   { key: 'name', label: 'NAME' },
   { key: 'actions', label: 'ACTIONS' },
 ]
 
-function NameModal({ domain, kind, singular, example, option, onClose, onSaved }) {
+function NameModal({ singular, option, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(option)
-  const [name, setName] = useState(option?.name || '')
+  const [name, setName] = useState(option.name)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -32,9 +32,8 @@ function NameModal({ domain, kind, singular, example, option, onClose, onSaved }
     if (!name.trim()) { showToast(`Enter the ${singular.toLowerCase()} name.`, 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) await api.patch(`/interventions/options/${option.id}/`, { name })
-      else await api.post('/interventions/options/', { domain, kind, name })
-      showToast(`${singular} ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/interventions/options/${option.id}/`, { name })
+      showToast(`${singular} updated.`, 'success')
       onSaved(); onClose()
     } catch (err) {
       const data = err?.response?.data
@@ -46,23 +45,23 @@ function NameModal({ domain, kind, singular, example, option, onClose, onSaved }
 
   return (
     <ModalShell
-      title={isEdit ? `Edit ${singular}` : `Add ${singular}`}
-      subtitle={isEdit ? `Update ${option.name}` : 'It appears in the dropdown of the assistance forms'}
+      title={`Edit ${singular}`}
+      subtitle={`Update ${option.name}`}
       icon={ListPlus}
       onClose={onClose}
       maxWidth="max-w-sm"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="assistance-option-form" isLoading={isSubmitting} disabled={isSubmitting || (isEdit && name === option.name)}>
-            {isEdit ? `Update ${singular}` : `Add ${singular}`}
+          <Button type="submit" form="assistance-option-form" isLoading={isSubmitting} disabled={isSubmitting || name === option.name}>
+            Update {singular}
           </Button>
         </>
       )}
     >
       <form id="assistance-option-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label={`${singular} Name`} required>
-          <input className={baseInputClasses} value={name} autoFocus placeholder={`e.g. ${example}`} onChange={(e) => setName(e.target.value)} />
+          <input className={baseInputClasses} value={name} autoFocus onChange={(e) => setName(e.target.value)} />
         </FormField>
       </form>
     </ModalShell>
@@ -74,7 +73,8 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
   const [options, setOptions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [editing, setEditing] = useState(undefined)   // undefined = closed, null = adding, object = editing
+  const [editing, setEditing] = useState(null)
+  const add = useAddRow({ name: '' })
   const [deleting, setDeleting] = useState(null)
   const [version, setVersion] = useState(0)
 
@@ -89,6 +89,22 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
 
   const refresh = () => { resetAssistanceChoices(); setVersion((v) => v + 1) }
 
+  const saveDraft = async () => {
+    const name = add.draft.name.trim()
+    if (!name) { showToast(`Type the ${singular.toLowerCase()} name first.`, 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/interventions/options/', { domain, kind, name })
+      showToast(`${singular} added.`, 'success')
+      add.close(); refresh()
+    } catch (err) {
+      const data = err?.response?.data
+      showToast(data?.name?.[0] || data?.non_field_errors?.[0] || `Failed to save the ${singular.toLowerCase()}.`, 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = options.map((o) => ({
     ...o,
     actions: (
@@ -98,17 +114,26 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
       ]} />
     ),
   }))
+  if (add.isOpen) {
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} maxLength={100} aria-label={`New ${singular.toLowerCase()}`} placeholder={`e.g. ${example}`}
+        onChange={(e) => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
 
   return (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
       <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <CardHeader title={title} count={options.length} action={<AddButton onClick={() => setEditing(null)}>{`Add ${singular}`}</AddButton>} />
+        <CardHeader title={title} count={options.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
       </div>
 
-      {editing !== undefined && (
-        <NameModal domain={domain} kind={kind} singular={singular} example={example} option={editing} onClose={() => setEditing(undefined)} onSaved={refresh} />
+      {editing && (
+        <NameModal singular={singular} option={editing} onClose={() => setEditing(null)} onSaved={refresh} />
       )}
       {deleting && (
         <ConfirmDialog

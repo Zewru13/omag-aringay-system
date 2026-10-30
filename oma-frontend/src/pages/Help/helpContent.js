@@ -125,6 +125,10 @@ export const SECTIONS = [
         a: 'Open the officer and choose End term early. A reason is required: choose Migrated or Transferred Registration, or choose Others and write the reason. The position becomes vacant so someone new can be assigned, and the term stays in Officer History.',
       },
       {
+        q: 'Where do the equipment names in the lists come from?',
+        a: 'From the settings: Crop Settings > Equipment Types for the machinery of a farmer and the equipment of a farmers organization, and Fisheries Settings > Equipment Types for a fisherfolk organization. Add a name there and it appears in the dropdowns. Choose Other to type a name that is not on the list.',
+      },
+      {
         q: 'Can I add equipment when I register an organization?',
         a: 'Yes. The Add Organization form has an Equipment section: press Add equipment for each kind, then choose it, the number of units and optionally the date acquired and remarks. The equipment is saved together with the organization, in Good condition. Leave the section empty if there is none.',
       },
@@ -183,6 +187,10 @@ export const SECTIONS = [
         a: 'From Crop Monitoring, open the menu of one of the crops and choose Force Harvest. The window lists the crops of that farmer that are not ready yet, on every parcel, with the crop you chose already ticked. Choose the harvested date and the reason, tick the crops, type the area and quantity of each one, then press Review Force Harvest, check the tables and press Confirm Force Harvest. On Crop Records the menu of a parcel does the same for that parcel only. The red FORCED HARVEST label on a harvested crop opens the saved details.',
       },
       {
+        q: 'Can I print one parcel or one production cycle?',
+        a: 'Yes. Open the ⋮ menu of a parcel on Crop Records, or of a row on Aquaculture Monitoring, and choose Print report. It prints the details of that one record and the crop records, or the ponds and cages, that belong to it.',
+      },
+      {
         q: 'Can I print the crop and fisheries tables?',
         a: 'Yes. Crop Records, Crop Monitoring, Aquaculture Monitoring and Capture Monitoring each have a Print Report button. It prints every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Set the filters first.',
       },
@@ -199,6 +207,10 @@ export const SECTIONS = [
   {
     title: 'Accounts and settings',
     items: [
+      {
+        q: 'How do I add a new item in the settings tables?',
+        a: 'Press Add row under the table. One more row appears at the end of the table with its boxes empty: fill them and press Save (Enter saves, Escape cancels). The same works on every settings table: Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings and Harvest Unit Settings. To change an item that is already there, use Edit in its row menu.',
+      },
       {
         q: 'I forgot to save a form and went to another page. Is it lost?',
         a: 'No. The long forms (Add Farm Parcels, Add Crop Records, registering a farmer, fisherfolk or organization, adding ponds, and the Distribute assistance windows) keep what you typed in this browser. Open the form again and it is back, with a note and a Discard draft button to start over. A draft is cleared when you save it, discard it or sign out. A chosen photo is not kept, so choose it again.',

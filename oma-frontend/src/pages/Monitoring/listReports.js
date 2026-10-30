@@ -1,7 +1,7 @@
 // The Print Report of Crop Records, Crop Monitoring, Aquaculture Monitoring and Capture Monitoring: each takes the rows a table's filters
 // match (every page, see utils/listReport.js) and what the table was filtered by, and gives the document to print. No screen, no network.
 import { dateRangeText } from '../../utils/dateRange.js'
-import { buildListReportSpec } from '../../utils/listReport.js'
+import { buildDetailReportSpec, buildListReportSpec } from '../../utils/listReport.js'
 import { cycleStatusText } from '../FisheriesRecords/emergencyForceHarvest.js'
 import { fmtActualHarvestKg } from '../FisheriesRecords/stockingHelpers.js'
 import { cropDisplayStatus } from './monitoringGroups.js'
@@ -58,5 +58,56 @@ export function captureReport({ trips, filters, now }) {
       t.top_species,
       t.hours_at_sea === null || t.hours_at_sea === undefined ? '' : `${Number(t.hours_at_sea).toFixed(1)} h`,
     ]),
+  })
+}
+
+// One farm parcel (Crop Records ⋮ > Print Report): its details, then the crop records on it. `parcel` is the parcel as the server gives it
+// (farmer_name, rsbsa_number, ...), `crops` its crop records.
+export function parcelReport({ parcel, crops, now }) {
+  const tenure = parcel.land_ownership === 'Tenant' || parcel.land_ownership === 'Lessee'
+  return buildDetailReportSpec({
+    title: 'FARM PARCEL REPORT', noun: 'farm parcel record', now, wide: true,
+    details: [
+      ['Farmer', parcel.farmer_name], ['RSBSA Number', parcel.rsbsa_number], ['Parcel Number', parcel.parcel_number || `Parcel #${parcel.id}`],
+      ['Barangay', parcel.barangay], ['Area (ha)', ha(parcel.area_hectares)], ['Land Ownership', parcel.land_ownership],
+      ...(tenure ? [['Land Owner', parcel.land_owner_name], ['Land Owner RSBSA Number', parcel.land_owner_rsbsa_number]] : []),
+      ['Tax Declaration Number', parcel.tax_declaration_number], ['Farm Type', parcel.farm_type], ['Cropping Schedule', parcel.cropping_schedule],
+      ['Classifications', (parcel.classifications || []).join(', ')], ['Crop Records', String(crops.length)],
+    ],
+    sections: [{
+      title: 'Crop Records',
+      table: {
+        head: ['No.', 'Crop', 'Variety', 'Date Planted', 'Expected Harvest', 'Area (ha)', 'PCIC Insured', 'Status'],
+        rows: crops.map((c, i) => [String(i + 1), c.crop_type_name || '—', c.variety_used || '—', day(c.date_planted) || '—', day(c.expected_harvest_date) || '—', ha(c.area_planted_ha) || '—', yesNo(c.has_pcic_insurance), cropDisplayStatus(c)]),
+        boldRows: new Set(),
+      },
+    }],
+  })
+}
+
+// One production cycle (Aquaculture Monitoring ⋮ > Print Report): the stocking record's details, then the cycle's ponds / cages.
+// `record` is the row of the table, `cycle` the production cycle it belongs to (null for a record with none).
+export function cycleReport({ record, cycle, now }) {
+  const units = cycle?.units || []
+  const label = units[0]?.unit_type === 'cage' ? 'Cage' : 'Pond'
+  const size = (u) => (u.length_m != null && u.width_m != null ? `${Number(u.length_m)} m × ${Number(u.width_m)} m` : '')
+  return buildDetailReportSpec({
+    title: 'PRODUCTION CYCLE REPORT', noun: 'production cycle record', now, wide: true,
+    details: [
+      ['Fisherfolk', record.fisherfolk_name], ['Organization', record.organization_name], ['Species', record.species_name], ['Culture Type', record.culture_type],
+      ['Cycle', record.production_cycle_no ? `#${record.production_cycle_no}` : ''], ['Ownership', record.ownership],
+      ['Pond Location', record.pond_location_barangay], ['Date Stocked', day(record.date_stocked)], ['Expected Harvest', day(record.expected_harvest_date)],
+      ['Number of Fingerlings', record.number_of_fingerlings], ['Estimated Harvest (kg)', kg(record.estimated_harvest_kg)],
+      ['Actual Harvest (kg)', fmtActualHarvestKg(record) === '—' ? '' : fmtActualHarvestKg(record)], ['Status', cycleStatusText(record)],
+      ['PCIC Insured', yesNo(cycle ? cycle.has_pcic_insurance : record.has_pcic_insurance)],
+    ],
+    sections: units.length ? [{
+      title: `Production Units (${label}s)`,
+      table: {
+        head: ['No.', label, 'Size', 'Area (m²)', 'Fingerlings', 'PCIC Insured'],
+        rows: units.map((u, i) => [String(i + 1), `${label} ${u.unit_number}`, size(u) || '—', Number(u.size_sqm).toLocaleString('en-US', { maximumFractionDigits: 2 }), String(u.fingerling_count), yesNo(u.has_pcic_insurance)]),
+        boldRows: new Set(),
+      },
+    }] : [],
   })
 }

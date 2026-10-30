@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import { Fish, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
@@ -8,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -18,25 +18,21 @@ const COLUMNS = [
   { key: 'actions', label: 'ACTIONS' },
 ]
 
+// Edit Category. New categories are added in the table itself (the Add row button under it).
 function CategoryModal({ category, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(category)
-  const originalName = category?.name || ''
+  const originalName = category.name
   const [name,         setName]         = useState(originalName)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const hasChanges = !isEdit || name !== originalName
+  const hasChanges = name !== originalName
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!name.trim()) { showToast('Category name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/fisheries/species-categories/${category.id}/`, { name })
-      } else {
-        await api.post('/fisheries/species-categories/', { name })
-      }
-      showToast(`Category ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/fisheries/species-categories/${category.id}/`, { name })
+      showToast('Category updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -47,8 +43,8 @@ function CategoryModal({ category, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Category' : 'Add New Category'}
-      subtitle={isEdit ? `Update details for ${category.name}` : 'Enter category name below'}
+      title="Edit Category"
+      subtitle={`Update details for ${category.name}`}
       icon={Fish}
       onClose={onClose}
       maxWidth="max-w-xs"
@@ -56,7 +52,7 @@ function CategoryModal({ category, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="species-category-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Category' : '+ Add Category'}
+            Update Category
           </Button>
         </>
       }
@@ -81,8 +77,8 @@ export default function SpeciesCategoryPage({ asTab = false }) {
   const [categories,   setCategories]   = useState([])
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
-  const [showModal,    setShowModal]    = useState(false)
   const [editCat,      setEditCat]      = useState(null)
+  const add = useAddRow({ name: '' })
   const [deletingCat,  setDeletingCat]  = useState(null)
 
   const fetchAll = useCallback(async () => {
@@ -99,33 +95,54 @@ export default function SpeciesCategoryPage({ asTab = false }) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  const saveDraft = async () => {
+    const name = add.draft.name.trim()
+    if (!name) { showToast('Type the category name first.', 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/fisheries/species-categories/', { name })
+      showToast('Category added.', 'success')
+      add.close()
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
+
   const rows = categories.map(c => ({
     ...c,
     actions: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditCat(c); setShowModal(true) } },
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditCat(c) },
         { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingCat(c), tone: 'rose' },
       ]} />
     ),
   }))
+  if (add.isOpen) {
+    rows.push({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} aria-label="New category" placeholder="e.g. Finfish"
+        onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
 
   const innerContent = (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader
-            title="Species Categories"
-            markerClass="bg-[#1B4D2E]"
-            action={<AddButton onClick={() => { setEditCat(null); setShowModal(true) }}>Add Category</AddButton>}
-          />
+        <CardHeader title="Species Categories" count={categories.length} markerClass="bg-[#1B4D2E]" />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+        {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} />}
       </div>
 
-      {showModal && (
+      {editCat && (
         <CategoryModal
           category={editCat}
-          onClose={() => { setShowModal(false); setEditCat(null) }}
+          onClose={() => setEditCat(null)}
           onSaved={fetchAll}
         />
       )}

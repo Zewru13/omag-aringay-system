@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, HandHelping, Plus, Power, Search, Trash2, Upload, UserCog, UserX } from "lucide-react";
+import { ArrowLeft, HandHelping, Plus, Search, Trash2, Upload, UserCog, UserX } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
@@ -24,6 +24,8 @@ import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
 import LendEquipmentForm from "./LendEquipmentForm.jsx";
 import { END_TERM_OTHER_LABEL, END_TERM_REASONS, endTermRequest } from "./endTermReasons.js";
 import OrgCompactList from "./OrgCompactList.jsx";
+import useEquipmentOptions from "../../hooks/useEquipmentOptions.js";
+import { equipmentToServer } from "../../utils/equipmentNames.js";
 import { FARMERS_EQUIPMENT, FISHERFOLK_EQUIPMENT } from "./registrationEquipment.js";
 import {
   ChangeConditionDialog, EquipmentHistoryDialog, LendDialog, RepairDialog,
@@ -672,11 +674,12 @@ function OfficerHistoryModal({ history, onClose }) {
 // ─── Add Equipment Modal ──────────────────────────────────────────────────────
 
 function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
-  const equipmentChoices =
-    type === "farmers" ? FARMERS_EQUIPMENT : FISHERFOLK_EQUIPMENT;
+  // Crop Settings > Equipment Types for a farmers organization, Fisheries Settings > Equipment Types for a fisherfolk one.
+  const knownEquipment = type === "farmers" ? FARMERS_EQUIPMENT : FISHERFOLK_EQUIPMENT;
+  const equipmentChoices = useEquipmentOptions(type === "farmers" ? "crop" : "fisheries", knownEquipment);
 
   const [form, setForm] = useState({
-    equipment_name: equipmentChoices[0],
+    equipment_name: "",
     equipment_name_other: "",
     quantity: 1,
     acquisition_date: "",
@@ -691,6 +694,10 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!form.equipment_name) {
+      setError("Choose the equipment.");
+      return;
+    }
     if (form.equipment_name === "Other" && !form.equipment_name_other.trim()) {
       setError("Say what the equipment is.");
       return;
@@ -699,8 +706,11 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
     try {
       const payload = { ...form };
       if (!payload.acquisition_date) delete payload.acquisition_date;
-      if (payload.equipment_name !== "Other")
-        delete payload.equipment_name_other;
+      // A name the server does not list (one added in Settings) is saved as Other + that name.
+      const { name, other } = equipmentToServer(form.equipment_name, form.equipment_name_other, knownEquipment);
+      payload.equipment_name = name;
+      if (name === "Other") payload.equipment_name_other = other;
+      else delete payload.equipment_name_other;
       // New equipment is added in good condition; Change condition records anything else later.
       payload.condition = "Good";
       await api.post(
@@ -736,7 +746,7 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
         <div>
           <label className={labelCls}>Equipment Name</label>
           <ComboboxWithOther
-            options={equipmentChoices.filter((c) => c !== "Other")}
+            options={equipmentChoices}
             value={form.equipment_name}
             otherValue={form.equipment_name_other}
             onChange={(v) => updateField("equipment_name", v)}
@@ -870,11 +880,6 @@ function OrganizationDetailPage({ own = false }) {
   const [showImportMembers, setShowImportMembers] = useState(false);
   const [showImportEquipment, setShowImportEquipment] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  // Toggle-not-delete batch: { id, name, targetActive, heldPosition } —
-  // heldPosition only matters when deactivating (targetActive === false),
-  // sourced from the same officer roster the roster tab already renders.
-  const [confirmSetMemberActive, setConfirmSetMemberActive] = useState(null);
-  const [deactivateReason, setDeactivateReason] = useState("");
   const [confirmRemoveEquipment, setConfirmRemoveEquipment] = useState(null);
   // The equipment action in progress: { kind: "condition" | "repair" | "lend" | "history", line }.
   const [equipAction, setEquipAction] = useState(null);
@@ -888,20 +893,6 @@ function OrganizationDetailPage({ own = false }) {
     type === "farmers" ? "farmer_rsbsa_number" : "fisherfolk_rsbsa_number";
   const memberNameField =
     type === "farmers" ? "farmer_full_name" : "fisherfolk_full_name";
-
-  // Toggle-not-delete batch: which officer position (if any) a member row
-  // currently holds, so the deactivate confirmation can warn about it —
-  // same warning the citizen-side flow already gives. Batch (Phase B):
-  // both domains' members are now join rows the same shape — m[farmer|
-  // fisherfolk] is the PERSON's id (m.id is the join row's own id), which
-  // is what officer.farmer_id / officer.fisherfolk_id actually match.
-  const heldPositionFor = (m) => {
-    const officers = organization?.officers || [];
-    const officer = type === "farmers"
-      ? officers.find((o) => o.farmer_id === m.farmer)
-      : officers.find((o) => o.fisherfolk_id === m.fisherfolk);
-    return officer ? officer.position : null;
-  };
 
   // The spinner covers the first load and a switch to another organization. A refresh after an action keeps the page
   // on screen, so the tab you are working in (and which rows you had open) is not thrown away.
@@ -926,33 +917,6 @@ function OrganizationDetailPage({ own = false }) {
       cancelled = true;
     };
   }, [type, id, refreshKey]);
-
-  // Toggle-not-delete batch: was a hard DELETE (Farmers: nulled
-  // Farmer.farmers_organization; Fisherfolk: deleted the join row). Both
-  // sides now PATCH {is_active} on the exact same URLs instead — the
-  // member's record and history stay intact either way, and this same
-  // action run again with the opposite target reverses it. Batch (Phase B):
-  // both domains now use the identical staff-only URL shape.
-  const handleSetMemberActive = async () => {
-    if (!confirmSetMemberActive) return;
-    const { id: memberId, targetActive } = confirmSetMemberActive;
-    const payload = targetActive
-      ? { is_active: targetActive }
-      : { is_active: targetActive, reason: deactivateReason.trim() };
-    try {
-      await api.patch(
-        own ? `/organizations/${type}/${id}/members/${memberId}/` : `/organizations/${type}/members/${memberId}/`,
-        payload,
-      );
-      showToast(targetActive ? "Member reactivated." : "Member deactivated.", "success");
-      setRefreshKey((k) => k + 1);
-    } catch (err) {
-      showToast(err.response?.data?.detail || "Unable to update member.", "error");
-    } finally {
-      setConfirmSetMemberActive(null);
-      setDeactivateReason("");
-    }
-  };
 
   // Batch (Phase B): explicit "make this the main organization" override —
   // low-risk/reversible (just re-run on a different membership), so no
@@ -996,32 +960,19 @@ function OrganizationDetailPage({ own = false }) {
   // Own-organization mode shows short lists (just the name on each row, details on tap) with a search and filters.
   const choices = (items, key) => filterOptions(items, key).map((value) => ({ value, label: value }));
   const memberItems = (organization?.members || []).map((m) => {
-    const isActive = m.is_active !== false;
     return {
       id: m.id,
       name: m[memberNameField],
-      dim: !isActive,
-      attrs: { status: isActive ? "Active" : "Inactive", position: m.position || "Member", main: m.is_main ? "Main" : "Other" },
+      attrs: { position: m.position || "Member", main: m.is_main ? "Main" : "Other" },
       details: [
         { label: memberIdLabel, value: m[memberIdField] || "—" },
         { label: "Position", value: <StatusPill tone={positionTone(m.position)}>{m.position}</StatusPill> },
         { label: "Date joined", value: formatDate(m.date_joined) },
         { label: "Main organization", value: m.is_main ? "Yes" : "No" },
-        { label: "Status", value: <StatusPill tone={isActive ? "green" : "slate"}>{isActive ? "Active" : "Inactive"}</StatusPill> },
       ],
-      actions: [{
-        key: "toggle",
-        label: isActive ? "Deactivate" : "Activate",
-        icon: Power,
-        tone: isActive ? "danger" : "default",
-        onClick: () => setConfirmSetMemberActive({
-          id: m.id, name: m[memberNameField], targetActive: !isActive, heldPosition: heldPositionFor(m),
-        }),
-      }],
     };
   });
   const memberFilters = [
-    { key: "status", label: "Status", allLabel: "All statuses", options: choices(memberItems, "status") },
     { key: "position", label: "Position", allLabel: "All positions", options: choices(memberItems, "position") },
     { key: "main", label: "Main organization", allLabel: "Main or not", options: memberItems.some((i) => i.attrs.main === "Main") ? [{ value: "Main", label: "Main organization only" }] : [] },
   ];
@@ -1286,17 +1237,11 @@ function OrganizationDetailPage({ own = false }) {
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Date Joined</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Main</th>
-                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Status</th>
-                            {canManage && (
-                              <th className="px-4 py-[11px]" />
-                            )}
                           </tr>
                         </thead>
                         <tbody className="max-md:block">
-                          {organization.members.map((m) => {
-                            const isActive = m.is_active !== false;
-                            return (
-                            <tr key={m.id} className={`border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2 ${isActive ? '' : 'opacity-60'}`}>
+                          {organization.members.map((m) => (
+                            <tr key={m.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2">
                               <td data-label="Full name" className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {m[memberNameField]}
                               </td>
@@ -1314,7 +1259,7 @@ function OrganizationDetailPage({ own = false }) {
                               <td data-label="Main" className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {m.is_main ? (
                                   <StatusPill tone="green">Main</StatusPill>
-                                ) : isActive && isStaff ? (
+                                ) : isStaff ? (
                                   <button
                                     type="button"
                                     onClick={() => handleSetMain(m.id)}
@@ -1326,31 +1271,8 @@ function OrganizationDetailPage({ own = false }) {
                                   <span className="text-[12px] text-[#A8BCA8]">—</span>
                                 )}
                               </td>
-                              <td data-label="Status" className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
-                                <span title={!isActive ? m.deactivation_reason || '' : undefined}>
-                                  <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
-                                </span>
-                              </td>
-                              {canManage && (
-                                <td className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
-                                  <Button
-                                    className={isActive ? '!text-rose-600' : '!text-[#1B4D2E]'}
-                                    icon={Power}
-                                    onClick={() => setConfirmSetMemberActive({
-                                      id: m.id, name: m[memberNameField], targetActive: !isActive,
-                                      heldPosition: heldPositionFor(m),
-                                    })}
-                                    size="sm"
-                                    type="button"
-                                    variant="ghost"
-                                  >
-                                    {isActive ? 'Deactivate' : 'Activate'}
-                                  </Button>
-                                </td>
-                              )}
                             </tr>
-                            );
-                          })}
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -1577,30 +1499,6 @@ function OrganizationDetailPage({ own = false }) {
           own={own}
           onClose={() => setShowAssignOfficer(false)}
           onSuccess={handleOfficerAssigned}
-        />
-      )}
-
-      {confirmSetMemberActive && organization && (
-        <ConfirmDialog
-          title={confirmSetMemberActive.targetActive ? "Reactivate Member" : "Deactivate Member"}
-          message={
-            confirmSetMemberActive.targetActive
-              ? `Reactivate ${confirmSetMemberActive.name} in ${organization.name}?`
-              : `Deactivate ${confirmSetMemberActive.name} in ${organization.name}? Their ${type === "farmers" ? "farmer" : "fisherfolk"} profile and history are not affected — this can be reversed at any time.`
-          }
-          details={
-            !confirmSetMemberActive.targetActive && confirmSetMemberActive.heldPosition
-              ? `They currently hold the ${confirmSetMemberActive.heldPosition} position. Deactivating them will also clear this position, leaving it vacant.`
-              : null
-          }
-          confirmLabel={confirmSetMemberActive.targetActive ? "Reactivate" : "Deactivate"}
-          danger={!confirmSetMemberActive.targetActive}
-          showReasonInput={!confirmSetMemberActive.targetActive}
-          reasonValue={deactivateReason}
-          onReasonChange={setDeactivateReason}
-          reasonPlaceholder="Why is this member being deactivated? (optional)"
-          onConfirm={handleSetMemberActive}
-          onCancel={() => { setConfirmSetMemberActive(null); setDeactivateReason(""); }}
         />
       )}
 
