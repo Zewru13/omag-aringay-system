@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'monitoring',
     'reports',
     'associations',
+    'backups',
     'auditlog.apps.AuditlogConfig',
     'storages',
 ]
