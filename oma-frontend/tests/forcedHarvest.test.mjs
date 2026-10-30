@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  daysEarly, notOffered, splitCrops, cropLabel, makeRow, rowProblem, rowWeight, formProblem, countLine, buildRequest, serverMessage, STANDARD_UNITS, MAX_CROPS,
+  daysEarly, notOffered, splitCrops, cropLabel, makeRow, rowProblem, rowWeight, rowKg, rowsTotalKg, formProblem, countLine, buildRequest, serverMessage, STANDARD_UNITS, MAX_CROPS,
 } = await import(new URL('../src/pages/CropInformation/forcedHarvest.js', import.meta.url).href)
 
 let n = 0
@@ -75,5 +75,16 @@ eq(buildRequest({ date: TODAY, code: 'drought', detail: '', remarks: '' }, [row(
 eq(serverMessage({ detail: 'Palay (Rice): not early enough.' }), 'Palay (Rice): not early enough.', 'server detail')
 eq(serverMessage({ crops: ['Choose at least one crop.'] }), 'Choose at least one crop.', 'server crops')
 eq(serverMessage(undefined), 'Unable to save the forced harvest. Please try again.', 'unknown failure')
+
+
+// ── what a row comes to in kg (the review step)
+const WEIGHTS = [{ unit: 'sacks', crop_type: null, kg_per_unit: '50' }]
+const sacks = { ...makeRow(rec(1)), unit: 'sacks', quantity: '20', area: '1' }
+eq(rowKg(sacks, WEIGHTS), 1000, 'a quantity times the unit weight')
+eq(rowKg({ ...sacks, unit: 'kg', quantity: '300' }, WEIGHTS), 300, 'kg is itself')
+eq(rowKg({ ...sacks, unit: 'cavan', total: '1200' }, WEIGHTS), 1200, 'a unit with no standard weight uses the typed total')
+eq(rowKg({ ...sacks, unit: 'cavan', total: '' }, WEIGHTS), null, 'no total typed yet')
+eq(rowKg(sacks, null), null, 'weights still loading')
+eq(rowsTotalKg([sacks, { ...sacks, quantity: '10' }, { ...sacks, unit: 'cavan', total: '' }], WEIGHTS), 1500, 'the total skips an incomplete row')
 
 console.log(`forcedHarvest: ${n} checks passed`)

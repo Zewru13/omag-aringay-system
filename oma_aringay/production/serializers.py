@@ -647,12 +647,12 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         return len(obj.harvest_records.all())
 
     def get_forced_harvest(self, obj):
-        """The forced harvest on this crop (the latest one), or None: { reason, label, text } where text is the readable reason."""
+        """The forced harvest on this crop (the latest one), or None: { id (the harvest record), reason, label, text } where text is the readable reason."""
         forced = [h for h in obj.harvest_records.all() if h.force_harvest_reason]
         if not forced:
             return None
         latest = max(forced, key=lambda h: h.pk)
-        return {'reason': latest.force_harvest_reason, 'label': FORCE_HARVEST_REASON_LABELS.get(latest.force_harvest_reason, ''),
+        return {'id': latest.pk, 'reason': latest.force_harvest_reason, 'label': FORCE_HARVEST_REASON_LABELS.get(latest.force_harvest_reason, ''),
                 'text': latest.early_late_reason}
 
     def get_disaster_report_count(self, obj):
