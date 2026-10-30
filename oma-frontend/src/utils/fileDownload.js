@@ -5,7 +5,11 @@
  */
 export async function downloadFile(axiosInstance, url, fallbackFilename) {
   const response = await axiosInstance.get(url, { responseType: 'blob' })
+  saveResponse(response, fallbackFilename)
+}
 
+/** Saves a blob response under the name in its Content-Disposition (else fallbackFilename). */
+export function saveResponse(response, fallbackFilename) {
   const disposition = response.headers['content-disposition']
   let filename = fallbackFilename
   if (disposition) {

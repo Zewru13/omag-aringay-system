@@ -16,7 +16,6 @@ const TABS = [
   { value: 'fingerling-sources', label: 'Fingerling Sources' },
   { value: 'equipment-types', label: 'Equipment Types' },
   { value: 'fishing-gear', label: 'Fishing Gear' },
-  { value: 'units', label: 'Units' },
 ]
 
 function FisheriesSettingsHub() {
@@ -28,7 +27,7 @@ function FisheriesSettingsHub() {
   return (
     <PageLayout
       title="Fisheries Settings"
-      subtitle="Configure species options, categories, feed types, diseases, fingerling sources, and the equipment types, fishing gear and units the assistance forms offer"
+      subtitle="Configure species options, categories, feed types, diseases, fingerling sources, and the equipment types and fishing gear the assistance forms offer"
     >
       <div className="mb-4">
         <PillTabs
@@ -46,7 +45,6 @@ function FisheriesSettingsHub() {
       {activeTab === 'fingerling-sources' && <FingerlingSourcePage asTab />}
       {activeTab === 'equipment-types' && <AssistanceOptionsTab domain="fisheries" kind="equipment" title="Equipment Types" singular="Equipment Type" example="Aerator" />}
       {activeTab === 'fishing-gear' && <AssistanceOptionsTab domain="fisheries" kind="gear" title="Fishing Gear" singular="Fishing Gear" example="Gill Net" />}
-      {activeTab === 'units' && <AssistanceOptionsTab domain="fisheries" kind="unit" title="Units" singular="Unit" example="kg" />}
     </PageLayout>
   )
 }

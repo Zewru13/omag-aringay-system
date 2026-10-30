@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  typeFieldFor, choicesWith, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS,
+  typeFieldFor, choicesWith, ASSISTANCE_UNITS, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS,
 } = await import(new URL('../src/pages/AssistanceManagement/assistanceFieldHelpers.js', import.meta.url).href)
 const { makeAssistanceForm, quantityText, assistanceFormProblem, withAssistanceType, organizationRequest, peopleRequest } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
@@ -27,6 +27,11 @@ eq(choicesWith(['Urea', 'Ammonium'], 'Urea'), ['Urea', 'Ammonium'], 'already the
 eq(choicesWith(['Urea'], 'Old Mix'), ['Urea', 'Old Mix'], 'an older value is kept')
 eq(choicesWith(null, 'Old Mix'), ['Old Mix'], 'the list not loaded yet')
 eq(choicesWith(['Urea'], ''), ['Urea'], 'no current value')
+
+// the unit of the quantity is a fixed list (no Units setting), and an older record's own unit stays choosable
+eq(ASSISTANCE_UNITS, ['kg', 'sack', 'bag', 'piece', 'bundle', 'box', 'liter', 'set'], 'the fixed units')
+eq(choicesWith(ASSISTANCE_UNITS, 'tin').slice(-1), ['tin'], 'an older unit is kept')
+eq(choicesWith(ASSISTANCE_UNITS, 'sack'), ASSISTANCE_UNITS, 'a listed unit is not repeated')
 
 // ── number and unit become the quantity text
 eq(quantityWithUnit('2', 'sack'), '2 sack', 'a number and a unit')

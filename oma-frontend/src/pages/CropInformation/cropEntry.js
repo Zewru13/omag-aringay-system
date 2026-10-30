@@ -58,7 +58,7 @@ export function cropOwnershipCell(record) {
 // What a row starts as when its crop is picked: the crop's own way (a crop that is both starts as seed).
 export const defaultPlantingMaterial = (cropType) => materialFor(cropType, 'Seed')
 
-// The unit choices for the seed quantity: the usual ones, then every unit typed in Settings > Units (`weights` is what
+// The unit choices for the seed quantity: the usual ones, then every unit of Harvest Unit Settings (`weights` is what
 // useHarvestUnitWeights returns, null while loading), then the unit the record already has so an older value never disappears.
 const USUAL_SEED_UNITS = ['kg', 'bags', 'pcs', 'bundles']
 export function seedUnitOptions(weights, current) {

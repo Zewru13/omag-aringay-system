@@ -72,7 +72,7 @@ export const SECTIONS = [
       },
       {
         q: 'Can the seed quantity be counted in something other than kg?',
-        a: 'Yes. In Edit Crop the unit next to Qty of Seeds lists kg, bags, pcs and bundles, followed by every unit added in Crop Settings under Units (sacks, cavan and so on). Add a unit there and it appears in this list. The bulk Add Crop table counts seeds in kg.',
+        a: 'Yes. In Edit Crop the unit next to Qty of Seeds lists kg, bags, pcs and bundles, followed by every unit set up in Admin > Harvest Unit Settings (sacks, cavan and so on). Add a unit there and it appears in this list. The bulk Add Crop table counts seeds in kg.',
       },
       {
         q: 'How do I record that a crop has PCIC insurance?',

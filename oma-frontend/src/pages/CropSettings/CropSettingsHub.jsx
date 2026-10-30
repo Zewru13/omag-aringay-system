@@ -15,7 +15,6 @@ const TABS = [
   { value: 'varieties',   label: 'Varieties' },
   { value: 'input-types', label: 'Input Types' },
   { value: 'equipment-types', label: 'Equipment Types' },
-  { value: 'units', label: 'Units' },
 ]
 
 function CropSettingsHub() {
@@ -27,7 +26,7 @@ function CropSettingsHub() {
   return (
     <PageLayout
       title="Crop Settings"
-      subtitle="Configure crop options, categories, activity suggestions, and the equipment types and units the assistance forms offer"
+      subtitle="Configure crop options, categories, activity suggestions, and the equipment types the assistance forms offer"
     >
       <div className="mb-4">
         <PillTabs
@@ -44,7 +43,6 @@ function CropSettingsHub() {
       {activeTab === 'varieties'   && <CropVarietyPage    asTab />}
       {activeTab === 'input-types' && <CropInputTypePage  asTab />}
       {activeTab === 'equipment-types' && <AssistanceOptionsTab domain="crop" kind="equipment" title="Equipment Types" singular="Equipment Type" example="Hand Tractor" />}
-      {activeTab === 'units' && <AssistanceOptionsTab domain="crop" kind="unit" title="Units" singular="Unit" example="sack" />}
     </PageLayout>
   )
 }

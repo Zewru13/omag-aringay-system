@@ -412,7 +412,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     quantity_of_trees: record.quantity_of_trees ? String(record.quantity_of_trees) : "",
   };
   const [form, setForm] = useState(originalData);
-  const unitWeights = useHarvestUnitWeights();   // the units typed in Settings > Units
+  const unitWeights = useHarvestUnitWeights();   // the units of Harvest Unit Settings
   const [pcic, setPcic] = useState(() => pcicStateFrom(record));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
