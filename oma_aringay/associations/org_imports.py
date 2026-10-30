@@ -15,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsOwnOrgOrStaff
+from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from core.idnumbers import by_id_key
 from core.import_batches import record_created, start_batch
 from core.utils import ImportFileError, cell_text, is_plain_int, read_template_rows, run_import_atomically
@@ -331,6 +331,18 @@ class MemberImportTemplateView(_OrgImportView):
             ['01-033-02-019-000000', 'Member', '2026-01-15'], f'{MEMBER_NOTE_PREFIX} {positions}')
 
 
+class MemberRegistrationTemplateView(APIView):
+    """The members file template for the registration form, where the organization does not exist yet (staff only)."""
+    domain = None
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        positions = ', '.join(DOMAINS[self.domain]['member_model'].Position.values)
+        return _template_response(
+            f'{self.domain}_organization_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
+            ['01-033-02-019-000000', 'Member', '2026-01-15'], f'{MEMBER_NOTE_PREFIX} {positions}')
+
+
 class MemberImportView(_OrgImportView):
     parser_classes = [MultiPartParser]
 
@@ -356,6 +368,10 @@ def member_import_view(domain):
 
 def member_import_template_view(domain):
     return _for_domain(MemberImportTemplateView, domain)
+
+
+def member_registration_template_view(domain):
+    return type(f'{domain.title()}MemberRegistrationTemplateView', (MemberRegistrationTemplateView,), {'domain': domain})
 
 
 class EquipmentImportTemplateView(_OrgImportView):

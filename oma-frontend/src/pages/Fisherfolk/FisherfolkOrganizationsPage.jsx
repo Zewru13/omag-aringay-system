@@ -36,6 +36,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
   const [registeredFrom, setRegisteredFrom] = useState('')
   const [registeredTo, setRegisteredTo] = useState('')
   const [showCreateModal,   setShowCreateModal]   = useState(false)
+  const [membersImport, setMembersImport] = useState(null)   // { file, organization }: the members file chosen on the registration form
   const [showImportModal,   setShowImportModal]   = useState(false)
   const [editOrganization,   setEditOrganization]   = useState(null)
   const [refreshKey,        setRefreshKey]        = useState(0)
@@ -71,9 +72,11 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
     navigate(`/organizations/fisherfolk/${row.id}`)
   }
 
-  const handleCreateSuccess = () => {
+  const handleCreateSuccess = ({ importFile, organization } = {}) => {
     setShowCreateModal(false)
     setRefreshKey((k) => k + 1)
+    // A members file attached on the form is read now, in the Import Members window of the new organization (preview first).
+    if (importFile && organization?.id) setMembersImport({ file: importFile, organization })
   }
 
   const tableData = organizations.map((a) => ({
@@ -152,6 +155,20 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
           type="fisherfolk"
           onClose={() => setEditOrganization(null)}
           onSuccess={() => { setEditOrganization(null); setRefreshKey((k) => k + 1) }}
+        />
+      )}
+
+      {membersImport && (
+        <ImportFileModal
+          title="Import Members"
+          subtitle={`Add already-registered fisherfolk to ${membersImport.organization.name} from the file you attached.`}
+          importUrl={`/organizations/fisherfolk/${membersImport.organization.id}/members/import/`}
+          templateUrl={`/organizations/fisherfolk/${membersImport.organization.id}/members/import/template/`}
+          templateFilename="fisherfolk_organization_members_import_template.xlsx"
+          undoType="fisherfolk_org_members"
+          initialFile={membersImport.file}
+          onClose={() => setMembersImport(null)}
+          onImported={() => setRefreshKey((k) => k + 1)}
         />
       )}
 

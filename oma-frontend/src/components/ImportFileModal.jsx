@@ -35,13 +35,14 @@ const PAGE_SIZE = 25
 // records and has no commit step at all.
 export default function ImportFileModal({
   title, subtitle, importUrl, templateUrl, templateFilename, helpText, onClose, onImported, undoType,
+  initialFile = null,   // a file already chosen elsewhere (the organization form): the window opens with it ready to preview
 }) {
   const { showToast } = useToast()
   const { isAdmin, isEvaluator } = useAuth()
   // Only OMAg staff can undo an import; an organization account importing its own members sees no undo.
   const canUndo = Boolean(undoType) && (isAdmin || isEvaluator)
   const [step, setStep] = useState('upload')
-  const [file, setFile] = useState(null)
+  const [file, setFile] = useState(initialFile)
   const [isBusy, setIsBusy] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [error, setError] = useState('')
