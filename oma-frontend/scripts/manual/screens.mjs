@@ -22,7 +22,7 @@ const phone = (o) => ({ phone: true, wait: 4000, ...o })
 
 const NAV_BAR = (label, desc) => ({ find: { css: 'nav[aria-label], nav:last-of-type', nth: 0 }, label, desc })
 const BELL = { find: { css: 'button[aria-label*="otification"]' }, label: 'Notifications bell', desc: 'Shows new notices, such as a disaster a farmer reported or an assistance that was given.' }
-const ACCOUNT = { find: { text: 'Aringay', tag: 'header' }, label: 'Account menu', desc: 'Your name. Open it for your profile, Help, the User Manual and Sign out.' }
+const ACCOUNT = { find: { text: 'Aringay', tag: 'header' }, label: 'Account menu', desc: 'Your name. Open it for your profile, the User Manual and Sign out.' }
 
 export const SCREENS = [
   // ───────────────────────────── Everyone: the sign-in page ─────────────────────────────
@@ -220,7 +220,7 @@ export const SCREENS = [
       { find: { text: 'Welcome', tag: 'h1, h2, p, div' }, label: 'Welcome banner', desc: 'Your name, the kind of account and the date.' },
       { find: { text: 'Farm parcels', tag: 'p, span, div', up: 1 }, label: 'Totals', desc: 'Parcels, active crops, total area and harvests this month.' },
       { find: { css: 'nav' , nth: 0 }, label: 'Bottom menu', desc: 'Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it.' },
-      { find: { css: 'header button, button[aria-label]', nth: 1 }, label: 'Bell and account', desc: 'Notifications and your account (profile, Help and Sign out).' },
+      { find: { css: 'header button, button[aria-label]', nth: 1 }, label: 'Bell and account', desc: 'Notifications and your account (profile, User Manual and Sign out).' },
     ] }),
   FA({ id: 'farmer-p-crops', phone: true, file: 'farmer/phone-crops.png', url: '/crop-monitoring', wait: 4000, title: 'Crop Monitoring on a phone (Farmer)', purpose: 'Your crops as cards.',
     callouts: [

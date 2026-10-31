@@ -22,6 +22,7 @@ import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
+import UserManualTabs from '../Manual/UserManualTabs.jsx'
 import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 
 // ── Help ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -102,8 +103,10 @@ const ORG_HELP_EN = {
 export function OrgHelpPage() {
   const { isFisherfolkOrg } = useAuth()
   return (
-    <PageLayout title="Help" subtitle="How to use your organization account.">
-      <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={ORG_HELP_EN} bare />
+    <PageLayout title="User Manual" subtitle="How to use your organization account.">
+      <UserManualTabs>
+        <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={ORG_HELP_EN} bare />
+      </UserManualTabs>
     </PageLayout>
   )
 }

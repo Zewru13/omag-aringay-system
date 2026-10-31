@@ -12,7 +12,6 @@ import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenc
 import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
 import AutoLabels from "./components/UI/AutoLabels.jsx";
 import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
-import ManualPage from "./pages/Manual/ManualPage.jsx";
 import BackupPage from "./pages/Backup/BackupPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
@@ -51,6 +50,13 @@ function HomeRedirect() {
   // Fisheries Monitoring (reused Admin page, scoped to their own records) by CitizenHomePage.
   if (isFisherfolk) return <Navigate to="/my-account" replace />;
   return <Navigate to={isCitizen ? "/my-account" : "/dashboard"} replace />;
+}
+
+// The User Manual lives inside each account's own User Manual (Help) page; /manual (the link of an earlier version) goes there.
+function ManualRedirect() {
+  const { isLoading, isFarmer, isFisherfolk, isOrg } = useAuth();
+  if (isLoading) return null;
+  return <Navigate to={isFarmer || isFisherfolk || isOrg ? "/my-help" : "/help"} replace />;
 }
 
 // Preserves :type/:id when redirecting the old /associations/:type/:id path
@@ -118,15 +124,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* User Manual: guides with screenshots for the signed-in kind of account (every account) */}
-          <Route
-            path="/manual"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
-                <ManualPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/manual" element={<ManualRedirect />} />
           <Route
             path="/my-help"
             element={

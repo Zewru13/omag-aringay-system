@@ -4,6 +4,7 @@ import PageLayout from "../../components/Layout/PageLayout.jsx";
 import { SYSTEM_TITLE } from "../../constants/appInfo.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { ROLE_LABELS, helpFor } from "./helpContent.js";
+import UserManualTabs from "../Manual/UserManualTabs.jsx";
 
 function FaqItem({ question, answer }) {
   const [open, setOpen] = useState(false);
@@ -38,9 +39,10 @@ function HelpPage() {
   const { steps, sections } = helpFor(role);
   return (
     <PageLayout
-      title="Help"
-      subtitle={`System guide and frequently asked questions for the ${ROLE_LABELS[role]} account`}
+      title="User Manual"
+      subtitle={`Screen guides, quick guide and frequently asked questions for the ${ROLE_LABELS[role]} account`}
     >
+      <UserManualTabs>
       {/* About This System */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 mb-4">
         <div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#F0F4F0]">
@@ -167,6 +169,7 @@ function HelpPage() {
           ))}
         </div>
       </div>
+      </UserManualTabs>
     </PageLayout>
   );
 }

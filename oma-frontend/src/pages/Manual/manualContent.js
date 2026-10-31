@@ -34,7 +34,7 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Open the system in your browser and sign in with your username (or email) and password. The first time, you are asked to choose a new password.',
       'The sidebar on the left lists everything you can open. Press the three-line button at the top to hide or show it.',
-      'Your name at the top right opens your account menu: your profile, Help, this User Manual and Sign out. The bell shows notifications, such as a disaster a farmer reported.',
+      'Your name at the top right opens your account menu: your profile, the User Manual (this page) and Sign out. The bell shows notifications, such as a disaster a farmer reported.',
     ],
   },
   {
@@ -213,7 +213,7 @@ const FARMER_GUIDES = [
     steps: [
       PHONE_NOTE,
       'The menu along the bottom has Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it.',
-      'The bell and your initials at the top open your notifications and your account (profile, Help, this manual and Sign out).',
+      'The bell and your initials at the top open your notifications and your account (profile, User Manual and Sign out).',
       'Tables become cards on a phone. Tap a card to open it; use the search box to find one.',
       'To report a disaster in the field, open Disaster, tick the crops that were hit, and add photos with the phone camera.',
     ],
