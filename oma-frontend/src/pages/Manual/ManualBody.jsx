@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { BookOpen, Printer } from 'lucide-react'
-import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PillTabs from '../../components/UI/PillTabs.jsx'
 import { SYSTEM_TITLE } from '../../constants/appInfo.js'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -34,9 +33,10 @@ function Screen({ screen, number }) {
   )
 }
 
-// The User Manual: annotated screen guides for the kind of account that is signed in (an Admin can also read the others). Print / Save as PDF turns the same
+// The User Manual's annotated screen guides for the kind of account that is signed in (an Admin can also read the others). Print / Save as PDF turns the same
 // guides into one document. The words are in manualContent.js; the pictures and their number tables come from the screenshot tool (scripts/manual/shoot.mjs).
-export default function ManualPage() {
+// It sits inside every account's User Manual (Help) page, see UserManualTabs.jsx.
+export default function ManualBody() {
   const { user, isFarmer, isFisherfolk, isOrg, isAdmin } = useAuth()
   const { showToast } = useToast()
   const own = audienceFor({ role: user?.role, isFarmer, isFisherfolk, isOrg })
@@ -62,12 +62,12 @@ export default function ManualPage() {
   }
 
   return (
-    <PageLayout title="User Manual" subtitle={`Annotated screen guides for the ${label} account`}>
+    <>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white p-4">
           <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-[#EBF5EE]"><BookOpen className="h-4 w-4 text-[#1B4D2E]" aria-hidden="true" /></div>
           <div className="min-w-0 flex-1 basis-64">
-            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">User Manual: {label}</h2>
+            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Screen guides: {label}</h2>
             <p className="text-[12.5px] text-[#7A8E7A]">Pick a guide below. The pictures use sample records, not real people.</p>
           </div>
           <button type="button" onClick={print} disabled={isPrinting}
@@ -128,6 +128,6 @@ export default function ManualPage() {
           </section>
         ))}
       </div>
-    </PageLayout>
+    </>
   )
 }

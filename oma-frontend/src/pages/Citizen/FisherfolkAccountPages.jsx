@@ -4,6 +4,7 @@
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
+import UserManualTabs from '../Manual/UserManualTabs.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import { FISH_THEME } from './citizenUI.jsx'
 
@@ -84,8 +85,10 @@ export function FisherfolkProfilePage() {
 
 export function FisherfolkHelpPage() {
   return (
-    <PageLayout title="Help" subtitle="How to use your fisheries account.">
-      <CitizenHelpScreen theme={FISH_THEME} L={FISHERFOLK_HELP_EN} bare />
+    <PageLayout title="User Manual" subtitle="How to use your fisheries account.">
+      <UserManualTabs>
+        <CitizenHelpScreen theme={FISH_THEME} L={FISHERFOLK_HELP_EN} bare />
+      </UserManualTabs>
     </PageLayout>
   )
 }

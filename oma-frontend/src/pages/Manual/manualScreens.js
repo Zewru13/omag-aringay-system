@@ -744,7 +744,7 @@ export default {
    {
     "n": 4,
     "label": "Bell and account",
-    "desc": "Notifications and your account (profile, Help and Sign out)."
+    "desc": "Notifications and your account (profile, User Manual and Sign out)."
    }
   ]
  },
