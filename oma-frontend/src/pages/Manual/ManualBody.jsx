@@ -17,9 +17,10 @@ function Screen({ screen, number }) {
         <p className="text-[13.5px] font-semibold text-[#1A2B1A]">{number}. {screen.title}</p>
         <p className="text-[12.5px] text-[#4A5E4A]">{screen.purpose}</p>
       </figcaption>
-      <a href={screen.image} target="_blank" rel="noreferrer" aria-label={`Open the ${screen.title} picture full size`}>
+      <a href={screen.image} target="_blank" rel="noreferrer" className="block" aria-label={`Open the ${screen.title} picture full size`}>
         <img src={screen.image} alt={`${screen.title}: ${screen.purpose}`} loading="lazy"
-          className={`rounded-md border border-[#E2E8E2] ${screen.phone ? 'mx-auto w-full max-w-[300px]' : 'w-full'}`} />
+          width={screen.phone ? 780 : 1280} height={screen.phone ? 1688 : 800}
+          className={`h-auto rounded-md border border-[#E2E8E2] ${screen.phone ? 'mx-auto w-full max-w-[300px]' : 'w-full'}`} />
       </a>
       <ol className="mt-3 divide-y divide-[#EEF2EE] text-[12.5px]" aria-label="What each number in the picture is">
         {screen.legend.map((row) => (
