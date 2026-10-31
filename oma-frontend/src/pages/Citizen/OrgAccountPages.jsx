@@ -142,7 +142,7 @@ function ApprovalLines({ request }) {
     </ul>
   )
 }
-const ACTION = 'text-[13px] font-medium text-primary hover:underline disabled:opacity-50'
+const ACTION = 'inline-flex min-h-8 items-center text-[13px] font-medium text-primary hover:underline disabled:opacity-50'
 
 function CardTitle({ children }) {
   return <h2 className="border-b border-border px-5 py-3 text-[13px] font-semibold uppercase tracking-wider text-text-secondary">{children}</h2>
