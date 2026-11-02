@@ -16,7 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '../..')
 const [tokensFile, ...only] = process.argv.slice(2)
-const { SCREENS } = await import(pathToFileURL(path.join(here, 'screens.mjs')).href)
+const { SCREENS } = await import(pathToFileURL(process.env.SCREENS_FILE || path.join(here, 'screens.mjs')).href)
 const tokens = JSON.parse(fs.readFileSync(tokensFile, 'utf8').replace(/^\uFEFF/, ''))
 const outDir = path.join(root, 'public/manual')
 const manifestFile = path.join(root, 'src/pages/Manual/manualScreens.js')
@@ -61,10 +61,11 @@ const callouts = ${JSON.stringify(callouts)};
 const visible = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' }
 const find = (f) => {
   let list = []
-  if (f.css) list = [...document.querySelectorAll(f.css)]
+  const scope = f.in ? (document.querySelector(f.in) || document) : document
+  if (f.css) list = [...scope.querySelectorAll(f.css)]
   else if (f.text) {
     const want = f.text.toLowerCase()
-    list = [...document.querySelectorAll(f.tag || 'button, a, h1, h2, h3, h4, th, label, p, span, li, div, td, strong')]
+    list = [...scope.querySelectorAll(f.tag || 'button, a, h1, h2, h3, h4, th, label, p, span, li, div, td, strong')]
       .filter((el) => { const t = (el.innerText || '').trim().toLowerCase().replace(/\\s+/g, ' '); return f.exact ? t === want : t.includes(want) })
     // the smallest element that holds the text (not a big wrapper)
     if (!f.last) list.sort((a, b) => a.getBoundingClientRect().width * a.getBoundingClientRect().height - b.getBoundingClientRect().width * b.getBoundingClientRect().height)
@@ -72,6 +73,7 @@ const find = (f) => {
   list = list.filter(visible)
   let el = f.last ? list[list.length - 1] : list[f.nth || 0]
   for (let k = 0; el && k < (f.up || 0); k += 1) el = el.parentElement
+  if (el && f.closest) el = el.closest(f.closest) || el
   return el
 }
 const layer = document.createElement('div')
@@ -80,20 +82,23 @@ document.body.appendChild(layer)
 const missing = []
 const found = []
 callouts.forEach((c, i) => {
-  const el = find(c.find)
-  if (!el) { missing.push(i + 1); return }
+  const finds = Array.isArray(c.find) ? c.find : [c.find]
+  const els = finds.map(find).filter(Boolean)
+  if (!els.length) { missing.push(i + 1); return }
   found.push(i)
-  const r = el.getBoundingClientRect()
-  const pad = c.pad ?? 3
-  const box = document.createElement('div')
-  box.style.cssText = 'position:fixed;border:3px solid #F97316;border-radius:6px;background:rgba(249,115,22,.07);left:' + (r.left - pad) + 'px;top:' + (r.top - pad) + 'px;width:' + (r.width + pad * 2) + 'px;height:' + (r.height + pad * 2) + 'px;'
-  const tag = document.createElement('div')
-  tag.textContent = String(found.length)
-  const side = c.tag === 'left' ? 'left:-3px;' : 'right:-3px;'
-  const top = r.top - pad < 24 ? '3px' : '-20px'
-  tag.style.cssText = 'position:absolute;top:' + top + ';' + side + 'min-width:22px;height:22px;padding:0 5px;border-radius:5px;background:#F97316;color:#fff;font:700 13px/22px Helvetica,Arial,sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35);'
-  box.appendChild(tag)
-  layer.appendChild(box)
+  els.forEach((el) => {
+    const r = el.getBoundingClientRect()
+    const pad = c.pad ?? 3
+    const box = document.createElement('div')
+    box.style.cssText = 'position:fixed;border:3px solid #F97316;border-radius:6px;background:rgba(249,115,22,.07);left:' + (r.left - pad) + 'px;top:' + (r.top - pad) + 'px;width:' + (r.width + pad * 2) + 'px;height:' + (r.height + pad * 2) + 'px;'
+    const tag = document.createElement('div')
+    tag.textContent = String(found.length)
+    const side = c.tag === 'left' ? 'left:-3px;' : 'right:-3px;'
+    const top = r.top - pad < 24 ? '3px' : '-20px'
+    tag.style.cssText = 'position:absolute;top:' + top + ';' + side + 'min-width:22px;height:22px;padding:0 5px;border-radius:5px;background:#F97316;color:#fff;font:700 13px/22px Helvetica,Arial,sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35);'
+    box.appendChild(tag)
+    layer.appendChild(box)
+  })
 })
 return { missing, found }
 `
@@ -134,9 +139,39 @@ try {
         await send('Emulation.setTouchEmulationEnabled', { enabled: false })
       }
     }
+    // A tall desktop picture (screen.height) for pages with many panels: the page is shown at 1280 x height.
+    if (!phone) {
+      const h = screen.height || 800
+      await send('Emulation.setDeviceMetricsOverride', { width: screen.width || 1280, height: h, deviceScaleFactor: 1, mobile: false })
+    }
     await send('Page.navigate', { url: BASE + screen.url })
-    await sleep(screen.wait || 3500)
+    await sleep((screen.wait || 3500) + 1500)
     if (screen.js) { await evaluate(screen.js); await sleep(screen.after || 1500) }
+    if (process.env.INVENTORY) {
+      // List every visible control of the screen (not a picture): what the manual's legend has to explain.
+      const list = await evaluate(`
+const vis = (el) => { const r = el.getBoundingClientRect(); const st = getComputedStyle(el); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' }
+const root = [...document.querySelectorAll('[role=dialog], [aria-modal=true], .fixed.inset-0')].filter(vis).pop() || document
+const region = (e) => e.closest('aside') ? 'sidebar' : e.closest('header') ? 'header' : e.closest('nav') ? 'nav' : e.closest('table') ? 'table' : 'page'
+const label = (e) => (e.getAttribute('aria-label') || e.innerText || e.value || e.getAttribute('placeholder') || e.getAttribute('title') || (e.labels && e.labels[0] && e.labels[0].innerText) || '').trim().replace(/\\s+/g, ' ').slice(0, 60)
+const out = []
+const seen = new Set()
+for (const e of root.querySelectorAll('button, a[href], input, select, textarea, [role=tab], [role=menuitem], th, h1, h2, h3, label')) {
+  if (!vis(e)) continue
+  const tag = e.tagName.toLowerCase() + (e.type && ['input'].includes(e.tagName.toLowerCase()) ? ':' + e.type : '')
+  const reg = region(e)
+  if (reg === 'sidebar' || reg === 'header') continue
+  if (reg === 'table' && e.tagName !== 'TH' && e.closest('tbody tr') && e.closest('tbody tr') !== e.closest('tbody').querySelector('tr')) continue
+  const key = tag + '|' + label(e) + '|' + reg
+  if (seen.has(key)) continue
+  seen.add(key)
+  out.push(reg + ' ' + tag + ' ' + JSON.stringify(label(e)))
+}
+return out.join('\\n')`)
+      fs.appendFileSync(process.env.INVENTORY, `\n=== ${screen.id} (${screen.url})\n${list}\n`)
+      console.log('inventoried', screen.id)
+      continue
+    }
     const { missing, found } = await evaluate(DRAW(screen.callouts))
     const path_ = await evaluate('return location.pathname')
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
@@ -144,7 +179,7 @@ try {
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.writeFileSync(file, Buffer.from(shot.result.data, 'base64'))
     manifest[screen.id] = {
-      audience: screen.audience, title: screen.title, purpose: screen.purpose, image: `/manual/${screen.file}`, phone: phone || undefined,
+      audience: screen.audience, title: screen.title, purpose: screen.purpose, image: `/manual/${screen.file}`, phone: phone || undefined, width: phone ? 780 : (screen.width || 1280), height: phone ? 1688 : (screen.height || 800),
       legend: found.map((idx, k) => ({ n: k + 1, label: screen.callouts[idx].label, desc: screen.callouts[idx].desc })),
     }
     console.log(missing.length ? 'MISSING' : 'ok', screen.id, path_, missing.length ? `callouts not found: ${missing.join(',')}` : '')

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const { AUDIENCES, audienceFor, manualFor, manualIntro, allImages } = await import(new URL('../src/pages/Manual/manualContent.js', import.meta.url).href)
+const { AUDIENCES, audienceFor, manualFor, manualIntro, allImages, missingScreens } = await import(new URL('../src/pages/Manual/manualContent.js', import.meta.url).href)
 const { buildManualHtml } = await import(new URL('../src/pages/Manual/manualPrint.js', import.meta.url).href)
 const { default: SCREENS } = await import(new URL('../src/pages/Manual/manualScreens.js', import.meta.url).href)
 
@@ -35,9 +35,12 @@ AUDIENCES.forEach(({ id }) => {
 })
 
 // a guide never names a screen that was not photographed (manualFor would silently drop it)
-const listed = AUDIENCES.flatMap(({ id }) => manualFor(id))
-listed.forEach((g) => assert.ok(g.screens.length > 0, `${g.id}: its screens exist`))
-n++
+eq(missingScreens(), [], 'every screen a guide names was photographed')
+
+// the manual explains the buttons: a screen with a legend of one or two rows is a stub, so most screens have several
+const all = AUDIENCES.flatMap(({ id }) => manualFor(id).flatMap((g) => g.screens))
+assert.ok(all.filter((x) => x.legend.length >= 5).length >= 60, 'most screens explain five or more elements'); n++
+assert.ok(all.reduce((sum, x) => sum + x.legend.length, 0) >= 900, 'the legends add up to hundreds of explained elements'); n++
 
 // the farmer, fisherfolk and organization manuals each show phone-size screens (the sign-in page is shared)
 ;['farmer', 'fisherfolk', 'org'].forEach((id) => {
