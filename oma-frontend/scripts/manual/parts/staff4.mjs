@@ -56,7 +56,7 @@ export const STAFF4 = [
       { find: { text: 'Feeding Log', tag: 'button' }, label: 'Feeding Log', desc: 'The feed given: the date, the feed type (from Fisheries Settings) and the amount. Add a log from here.' },
       { find: { text: 'Health Log', tag: 'button' }, label: 'Health Log', desc: 'Disease and treatment records of the cycle: the date, the disease (from Fisheries Settings) and what was done.' },
       { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle\'s details.' },
-      { find: { css: 'thead' }, label: 'Ponds table', desc: 'Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured tick.' },
+      { find: { css: 'thead', last: true }, label: 'Ponds table', desc: 'Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured tick.' },
     ] }),
 
   // ───────────────────────────── Capture Monitoring ─────────────────────────────
@@ -84,7 +84,7 @@ export const STAFF4 = [
     callouts: [
       { find: { text: 'Barangay', tag: 'label', up: 1 }, label: 'Barangay', desc: 'Only one barangay, or All Barangays.' },
       { find: { text: 'Fisherfolk Type', tag: 'label', up: 1 }, label: 'Fisherfolk Type', desc: 'All Types, Capture or Aquaculture.' },
-      { find: { css: 'table' }, label: 'Timeline table', desc: 'For each season and year: the total catch in kg, the number of trips and how many fisherfolk were active.' },
+      { find: { css: 'table', last: true }, label: 'Timeline table', desc: 'For each season and year: the total catch in kg, the number of trips and how many fisherfolk were active.' },
     ] }),
 
   // ───────────────────────────── Forecasting ─────────────────────────────

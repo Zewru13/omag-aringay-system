@@ -79,28 +79,47 @@ const find = (f) => {
 const layer = document.createElement('div')
 layer.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;'
 document.body.appendChild(layer)
+// A box counts only when the element can really be seen in the picture: inside the window (not scrolled away or below the fold) and not covered
+// by a window or overlay on top of it. Otherwise its number would be in the legend but nowhere in the picture.
+const shown = (el) => {
+  const r = el.getBoundingClientRect()
+  const vw = innerWidth, vh = innerHeight
+  const visW = Math.min(r.right, vw) - Math.max(r.left, 0)
+  const visH = Math.min(r.bottom, vh) - Math.max(r.top, 0)
+  if (visW < Math.min(r.width * 0.6, 24) || visH < Math.min(r.height * 0.6, 14)) return false
+  const x = Math.max(r.left, 0) + visW / 2
+  const y = Math.max(r.top, 0) + Math.min(visH / 2, 12)
+  const top = document.elementFromPoint(x, y)
+  return Boolean(top) && (el.contains(top) || top.contains(el))
+}
 const missing = []
+const lost = []
 const found = []
 callouts.forEach((c, i) => {
   const finds = Array.isArray(c.find) ? c.find : [c.find]
   const els = finds.map(find).filter(Boolean)
   if (!els.length) { missing.push(i + 1); return }
+  const seen = els.filter(shown)
+  if (!seen.length) { lost.push(c.label); return }
   found.push(i)
-  els.forEach((el) => {
+  seen.forEach((el) => {
     const r = el.getBoundingClientRect()
     const pad = c.pad ?? 3
     const box = document.createElement('div')
     box.style.cssText = 'position:fixed;border:3px solid #F97316;border-radius:6px;background:rgba(249,115,22,.07);left:' + (r.left - pad) + 'px;top:' + (r.top - pad) + 'px;width:' + (r.width + pad * 2) + 'px;height:' + (r.height + pad * 2) + 'px;'
     const tag = document.createElement('div')
     tag.textContent = String(found.length)
-    const side = c.tag === 'left' ? 'left:-3px;' : 'right:-3px;'
-    const top = r.top - pad < 24 ? '3px' : '-20px'
-    tag.style.cssText = 'position:absolute;top:' + top + ';' + side + 'min-width:22px;height:22px;padding:0 5px;border-radius:5px;background:#F97316;color:#fff;font:700 13px/22px Helvetica,Arial,sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35);'
+    // the number sits on the corner of its own box, so it cannot be mistaken for the box above it
+    // ...and is kept inside the picture when its box touches an edge of the window
+    const edgeR = r.right + pad + 12 > innerWidth
+    const edgeT = r.top - pad - 12 < 0
+    const side = c.tag === 'left' ? 'left:-12px;' : (edgeR ? 'right:4px;' : 'right:-12px;')
+    tag.style.cssText = 'position:absolute;top:' + (edgeT ? '4px' : '-12px') + ';' + side + 'min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:#F97316;color:#fff;font:700 13px/22px Helvetica,Arial,sans-serif;text-align:center;box-shadow:0 0 0 2px #fff,0 1px 3px rgba(0,0,0,.4);'
     box.appendChild(tag)
     layer.appendChild(box)
   })
 })
-return { missing, found }
+return { missing, found, lost }
 `
 
 await send('Page.enable')
@@ -140,7 +159,9 @@ try {
       }
     }
     // A tall desktop picture (screen.height) for pages with many panels: the page is shown at 1280 x height.
-    if (!phone) {
+    if (phone) {
+      await send('Emulation.setDeviceMetricsOverride', { width: 390, height: screen.height || 844, deviceScaleFactor: 2, mobile: true })
+    } else {
       const h = screen.height || 800
       await send('Emulation.setDeviceMetricsOverride', { width: screen.width || 1280, height: h, deviceScaleFactor: 1, mobile: false })
     }
@@ -172,17 +193,17 @@ return out.join('\\n')`)
       console.log('inventoried', screen.id)
       continue
     }
-    const { missing, found } = await evaluate(DRAW(screen.callouts))
+    const { missing, found, lost } = await evaluate(DRAW(screen.callouts))
     const path_ = await evaluate('return location.pathname')
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
     const file = path.join(outDir, screen.file)
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.writeFileSync(file, Buffer.from(shot.result.data, 'base64'))
     manifest[screen.id] = {
-      audience: screen.audience, title: screen.title, purpose: screen.purpose, image: `/manual/${screen.file}`, phone: phone || undefined, width: phone ? 780 : (screen.width || 1280), height: phone ? 1688 : (screen.height || 800),
+      audience: screen.audience, title: screen.title, purpose: screen.purpose, image: `/manual/${screen.file}`, phone: phone || undefined, width: phone ? 780 : (screen.width || 1280), height: phone ? (screen.height || 844) * 2 : (screen.height || 800),
       legend: found.map((idx, k) => ({ n: k + 1, label: screen.callouts[idx].label, desc: screen.callouts[idx].desc })),
     }
-    console.log(missing.length ? 'MISSING' : 'ok', screen.id, path_, missing.length ? `callouts not found: ${missing.join(',')}` : '')
+    console.log(missing.length || lost.length ? 'MISSING' : 'ok', screen.id, path_, missing.length ? `callouts not found: ${missing.join(',')}` : '', lost.length ? `NOT VISIBLE (dropped): ${lost.join(' | ')}` : '')
   }
   fs.writeFileSync(manifestFile, `${MANIFEST_HEAD}${JSON.stringify(manifest, null, 1)}\n`)
 } finally {

@@ -95,7 +95,7 @@ export const STAFF5 = [
     ] }),
 
   // ───────────────────────────── Admin settings ─────────────────────────────
-  A({ id: 'admin-crop-settings', file: 'admin/crop-settings.png', url: '/crop-settings', title: 'Admin > Crop Settings', purpose: 'The lists the crop forms use: crops, categories, seed sources, varieties, input types and equipment types.',
+  A({ id: 'admin-crop-settings', file: 'admin/crop-settings.png', url: '/crop-settings', height: 1250, title: 'Admin > Crop Settings', purpose: 'The lists the crop forms use: crops, categories, seed sources, varieties, input types and equipment types.',
     callouts: [
       { find: [{ text: 'Crop Options', tag: 'button' }, { text: 'Categories', tag: 'button', exact: true }, { text: 'Seed Sources', tag: 'button' }, { text: 'Varieties', tag: 'button' }, { text: 'Input Types', tag: 'button' }, { text: 'Equipment Types', tag: 'button' }], label: 'Tabs', desc: 'Crop Options (the crops), Categories, Seed Sources, Varieties, Input Types (fertilizers, pesticides and so on) and Equipment Types (the machinery names used for farmers and farmers organizations). Each tab has its own table.' },
       SEARCH_ROW('a crop by name, category or subcategory'),
@@ -131,7 +131,7 @@ export const STAFF5 = [
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the row.' },
       { find: { text: 'Add Species', tag: 'button', exact: true }, label: 'Add Species', desc: 'The button is named after what the tab holds. A new row opens at the top of the table: fill it and press Save.' },
     ] }),
-  A({ id: 'admin-activity-settings', file: 'admin/activity-settings.png', url: '/activity-settings', title: 'Admin > Activity Settings', purpose: 'The activity types used in the crop and fisheries activity logs.',
+  A({ id: 'admin-activity-settings', file: 'admin/activity-settings.png', url: '/activity-settings', height: 1250, title: 'Admin > Activity Settings', purpose: 'The activity types used in the crop and fisheries activity logs.',
     callouts: [
       { find: [{ text: 'Crop Activities', tag: 'button' }, { text: 'Fisheries Activities', tag: 'button' }], label: 'Crop / Fisheries Activities', desc: 'Switches between the activity types of crops (fertilizing, spraying and so on) and of fisheries.' },
       { find: { text: 'Activity Types', tag: 'h2', closest: H }, label: 'Activity Types', desc: 'The list the Activity box of Record Activity offers. The suggestions per crop are set in Crop Settings.' },
@@ -168,7 +168,7 @@ export const STAFF5 = [
       { find: COLS, label: 'Columns', desc: 'Name, email, role, status (Active or Inactive) and Actions.' },
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'Edit user changes the details and can turn the account off. Resend verification email sends the verification message again to an account that has not verified its email.' },
     ] }),
-  A({ id: 'admin-audit-log', file: 'admin/audit-log.png', url: '/audit-log', title: 'Activity Log (Admin)', purpose: 'Who changed what, and when. Open it from the account menu at the top right.',
+  A({ id: 'admin-audit-log', file: 'admin/audit-log.png', url: '/audit-log', height: 1500, title: 'Activity Log (Admin)', purpose: 'Who changed what, and when. Open it from the account menu at the top right.',
     callouts: [
       { find: FILTERS, label: 'Filters', desc: 'Opens the filter row (next picture).' },
       { find: COLS, label: 'Columns', desc: 'The date and time, the user, the action (Create, Update or Delete), the model (what kind of record) and a description of the change.' },

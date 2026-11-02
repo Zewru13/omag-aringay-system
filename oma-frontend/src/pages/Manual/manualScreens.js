@@ -1301,7 +1301,7 @@ export default {
   "purpose": "Records several parcels of one farmer in one table, with their crops.",
   "image": "/manual/admin/add-parcels.png",
   "width": 1280,
-  "height": 800,
+  "height": 1050,
   "legend": [
    {
     "n": 1,
@@ -1646,7 +1646,7 @@ export default {
   "purpose": "Everything recorded about one crop.",
   "image": "/manual/admin/crop-details.png",
   "width": 1280,
-  "height": 1000,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
@@ -3191,7 +3191,7 @@ export default {
   "purpose": "The lists the crop forms use: crops, categories, seed sources, varieties, input types and equipment types.",
   "image": "/manual/admin/crop-settings.png",
   "width": 1280,
-  "height": 800,
+  "height": 1250,
   "legend": [
    {
     "n": 1,
@@ -3351,7 +3351,7 @@ export default {
   "purpose": "The activity types used in the crop and fisheries activity logs.",
   "image": "/manual/admin/activity-settings.png",
   "width": 1280,
-  "height": 800,
+  "height": 1250,
   "legend": [
    {
     "n": 1,
@@ -3501,7 +3501,7 @@ export default {
   "purpose": "Who changed what, and when. Open it from the account menu at the top right.",
   "image": "/manual/admin/audit-log.png",
   "width": 1280,
-  "height": 800,
+  "height": 1500,
   "legend": [
    {
     "n": 1,
@@ -4648,7 +4648,7 @@ export default {
   "image": "/manual/farmer/phone-home.png",
   "phone": true,
   "width": 780,
-  "height": 1688,
+  "height": 3500,
   "legend": [
    {
     "n": 1,
@@ -4834,7 +4834,7 @@ export default {
   "image": "/manual/farmer/phone-profile.png",
   "phone": true,
   "width": 780,
-  "height": 1688,
+  "height": 2600,
   "legend": [
    {
     "n": 1,
@@ -4855,7 +4855,7 @@ export default {
   "image": "/manual/fisherfolk/phone-home.png",
   "phone": true,
   "width": 780,
-  "height": 1688,
+  "height": 3500,
   "legend": [
    {
     "n": 1,
@@ -4937,7 +4937,7 @@ export default {
   "image": "/manual/fisherfolk/phone-disaster.png",
   "phone": true,
   "width": 780,
-  "height": 1688,
+  "height": 3000,
   "legend": [
    {
     "n": 1,
@@ -5010,7 +5010,7 @@ export default {
   "image": "/manual/org/phone-home.png",
   "phone": true,
   "width": 780,
-  "height": 1688,
+  "height": 2800,
   "legend": [
    {
     "n": 1,

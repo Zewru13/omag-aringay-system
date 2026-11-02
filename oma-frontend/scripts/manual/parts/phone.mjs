@@ -27,7 +27,7 @@ export const PHONE = [
     ] },
 
   // ───────────────────────────── Farmer ─────────────────────────────
-  FA({ id: 'farmer-p-home', phone: true, file: 'farmer/phone-home.png', url: '/my-account', wait: 6000, title: 'Home on a phone (Farmer)', purpose: 'The same Home on a phone, with the menu along the bottom.',
+  FA({ id: 'farmer-p-home', phone: true, file: 'farmer/phone-home.png', url: '/my-account', wait: 6000, height: 1750, title: 'Home on a phone (Farmer)', purpose: 'The same Home on a phone, with the menu along the bottom.',
     callouts: [
       HEAD,
       { find: { text: 'Welcome', tag: 'h1, h2, p, div', up: 1 }, label: 'Welcome banner', desc: 'Your name, the kind of account and the date.' },
@@ -69,14 +69,14 @@ export const PHONE = [
       { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'An assistance', desc: 'Tap one to open its details and to confirm that you received it when it asks you to.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
-  FA({ id: 'farmer-p-profile', phone: true, file: 'farmer/phone-profile.png', url: '/my-profile', wait: 5000, title: 'My Profile on a phone (Farmer)', purpose: 'Your details on a phone.',
+  FA({ id: 'farmer-p-profile', phone: true, file: 'farmer/phone-profile.png', url: '/my-profile', wait: 5000, height: 1300, title: 'My Profile on a phone (Farmer)', purpose: 'Your details on a phone.',
     callouts: [
       { find: { css: 'button[aria-label="Change photo"]' }, label: 'Change photo', desc: 'The camera button changes your photo.' },
       { find: { text: 'Log out', tag: 'span, button, a', up: 1 }, label: 'Log out', desc: 'Signs you out of this device.' },
     ] }),
 
   // ───────────────────────────── Fisherfolk ─────────────────────────────
-  FI({ id: 'fisherfolk-p-home', phone: true, file: 'fisherfolk/phone-home.png', url: '/my-account', wait: 6000, title: 'Home on a phone (Fisherfolk)', purpose: 'Your cycles at a glance, with the menu along the bottom.',
+  FI({ id: 'fisherfolk-p-home', phone: true, file: 'fisherfolk/phone-home.png', url: '/my-account', wait: 6000, height: 1750, title: 'Home on a phone (Fisherfolk)', purpose: 'Your cycles at a glance, with the menu along the bottom.',
     callouts: [
       HEAD,
       { find: { text: 'Welcome', tag: 'h1, h2, p, div', up: 1 }, label: 'Welcome banner', desc: 'Your name, the kind of account and the date.' },
@@ -94,7 +94,7 @@ export const PHONE = [
       { find: { text: 'Tilapia', tag: 'h3, p, div, span', closest: CARD }, label: 'A stock card', desc: 'Tap a stock to open its ponds or cages, its dates, the harvest and its menu (details, logs, force harvest).' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
-  FI({ id: 'fisherfolk-p-disaster', phone: true, file: 'fisherfolk/phone-disaster.png', url: '/disaster', wait: 5000, title: 'Disaster on a phone (Fisherfolk)', purpose: 'Report a disaster from the pond side.',
+  FI({ id: 'fisherfolk-p-disaster', phone: true, file: 'fisherfolk/phone-disaster.png', url: '/disaster', wait: 5000, height: 1500, title: 'Disaster on a phone (Fisherfolk)', purpose: 'Report a disaster from the pond side.',
     callouts: [
       { find: { text: 'Disaster history', tag: 'button' }, label: 'Disaster history', desc: 'The disasters you reported before.' },
       { find: { text: 'Affected Stock', tag: 'label', up: 1 }, label: 'Affected Stock', desc: 'Choose the stocks that were hit, or Not linked to a stock for equipment damage only.' },
@@ -113,7 +113,7 @@ export const PHONE = [
     ] }),
 
   // ───────────────────────────── Organization ─────────────────────────────
-  O({ id: 'org-p-home', phone: true, file: 'org/phone-home.png', url: '/my-account', wait: 6000, title: 'Home on a phone (Organization)', purpose: 'Your organization on a phone.',
+  O({ id: 'org-p-home', phone: true, file: 'org/phone-home.png', url: '/my-account', wait: 6000, height: 1400, title: 'Home on a phone (Organization)', purpose: 'Your organization on a phone.',
     callouts: [
       HEAD,
       { find: { text: 'Welcome', tag: 'h1, h2, p, div', up: 1 }, label: 'Welcome banner', desc: 'The organization\'s name and the date.' },

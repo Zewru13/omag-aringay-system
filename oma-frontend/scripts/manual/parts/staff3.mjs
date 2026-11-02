@@ -26,7 +26,7 @@ export const STAFF3 = [
       { find: { text: 'Print report', tag: 'button' }, label: 'Print report', desc: 'Prints the report of this parcel and its crops.' },
       { find: { text: 'Edit parcel', tag: 'button' }, label: 'Edit parcel', desc: 'Opens the Edit Farm Parcel window to change the parcel number, area, ownership and the other parcel details.' },
     ] }),
-  A({ id: 'admin-add-parcels', file: 'admin/add-parcels.png', url: '/crop-records', js: click('Add Farm Parcel'), after: 2500, title: 'Add Farm Parcels table', purpose: 'Records several parcels of one farmer in one table, with their crops.',
+  A({ id: 'admin-add-parcels', file: 'admin/add-parcels.png', url: '/crop-records', js: click('Add Farm Parcel'), after: 2500, height: 1050, title: 'Add Farm Parcels table', purpose: 'Records several parcels of one farmer in one table, with their crops.',
     callouts: [
       { find: { text: 'Back to Crop Records', tag: 'button' }, label: 'Back to Crop Records', desc: 'Leaves the table without saving.' },
       { find: { text: 'Farmer', tag: 'label', up: 1 }, label: 'Farmer', desc: 'Required. Search by name or RSBSA number and choose the farmer the parcels belong to.' },
@@ -103,7 +103,7 @@ export const STAFF3 = [
       { find: { text: 'Force Harvest', tag: 'button', exact: true }, label: 'Force Harvest', desc: 'Harvests crops that are not ready, because of something coming such as a typhoon.' },
       { find: { text: 'Report Disaster', tag: 'button' }, label: 'Report Disaster', desc: 'Reports damage on this one crop.' },
     ] }),
-  A({ id: 'admin-crop-details', file: 'admin/crop-details.png', url: '/crop-monitoring', js: cropMenu('View Crop Details'), after: 3000, height: 1000, title: 'Crop Details window', purpose: 'Everything recorded about one crop.',
+  A({ id: 'admin-crop-details', file: 'admin/crop-details.png', url: '/crop-monitoring', js: cropMenu('View Crop Details'), after: 3000, height: 1400, title: 'Crop Details window', purpose: 'Everything recorded about one crop.',
     callouts: [
       { find: { text: 'Crop Details', tag: 'h2' }, label: 'Crop Details', desc: 'The top shows the crop, its variety, farmer, parcel, dates, status, area and yield estimate.' },
       { find: { text: 'Activities', tag: 'h3', closest: 'div' }, label: 'Activities', desc: 'Every activity logged on the crop, newest first, with the date, the plant condition and the recommendations.' },
@@ -151,7 +151,7 @@ export const STAFF3 = [
       { find: { text: 'reason', tag: 'label', up: 1 }, label: 'Reason', desc: 'Required. Why the crops are harvested early: an upcoming typhoon or super typhoon, El Niño, drought, flood, a pest outbreak or another reason.' },
       { find: { text: 'Remarks', tag: 'label', up: 1 }, label: 'Remarks', desc: 'Optional note about the harvest.' },
       { find: { css: 'thead input[type=checkbox]' }, label: 'Select all crops', desc: 'Ticks or unticks every crop in the table. Only the crops that are ticked are harvested.' },
-      { find: { css: 'thead' }, label: 'Crop columns', desc: 'Crop, parcel, date planted, expected harvest, how many days early the harvest is, and the area planted.' },
+      { find: { css: 'thead', last: true }, label: 'Crop columns', desc: 'Crop, parcel, date planted, expected harvest, how many days early the harvest is, and the area planted.' },
       { find: { text: 'Area harvested', tag: 'th' }, label: 'Area harvested (ha)', desc: 'The area actually harvested for each crop, up to its area planted.' },
       { find: { text: 'Qty / Unit', tag: 'th' }, label: 'Qty / Unit', desc: 'The quantity and the unit it was counted in (kg, sacks, cavan...). The kg it comes to shows under the box, and the total harvest is worked out from it.' },
       { find: { text: 'Review Force Harvest', tag: 'button' }, label: 'Review Force Harvest', desc: 'Shows the tables to check, with the total harvest, before you confirm. Nothing is saved until you confirm.' },
