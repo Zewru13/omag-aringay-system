@@ -9,6 +9,7 @@ import Button from '../../components/UI/Button.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
 const MODEL_OPTIONS = [
   { label: 'All Models', value: '' },
@@ -142,7 +143,7 @@ function AuditLogPage() {
             </select>
           </label>
 
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
+          <label className={DATE_FILTER_LABEL}>
             Date From
             <input
               className={baseInputClasses}
@@ -152,7 +153,7 @@ function AuditLogPage() {
             />
           </label>
 
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
+          <label className={DATE_FILTER_LABEL}>
             Date To
             <input
               className={baseInputClasses}
