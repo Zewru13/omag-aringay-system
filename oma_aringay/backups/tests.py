@@ -13,7 +13,9 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
+from django.db import connection
 from django.test import TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -81,15 +83,42 @@ class BackupTests(TransactionTestCase):
 
     def test_the_database_file_is_written_as_utf8_on_any_server(self):
         # a peso sign cannot be written with some servers' default encoding (cp1252 on Windows); the dump is always UTF-8
-        def fake(*args, stdout, **kwargs):
-            stdout.write('[{"model": "interventions.x", "fields": {"quantity": "₱300 per head"}}]')
+        def fake(fmt, objects, stream, **kwargs):
+            stream.write('[{"model": "interventions.x", "fields": {"quantity": "₱300 per head"}}]')
         path = tempfile.mktemp(suffix='.json')
         try:
-            with mock.patch('backups.service.call_command', fake):
+            with mock.patch('backups.service.serializers.serialize', fake):
                 self.assertEqual(service.dump_database(path), 1)
             self.assertIn('₱300 per head', open(path, 'rb').read().decode('utf-8'))
         finally:
             os.remove(path)
+
+    def test_the_dump_is_the_same_as_dumpdata(self):
+        # the dump replaced `manage.py dumpdata` (which is far too slow over a network); what it writes must be what dumpdata would write
+        path = tempfile.mktemp(suffix='.json')
+        try:
+            service.dump_database(path)
+            ours = json.load(open(path, encoding='utf-8'))
+        finally:
+            os.remove(path)
+        out = io.StringIO()
+        call_command('dumpdata', exclude=service.EXCLUDE, format='json', stdout=out, verbosity=0)
+        self.assertEqual(ours, json.loads(out.getvalue()))
+        self.assertTrue(any(row['model'] == 'farmers.farmer' for row in ours))
+
+    def test_many_to_many_values_cost_no_extra_query_per_record(self):
+        # dumpdata asks once more for every record with a many-to-many field; a run from GitHub to the live database never finished
+        User = get_user_model()
+        self.assertTrue([f for f in User._meta.many_to_many if f.remote_field.through._meta.auto_created])
+
+        def queries():
+            with CaptureQueriesContext(connection) as captured:
+                list(service.objects_to_dump())
+            return len(captured)
+        few = queries()
+        for i in range(15):
+            User.objects.create_user(username=f'bk-many-{i}', password='pw', role='ADMIN', email=f'm{i}@x.test')
+        self.assertEqual(queries(), few)
 
     def test_secrets_and_session_data_are_not_in_it(self):
         data = json.loads(self.open_zip(self.make()).read('database.json'))
