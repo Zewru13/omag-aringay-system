@@ -19,11 +19,13 @@ import threading
 import zipfile
 from datetime import timedelta
 
+from django.apps import apps
 from django.conf import settings
+from django.core import serializers
 from django.core.files import File
 from django.core.files.storage import default_storage
-from django.core.management import call_command
-from django.db import connections
+from django.core.management.utils import parse_apps_and_model_labels
+from django.db import connections, router
 from django.utils import timezone
 
 from .models import BackupRecord
@@ -39,11 +41,31 @@ def _setting(name, default):
     return getattr(settings, name, default)
 
 
+def objects_to_dump(using='default'):
+    """Every record to back up, in the same order as `manage.py dumpdata` (app by app, by primary key), minus EXCLUDE.
+
+    dumpdata asks the database once more for every record that has a many-to-many field. Over a network that is thousands of round trips
+    (a run from GitHub to Supabase did not finish in 20 minutes), so the many-to-many values are prefetched a chunk at a time instead:
+    the output is the same, in a handful of queries per model."""
+    excluded_models, excluded_apps = parse_apps_and_model_labels(EXCLUDE)
+    for app_config in apps.get_app_configs():
+        if app_config.models_module is None or app_config in excluded_apps:
+            continue
+        for model in app_config.get_models():
+            if model in excluded_models or model._meta.proxy or not router.allow_migrate_model(using, model):
+                continue
+            queryset = model._default_manager.using(using).order_by(model._meta.pk.name)
+            many = [f.name for f in model._meta.many_to_many if f.remote_field.through._meta.auto_created]
+            if many:
+                queryset = queryset.prefetch_related(*many)
+            yield from queryset.iterator(chunk_size=2000)
+
+
 def dump_database(path):
-    """Write every record to `path` as JSON; returns how many records were written."""
+    """Write every record to `path` as JSON (the format `manage.py loaddata` reads); returns how many records were written."""
     # Written as UTF-8 explicitly: dumpdata's own --output uses the server's default encoding, which cannot hold a peso sign on every host.
     with open(path, 'w', encoding='utf-8') as out:
-        call_command('dumpdata', exclude=EXCLUDE, format='json', stdout=out, verbosity=0)
+        serializers.serialize('json', objects_to_dump(), stream=out)
     count, tail = 0, b''
     needle = b'"model": "'
     with open(path, 'rb') as f:
