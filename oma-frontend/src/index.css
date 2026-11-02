@@ -424,6 +424,40 @@
   input[type="time"].w-full {
     contain: inline-size;
   }
+
+  /* On a phone (touch screen) the browser draws its own date box: iPhone Safari ignores the height and padding of the form
+     (so it is taller or shorter than the text boxes around it), centres its text, adds a margin and lets an empty box
+     collapse. Take the native look away so the box takes the same height, padding, font and edges as every other box, and
+     keep its text on the left, with room for the value even while it is empty. The picker still opens on tap. */
+  @media (pointer: coarse) {
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"] {
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+      margin: 0;
+      text-align: left;
+      font-size: inherit;
+      line-height: 1.4;
+      color: inherit;
+      -webkit-text-fill-color: currentColor;
+    }
+
+    input[type="date"]::-webkit-date-and-time-value,
+    input[type="datetime-local"]::-webkit-date-and-time-value,
+    input[type="time"]::-webkit-date-and-time-value {
+      margin: 0;
+      min-height: 1.4em;
+      text-align: left;
+    }
+
+    input[type="date"]::-webkit-datetime-edit,
+    input[type="datetime-local"]::-webkit-datetime-edit,
+    input[type="time"]::-webkit-datetime-edit {
+      padding: 0;
+    }
+  }
 }
 
 body {

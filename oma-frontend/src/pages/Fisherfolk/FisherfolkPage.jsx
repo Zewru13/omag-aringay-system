@@ -11,6 +11,7 @@ import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFisherfolkModal from './AddFisherfolkModal.jsx'
+import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
 function calcAge(birthdate) {
   if (!birthdate) return ''
@@ -244,20 +245,20 @@ function FisherfolkPage({ asTab = false }) {
           />
           <span className="text-[13px] text-[#4A5E4A]">4Ps Only</span>
         </label>
-        <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+        <label className={DATE_FILTER_LABEL}>
           Registered From
           <input
             type="date"
-            className={filterSelectCls}
+            className={`${filterSelectCls} ${DATE_FILTER_BOX}`}
             value={registeredFrom}
             onChange={(e) => setRegisteredFrom(e.target.value)}
           />
         </label>
-        <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+        <label className={DATE_FILTER_LABEL}>
           Registered To
           <input
             type="date"
-            className={filterSelectCls}
+            className={`${filterSelectCls} ${DATE_FILTER_BOX}`}
             value={registeredTo}
             onChange={(e) => setRegisteredTo(e.target.value)}
           />

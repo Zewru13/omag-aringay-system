@@ -9,6 +9,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
+import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
 // An organization's assistance history as distributions: one row per distribution, expandable to the members it went to.
 // Used by the crop and the fisheries assistance pages in organization mode.
@@ -175,14 +176,14 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
           <option value="">All source agencies</option>
           {(agencies || []).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
         </select>
-        <label className="flex items-center gap-1.5 text-[12px] text-[#4A5A4C]">
+        <label className={DATE_FILTER_LABEL}>
           From
-          <input type="date" className={SELECT} value={filters.date_from} max={filters.date_to || undefined}
+          <input type="date" className={`${SELECT} ${DATE_FILTER_BOX}`} value={filters.date_from} max={filters.date_to || undefined}
             onChange={setFilter('date_from')} aria-label="Date from" />
         </label>
-        <label className="flex items-center gap-1.5 text-[12px] text-[#4A5A4C]">
+        <label className={DATE_FILTER_LABEL}>
           To
-          <input type="date" className={SELECT} value={filters.date_to} min={filters.date_from || undefined}
+          <input type="date" className={`${SELECT} ${DATE_FILTER_BOX}`} value={filters.date_to} min={filters.date_from || undefined}
             onChange={setFilter('date_to')} aria-label="Date to" />
         </label>
         {(activeCount > 0 || member) && (
