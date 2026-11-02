@@ -40,6 +40,8 @@ jobs:
         env:
           # The backup never signs anything, so this key is a placeholder, not the live SECRET_KEY.
           SECRET_KEY: backup-job-placeholder-not-the-live-key
+          PYTHONUNBUFFERED: '1'
+          PYTHONFAULTHANDLER: '1'
           DJANGO_DEBUG: 'false'
           DB_BACKEND: postgres
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
@@ -52,4 +54,6 @@ jobs:
           SUPABASE_STORAGE_ENDPOINT: ${{ secrets.SUPABASE_STORAGE_ENDPOINT }}
           SUPABASE_STORAGE_REGION: ${{ secrets.SUPABASE_STORAGE_REGION }}
           SUPABASE_STORAGE_BUCKET: ${{ secrets.SUPABASE_STORAGE_BUCKET }}
-        run: python manage.py backup_system
+        # A backup of this system takes about a minute. If it ever gets stuck, `timeout` aborts it after 20 minutes and
+        # the fault handler prints where it was stuck, so the log says what to fix.
+        run: timeout -s ABRT 20m python manage.py backup_system

@@ -81,6 +81,8 @@ def add_media(zf, storage, limit):
                 shutil.copyfileobj(src, dst, 1 << 20)
             added += 1
             total += size
+            if added % 25 == 0:
+                logger.info('Backup: %s files packed (%s bytes so far)', added, total)
         except Exception as exc:  # one unreadable file must not lose the whole backup
             skipped += 1
             notes.append(f'{path} ({str(exc)[:80]})')
@@ -93,7 +95,9 @@ def run_backup(record_id):
     workdir = tempfile.mkdtemp(prefix='oma_backup_')
     try:
         db_path = os.path.join(workdir, 'database.json')
+        logger.info('Backup %s: dumping the database...', record_id)
         records = dump_database(db_path)
+        logger.info('Backup %s: database dumped, %s records (%s bytes). Packing the uploaded files...', record_id, records, os.path.getsize(db_path))
         zip_path = os.path.join(workdir, 'backup.zip')
         started = timezone.now()
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -104,6 +108,7 @@ def run_backup(record_id):
                 'left_out': notes[:200],
             }, indent=2))
         name = f'{PREFIX}/oma_backup_{timezone.localtime(started):%Y%m%d_%H%M%S}.zip'
+        logger.info('Backup %s: %s files packed, %s skipped. Saving %s (%s bytes)...', record_id, files, skipped, name, os.path.getsize(zip_path))
         with open(zip_path, 'rb') as f:
             saved = default_storage.save(name, File(f))
         record.status, record.file_path, record.size_bytes = BackupRecord.Status.DONE, saved, os.path.getsize(zip_path)
