@@ -17,13 +17,12 @@ The zip holds personal records and password hashes: **download it only on a trus
 ## Making backups
 
 - **By hand:** Admin > Backup > Back up now. It runs in the background (a few minutes for a large system); the list refreshes by itself. Download it from the same list.
-- **Automatically:** schedule this command once a day (for example a Render cron job with the same environment as the web service):
+- **Automatically (free, GitHub Actions):** the workflow `.github/workflows/backup.yml` runs `python manage.py backup_system` every day at 2:00 AM Philippine time (18:00 UTC). It appears in the list as *Scheduled*. To switch it on, add these ten **repository secrets** (GitHub > the repository > Settings > Secrets and variables > Actions > New repository secret), with the **same values the live web service uses**:
 
-  ```bash
-  python manage.py backup_system
-  ```
+  `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_NAME`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_STORAGE_ACCESS_KEY`, `SUPABASE_STORAGE_SECRET_KEY`, `SUPABASE_STORAGE_ENDPOINT`, `SUPABASE_STORAGE_REGION`, `SUPABASE_STORAGE_BUCKET`.
 
-  It appears in the list as *Scheduled*. The command exits with an error if the backup fails, so the scheduler can alert you.
+  Then test it without waiting for the night: Actions > *Daily backup* > Run workflow. A good run ends with `Backup backups/...zip: N records, N files, N bytes.` and a new *Scheduled* entry in Admin > Backup. GitHub emails you when a run fails. Notes: the live `SECRET_KEY` is not needed (the job uses a placeholder); GitHub's servers reach the internet over IPv4 only, so if the run says "Network is unreachable", put the Supabase **Session pooler** address and port in `SUPABASE_DB_HOST` / `SUPABASE_DB_PORT` (the pooler user is `postgres.<project reference>`); anyone who can write to the repository can read these secrets, so only add trusted people; when you change the database password or the storage keys, update the secrets too.
+- **Automatically (paid alternative):** schedule the same command on a host instead, for example a Render cron job (about $1/month) with the same environment as the web service and root directory `oma_aringay`. The command exits with an error if the backup fails, so the scheduler can alert you.
 
 Do a **test restore** into a scratch database now and then (below): a backup nobody has restored is only a hope.
 
