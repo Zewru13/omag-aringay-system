@@ -54,6 +54,6 @@ jobs:
           SUPABASE_STORAGE_ENDPOINT: ${{ secrets.SUPABASE_STORAGE_ENDPOINT }}
           SUPABASE_STORAGE_REGION: ${{ secrets.SUPABASE_STORAGE_REGION }}
           SUPABASE_STORAGE_BUCKET: ${{ secrets.SUPABASE_STORAGE_BUCKET }}
-        # A backup of this system takes about a minute. If it ever gets stuck, `timeout` aborts it after 20 minutes and
-        # the fault handler prints where it was stuck, so the log says what to fix.
-        run: timeout -s ABRT 20m python manage.py backup_system
+        # A backup of this system takes about 4 minutes (about a second per uploaded file). If it ever gets stuck, `timeout` aborts it
+        # after 45 minutes and the fault handler prints where it was stuck, so the log says what to fix.
+        run: timeout -s ABRT 45m python manage.py backup_system
