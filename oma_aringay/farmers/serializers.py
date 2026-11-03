@@ -3,6 +3,7 @@ from core.idnumbers import by_id_key, id_key
 from core.validators import validate_contact_number
 
 from rest_framework import serializers
+from core.pcic import PcicPhotoListMixin, photo_list
 
 from accounts.models import User
 from accounts.utils import citizen_account_info
@@ -41,13 +42,15 @@ def validate_contact_format(value, instance=None):
     return validate_contact_number(value, instance)
 
 
-class FarmCropSerializer(serializers.ModelSerializer):
+class FarmCropSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
+    pcic_form_photos = serializers.SerializerMethodField()
+
     class Meta:
         model = FarmCrop
         fields = [
             'id', 'farm_parcel', 'crop_name', 'crop_name_other', 'area_hectares', 'is_main_crop',
             'number_of_trees', 'variety_used', 'seed_source', 'quantity_of_seeds_used', 'seeds_unit',
-            'has_pcic_insurance', 'pcic_form_photo',
+            'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
         ]
         read_only_fields = ['id', 'pcic_form_photo']
         extra_kwargs = {

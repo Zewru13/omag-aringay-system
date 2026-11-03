@@ -795,7 +795,7 @@ function StockingDetailModal({ record, onClose, staffView = false }) {
     ['Culture Phase', culturePhaseDisplay],
     ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
     ['Date Stocked', fmtLong(record.date_stocked)],
-    ['PCIC Insurance', <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" />],
+    ['PCIC Insurance', <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} photos={record.pcic_form_photos} none="No" />],
     ['Area (ha)', record.area_hectares ? Number(record.area_hectares).toFixed(4) : '—'],
     ['Number of Fingerlings', record.number_of_fingerlings ?? '—'],
     ['Survival Rate (%)', record.survival_rate_pct ?? '—'],
