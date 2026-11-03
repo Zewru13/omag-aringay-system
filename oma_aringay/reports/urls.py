@@ -23,10 +23,13 @@ from .views import (
 from .disasters import CropDisasterReportsReport, FisheriesDisasterReportsReport
 from .org_assistance import OrganizationAssistanceReport
 from .registered import RegisteredRecordsReport
+from .signatories import SignatoryDetail, SignatoryList
 from .spec_pdf import SpecPdfView
 
 
 urlpatterns = [
+    path('signatories/', SignatoryList.as_view(), name='report-signatories'),
+    path('signatories/<int:pk>/', SignatoryDetail.as_view(), name='report-signatory-detail'),
     path('organization-assistance/', OrganizationAssistanceReport.as_view(), name='report-organization-assistance'),
     path('registered/', RegisteredRecordsReport.as_view(), name='report-registered'),
     path('spec-pdf/', SpecPdfView.as_view(), name='report-spec-pdf'),
