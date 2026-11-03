@@ -1,5 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
+from core.pcic import PcicPhotoListMixin, photo_list
 import math
 from datetime import date, timedelta
 
@@ -493,7 +494,9 @@ class PestDiseaseReportSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'recorded_by']
 
 
-class CropMonitoringRecordSerializer(serializers.ModelSerializer):
+class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
+    pcic_form_photos = serializers.SerializerMethodField()
+
     farmer_name            = serializers.SerializerMethodField()
     farmer_barangay        = serializers.SerializerMethodField()
     farmer_full_name       = serializers.SerializerMethodField()
@@ -541,7 +544,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'has_harvest', 'harvest_record_id', 'harvest_count', 'forced_harvest', 'disaster_report_count',
             'harvest_variance_days',
             'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
-            'has_pcic_insurance', 'pcic_form_photo',
+            'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
         ]
         read_only_fields = [
             'id', 'pcic_form_photo', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_organization_name',

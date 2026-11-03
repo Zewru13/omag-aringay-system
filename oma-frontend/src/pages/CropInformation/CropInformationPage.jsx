@@ -43,7 +43,7 @@ import StatusPill from "../../components/UI/StatusPill.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
 import PcicBadge from "../../components/UI/PcicBadge.jsx";
-import { PCIC_FILTER_OPTIONS, pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
+import { PCIC_FILTER_OPTIONS, pcicChanged, pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 import useHarvestUnitWeights from "../Monitoring/useHarvestUnitWeights.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
@@ -272,7 +272,7 @@ function RemarksModal({ record, onClose }) {
                     : "—",
                 },
                 { label: "Date Planted", value: fmtLong(record.date_planted) },
-                { label: "PCIC Insurance", value: <PcicBadge insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" /> },
+                { label: "PCIC Insurance", value: <PcicBadge insured={record.has_pcic_insurance} url={record.pcic_form_photo} photos={record.pcic_form_photos} none="No" /> },
                 {
                   label: "Est. Harvest Date",
                   value: fmtLong(record.expected_harvest_date),
@@ -424,7 +424,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     Object.keys(originalData).some(
       (k) => normalize(form[k]) !== normalize(originalData[k]),
     )
-    || pcic.insured !== !!record.has_pcic_insurance || !!pcic.file;
+    || pcic.insured !== !!record.has_pcic_insurance || pcicChanged(pcic);
 
   useEffect(() => {
     api
@@ -871,7 +871,7 @@ function CropDetailModal({ record, onClose }) {
     ...(needsLandOwner(record.land_status) ? [["Crop Owner", record.land_owner_name || "Not recorded"]] : []),
     ["Season / Year", `${record.season || "—"} ${record.year || ""}`],
     ["Date Planted", fmtLong(record.date_planted)],
-    ["PCIC Insurance", <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" />],
+    ["PCIC Insurance", <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} photos={record.pcic_form_photos} none="No" />],
     ["Area Planted (ha)", record.area_planted_ha ? Number(record.area_planted_ha).toFixed(2) : "—"],
     ["Expected Harvest Date", fmtLong(record.expected_harvest_date)],
     [

@@ -2,6 +2,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from rest_framework import serializers
+from core.pcic import PcicPhotoListMixin, photo_list
 
 from core.seasons import season_for_date
 from core.validators import validate_not_future_date
@@ -192,17 +193,21 @@ class AquacultureProductionUnitSerializer(serializers.ModelSerializer):
     # /monitoring/aquaculture-units/<id>/pcic-form/ and comes back here as `pcic_form_photo`.
     has_pcic_insurance = serializers.BooleanField(required=False, default=False)
     pcic_form_photo = serializers.SerializerMethodField()
+    pcic_form_photos = serializers.SerializerMethodField()
 
     class Meta:
         model = AquacultureProductionUnit
         fields = ['id', 'unit_type', 'unit_number', 'length_m', 'width_m', 'size_sqm',
-                  'fingerling_count', 'has_pcic_insurance', 'pcic_form_photo']
+                  'fingerling_count', 'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos']
         # unit_type/unit_number come from the cycle's culture system and list order; size_sqm is
         # always derived from length x width.
         read_only_fields = ['id', 'unit_type', 'unit_number', 'size_sqm']
 
     def get_pcic_form_photo(self, obj):
         return _photo_link(obj, self.context.get('request'))
+
+    def get_pcic_form_photos(self, obj):
+        return photo_list(obj, self.context.get('request'))
         # length/width are nullable for legacy units but mandatory for every newly submitted unit.
         extra_kwargs = {'length_m': {'required': True, 'allow_null': False}, 'width_m': {'required': True, 'allow_null': False}}
 
@@ -231,16 +236,20 @@ class AquacultureProductionUnitSerializer(serializers.ModelSerializer):
         return attrs
 
 class AquacultureUnitPcicSerializer(serializers.ModelSerializer):
-    """A pond/cage's PCIC insurance on its own (edit the box; the photo has its own upload endpoint)."""
+    """A pond/cage's PCIC insurance on its own (edit the box; the photos have their own upload endpoint)."""
     pcic_form_photo = serializers.SerializerMethodField()
+    pcic_form_photos = serializers.SerializerMethodField()
 
     class Meta:
         model = AquacultureProductionUnit
-        fields = ['id', 'unit_type', 'unit_number', 'has_pcic_insurance', 'pcic_form_photo']
+        fields = ['id', 'unit_type', 'unit_number', 'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos']
         read_only_fields = ['id', 'unit_type', 'unit_number']
 
     def get_pcic_form_photo(self, obj):
         return _photo_link(obj, self.context.get('request'))
+
+    def get_pcic_form_photos(self, obj):
+        return photo_list(obj, self.context.get('request'))
 
 
 def _first_stocking_record(cycle):
@@ -298,6 +307,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     # made before ponds/cages existed reads the box of its stocking record, and its document.
     has_pcic_insurance = serializers.SerializerMethodField()
     pcic_form_photo = serializers.SerializerMethodField()
+    pcic_form_photos = serializers.SerializerMethodField()
     # The name of a source from Fisheries Settings > Fingerling Sources (optional). Set when the cycle starts, stored on the linked
     # StockingRecord; the stocking record's own edit form changes it afterwards.
     fingerling_source = _StockingFingerlingSource(max_length=100, required=False, allow_blank=True)
@@ -315,7 +325,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             'feeding_logs', 'health_logs', 'input_logs', 'species_option', 'units',
             'estimated_harvest_kg', 'season',
             'pond_location_barangay', 'pond_location_other_specify', 'pond_location',
-            'water_source', 'water_source_other_specify', 'fingerling_source', 'has_pcic_insurance', 'pcic_form_photo', 'stocking_record_id',
+            'water_source', 'water_source_other_specify', 'fingerling_source', 'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos', 'stocking_record_id',
             'ownership', 'owner_name', 'owner_registration_number',
         ]
         read_only_fields = [
@@ -361,6 +371,11 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         if obj.units.all():
             return None   # the documents are the ponds'/cages' own
         return _photo_link(_first_stocking_record(obj), self.context.get('request'))
+
+    def get_pcic_form_photos(self, obj):
+        if obj.units.all():
+            return []   # the documents are the ponds'/cages' own
+        return photo_list(_first_stocking_record(obj), self.context.get('request'))
 
     def _check_ownership(self, data):
         """Ownership rules: Tenant needs the owner's name and registration number; Lease and Owner need nothing more, and any owner

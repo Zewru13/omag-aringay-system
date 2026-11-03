@@ -60,7 +60,7 @@ assert.match(rowProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Juan
 eq(rowProblem(ok(1, { crops: [crop()] })), '', 'a good crop')
 eq(rowProblem(ok(1, { crops: [crop(), crop({ area_hectares: '' })] })), 'crop 2: enter the crop area', 'crop area needed')
 eq(cropProblem(crop({ crop_name: 'Other', crop_name_other: ' ' })), 'type the crop name', 'other crop needs a name')
-eq(cropProblem(crop({ pcic: { insured: true, file: null, url: '' } })), 'Upload a photo of the PCIC insurance form.', 'PCIC needs a photo')
+eq(cropProblem(crop({ pcic: { insured: true, files: [], photos: [], removed: [] } })), 'Upload a photo of the PCIC insurance form.', 'PCIC needs a photo')
 eq(cropProblem(crop({ number_of_trees: '-2' })), 'the number of trees cannot be negative', 'trees')
 eq(rowProblem(ok(1, { crops: [crop({ is_main_crop: true }), crop({ is_main_crop: true })] })), 'only one crop can be the main crop', 'two main crops')
 eq(machineryProblem({ machinery_type: 'Hand Tractor', quantity: '0', ownership: 'Owned' }), 'enter a quantity of at least 1', 'machinery quantity')
@@ -117,7 +117,7 @@ eq([ownerPayload.crop_records[0].land_status, ownerPayload.crop_records[0].land_
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { crop_type: '', date_planted: '', area_planted_ha: '' })] })), 'crop 1: missing crop type, date planted, area planted', 'everything missing is named')
 eq(cropRecordsProblem(ok(1, { area_hectares: '2', crop_records: [record(1, { area_planted_ha: '2.5' })] })), 'crop 1: This area (2.5 ha) is bigger than its parcel (2 ha)', 'a crop is not bigger than its parcel')
 eq(cropRecordsProblem(ok(1, { area_hectares: '2', crop_records: [record(1, { area_planted_ha: '1.5' }), record(2, { area_planted_ha: '1' })] })), 'crop 2: Only 0.5 ha of this 2 ha parcel is free (1.5 ha is already planted)', 'the crops together fit the parcel')
-eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { pcic: { insured: true, file: null, url: '' } })] })), 'crop 1: Upload a photo of the PCIC insurance form', 'PCIC needs a photo')
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { pcic: { insured: true, files: [], photos: [], removed: [] } })] })), 'crop 1: Upload a photo of the PCIC insurance form', 'PCIC needs a photo')
 eq(addRowProblem(ok(1, { crop_records: [record(1, { variety_used: '' })] })), 'crop 1: missing variety', 'the form names the crop')
 eq(validateRows([ok(1, { crop_records: [record(1, { variety_used: '' })] })]), { 1: 'Parcel 1: crop 1: missing variety.' }, 'the row message')
 
@@ -136,7 +136,7 @@ eq(cropPayload(crop({ crop_name: 'Palay (Rice)', area_hectares: '2.5', quantity_
 eq(cropPayload(crop({ crop_name: 'Mango', number_of_trees: '12' })).number_of_trees, 12, 'tree crop keeps its trees')
 eq(cropPayload(crop({ crop_name: 'Other', crop_name_other: 'Dragon fruit' })).crop_name_other, 'Dragon fruit', 'other crop name')
 eq(cropPayload(crop({ crop_name: 'Onion', crop_name_other: 'stale' })).crop_name_other, '', 'stale other name dropped')
-eq(cropPayload(crop({ pcic: { insured: true, file: {}, url: '' } })).has_pcic_insurance, true, 'PCIC flag')
+eq(cropPayload(crop({ pcic: { insured: true, files: [{}], photos: [], removed: [] } })).has_pcic_insurance, true, 'PCIC flag')
 eq(machineryPayload({ _uid: 1, machinery_type: 'Other', machinery_type_other: 'Drone', quantity: '2', ownership: 'Rented' }),
   { machinery_type: 'Other', machinery_type_other: 'Drone', quantity: 2, ownership: 'Rented' }, 'machinery payload')
 const sent = parcelPayload(ok(1, {
@@ -161,7 +161,7 @@ eq(parcelPayload(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_
 
 // ── PCIC photos
 const file = { name: 'form.jpg' }
-const insured = { insured: true, file, url: '' }
+const insured = { insured: true, files: [file], photos: [], removed: [] }
 const rows = [ok(1, { crop_records: [record(1, { pcic: insured }), record(2)] }), ok(2, { crop_records: [record(3, { pcic: insured, crop_type: '8' })] })]
 const nameOf = (r) => ({ 7: 'Rice', 8: 'Garlic' }[r.crop_type])
 eq(pcicUploads(rows, [{ crop_record_ids: [11, 12] }, { crop_record_ids: [21] }], nameOf), [

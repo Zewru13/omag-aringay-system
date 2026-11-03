@@ -1,24 +1,40 @@
 import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './photoRules.js'
 
 // PCIC (crop insurance) on a crop, pond, planting or stocking record, or a pond/cage of a production cycle: a "has PCIC insurance" box and, once it is
-// ticked, a photo of the PCIC insurance form. A form keeps this as one `pcic` state object:
-//   { insured: boolean, file: File | null (a photo chosen now), url: string (the photo already saved) }
-// The box travels with the record (pcicPayload); the photo is uploaded on its own once the record has an id
+// ticked, photos of the PCIC insurance form (up to 5: its pages). A form keeps this as one `pcic` state object:
+//   { insured: boolean, files: File[] (photos chosen now), photos: [{ id, url }] (the photos already saved), removed: [id] (saved ones to remove) }
+// The box travels with the record (pcicPayload); the photos are added and removed on their own once the record has an id
 // (uploadPcicForm), because the record endpoints take JSON.
 
-export const EMPTY_PCIC = { insured: false, file: null, url: '' }
+export const MAX_PCIC_PHOTOS = 5
+export const EMPTY_PCIC = { insured: false, files: [], photos: [], removed: [] }
 
 export function pcicStateFrom(record) {
   if (!record) return { ...EMPTY_PCIC }
-  return { insured: !!record.has_pcic_insurance, file: null, url: record.pcic_form_photo || '' }
+  // `pcic_form_photos` lists every photo; an answer with only the first one's url (`pcic_form_photo`) still works.
+  const photos = record.pcic_form_photos || (record.pcic_form_photo ? [{ id: 'main', url: record.pcic_form_photo }] : [])
+  return { insured: !!record.has_pcic_insurance, files: [], photos, removed: [] }
 }
 
 export const pcicPayload = (state) => ({ has_pcic_insurance: !!state?.insured })
 
+// How many photos the record will have once the form is saved.
+export const pcicPhotoCount = (state) => (state?.photos || []).filter((p) => !(state.removed || []).includes(p.id)).length + (state?.files || []).length
+
 export function pcicError(state) {
-  if (state?.insured && !state.file && !state.url) return 'Upload a photo of the PCIC insurance form.'
+  if (!state?.insured) return ''
+  const count = pcicPhotoCount(state)
+  if (count === 0) return 'Upload a photo of the PCIC insurance form.'
+  if (count > MAX_PCIC_PHOTOS) return `A record can have up to ${MAX_PCIC_PHOTOS} photos of the PCIC form.`
   return ''
 }
+
+// Is there a photo to add or remove?
+export const pcicChanged = (state) => (state?.files || []).length > 0 || (state?.removed || []).length > 0
+
+// The saved photos to remove, in the order to send them: the numbered ones first and the main one last (removing the main photo
+// promotes the next one, which would change what is left).
+export const pcicRemovalOrder = (removed) => [...removed.filter((id) => id !== 'main'), ...removed.filter((id) => id === 'main')]
 
 export function checkPcicFile(file) {
   if (!file) return ''
@@ -40,13 +56,23 @@ export function pcicFormUrl(kind, id) {
   return FORM_PATHS[kind](id)
 }
 
-// Upload the chosen photo for a saved record. Nothing to do unless the box is ticked and a new photo was chosen.
+// Save the photo changes of a saved record: remove what was removed, then upload each new photo in turn. Nothing to do unless the box is ticked
+// and a photo was added or removed. Returns the last answer of the server (the record with its photos), or null.
 export async function uploadPcicForm(api, kind, id, state) {
-  if (!state?.insured || !state.file) return null
-  const body = new FormData()
-  body.append('photo', state.file)
-  const { data } = await api.post(pcicFormUrl(kind, id), body, { headers: { 'Content-Type': 'multipart/form-data' } })
-  return data
+  if (!state?.insured || !pcicChanged(state)) return null
+  const url = pcicFormUrl(kind, id)
+  let last = null
+  for (const photo of pcicRemovalOrder(state.removed || [])) {
+    const { data } = await api.delete(url, { data: { photo } })
+    last = data
+  }
+  for (const file of state.files || []) {
+    const body = new FormData()
+    body.append('photo', file)
+    const { data } = await api.post(url, body, { headers: { 'Content-Type': 'multipart/form-data' } })
+    last = data
+  }
+  return last
 }
 
 // The PCIC filter of the crop tables (Crop Records, Crop Monitoring): the value sent as ?pcic= and what the dropdown says.

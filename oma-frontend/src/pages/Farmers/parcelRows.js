@@ -5,7 +5,7 @@
 // they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
 import { equipmentToServer } from '../../utils/equipmentNames.js'
-import { EMPTY_PCIC, pcicError, pcicPayload } from '../../utils/pcic.js'
+import { EMPTY_PCIC, pcicChanged, pcicError, pcicPayload } from '../../utils/pcic.js'
 import { withParcelStatus } from '../CropInformation/cropEntry.js'
 import { buildCropRecordPayload, cropRecordProblem } from '../Monitoring/cropRecordForm.js'
 
@@ -285,7 +285,7 @@ export function pcicUploads(rows, created, labelOf = () => '') {
   rows.forEach((row, i) => {
     ;(row.crop_records || []).forEach((record, j) => {
       const recordId = created?.[i]?.crop_record_ids?.[j]
-      if (recordId && record.pcic?.insured && record.pcic.file) uploads.push({ recordId, pcic: record.pcic, label: labelOf(record) })
+      if (recordId && record.pcic?.insured && pcicChanged(record.pcic)) uploads.push({ recordId, pcic: record.pcic, label: labelOf(record) })
     })
   })
   return uploads

@@ -11,23 +11,23 @@ const file = (type = 'image/png', size = 1000, name = 'pcic.png') => ({ type, si
 eq(PCIC_FILTER_OPTIONS, [{ value: '', label: 'All PCIC' }, { value: 'insured', label: 'PCIC insured' }, { value: 'not_insured', label: 'Not PCIC insured' }], 'filter choices')
 
 // a new record starts uninsured
-eq(EMPTY_PCIC, { insured: false, file: null, url: '' }, 'empty state')
+eq(EMPTY_PCIC, { insured: false, files: [], photos: [], removed: [] }, 'empty state')
 
 // an existing record: the box and the saved photo's address
 eq(pcicStateFrom({ has_pcic_insurance: true, pcic_form_photo: '/media/pcic_forms/pond/a.png' }),
-  { insured: true, file: null, url: '/media/pcic_forms/pond/a.png' }, 'insured record')
-eq(pcicStateFrom({ has_pcic_insurance: false, pcic_form_photo: null }), { insured: false, file: null, url: '' }, 'uninsured record')
-eq(pcicStateFrom(null), { insured: false, file: null, url: '' }, 'no record')
+  { insured: true, files: [], photos: [{ id: 'main', url: '/media/pcic_forms/pond/a.png' }], removed: [] }, 'insured record')
+eq(pcicStateFrom({ has_pcic_insurance: false, pcic_form_photo: null }), { insured: false, files: [], photos: [], removed: [] }, 'uninsured record')
+eq(pcicStateFrom(null), { insured: false, files: [], photos: [], removed: [] }, 'no record')
 
 // what goes to the record's own endpoint: only the box (the photo travels separately)
-eq(pcicPayload({ insured: true, file: file(), url: '' }), { has_pcic_insurance: true }, 'payload insured')
-eq(pcicPayload({ insured: false, file: null, url: '' }), { has_pcic_insurance: false }, 'payload uninsured')
+eq(pcicPayload({ insured: true, files: [file()], photos: [], removed: [] }), { has_pcic_insurance: true }, 'payload insured')
+eq(pcicPayload({ insured: false, files: [], photos: [], removed: [] }), { has_pcic_insurance: false }, 'payload uninsured')
 
 // ticking the box needs a photo, new or already saved
-eq(pcicError({ insured: false, file: null, url: '' }), '', 'not insured: nothing to upload')
-eq(pcicError({ insured: true, file: null, url: '' }), 'Upload a photo of the PCIC insurance form.', 'insured without a photo')
-eq(pcicError({ insured: true, file: file(), url: '' }), '', 'insured with a new photo')
-eq(pcicError({ insured: true, file: null, url: '/media/x.png' }), '', 'insured with a saved photo')
+eq(pcicError({ insured: false, files: [], photos: [], removed: [] }), '', 'not insured: nothing to upload')
+eq(pcicError({ insured: true, files: [], photos: [], removed: [] }), 'Upload a photo of the PCIC insurance form.', 'insured without a photo')
+eq(pcicError({ insured: true, files: [file()], photos: [], removed: [] }), '', 'insured with a new photo')
+eq(pcicError({ insured: true, files: [], photos: [{ id: 'main', url: '/media/x.png' }], removed: [] }), '', 'insured with a saved photo')
 
 // the photo rules: jpg/png/webp, 5 MB
 eq(checkPcicFile(file('image/png', 1000)), '', 'png ok')
@@ -45,13 +45,13 @@ eq(pcicFormUrl('planting', 10), '/production/monitoring/10/pcic-form/', 'plantin
 eq(pcicFormUrl('unit', 11), '/monitoring/aquaculture-units/11/pcic-form/', 'a pond/cage of a production cycle')
 assert.throws(() => pcicFormUrl('boat', 1), /Unknown PCIC record kind/); n++
 
-// uploading: only when insured and a new file was chosen
+// uploading: only when insured and a photo was added or removed (more cases in pcicPhotos.test.mjs)
 const calls = []
 const api = { post: async (url, body, config) => { calls.push({ url, body, config }); return { data: { ok: true } } } }
-await uploadPcicForm(api, 'pond', 8, { insured: true, file: null, url: '/media/x.png' })
-await uploadPcicForm(api, 'pond', 8, { insured: false, file: file(), url: '' })
+await uploadPcicForm(api, 'pond', 8, { insured: true, files: [], photos: [{ id: 'main', url: '/media/x.png' }], removed: [] })
+await uploadPcicForm(api, 'pond', 8, { insured: false, files: [file()], photos: [], removed: [] })
 eq(calls.length, 0, 'nothing to upload: no call')
-await uploadPcicForm(api, 'pond', 8, { insured: true, file: file(), url: '' })
+await uploadPcicForm(api, 'pond', 8, { insured: true, files: [file()], photos: [], removed: [] })
 eq(calls.length, 1, 'one upload')
 eq(calls[0].url, '/fisheries/ponds/8/pcic-form/', 'goes to the pond endpoint')
 eq(calls[0].body instanceof FormData, true, 'sent as form data')

@@ -2,25 +2,47 @@ import uuid
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
 
 from core.pcic import pcic_form_path
 
 
+class PcicFormPhoto(models.Model):
+    """A further photo of a record's PCIC insurance form (its second to fifth page). The first photo is the record's own `pcic_form_photo`;
+    a record keeps up to core.pcic.MAX_PCIC_PHOTOS in all."""
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    record = GenericForeignKey('content_type', 'object_id')
+    image = models.ImageField(upload_to=pcic_form_path)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        indexes = [models.Index(fields=['content_type', 'object_id'])]
+
+
 class PcicInsurance(models.Model):
-    """Fields for a record that can be covered by PCIC crop insurance: the box, and the photo of the insurance form
-    (see core.pcic). Unticking the box removes the photo."""
+    """Fields for a record that can be covered by PCIC crop insurance: the box, and the photos of the insurance form
+    (see core.pcic): the first is `pcic_form_photo`, up to four more are `pcic_extra_photos`. Unticking the box removes them all."""
     has_pcic_insurance = models.BooleanField(default=False)
     pcic_form_photo = models.ImageField(upload_to=pcic_form_path, null=True, blank=True)
+    pcic_extra_photos = GenericRelation(PcicFormPhoto, content_type_field='content_type', object_id_field='object_id')
 
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
-        if not self.has_pcic_insurance and self.pcic_form_photo:
-            self.pcic_form_photo.delete(save=False)
-            self.pcic_form_photo = None
+        if not self.has_pcic_insurance:
+            if self.pcic_form_photo:
+                self.pcic_form_photo.delete(save=False)
+                self.pcic_form_photo = None
+            if self.pk:
+                for extra in self.pcic_extra_photos.all():
+                    extra.image.delete(save=False)
+                    extra.delete()
         super().save(*args, **kwargs)
 
 

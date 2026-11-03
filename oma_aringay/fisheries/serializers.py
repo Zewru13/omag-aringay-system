@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Q, Sum, prefetch_related_objects
 from rest_framework import serializers
+from core.pcic import PcicPhotoListMixin, photo_list
 
 from accounts.models import User
 from accounts.utils import citizen_account_info
@@ -1032,7 +1033,9 @@ class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
         return data
 
 
-class PondSerializer(serializers.ModelSerializer):
+class PondSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
+    pcic_form_photos = serializers.SerializerMethodField()
+
     stocking_record_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -1040,7 +1043,7 @@ class PondSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fisherfolk', 'name', 'barangay', 'area_hectares', 'water_source',
             'is_active', 'date_created', 'stocking_record_count',
-            'has_pcic_insurance', 'pcic_form_photo',
+            'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
         ]
         read_only_fields = ['id', 'date_created', 'fisherfolk', 'pcic_form_photo']
 
@@ -1113,7 +1116,9 @@ class StockingRecordListSerializer(serializers.ListSerializer):
             self.child._list_context = None
 
 
-class StockingRecordSerializer(serializers.ModelSerializer):
+class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
+    pcic_form_photos = serializers.SerializerMethodField()
+
     fisherfolk_name  = serializers.SerializerMethodField()
     pond_name        = serializers.CharField(source='pond.name', read_only=True, default=None)
     species_name     = serializers.CharField(source='species.species_name', read_only=True)
@@ -1188,7 +1193,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'actual_harvest_timing', 'actual_harvest_timing_label', 'actual_harvest_timing_days',
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
             'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
-            'has_pcic_insurance', 'pcic_form_photo',
+            'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
         ]
         read_only_fields = [
             'id', 'pcic_form_photo', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',

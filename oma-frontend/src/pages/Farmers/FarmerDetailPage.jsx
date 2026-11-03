@@ -213,7 +213,7 @@ function ParcelRow({ parcel, onEdit }) {
     crop_name: (
       <>
         {c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}
-        <PcicBadge insured={c.has_pcic_insurance} url={c.pcic_form_photo} />
+        <PcicBadge insured={c.has_pcic_insurance} url={c.pcic_form_photo} photos={c.pcic_form_photos} />
       </>
     ),
     area_hectares: c.area_hectares,

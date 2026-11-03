@@ -131,15 +131,18 @@ class PcicFormTests(APITestCase):
             self.assertTrue(obj.pcic_form_photo, label)
             self.assertIn('pcic_forms/', obj.pcic_form_photo.name, label)
 
-    def test_a_second_upload_replaces_the_first(self):
+    def test_a_second_upload_is_kept_next_to_the_first(self):
+        # up to five photos of the form (see test_pcic_photos.py): the first stays the record's own photo
         self.tick(self.pond)
         url = f'/api/fisheries/ponds/{self.pond.id}/pcic-form/'
         self.client.post(url, {'photo': image('a.png', (1, 2, 3))}, format='multipart')
         self.pond.refresh_from_db()
         first = self.pond.pcic_form_photo.name
-        self.client.post(url, {'photo': image('b.png', (9, 8, 7))}, format='multipart')
+        r = self.client.post(url, {'photo': image('b.png', (9, 8, 7))}, format='multipart')
+        self.assertEqual(r.status_code, 200, r.content)
         self.pond.refresh_from_db()
-        self.assertNotEqual(self.pond.pcic_form_photo.name, first)
+        self.assertEqual(self.pond.pcic_form_photo.name, first)
+        self.assertEqual(len(r.json()['pcic_form_photos']), 2)
 
     def test_something_that_is_not_an_image_is_refused(self):
         self.tick(self.pond)
