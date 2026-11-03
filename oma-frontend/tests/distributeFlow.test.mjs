@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  makeAssistanceForm, withAssistanceType, typeName, quantityText, assistanceFormProblem, organizationRequest, peopleRequest,
+  makeAssistanceForm, withAssistanceType, typeName, quantityText, assistanceFormProblem, sourceAgencies, organizationRequest, peopleRequest,
   eligibleIds, reviewTotals, outcomeTotals, personOutcomeTotals, reportRecords, toggleInMap, MAX_RECIPIENTS,
 } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
@@ -9,7 +9,7 @@ let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
 const today = '2026-10-27'
-const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', quantity_amount: '2', quantity_unit: 'sacks', ...over })
+const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', source_agencies: ['DA'], quantity_amount: '2', quantity_unit: 'sacks', ...over })
 
 // ── the blank form
 const blank = makeAssistanceForm(today)
@@ -30,6 +30,20 @@ eq(quantityText(form()), '2 sacks', 'a quantity')
 eq(assistanceFormProblem(form(), { today }), '', 'a complete form')
 eq(assistanceFormProblem(form({ assistance_type: '' }), { today }), 'Choose the assistance type.', 'type needed')
 eq(assistanceFormProblem(form({ assistance_type: 'Other', assistance_type_other: ' ' }), { today }), 'Say what the assistance type is.', 'Other needs text')
+// the source agency, the quantity per recipient and the date are all required (an "Others" agency is typed out)
+eq(assistanceFormProblem(form({ source_agencies: [] }), { today }), 'Choose the source agency.', 'source agency needed')
+eq(assistanceFormProblem(form({ source_agencies: [], source_other_on: true, source_other: '  ' }), { today }), 'Type the other source agency.', 'Others needs text')
+eq(assistanceFormProblem(form({ source_agencies: [], source_other_on: true, source_other: 'Brgy. Council' }), { today }), '', 'Others typed out is a source agency')
+eq(assistanceFormProblem(form({ source_agencies: ['DA'], source_other_on: true, source_other: '' }), { today }), 'Type the other source agency.', 'Others ticked but empty')
+eq(assistanceFormProblem(form({ quantity_amount: '' }), { today }), 'Enter the quantity per recipient.', 'quantity needed')
+eq(assistanceFormProblem(form({ quantity_amount: '0' }), { today }), 'Enter a quantity of more than 0.', 'quantity above 0')
+eq(assistanceFormProblem(form({ quantity_unit: '' }), { today }), 'Choose the unit of the quantity.', 'unit needed')
+eq(assistanceFormProblem(form({ assistance_type: 'Cash Assistance', cash_amount: '10', quantity_amount: '' }), { today }), '', 'cash has no quantity box')
+eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '2', quantity_amount: '' }), { today }), '', 'training has no quantity box')
+eq(sourceAgencies(form({ source_agencies: ['DA', 'PCIC'], source_other_on: true, source_other: ' Brgy. Council ' })), ['DA', 'PCIC', 'Brgy. Council'], 'the typed agency joins the chosen ones')
+eq(sourceAgencies(form({ source_agencies: ['DA'], source_other_on: false, source_other: 'ignored' })), ['DA'], 'unticked Others is ignored')
+eq(sourceAgencies(form({ source_agencies: ['DA'], source_other_on: true, source_other: 'da' })), ['DA'], 'not repeated')
+eq(organizationRequest(form({ source_agencies: ['DA'], source_other_on: true, source_other: 'Brgy. Council' })).source_agencies, ['DA', 'Brgy. Council'], 'sent with the request')
 eq(assistanceFormProblem(form({ date_given: '' }), { today }), 'Choose the date the assistance is given.', 'date needed')
 eq(assistanceFormProblem(form({ date_given: '2026-10-26' }), { today }), 'Assistance can only be recorded for today or a future date.', 'not in the past')
 eq(assistanceFormProblem(form({ date_given: '2026-12-01' }), { today }), '', 'a future date schedules it')

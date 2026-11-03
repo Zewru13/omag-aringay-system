@@ -55,6 +55,10 @@ export const TYPE_FIELDS = {
 // The unit of the quantity in a distribution (2 sack): one fixed list for crop and fisheries assistance, no setting to maintain.
 export const ASSISTANCE_UNITS = ['kg', 'sack', 'bag', 'piece', 'bundle', 'box', 'liter', 'set']
 
+// The units the Unit box offers for an assistance type: the ones set for it in Assistance Settings (`byType`: type -> units), else every
+// unit (settings not loaded yet, or a type with no setting), with a record's own unit kept so an old record never loses it.
+export const unitsForType = (byType, type, current = '') => choicesWith(byType?.[type] || ASSISTANCE_UNITS, current)
+
 export const typeFieldFor = (domain, assistanceType) => TYPE_FIELDS[domain]?.[assistanceType] || null
 
 // The choices of a dropdown with the record's own value kept in (a value no longer in the list must stay selectable on an old record).

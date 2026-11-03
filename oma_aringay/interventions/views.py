@@ -30,6 +30,7 @@ from .lifecycle import advance_due_distributions, advance_due_distributions_for_
 from .models import (
     AssistanceAgency,
     AssistanceOption,
+    AssistanceTypeUnits,
     BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
@@ -38,6 +39,7 @@ from .models import (
     FisherfolkBeneficiaryRecord,
 )
 from .distributions import build_distributions, filter_records, remove_records
+from .type_units import STARTING_UNITS, UNITS, in_catalog_order
 from .serializers import (
     AccountlessConfirmableSerializer,
     AssistanceAgencySerializer,
@@ -1339,6 +1341,47 @@ class AssistanceChoicesView(APIView):
                 'unit': self._options('fisheries', 'unit'),
             })
         raise ValidationError({'domain': ['Use crop or fisheries.']})
+
+
+class AssistanceTypeUnitsView(APIView):
+    """The units each assistance type offers in the quantity box (?domain=crop|fisheries). GET: every type that has a quantity box, with
+    its units (its starting ones until an Admin changes them). PUT {domain, assistance_type, units}: set the units of one type. Everyone
+    signed in reads, because every assistance form fills its Unit box from it; only staff change it."""
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    @staticmethod
+    def _domain(value):
+        if value not in STARTING_UNITS:
+            raise ValidationError({'domain': ['Use crop or fisheries.']})
+        return value
+
+    @staticmethod
+    def _rows(domain):
+        saved = {r.assistance_type: r.units for r in AssistanceTypeUnits.objects.filter(domain=domain)}
+        return [
+            {'domain': domain, 'assistance_type': name, 'units': in_catalog_order(saved.get(name, start)), 'is_default': name not in saved}
+            for name, start in STARTING_UNITS[domain].items()
+        ]
+
+    def get(self, request):
+        return Response(self._rows(self._domain(request.query_params.get('domain'))))
+
+    def put(self, request):
+        domain = self._domain(request.data.get('domain'))
+        name = request.data.get('assistance_type')
+        if name not in STARTING_UNITS[domain]:
+            raise ValidationError({'assistance_type': ['This type has no unit box in this domain.']})
+        units = request.data.get('units')
+        if not isinstance(units, list) or not units:
+            raise ValidationError({'units': ['Choose at least one unit.']})
+        if any(u not in UNITS for u in units):
+            raise ValidationError({'units': [f'Units are: {", ".join(UNITS)}.']})
+        AssistanceTypeUnits.objects.update_or_create(domain=domain, assistance_type=name, defaults={'units': in_catalog_order(units)})
+        return Response(next(r for r in self._rows(domain) if r['assistance_type'] == name))
 
 
 class AssistanceAgencyDetailView(generics.RetrieveUpdateDestroyAPIView):

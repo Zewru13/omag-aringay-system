@@ -39,6 +39,20 @@ class AssistanceOption(models.Model):
         return f'{self.domain} {self.kind}: {self.name}'
 
 
+class AssistanceTypeUnits(models.Model):
+    """The units one type of assistance offers in the quantity box (see interventions/type_units.py). A type with no row offers its starting
+    units. Records keep the quantity text they were saved with ("2 sack"), so changing the units never changes past assistance."""
+    domain = models.CharField(max_length=10)
+    assistance_type = models.CharField(max_length=60)
+    units = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['domain', 'assistance_type'], name='unique_assistance_type_units')]
+
+    def __str__(self):
+        return f'{self.domain} {self.assistance_type}: {", ".join(self.units)}'
+
+
 class DistributionStatus(models.TextChoices):
     """
     Shared by both BeneficiaryRecord and FisherfolkBeneficiaryRecord — one

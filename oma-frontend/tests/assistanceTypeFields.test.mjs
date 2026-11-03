@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  typeFieldFor, choicesWith, ASSISTANCE_UNITS, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS,
+  typeFieldFor, choicesWith, ASSISTANCE_UNITS, unitsForType, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS,
 } = await import(new URL('../src/pages/AssistanceManagement/assistanceFieldHelpers.js', import.meta.url).href)
 const { makeAssistanceForm, quantityText, assistanceFormProblem, withAssistanceType, organizationRequest, peopleRequest } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
@@ -33,19 +33,27 @@ eq(ASSISTANCE_UNITS, ['kg', 'sack', 'bag', 'piece', 'bundle', 'box', 'liter', 's
 eq(choicesWith(ASSISTANCE_UNITS, 'tin').slice(-1), ['tin'], 'an older unit is kept')
 eq(choicesWith(ASSISTANCE_UNITS, 'sack'), ASSISTANCE_UNITS, 'a listed unit is not repeated')
 
+// the units of a type come from Assistance Settings (a map type -> units); before they load, or for a type with no setting, every unit
+const byType = { Seeds: ['kg', 'sack', 'bag', 'bundle'], Other: ASSISTANCE_UNITS }
+eq(unitsForType(byType, 'Seeds', ''), ['kg', 'sack', 'bag', 'bundle'], 'Seeds offers only its units')
+eq(unitsForType(byType, 'Seeds', 'set'), ['kg', 'sack', 'bag', 'bundle', 'set'], 'an old record keeps its own unit')
+eq(unitsForType(byType, 'Fertilizer', ''), ASSISTANCE_UNITS, 'a type with no setting offers every unit')
+eq(unitsForType(null, 'Seeds', ''), ASSISTANCE_UNITS, 'settings not loaded yet')
+eq(unitsForType(byType, 'Cash Assistance', ''), ASSISTANCE_UNITS, 'a type without a unit box is never asked')
+
 // ── number and unit become the quantity text
 eq(quantityWithUnit('2', 'sack'), '2 sack', 'a number and a unit')
 eq(quantityWithUnit(' 2.5 ', ' kg '), '2.5 kg', 'trimmed')
 eq(quantityWithUnit('2', ''), '2', 'no unit configured')
 eq(quantityWithUnit('', 'sack'), '', 'no number, nothing')
 
-const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', quantity_amount: '2', quantity_unit: 'sack', ...over })
+const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', source_agencies: ['DA'], quantity_amount: '2', quantity_unit: 'sack', ...over })
 eq(quantityText(form()), '2 sack', 'the review words it with the unit')
 eq(quantityText(form({ assistance_type: 'Cash Assistance', cash_amount: '500' })), '₱500 per head', 'cash is unchanged')
 eq(quantityText(form({ assistance_type: 'Training' })), '', 'training is unchanged')
 eq(assistanceFormProblem(form(), { today }), '', 'a number with its unit')
 eq(assistanceFormProblem(form({ quantity_unit: '' }), { today }), 'Choose the unit of the quantity.', 'a number needs its unit')
-eq(assistanceFormProblem(form({ quantity_unit: '', quantity_amount: '' }), { today }), '', 'no quantity at all is allowed')
+eq(assistanceFormProblem(form({ quantity_unit: '', quantity_amount: '' }), { today }), 'Enter the quantity per recipient.', 'the quantity is required')
 eq(assistanceFormProblem(form({ quantity_amount: '0' }), { today }), 'Enter a quantity of more than 0.', 'not zero')
 eq(assistanceFormProblem(form({ quantity_amount: 'abc' }), { today }), 'Enter a quantity of more than 0.', 'a number')
 eq(withAssistanceType(form(), 'Fertilizer').quantity_unit, '', 'another type starts the quantity again')
