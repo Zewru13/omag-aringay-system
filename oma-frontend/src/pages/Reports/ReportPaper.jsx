@@ -1,4 +1,4 @@
-import logo from '../../assets/LOGO OMAg.jpg'
+import logo from '../../assets/LOGO OMAg-small.png'
 import { individualFrom, rowRefsOf, selectedReport, signatureSlots } from './reportPaper.js'
 
 // The two things the Reports page shows under a report's filters: the Selected report box, and the print-ready paper preview.

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronLeft, HelpCircle, LogOut, Menu, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
-import omagLogo from '../../assets/LOGO OMAg.jpg'
+import omagLogo from '../../assets/LOGO OMAg-small.png'
 import { labels } from './labels.js'
 
 // ─── Desktop shell primitives (UI Base Desktop POV) ───────────────────────
