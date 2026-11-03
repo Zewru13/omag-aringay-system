@@ -10,6 +10,7 @@ GET /api/reports/organization-assistance/
     source_agency    assistance from this agency
     status           confirmed | awaiting | follow_up   (the distribution's overall status)
     search           organization name (all-organizations report only)
+    individual       auto: with a search that leaves exactly one organization, that organization's own report (as if id were sent)
     format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 One row per distribution (the records one distribution submit created, shown as one unit - interventions.distributions).
@@ -29,7 +30,7 @@ from associations.models import FarmersOrganization, FisherfolkOrganization
 from interventions.distributions import group_id, summary_status
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
 
-from .documents import make_document, respond, text
+from .documents import individual_of, make_document, respond, text, with_row_refs
 from .period import period_text
 
 KINDS = {
@@ -136,10 +137,22 @@ def build_document(kind, request):
     if status_filter and status_filter not in STATUS_FILTERS:
         raise ValidationError({'status': [f'Use one of: {", ".join(STATUS_FILTERS)}.']})
 
-    records, frm, to = _records(kind, request, org.id if org else None)
-    distributions = _distributions(records)
-    if status_filter:
-        distributions = [d for d in distributions if _status_key(d['status']) == status_filter]
+    def load(org_id):
+        records, frm, to = _records(kind, request, org_id)
+        found = _distributions(records)
+        if status_filter:
+            found = [d for d in found if _status_key(d['status']) == status_filter]
+        return found, frm, to
+
+    distributions, frm, to = load(org.id if org else None)
+    refs = [{'id': d['organization'].id, 'label': d['organization'].name} for d in distributions]
+    # individual=auto: a search that leaves exactly one organization is that organization's own report (never without a search).
+    individual = None
+    if not org and request.query_params.get('search', '').strip():
+        individual = individual_of(request, refs)
+        if individual:
+            org = get_object_or_404(cfg['org'], pk=individual['id'])
+            distributions, frm, to = load(org.id)
 
     rows = [[d['organization'].name, text(d['date_given']), d['label'], ', '.join(d['agencies']) or '—', d['quantity'] or '—',
              len(d['members']), d['confirmed'], d['status']] for d in distributions]
@@ -181,6 +194,10 @@ def build_document(kind, request):
     other = ' · '.join(p for p in parts if p != date_part)
     detail = ' · '.join(p for p in ((f'{cfg["title"]}', org.name if org else '', other or ('' if org else 'All organizations'))) if p)
     doc = make_document(title, subtitle, stats, sections, heading='Organization Assistance Report', period=period_text(frm, to), detail=detail)
+    if individual:
+        doc['individual'] = individual
+    elif not org:
+        with_row_refs(doc, refs)
     return doc, (f'{cfg["stem"]}_{org.id}' if org else cfg['stem'])
 
 

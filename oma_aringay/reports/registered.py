@@ -14,6 +14,7 @@ GET /api/reports/registered/
     fisherfolk_type, is_4ps                    fisherfolk only
     options          1: instead of a report, list up to 25 matching records as {id, label, detail} for the "one record" picker
                      (uses search and barangay)
+    individual       auto: with a search that leaves exactly one record, that record's individual report (as if id were sent)
     format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 Staff only (Admin and Focal Person). The preview, the PDF and the Excel are all built from one document (reports.documents).
@@ -35,7 +36,7 @@ from associations.models import FarmersOrganization, FisherfolkOrganization
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
-from .documents import make_document, respond, text
+from .documents import individual_of, make_document, respond, text, with_row_refs
 from .period import period_text
 from .pdf_utils import full_name
 
@@ -190,40 +191,46 @@ def bulk_farmers(filters):
     qs = filters.apply_people(
         Farmer.objects.prefetch_related('farm_parcels', 'farmer_organizations__organization'), 'rsbsa_number', kind='farmers',
     ).order_by('last_name', 'first_name', 'id')
-    rows = []
+    rows, refs = [], []
     for f in qs:
         parcels = list(f.farm_parcels.all())
         area = sum((p.area_hectares or 0) for p in parcels)
         rows.append([f.rsbsa_number, full_name(f), f.gender, f.barangay, f.contact_number or '—', len(parcels),
                      f'{area:.2f}', _orgs_of(f.farmer_organizations.all()), _date(f.date_registered)])
+        refs.append({'id': f.id, 'label': full_name(f)})
     headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Parcels', 'Area (ha)', 'Organization', 'Date Registered']
-    return make_document('Registered Farmers', filters.subtitle(kind='farmers'), [['Total Farmers', len(rows)]],
-                         [{'title': 'Farmers', 'headers': headers, 'rows': rows, 'empty': 'No farmers match these filters.'}])
+    return with_row_refs(
+        make_document('Registered Farmers', filters.subtitle(kind='farmers'), [['Total Farmers', len(rows)]],
+                      [{'title': 'Farmers', 'headers': headers, 'rows': rows, 'empty': 'No farmers match these filters.'}]), refs)
 
 
 def bulk_fisherfolk(filters):
     qs = filters.apply_people(
         Fisherfolk.objects.prefetch_related('fisherfolk_organizations__organization'), 'rsbsa_number', kind='fisherfolk',
     ).order_by('last_name', 'first_name', 'id')
-    rows = []
+    rows, refs = [], []
     for f in qs:
         rows.append([f.rsbsa_number or '—', full_name(f), f.gender, f.barangay, f.contact_number or '—', f.fisherfolk_type,
                      _orgs_of(f.fisherfolk_organizations.all()), _date(f.date_registered)])
+        refs.append({'id': f.id, 'label': full_name(f)})
     headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Type', 'Organization', 'Date Registered']
-    return make_document('Registered Fisherfolk', filters.subtitle(kind='fisherfolk'), [['Total Fisherfolk', len(rows)]],
-                         [{'title': 'Fisherfolk', 'headers': headers, 'rows': rows, 'empty': 'No fisherfolk match these filters.'}])
+    return with_row_refs(
+        make_document('Registered Fisherfolk', filters.subtitle(kind='fisherfolk'), [['Total Fisherfolk', len(rows)]],
+                      [{'title': 'Fisherfolk', 'headers': headers, 'rows': rows, 'empty': 'No fisherfolk match these filters.'}]), refs)
 
 
 def _bulk_orgs(model, title, filters):
     qs = filters.apply_orgs(model.objects.prefetch_related('members')).order_by('barangay', 'name', 'id')
-    rows = []
+    rows, refs = [], []
     for o in qs:
         active = sum(1 for m in o.members.all() if m.is_active)
         rows.append([o.name, o.registration_number or '—', o.barangay, o.contact_person or '—', o.contact_number or '—',
                      active, _date(o.date_registered) or '—'])
+        refs.append({'id': o.id, 'label': o.name})
     headers = ['Organization', 'Registration No.', 'Barangay', 'Contact Person', 'Contact No.', 'Active Members', 'Date Registered']
-    return make_document(title, filters.subtitle(), [['Total Organizations', len(rows)]],
-                         [{'title': 'Organizations', 'headers': headers, 'rows': rows, 'empty': 'No organizations match these filters.'}])
+    return with_row_refs(
+        make_document(title, filters.subtitle(), [['Total Organizations', len(rows)]],
+                      [{'title': 'Organizations', 'headers': headers, 'rows': rows, 'empty': 'No organizations match these filters.'}]), refs)
 
 
 # ─── One record ───────────────────────────────────────────────────────────────
@@ -320,16 +327,7 @@ class RegisteredRecordsReport(APIView):
         if raw_id:
             if not raw_id.isdigit():
                 raise ValidationError({'id': ['Send the record id.']})
-            pk = int(raw_id)
-            if kind == 'farmers':
-                doc = one_farmer(pk)
-            elif kind == 'fisherfolk':
-                doc = one_fisherfolk(pk)
-            elif kind == 'farmers_orgs':
-                doc = _one_org(FarmersOrganization, 'Members', 'farmer', kind, pk)
-            else:
-                doc = _one_org(FisherfolkOrganization, 'Members', 'fisherfolk', kind, pk)
-            return respond(doc, request, ONE_TITLES[kind].lower().replace(' ', '_') + f'_{pk}')
+            return self._one(kind, int(raw_id), request)
         filters = Filters(request)
         if kind == 'farmers':
             doc = bulk_farmers(filters)
@@ -339,8 +337,26 @@ class RegisteredRecordsReport(APIView):
             doc = _bulk_orgs(FarmersOrganization, KINDS[kind][0], filters)
         else:
             doc = _bulk_orgs(FisherfolkOrganization, KINDS[kind][0], filters)
+        # individual=auto: a search that leaves exactly one record is that record's individual report (never without a search).
+        only = individual_of(request, doc['row_refs']) if filters.search else None
+        if only:
+            return self._one(kind, only['id'], request, individual=only)
         # The printed title is the report's own; the kind (farmers, fisherfolk, ...) and the filters sit under the period.
         doc['heading'] = 'Registration Records Report'
         doc['period'] = period_text(filters.frm, filters.to)
         doc['detail'] = ' · '.join(p for p in (doc['title'], filters.subtitle(dates=False)) if p)
         return respond(doc, request, KINDS[kind][1])
+
+    @staticmethod
+    def _one(kind, pk, request, individual=None):
+        if kind == 'farmers':
+            doc = one_farmer(pk)
+        elif kind == 'fisherfolk':
+            doc = one_fisherfolk(pk)
+        elif kind == 'farmers_orgs':
+            doc = _one_org(FarmersOrganization, 'Members', 'farmer', kind, pk)
+        else:
+            doc = _one_org(FisherfolkOrganization, 'Members', 'fisherfolk', kind, pk)
+        if individual:
+            doc['individual'] = individual
+        return respond(doc, request, ONE_TITLES[kind].lower().replace(' ', '_') + f'_{pk}')
