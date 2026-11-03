@@ -5,11 +5,14 @@ import { downloadFile } from '../../utils/fileDownload.js'
 import { printPdf } from '../../utils/printPdf.js'
 import { reportFileName, reportQuery, withSignature } from '../../utils/documentReport.js'
 import { ActionButtons, PreviewTable, SignatoriesPanel } from './ReportParts.jsx'
+import { ReportPaper, SelectedReportBox } from './ReportPaper.jsx'
+import { paperDocument, reportType } from './reportPaper.js'
 import { useSignatories } from './useSignatories.js'
 
 // A report built from a backend "document": { title, subtitle, stats: [[label, value]], sections: [{ title, pairs } | { title, headers, rows, empty }] }.
-// The same document is the on-screen preview, the PDF and the Excel, so they always agree.
+// The same document is the paper preview, the PDF and the Excel, so they always agree.
 
+// The plain on-screen view of a document (stats, then each section), used where there is no paper page, e.g. the Disaster page's report window.
 export function DocumentView({ doc, isLoading, emptyText }) {
   if (isLoading || !doc) {
     return <PreviewTable headers={['']} rows={[]} isLoading={isLoading} emptyText={emptyText} />
@@ -55,11 +58,12 @@ export function DocumentView({ doc, isLoading, emptyText }) {
 }
 
 // Shows one document report: the caller's `filters` on top, then the Print / PDF / Excel row and the document.
+//   reportId  which report this is (an id of REPORT_TYPES), for the Selected report box
 //   path    the backend report URL, e.g. '/reports/registered/'
 //   params  the filters as an object; blank values are left out. A change reloads the preview.
 //   stem    the download file name without extension
 //   ready   false while the filters are not complete (e.g. no record chosen yet): nothing is fetched and `notReady` shows
-export default function DocumentReport({ path, params, stem, filters, ready = true, notReady = '', emptyText = 'No records found.' }) {
+export default function DocumentReport({ reportId, path, params, stem, filters, ready = true, notReady = '', emptyText = 'No records found.' }) {
   const { showToast } = useToast()
   const [loaded, setLoaded] = useState({ key: null, doc: null })
   const [isDownloading, setIsDownloading] = useState(false)
@@ -108,10 +112,13 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
   }
 
   const failed = ready && !isLoading && !loaded.doc
+  const paper = loaded.doc && ready && !isLoading ? paperDocument(loaded.doc) : null
 
   return (
     <div className="space-y-5">
       {filters}
+
+      <SelectedReportBox type={reportType(reportId)} period={paper?.period} detail={paper?.detail} />
 
       <SignatoriesPanel signatories={signatories} />
 
@@ -123,7 +130,7 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
       />
 
       {!ready && <p className="rounded-xl border border-dashed border-[#C8D5C8] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">{notReady}</p>}
-      {ready && !failed && <DocumentView doc={loaded.doc} isLoading={isLoading} emptyText={emptyText} />}
+      {ready && !failed && <ReportPaper doc={paper} signers={signatories.params} isLoading={isLoading} emptyText={emptyText} />}
       {failed && <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">The report could not be loaded. Change a filter to try again.</p>}
     </div>
   )
