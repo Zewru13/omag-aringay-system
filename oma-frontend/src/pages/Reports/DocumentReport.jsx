@@ -5,7 +5,7 @@ import { downloadFile } from '../../utils/fileDownload.js'
 import { printPdf } from '../../utils/printPdf.js'
 import { reportFileName, reportQuery, withSignature } from '../../utils/documentReport.js'
 import { ActionButtons, PreviewTable, SignatoriesPanel } from './ReportParts.jsx'
-import { ReportPaper, SelectedReportBox } from './ReportPaper.jsx'
+import { IndividualBar, ReportPaper, SelectedReportBox } from './ReportPaper.jsx'
 import { paperDocument, reportType } from './reportPaper.js'
 import { useSignatories } from './useSignatories.js'
 
@@ -57,23 +57,23 @@ export function DocumentView({ doc, isLoading, emptyText }) {
   )
 }
 
-// Shows one document report: the caller's `filters` on top, then the Print / PDF / Excel row and the document.
+// Shows one document report: the caller's `filters` on top, then the Selected report box, the Signatories block, the Print Report /
+// Download Report buttons and the paper preview.
 //   reportId  which report this is (an id of REPORT_TYPES), for the Selected report box
 //   path    the backend report URL, e.g. '/reports/registered/'
 //   params  the filters as an object; blank values are left out. A change reloads the preview.
 //   stem    the download file name without extension
-//   ready   false while the filters are not complete (e.g. no record chosen yet): nothing is fetched and `notReady` shows
-export default function DocumentReport({ reportId, path, params, stem, filters, ready = true, notReady = '', emptyText = 'No records found.' }) {
+//   picked, onPickRow, onShowAll  (reports that can show one record) the clicked row {id, label}, what a click on a row does, and how to go back
+export default function DocumentReport({ reportId, path, params, stem, filters, emptyText = 'No records found.', picked = null, onPickRow, onShowAll }) {
   const { showToast } = useToast()
   const [loaded, setLoaded] = useState({ key: null, doc: null })
   const [isDownloading, setIsDownloading] = useState(false)
   const signatories = useSignatories()
 
-  const key = ready ? reportQuery(params, 'json') : null
-  const isLoading = ready && loaded.key !== key
+  const key = reportQuery(params, 'json')
+  const isLoading = loaded.key !== key
 
   useEffect(() => {
-    if (!key) return undefined
     let current = true
     api.get(`${path}?${key}`)
       .then(res => { if (current) setLoaded({ key, doc: res.data }) })
@@ -85,10 +85,10 @@ export default function DocumentReport({ reportId, path, params, stem, filters, 
     return () => { current = false }
   }, [path, key, showToast])
 
-  // The PDF carries the signers picked in the Signatories block; the Excel has no signature block.
+  // Print Report and Download Report are the same PDF (same filters, period, table and signers): one is printed from a hidden frame, the
+  // other is saved.
   const pdfQuery = () => withSignature(reportQuery(params, 'pdf'), signatories.params)
 
-  // Print: the same PDF the Preview PDF button gives (same filters, same period, same table, same signers), printed from a hidden frame.
   const print = async () => {
     setIsDownloading(true)
     try {
@@ -100,37 +100,41 @@ export default function DocumentReport({ reportId, path, params, stem, filters, 
     }
   }
 
-  const generate = async (format) => {
+  const download = async () => {
     setIsDownloading(true)
     try {
-      await downloadFile(api, `${path}?${format === 'pdf' ? pdfQuery() : reportQuery(params, format)}`, reportFileName(stem, format))
+      await downloadFile(api, `${path}?${pdfQuery()}`, reportFileName(stem, 'pdf'))
     } catch {
-      showToast(`Failed to generate ${format === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+      showToast('Failed to download the report.', 'error')
     } finally {
       setIsDownloading(false)
     }
   }
 
-  const failed = ready && !isLoading && !loaded.doc
-  const paper = loaded.doc && ready && !isLoading ? paperDocument(loaded.doc) : null
+  const failed = !isLoading && !loaded.doc
+  const paper = loaded.doc && !isLoading ? paperDocument(loaded.doc) : null
 
   return (
     <div className="space-y-5">
       {filters}
 
+      <IndividualBar doc={loaded.doc && !isLoading ? loaded.doc : null} picked={picked} onShowAll={onShowAll} />
+
       <SelectedReportBox type={reportType(reportId)} period={paper?.period} detail={paper?.detail} />
 
       <SignatoriesPanel signatories={signatories} />
 
-      <ActionButtons
-        onPrint={print}
-        onPdf={() => generate('pdf')}
-        onExcel={() => generate('excel')}
-        isDownloading={isDownloading || !ready || isLoading || failed}
-      />
+      <ActionButtons onPrint={print} onDownload={download} isDownloading={isDownloading || isLoading || failed} />
 
-      {!ready && <p className="rounded-xl border border-dashed border-[#C8D5C8] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">{notReady}</p>}
-      {ready && !failed && <ReportPaper doc={paper} signers={signatories.params} isLoading={isLoading} emptyText={emptyText} />}
+      {!failed && (
+        <ReportPaper
+          doc={paper}
+          signers={signatories.params}
+          isLoading={isLoading}
+          emptyText={emptyText}
+          onPickRow={onPickRow}
+        />
+      )}
       {failed && <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">The report could not be loaded. Change a filter to try again.</p>}
     </div>
   )

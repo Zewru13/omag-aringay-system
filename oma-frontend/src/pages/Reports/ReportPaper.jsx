@@ -1,5 +1,5 @@
 import logo from '../../assets/LOGO OMAg.jpg'
-import { selectedReport, signatureSlots } from './reportPaper.js'
+import { individualFrom, rowRefsOf, selectedReport, signatureSlots } from './reportPaper.js'
 
 // The two things the Reports page shows under a report's filters: the Selected report box, and the print-ready paper preview.
 // The paper is an on-screen copy of the printed report (the same letterhead, title, period, tables and signature lines); Print and
@@ -32,8 +32,10 @@ export function SelectedReportBox({ type, period, detail }) {
 
 // ── Paper preview ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-function PaperTable({ headers, rows, empty }) {
+// `refs` (one {id, label} per row) with `onPick` makes each row a button that asks for that record's individual report.
+function PaperTable({ headers, rows, empty, refs, onPick }) {
   if (!rows.length) return <p className="rounded border border-dashed border-slate-300 py-5 text-center text-[12px] text-slate-500">{empty || 'No records found.'}</p>
+  const clickable = Boolean(onPick) && refs.length === rows.length
   return (
     <table className="w-full border-collapse text-[11px] text-slate-800">
       <thead>
@@ -41,7 +43,17 @@ function PaperTable({ headers, rows, empty }) {
       </thead>
       <tbody>
         {rows.map((row, i) => (
-          <tr key={i} className={i % 2 ? 'bg-[#F0F8F3]' : 'bg-white'}>
+          <tr
+            key={i}
+            className={`${i % 2 ? 'bg-[#F0F8F3]' : 'bg-white'}${clickable ? ' cursor-pointer hover:bg-[#DDF0E4] focus-visible:bg-[#DDF0E4] focus-visible:outline-none' : ''}`}
+            {...(clickable ? {
+              role: 'button',
+              tabIndex: 0,
+              title: `Show the individual report of ${refs[i].label}`,
+              onClick: () => onPick(refs[i]),
+              onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(refs[i]) } },
+            } : {})}
+          >
             {row.map((cell, j) => <td key={j} className="break-words border border-slate-200 px-2 py-1.5 align-top">{cell === null || cell === undefined || cell === '' ? '—' : String(cell)}</td>)}
           </tr>
         ))}
@@ -50,7 +62,7 @@ function PaperTable({ headers, rows, empty }) {
   )
 }
 
-function PaperSection({ index, count, section, emptyText }) {
+function PaperSection({ index, count, section, emptyText, refs, onPick }) {
   return (
     <div className="mt-6">
       {(count > 1 || section.title) && (
@@ -68,7 +80,7 @@ function PaperSection({ index, count, section, emptyText }) {
           ))}
         </dl>
       ) : (
-        <PaperTable headers={section.headers} rows={section.rows} empty={section.empty || emptyText} />
+        <PaperTable headers={section.headers} rows={section.rows} empty={section.empty || emptyText} refs={refs} onPick={onPick} />
       )}
     </div>
   )
@@ -93,10 +105,13 @@ function SignatureLines({ params }) {
 // `doc` is a paperDocument(): { heading, period, detail, stats: [[label, value]], sections: [{ title, headers, rows, empty } | { title, pairs }] }.
 // `signers` is the Signatories block's parameters (useSignatories().params). `doc` null means the report is still loading. `emptyText` is
 // what a table with no rows says when its section has no message of its own.
-export function ReportPaper({ doc, signers, isLoading = false, emptyText }) {
+export function ReportPaper({ doc, signers, isLoading = false, emptyText, onPickRow }) {
+  const refs = rowRefsOf(doc)
+  const canPick = Boolean(onPickRow) && refs.length > 0
   return (
     <section aria-label="Print-ready report preview template" className="space-y-3 print:hidden">
       <h2 className="text-[18px] font-semibold text-[#1A2B1A]">Print-ready report preview template</h2>
+      {canPick && <p className="text-[12px] text-[#7A8E7A]">Click a row to see that record’s individual report.</p>}
       <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-[#F5F7F5] p-3 sm:p-5">
         {isLoading || !doc ? (
           <p className="py-10 text-center text-[13px] text-[#7A8E7A]">Loading report data…</p>
@@ -119,7 +134,10 @@ export function ReportPaper({ doc, signers, isLoading = false, emptyText }) {
               </p>
             )}
 
-            {doc.sections.map((section, index) => <PaperSection key={index} index={index} count={doc.sections.length} section={section} emptyText={emptyText} />)}
+            {doc.sections.map((section, index) => (
+              <PaperSection key={index} index={index} count={doc.sections.length} section={section} emptyText={emptyText}
+                refs={index === 0 ? refs : []} onPick={canPick && index === 0 ? onPickRow : undefined} />
+            ))}
 
             <SignatureLines params={signers} />
             <p className="mt-8 text-center text-[10.5px] italic text-slate-500">This is an official record of the Office of the Municipal Agriculturist.</p>
@@ -127,5 +145,28 @@ export function ReportPaper({ doc, signers, isLoading = false, emptyText }) {
         )}
       </div>
     </section>
+  )
+}
+
+// ── Individual report bar ────────────────────────────────────────────────────────────────────────────────────────────────────
+
+// Shown while one record's individual report is showing: `doc` is the loaded document, `picked` the row that was clicked (if any).
+// A clicked row can go back with Show all records; one the search found goes back when the search is cleared.
+export function IndividualBar({ doc, picked, onShowAll }) {
+  const individual = individualFrom(doc, picked)
+  if (!individual) return null
+  return (
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1B4D2E] bg-[#EBF5EE] px-4 py-3 print:hidden">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#4A5E4A]">Individual report</p>
+        <p className="truncate text-[14px] font-semibold text-[#1B4D2E]">{individual.label}</p>
+        {!individual.picked && <p className="text-[12px] text-[#4A5E4A]">Your search matched one record. Clear the search to see all records.</p>}
+      </div>
+      {individual.picked && (
+        <button type="button" onClick={onShowAll} className="rounded-lg border border-[#1B4D2E] bg-white px-3 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F5F7F5] max-md:min-h-[40px]">
+          Show all records
+        </button>
+      )}
+    </div>
   )
 }

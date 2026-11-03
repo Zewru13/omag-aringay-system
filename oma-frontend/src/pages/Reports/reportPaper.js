@@ -67,7 +67,8 @@ export function filtersLine(doc) {
 // What the paper shows of a backend document.
 export function paperDocument(doc) {
   const heading = doc.heading || doc.title   // the backend defaults the heading to the title
-  return { heading, period: doc.period || '', detail: filtersLine({ ...doc, heading }), stats: doc.stats || [], sections: doc.sections || [] }
+  const paper = { heading, period: doc.period || '', detail: filtersLine({ ...doc, heading }), stats: doc.stats || [], sections: doc.sections || [] }
+  return doc.row_refs ? { ...paper, row_refs: doc.row_refs } : paper   // which record each row of a list is
 }
 
 // ── the Selected report box ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -94,3 +95,21 @@ export function signatureSlots(params) {
   if (!p.noted_by && !p.approved_by) slots.push({ label: 'Certified by', name: 'MUNICIPAL AGRICULTURIST', role: 'Municipality of Aringay, La Union' })
   return slots
 }
+
+// ── the individual report ────────────────────────────────────────────────────────────────────────────────────────────────────
+
+// The registered and the organization assistance reports show a list; one record's individual report comes from a clicked row (`picked`,
+// {id, label}) or, with `individual=auto`, from a search that left exactly one record (the backend then sends `doc.individual`).
+
+// The id and name of the record each row of the list stands for ([] for an individual report or while loading).
+export const rowRefsOf = (doc) => doc?.row_refs || []
+
+// Which individual report is showing, if any: { label, picked } (picked = by a click, so "Show all records" can go back) or null for the list.
+export function individualFrom(doc, picked) {
+  if (picked) return { label: picked.label, picked: true }
+  if (doc?.individual) return { label: doc.individual.label, picked: false }
+  return null
+}
+
+// The query of such a report: a clicked row asks for that record; otherwise the search may decide (individual=auto).
+export const individualParams = (params, picked) => (picked ? { ...params, id: picked.id } : { ...params, individual: 'auto' })
