@@ -13,6 +13,7 @@ import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPa
 import AutoLabels from "./components/UI/AutoLabels.jsx";
 import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
 import BackupPage from "./pages/Backup/BackupPage.jsx";
+import SignatoriesPage from "./pages/Signatories/SignatoriesPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
@@ -378,6 +379,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <BackupPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Signatories: the officials the Reports pages offer as Prepared / Checked / Noted / Approved by (admin only) */}
+          <Route
+            path="/signatories"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <SignatoriesPage />
               </ProtectedRoute>
             }
           />
