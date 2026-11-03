@@ -2918,40 +2918,45 @@ export default {
  "admin-reports": {
   "audience": "admin",
   "title": "Reports",
-  "purpose": "The official reports, ready to preview, print or download.",
+  "purpose": "One page for the official reports: choose a report, set its filters, choose who signs, then preview, print or download it.",
   "image": "/manual/admin/reports.png",
   "width": 1280,
-  "height": 800,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Registered Farmers, Fisherfolk & Organizations",
-    "desc": "Registration records for farmers, fisherfolk and both kinds of organization: all of them, or one record, filtered by barangay and date registered."
+    "label": "Report type",
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
-    "label": "Crop Records Harvested",
-    "desc": "Harvested crop records with their yield, by farmer, crop, barangay and season."
+    "label": "Selected report",
+    "desc": "Repeats the report you chose, what it covers, the period and the filters applied right now."
    },
    {
     "n": 3,
-    "label": "Fisheries Production Harvested",
-    "desc": "Harvested aquaculture production, by fisherfolk, species, barangay and season."
+    "label": "Signatories",
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
    },
    {
     "n": 4,
-    "label": "Fisheries Disaster Reports",
-    "desc": "Disasters logged against fisherfolk and their stocks, with the volume lost and the recovery status."
+    "label": "Print",
+    "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
     "n": 5,
-    "label": "Crop / Parcel Disaster Reports",
-    "desc": "Disasters logged against crops and farm parcels, with the area affected and the recovery status."
+    "label": "Preview PDF",
+    "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
     "n": 6,
-    "label": "Organization Assistance",
-    "desc": "The assistance organizations gave to their members, for one organization or all, with who received it."
+    "label": "Download Excel",
+    "desc": "Saves the rows of the report as an Excel file."
+   },
+   {
+    "n": 7,
+    "label": "Print-ready preview",
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers."
    }
   ]
  },
@@ -2961,12 +2966,12 @@ export default {
   "purpose": "Registration records, ready to print.",
   "image": "/manual/admin/report-registered.png",
   "width": 1280,
-  "height": 1000,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Reports",
-    "desc": "Returns to the list of reports."
+    "label": "Report type",
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -2990,28 +2995,33 @@ export default {
    },
    {
     "n": 6,
+    "label": "Selected report",
+    "desc": "Repeats the report you chose, what it covers, the period and the filters applied right now."
+   },
+   {
+    "n": 7,
     "label": "Signatories",
     "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 9,
+    "n": 10,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 10,
-    "label": "Preview table",
-    "desc": "The registration records exactly as it will print, one row per record. It follows the filters."
+    "n": 11,
+    "label": "Print-ready preview",
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers."
    }
   ]
  },
@@ -3021,12 +3031,12 @@ export default {
   "purpose": "Harvested crops with their yield.",
   "image": "/manual/admin/report-crop.png",
   "width": 1280,
-  "height": 800,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Reports",
-    "desc": "Returns to the list of reports."
+    "label": "Report type",
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -3035,28 +3045,33 @@ export default {
    },
    {
     "n": 3,
+    "label": "Selected report",
+    "desc": "Repeats the report you chose, what it covers, the period and the filters applied right now."
+   },
+   {
+    "n": 4,
     "label": "Signatories",
     "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 7,
-    "label": "Columns",
-    "desc": "Barangay, farmer, organization, crop, area planted and area harvested (ha), the estimated and actual harvest dates, and the estimated yield and actual yield (kg)."
+    "n": 8,
+    "label": "Print-ready preview",
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Barangay, farmer, organization, crop, area planted and area harvested (ha), the estimated and actual harvest dates, and the estimated yield and actual yield (kg)."
    }
   ]
  },
@@ -3066,12 +3081,12 @@ export default {
   "purpose": "Harvested aquaculture production.",
   "image": "/manual/admin/report-fisheries-production.png",
   "width": 1280,
-  "height": 800,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Reports",
-    "desc": "Returns to the list of reports."
+    "label": "Report type",
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -3080,28 +3095,33 @@ export default {
    },
    {
     "n": 3,
+    "label": "Selected report",
+    "desc": "Repeats the report you chose, what it covers, the period and the filters applied right now."
+   },
+   {
+    "n": 4,
     "label": "Signatories",
     "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 7,
-    "label": "Columns",
-    "desc": "Barangay, fisherfolk, organization, species, culture type, date stocked, harvest date, quantity (kg) and whether it is the final harvest of the cycle."
+    "n": 8,
+    "label": "Print-ready preview",
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Barangay, fisherfolk, organization, species, culture type, date stocked, harvest date, quantity (kg) and whether it is the final harvest of the cycle."
    }
   ]
  },
@@ -3111,12 +3131,12 @@ export default {
   "purpose": "Disasters of fisherfolk and their stocks.",
   "image": "/manual/admin/report-fisheries-disaster.png",
   "width": 1280,
-  "height": 800,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Reports",
-    "desc": "Returns to the list of reports."
+    "label": "Report type",
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -3130,28 +3150,33 @@ export default {
    },
    {
     "n": 4,
+    "label": "Selected report",
+    "desc": "Repeats the report you chose, what it covers, the period and the filters applied right now."
+   },
+   {
+    "n": 5,
     "label": "Signatories",
     "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 8,
-    "label": "Columns",
-    "desc": "Reference number, fisherfolk, barangay, stock or cycle, disaster type, date of occurrence, volume lost (kg), total loss, status and the date logged."
+    "n": 9,
+    "label": "Print-ready preview",
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Reference number, fisherfolk, barangay, stock or cycle, disaster type, date of occurrence, volume lost (kg), total loss, status and the date logged."
    }
   ]
  },
@@ -3161,12 +3186,12 @@ export default {
   "purpose": "The assistance organizations gave to their members.",
   "image": "/manual/admin/report-org-assistance.png",
   "width": 1280,
-  "height": 1000,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Reports",
-    "desc": "Returns to the list of reports."
+    "label": "Report type",
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -3190,28 +3215,33 @@ export default {
    },
    {
     "n": 6,
+    "label": "Selected report",
+    "desc": "Repeats the report you chose, what it covers, the period and the filters applied right now."
+   },
+   {
+    "n": 7,
     "label": "Signatories",
     "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 9,
+    "n": 10,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 10,
-    "label": "Columns",
-    "desc": "Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status."
+    "n": 11,
+    "label": "Print-ready preview",
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status."
    }
   ]
  },

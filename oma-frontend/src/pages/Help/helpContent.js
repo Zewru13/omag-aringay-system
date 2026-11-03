@@ -34,7 +34,7 @@ export const STEPS = [
   },
   {
     title: 'Generate reports',
-    desc: 'Reports lets you preview a report as a PDF, then download or print it. Pick who signs it in the Signatories block above the buttons.',
+    desc: 'Reports is one page: choose the report in the Report type box and set its filters. The paper preview shows it as it will print. Pick who signs it in the Signatories block above the buttons, then preview it as a PDF, print it or download it.',
   },
 ]
 
@@ -196,7 +196,7 @@ export const SECTIONS = [
     items: [
       {
         q: 'How do I print or download a report?',
-        a: 'Open Reports, choose the report and its period, and use Preview PDF. Print gives the same PDF as the preview, and Download saves it.',
+        a: 'Open Reports and choose the report in the Report type box; the filters below it change with the report, so set the period and the rest there. The paper preview under the buttons shows the report as it will print and changes as you change the filters. Preview PDF shows it as a PDF, Print gives the same PDF ready to print, and Download Excel saves its rows.',
       },
       {
         q: 'How do I choose who signs a report?',
