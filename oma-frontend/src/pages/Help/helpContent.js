@@ -179,7 +179,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I read the assistance table?',
-        a: 'Each row is one distribution, named after the organization that gave it, or Individual farmers (5) when it went to selected people. Click a row to drop down the members who benefited, with their barangay and status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
+        a: 'Each row is one distribution, named after who it was given to: the organization, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Click a row to drop down the members who benefited, with their barangay and status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
       },
       {
         q: 'Why was a member blocked?',

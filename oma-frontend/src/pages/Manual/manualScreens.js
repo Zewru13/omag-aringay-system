@@ -2591,7 +2591,7 @@ export default {
    {
     "n": 6,
     "label": "Columns",
-    "desc": "Date given, organization (or Individual farmers when it went to selected people), assistance type, source agency, quantity and status."
+    "desc": "Date given, who it was given to (the organization, or the names of the farmers when it went to selected people), assistance type, source agency, quantity and status."
    },
    {
     "n": 7,
