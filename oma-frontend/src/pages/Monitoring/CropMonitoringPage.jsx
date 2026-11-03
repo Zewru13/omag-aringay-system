@@ -1736,7 +1736,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
       >
         <div className="space-y-3 text-sm text-slate-700">
           <p>The harvest of <span className="font-medium">{cropName}</span> was recorded. You can print a report of it now.</p>
-          <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
             <dt className="text-slate-500">Harvest date</dt><dd className="font-medium">{saved.harvest.harvest_start_date}</dd>
             {t.varianceDays !== null && (<><dt className="text-slate-500">Timing</dt><dd className="font-medium">
               {t.varianceDays === 0 ? 'On the expected date'
@@ -1775,6 +1775,12 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         }
       >
         <div className="space-y-3">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="harvest-crop-card">
+            <dt className="text-slate-500">Crop</dt><dd className="font-semibold text-slate-800">{cropName}</dd>
+            {record.variety_used && (<><dt className="text-slate-500">Variety</dt><dd className="font-medium text-slate-700">{record.variety_used}</dd></>)}
+            {(record.farmer_name || record.farmer_full_name) && (<><dt className="text-slate-500">Farmer</dt><dd className="font-medium text-slate-700">{record.farmer_name || record.farmer_full_name}</dd></>)}
+            {record.date_planted && (<><dt className="text-slate-500">Planted</dt><dd className="font-medium text-slate-700">{record.date_planted}</dd></>)}
+          </dl>
           {visibleResolvableDisasters.map(d => (
             <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <p className="text-xs text-emerald-800 mb-2">
@@ -2220,14 +2226,17 @@ export default function CropMonitoringPage() {
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
             key: 'activity', label: 'Record Activity', icon: ClipboardList, onClick: () => { setLogsStartForm(true); setViewLogsRecord(rec) },
           },
-          { key: 'details', label: 'View Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
+          { key: 'details', label: 'Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (() => {
             const gate = harvestGateInfo(rec)
+            // Before half of the growing time has passed the item is still there, grayed out (its hover text says why).
             return {
               key: 'harvest',
-              label: gate.gated ? 'Record Harvest (Not Yet Available)' : 'Record Harvest',
+              label: 'Record Harvest',
               icon: Wheat,
-              onClick: () => (gate.gated ? showToast(gate.message, 'error') : setHarvestRecord(rec)),
+              onClick: () => setHarvestRecord(rec),
+              disabled: gate.gated,
+              disabledReason: gate.gated ? gate.message : undefined,
               tone: gate.gated ? 'default' : (isNearHarvest(rec) ? 'amber' : 'default'),
             }
           })(),

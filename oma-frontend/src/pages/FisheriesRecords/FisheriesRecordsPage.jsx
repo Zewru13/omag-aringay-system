@@ -16,7 +16,7 @@ import ListPrintButton from '../../components/ListPrintButton.jsx'
 import { dateRangeParams } from '../../utils/dateRange.js'
 import { fetchAllRows } from '../../utils/listReport.js'
 import { aquacultureReport, cycleReport, rangeFilter } from '../Monitoring/listReports.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
@@ -37,9 +37,7 @@ import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPan
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
-import Button from '../../components/UI/Button.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
-import { buildForceHarvestSpec, forceHarvestRows, forceHarvestTable } from './forceHarvestTable.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
 import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
 import { FORCED_UNIT_STATUS, canForceHarvest, cycleStatusText } from './emergencyForceHarvest.js'
@@ -469,223 +467,6 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
 
 // ─── Detail Modal (Eye) ────────────────────────────────────────────────────────
 
-// Force-harvested ponds/cages of a cycle-linked record, straight from the backend's harvest_units.
-// `force_harvested` = the unit is listed on a harvest record with is_force_harvest=True (set by the
-// backend). A normally harvested unit and a Health Log alone (force_harvest without a harvest) never
-// qualify. Labels are "Pond N" / "Cage N" -> HP N / HC N.
-function forceHarvestedUnits(rec) {
-  return (rec.harvest_units || [])
-    .filter(u => u.force_harvested)
-    .map(u => {
-      const m = /^(Pond|Cage)\s+(\d+)$/.exec(u.label || '')
-      if (!m) return null
-      const prefix = m[1] === 'Pond' ? 'HP' : 'HC'
-      return { ...u, typeLabel: m[1], number: m[2], prefix, code: `${prefix}${m[2]}` }
-    })
-    .filter(Boolean)
-}
-
-// Display only: one compact badge per prefix showing HOW MANY units were force harvested - three ponds
-// -> "HP 3", ten cages -> "HC 10"; mixed types stay separate ("HP 2" and "HC 2"). The badge never lists
-// the units, so it keeps the same small footprint however many there are; each group keeps its actual
-// units (numeric order) for the details modal, which lists them all.
-function groupForceHarvestedUnits(units) {
-  const groups = new Map()
-  for (const u of units) {
-    if (!groups.has(u.prefix)) groups.set(u.prefix, [])
-    groups.get(u.prefix).push(u)
-  }
-  return [...groups.entries()].map(([prefix, list]) => {
-    const sorted = [...list].sort((a, b) => Number(a.number) - Number(b.number))
-    const noun = sorted[0].typeLabel === 'Cage' ? 'cage' : 'pond'
-    return {
-      prefix, units: sorted, code: `${prefix} ${sorted.length}`,
-      names: sorted.map(u => u.label).join(', '),
-      ariaLabel: `View ${sorted.length} Force Harvested ${noun}${sorted.length === 1 ? '' : 's'}`,
-    }
-  })
-}
-
-// Force Harvest Details for ONE pond/cage at a time: its own Health Log entries (cycle health endpoint,
-// filtered by production_unit) and the harvest record that lists it (stocking detail endpoint,
-// production_units). A grouped badge (e.g. HP1,2) passes all its units; a switcher picks the unit shown.
-function ForceHarvestDetailsModal({ record, units, onClose }) {
-  const [activeUnitId, setActiveUnitId] = useState(units[0].id)
-  const unit = units.find(u => u.id === activeUnitId) || units[0]
-  const [harvests, setHarvests] = useState(null)
-  // No production cycle -> no Health Log to load.
-  const [logs, setLogs] = useState(record.production_cycle ? null : [])
-  const [harvestFailed, setHarvestFailed] = useState(false)
-  const [logsFailed, setLogsFailed] = useState(false)
-  const [estimates, setEstimates] = useState(null)   // each unit's own estimated kg (null while loading, 'error' if unavailable)
-  const [isPrinting, setIsPrinting] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    api.get(`/fisheries/stocking/${record.id}/production-units/`)
-      .then(r => { if (!cancelled) setEstimates(Object.fromEntries((r.data.units || []).map(u => [u.id, u.estimated_harvest_kg]))) })
-      .catch(() => { if (!cancelled) setEstimates('error') })
-    api.get(`/fisheries/stocking/${record.id}/`)
-      .then(r => { if (!cancelled) setHarvests(r.data.harvests || []) })
-      .catch(() => { if (!cancelled) setHarvestFailed(true) })
-    if (record.production_cycle) {
-      api.get(`/monitoring/aquaculture-cycles/${record.production_cycle}/health/`)
-        .then(r => { if (!cancelled) setLogs(Array.isArray(r.data) ? r.data : (r.data.results || [])) })
-        .catch(() => { if (!cancelled) setLogsFailed(true) })
-    }
-    return () => { cancelled = true }
-  }, [record.id, record.production_cycle])
-
-  const fmtKg = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const list = (items) => (items.length === 1 ? items[0] : (
-    <ul className="space-y-0.5">{items.map((it, i) => <li key={i}>• {it}</li>)}</ul>
-  ))
-
-  // Only this unit's own Force Harvest Health Log entries.
-  const unitLogs = (logs || []).filter(l => l.production_unit === unit.id && l.force_harvest)
-  // The Force Harvest record (is_force_harvest) whose production_units include a unit.
-  const harvestFor = (u) => (harvests || []).find(h => h.is_force_harvest && ((h.production_units || []).includes(u.id)
-    || (h.production_unit_details || []).some(d => d.id === u.id)))
-  const harvest = harvestFor(unit)
-  const harvestedWith = harvest ? (harvest.production_unit_details || []).map(d => d.label) : []
-  // Per-unit actual kg of that Force Harvest (FisheriesHarvestUnit rows). Empty for older records,
-  // which only have the combined quantity_kg.
-  const unitHarvests = harvest?.unit_harvests || []
-  const ownUnitHarvest = unitHarvests.find(r => r.production_unit === unit.id)
-
-  const rows = [
-    ['Production Unit', unit.label],
-    ['Status', 'Force Harvested'],
-  ]
-  const issues = [...new Set(unitLogs.map(l => l.observation).filter(Boolean))]
-  if (issues.length) rows.push(['Health Issue', list(issues)])
-  const mortality = unitLogs.filter(l => Number(l.mortality_count) > 0)
-  if (mortality.length) {
-    rows.push(['Mortality Count', list(mortality.map(l => (unitLogs.length > 1
-      ? `${Number(l.mortality_count).toLocaleString()} (${fmtLong(l.log_date)})`
-      : Number(l.mortality_count).toLocaleString())))])
-  }
-  const logDates = [...new Set(unitLogs.map(l => l.log_date).filter(Boolean))]
-  if (logDates.length) rows.push(['Health Log Date', list(logDates.map(fmtLong))])
-  // Every Force Harvest reason the backend classified for this unit (harvest_units.reasons).
-  if ((unit.reasons || []).length) rows.push(['Force Harvest Reason', list(unit.reasons)])
-  if (harvest) {
-    if (harvest.early_late_reason && harvest.early_late_reason !== (unit.reasons || []).join('; ')) {
-      rows.push(['Recorded Harvest Reason', harvest.early_late_reason])
-    }
-    rows.push(['Harvest Date', fmtLong(harvest.harvest_date)])
-    rows.push(['Actual Harvest (kg)', ownUnitHarvest
-      ? fmtKg(ownUnitHarvest.quantity_kg)                                   // this unit's own recorded kg
-      : harvestedWith.length > 1
-        ? <span>{fmtKg(harvest.quantity_kg)} <span className="font-normal text-[#7A8E7A]">(combined total for {harvestedWith.join(', ')})</span></span>
-        : fmtKg(harvest.quantity_kg)])
-    if (harvest.area_or_units_harvested) rows.push(['Area / Units Harvested', harvest.area_or_units_harvested])
-    if (harvest.notes) rows.push(['Notes', harvest.notes])
-  }
-  const logNotes = unitLogs.map(l => l.notes).filter(Boolean)
-  if (logNotes.length) rows.push(['Health Log Notes', list(logNotes)])
-
-  const loading = (harvests === null && !harvestFailed) || (logs === null && !logsFailed)
-
-  // One row per force-harvested unit of this badge, as the table on screen and in the printed report.
-  const tableRows = forceHarvestRows({ units, harvests, logs, estimates })
-  const summary = forceHarvestTable(tableRows)
-  const printTable = async () => {
-    setIsPrinting(true)
-    try {
-      await printSpec(buildForceHarvestSpec({ record, rows: tableRows }))
-    } catch {
-      // the browser blocked or failed the print window; nothing was changed
-    } finally {
-      setIsPrinting(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title={`Force Harvest Details — ${unit.label}`}
-      subtitle={`${record.species_name || ''}${record.fisherfolk_name ? ` · ${record.fisherfolk_name}` : ''}`}
-      icon={AlertTriangle}
-      onClose={onClose}
-      maxWidth="max-w-4xl"
-      footer={(
-        <>
-          <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
-          <Button type="button" icon={Printer} isLoading={isPrinting} disabled={loading} onClick={printTable}>Print report</Button>
-        </>
-      )}
-    >
-      <div className="space-y-3" data-testid="force-harvest-details">
-        {!loading && (
-          // All force-harvested units of this badge at once; picking a row shows that unit's full details below.
-          <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7A8E7A]">
-              Force Harvested Production Units ({units.length})
-            </p>
-            <div className="overflow-x-auto rounded-xl border border-[#E2E8E2]" data-testid="force-harvest-table">
-              <table className="min-w-full text-[13px]">
-                <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
-                  <tr>
-                    {summary.head.map((h, i) => (
-                      <th key={h} className={`whitespace-nowrap px-3 py-2 font-semibold ${i >= 2 && i !== 3 && i !== 4 ? 'text-right' : 'text-left'}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.rows.map((cells, i) => {
-                    const isTotal = i === summary.rows.length - 1
-                    const row = tableRows[i]
-                    const active = !isTotal && row.id === unit.id
-                    return (
-                      <tr
-                        key={isTotal ? 'total' : row.id}
-                        data-testid={isTotal ? 'force-harvest-total' : 'force-unit-row'}
-                        onClick={isTotal ? undefined : () => setActiveUnitId(row.id)}
-                        className={`border-t border-[#F0F4F0] ${isTotal ? 'bg-[#F9FAF9] font-bold' : `cursor-pointer ${active ? 'bg-red-50' : 'hover:bg-red-50/40'}`}`}
-                      >
-                        {cells.map((cell, j) => (
-                          <td key={j} className={`px-3 py-2 ${j === 0 ? 'whitespace-nowrap font-semibold text-[#1A2B1A]' : 'text-[#1A2B1A]'} ${j >= 2 && j !== 3 && j !== 4 ? 'whitespace-nowrap text-right tabular-nums' : ''}`}>
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        {harvestFailed &&<p className="text-[12px] text-rose-600">Failed to load harvest records.</p>}
-        {logsFailed && <p className="text-[12px] text-rose-600">Failed to load Health Log entries.</p>}
-        {loading ? (
-          <p className="text-[12px] text-[#7A8E7A]">Loading force harvest details…</p>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
-            <p className="bg-red-600 px-3 py-1.5 text-[12px] font-semibold text-white">Details — {unit.label}</p>
-            <table className="min-w-full text-[13px]">
-              <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
-                <tr>
-                  <th className="px-3 py-2 text-left font-semibold">Detail</th>
-                  <th className="px-3 py-2 text-left font-semibold">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(([label, value]) => (
-                  <tr key={label} className="border-t border-[#F0F4F0] align-top">
-                    <td className="whitespace-nowrap px-3 py-2 font-medium text-[#4A5E4A]">{label}</td>
-                    <td className="px-3 py-2 font-semibold text-[#1A2B1A]">{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </ModalShell>
-  )
-}
-
 // Harvest details for a record: one block per harvest record, listing the actual ponds/cages
 // linked to it. Loaded from the record's detail endpoint (which nests the harvest records).
 function HarvestDetailsSection({ record }) {
@@ -914,7 +695,7 @@ function harvestGateInfo(rec) {
 // menu; disasters through Disaster. Evaluator accounts keep the full menu.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName, simplified = false,
-  onViewDetails, onEdit, onViewCycle, onPrint, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
+  onViewDetails, onEdit, onViewCycle, onPrint, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -924,7 +705,7 @@ function StockingRowActions({
   const actions = [
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
-    { key: 'cycle', label: 'View Cycle Details & Logs', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
+    { key: 'cycle', label: 'Cycle & Logs', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
     { key: 'print', label: 'Print Report', icon: Printer, onClick: onPrint, group: 'crud' },
     // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
     // harvest) and the Health Log Force Harvest are unchanged.
@@ -932,9 +713,11 @@ function StockingRowActions({
     !simplified && { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
     !simplified && canHarvest && {
       key: 'harvest',
-      label: harvestGate.gated ? 'Record Harvest (Not Yet Available)' : 'Record Harvest',
+      label: 'Record Harvest',
       icon: Wheat,
-      onClick: () => (harvestGate.gated ? showToast(harvestGate.message, 'error') : onRecordHarvest()),
+      onClick: () => onRecordHarvest(),
+      disabled: harvestGate.gated,
+      disabledReason: harvestGate.gated ? harvestGate.message : undefined,
       tone: harvestGate.gated ? 'default' : (isNearHarvest ? 'amber' : 'default'), group: 'lifecycle',
     },
     !simplified && { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: onReportDisaster, tone: 'rose', group: 'lifecycle' },
@@ -977,25 +760,6 @@ function StockingRowActions({
       </button>
       <RowActions actions={actions} menuTitle="Actions" menuWidthClassName="w-52" />
     </div>
-  )
-}
-
-// Top-right of an expanded row's pond/cage panel: opens the existing Production Cycle modal (Cycle Info,
-// Feeding Logs, Health Logs) via handleViewCycle. Only for a stock linked to a cycle - there is nothing to open
-// otherwise. It sits outside the parent row (desktop) / inside a data-no-row-click area (cards), so a click
-// never expands or collapses the row.
-function CycleDetailsButton({ rec, onViewCycle }) {
-  if (!rec.production_cycle) return null
-  return (
-    <button
-      type="button"
-      data-testid="view-cycle-details"
-      onClick={() => onViewCycle(rec)}
-      className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] bg-white px-3 py-[5px] text-[12px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0]"
-    >
-      <Layers className="h-3.5 w-3.5" />
-      View Cycle Details &amp; Logs
-    </button>
   )
 }
 
@@ -1053,8 +817,7 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
             ))}
           </dl>
           <div className="border-t border-[#F0F4F0] pt-3">
-            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits}
-              headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={onOpenCycle} />} />
+            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits} />
           </div>
           <div className="grid grid-cols-2 gap-2 border-t border-[#F0F4F0] pt-3 min-[420px]:flex">
             <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
@@ -1125,7 +888,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [harvestRec,   setHarvestRec]   = useState(null)
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [viewingCycle,   setViewingCycle]   = useState(null)
-  const [forceUnitView,  setForceUnitView]  = useState(null)   // { rec, units } for an HP/HC badge group
   const [forceRec,       setForceRec]       = useState(null)   // the record whose ⋮ > Force Harvest form is open
   // ?forced=<id> (an emergency Force Harvest notification): open that saved Force Harvest's details.
   const linkedForcedId = searchParams.get('forced')
@@ -1344,21 +1106,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         ) : (
           <StatusPill tone={STATUS_TONES[cycleStatusText(rec)] || 'slate'}>{cycleStatusText(rec)}</StatusPill>
         )}
-        {groupForceHarvestedUnits(forceHarvestedUnits(rec)).map(g => (
-          // Count only ("HP 10"), never the unit list, so the cell stays compact; the modal lists every unit.
-          <button
-            key={g.prefix}
-            type="button"
-            data-testid="force-harvest-unit"
-            title={`Force Harvested: ${g.names}. View details`}
-            aria-label={g.ariaLabel}
-            onClick={() => setForceUnitView({ rec, units: g.units })}
-            className="inline-flex min-w-[3.5rem] shrink-0 justify-center whitespace-nowrap rounded-md border border-red-300 bg-red-50 px-1.5 py-[2px] text-[10px] font-bold tracking-wide tabular-nums text-red-700 transition-colors hover:bg-red-100 hover:border-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-          >
-            {g.code}
-          </button>
-        ))}
-        <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),
     actions_cell: (
@@ -1377,7 +1124,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         onRecordHarvest={() => setHarvestRec(rec)}
         onReportDisaster={() => setDisasterRec(rec)}
         onForceUnlock={() => handleForceUnlock(rec.id)}
-        showToast={showToast}
       />
     ),
   }))
@@ -1511,8 +1257,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                   const isExpanded = expandedId === row.id
                   return (
                     // The whole row expands/collapses this stock's ponds/cages underneath it; the full Production
-                    // Cycle (Cycle Info, Feeding Logs, Health Logs) is "View Cycle Details & Logs" in the expanded panel
-                    // and in the row menu.
+                    // Cycle (Cycle Info, Feeding Logs, Health Logs) is "Cycle & Logs" in the row menu.
                     // The badges and buttons inside the row keep their own actions.
                     <Fragment key={row.id}>
                       <tr className={`cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${isExpanded ? 'bg-[#F5F8F5]' : ''}`}
@@ -1527,8 +1272,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                       {isExpanded && (
                         <tr className="border-b border-[#E2E8E2]">
                           <td colSpan={columns.length} className="p-0">
-                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)}
-                              headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={handleViewCycle} />} />
+                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)} />
                           </td>
                         </tr>
                       )}
@@ -1563,13 +1307,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         <StockingDetailModal record={viewingRec} staffView={!isFisherfolk} onClose={() => setViewingRec(null)} />
       )}
 
-      {forceUnitView && (
-        <ForceHarvestDetailsModal
-          record={forceUnitView.rec}
-          units={forceUnitView.units}
-          onClose={() => setForceUnitView(null)}
-        />
-      )}
 
       {forceRec && (
         <ForceHarvestModal

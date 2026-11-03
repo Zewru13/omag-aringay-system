@@ -379,6 +379,94 @@
   background-color: color-mix(in srgb, var(--color-cz-fish-pale) 70%, transparent);
 }
 
+html[data-domain-theme="fisheries"] {
+  --color-primary:       var(--color-cz-fish-header);
+  --color-primary-hover: var(--color-cz-fish-deeper);
+  --color-primary-deep:  var(--color-cz-fish-deeper);
+  --color-primary-light: var(--color-cz-fish-pale);
+  --color-primary-muted: var(--color-cz-fish-300);
+  --color-accent:        var(--color-cz-fish-header);
+  --color-accent-hover:  var(--color-cz-fish-deeper);
+  --color-accent-light:  var(--color-cz-fish-pale);
+}
+html[data-domain-theme="fisheries"] .accent-\[\#1B4D2E\] { accent-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .accent-\[\#1E4620\] { accent-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .bg-\[\#1B4D2E\] { background-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .bg-\[\#1B4D2E\]\/10 { background-color: color-mix(in oklab, var(--color-cz-fish-header) 10%, transparent); }
+html[data-domain-theme="fisheries"] .bg-\[\#1E4620\] { background-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .hover\:bg-\[\#235E38\]:hover { background-color: var(--color-cz-fish-deeper); }
+html[data-domain-theme="fisheries"] .bg-\[\#4CAF50\] { background-color: var(--color-cz-fish-fill); }
+html[data-domain-theme="fisheries"] .bg-\[\#C8E6D0\] { background-color: var(--color-cz-fish-300); }
+html[data-domain-theme="fisheries"] .bg-\[\#EBF5EE\] { background-color: var(--color-cz-fish-pale); }
+html[data-domain-theme="fisheries"] .hover\:bg-\[\#EBF5EE\]:hover { background-color: var(--color-cz-fish-pale); }
+html[data-domain-theme="fisheries"] .bg-\[\#EBF5EE\]\/20 { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 20%, transparent); }
+html[data-domain-theme="fisheries"] .bg-\[\#EBF5EE\]\/30 { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 30%, transparent); }
+html[data-domain-theme="fisheries"] .hover\:bg-\[\#EBF5EE\]\/30:hover { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 30%, transparent); }
+html[data-domain-theme="fisheries"] .hover\:bg-\[\#EBF5EE\]\/50:hover { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 50%, transparent); }
+html[data-domain-theme="fisheries"] .hover\:bg-\[\#dceadd\]:hover { background-color: color-mix(in srgb, var(--color-cz-fish-300) 40%, var(--color-cz-fish-pale)); }
+html[data-domain-theme="fisheries"] .bg-\[\#e8f5e9\] { background-color: var(--color-cz-fish-pale); }
+html[data-domain-theme="fisheries"] .bg-\[\#f0f7f0\] { background-color: var(--color-cz-fish-pale); }
+html[data-domain-theme="fisheries"] .hover\:bg-\[\#f0f7f0\]:hover { background-color: var(--color-cz-fish-pale); }
+html[data-domain-theme="fisheries"] .border-\[\#1B4D2E\] { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .focus-within\:border-\[\#1B4D2E\]:focus-within { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .focus\:border-\[\#1B4D2E\]:focus { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .hover\:border-\[\#1B4D2E\]:hover { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .border-\[\#1B4D2E\]\/30 { border-color: color-mix(in oklab, var(--color-cz-fish-header) 30%, transparent); }
+html[data-domain-theme="fisheries"] .hover\:border-\[\#1B4D2E\]\/60:hover { border-color: color-mix(in oklab, var(--color-cz-fish-header) 60%, transparent); }
+html[data-domain-theme="fisheries"] .border-\[\#1E4620\] { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .focus\:border-\[\#1E4620\]:focus { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .hover\:border-\[\#1E4620\]:hover { border-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .border-\[\#C8E6D0\] { border-color: var(--color-cz-fish-300); }
+html[data-domain-theme="fisheries"] .border-t-\[\#1B4D2E\] { border-top-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .from-\[\#1B4D2E\] { --tw-gradient-from: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .focus-visible\:outline-\[\#1E4620\]:focus-visible { outline-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .focus\:ring-\[\#1B4D2E\]:focus { --tw-ring-color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .focus\:ring-\[\#1B4D2E\]\/10:focus { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 10%, transparent); }
+html[data-domain-theme="fisheries"] .focus\:ring-\[\#1B4D2E\]\/20:focus { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 20%, transparent); }
+html[data-domain-theme="fisheries"] .focus-visible\:ring-\[\#1B4D2E\]\/30:focus-visible { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 30%, transparent); }
+html[data-domain-theme="fisheries"] .focus\:ring-\[\#1B4D2E\]\/30:focus { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 30%, transparent); }
+html[data-domain-theme="fisheries"] .\!text-\[\#1B4D2E\] { color: var(--color-cz-fish-header) !important; }
+html[data-domain-theme="fisheries"] .hover\:text-\[\#1B4D2E\]:hover { color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .text-\[\#1B4D2E\] { color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .text-\[\#1E4620\] { color: var(--color-cz-fish-header); }
+html[data-domain-theme="fisheries"] .text-\[\#235E38\] { color: var(--color-cz-fish-deeper); }
+html[data-domain-theme="fisheries"] .text-\[\#C8E6D0\] { color: var(--color-cz-fish-100); }
+
+html[data-domain-theme="fisheries"] [data-row-clickable]:hover {
+  background-color: color-mix(in srgb, var(--color-cz-fish-pale) 70%, transparent);
+}
+
+/* Fisheries Management pages (Aquaculture and Capture Monitoring): the brand green above becomes tide blue, and every other palette
+   color the pages use (green, amber, red and the like) becomes a shade of the same blue, so the pages keep one color of their own.
+   Set by hooks/useFisheriesTheme.js on <html>. Statuses are told apart by their words and by how dark the blue is. */
+html[data-domain-theme="fisheries"] {
+  --fish-50:  var(--color-cz-fish-pale);
+  --fish-200: color-mix(in oklab, var(--color-cz-fish-pale) 55%, var(--color-cz-fish-300));
+  --fish-300: var(--color-cz-fish-300);
+  --fish-500: var(--color-cz-fish-fill);
+  --fish-600: var(--color-cz-fish-header);
+  --fish-800: var(--color-cz-fish-deeper);
+}
+html[data-domain-theme="fisheries"] { --color-green-50: var(--fish-50); --color-green-100: var(--fish-50); --color-green-200: var(--fish-200); --color-green-300: var(--fish-300); --color-green-400: var(--fish-500); --color-green-500: var(--fish-500); --color-green-600: var(--fish-600); --color-green-700: var(--fish-600); --color-green-800: var(--fish-800); --color-green-900: var(--fish-800); --color-green-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-emerald-50: var(--fish-50); --color-emerald-100: var(--fish-50); --color-emerald-200: var(--fish-200); --color-emerald-300: var(--fish-300); --color-emerald-400: var(--fish-500); --color-emerald-500: var(--fish-500); --color-emerald-600: var(--fish-600); --color-emerald-700: var(--fish-600); --color-emerald-800: var(--fish-800); --color-emerald-900: var(--fish-800); --color-emerald-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-lime-50: var(--fish-50); --color-lime-100: var(--fish-50); --color-lime-200: var(--fish-200); --color-lime-300: var(--fish-300); --color-lime-400: var(--fish-500); --color-lime-500: var(--fish-500); --color-lime-600: var(--fish-600); --color-lime-700: var(--fish-600); --color-lime-800: var(--fish-800); --color-lime-900: var(--fish-800); --color-lime-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-teal-50: var(--fish-50); --color-teal-100: var(--fish-50); --color-teal-200: var(--fish-200); --color-teal-300: var(--fish-300); --color-teal-400: var(--fish-500); --color-teal-500: var(--fish-500); --color-teal-600: var(--fish-600); --color-teal-700: var(--fish-600); --color-teal-800: var(--fish-800); --color-teal-900: var(--fish-800); --color-teal-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-amber-50: var(--fish-50); --color-amber-100: var(--fish-50); --color-amber-200: var(--fish-200); --color-amber-300: var(--fish-300); --color-amber-400: var(--fish-500); --color-amber-500: var(--fish-500); --color-amber-600: var(--fish-600); --color-amber-700: var(--fish-600); --color-amber-800: var(--fish-800); --color-amber-900: var(--fish-800); --color-amber-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-yellow-50: var(--fish-50); --color-yellow-100: var(--fish-50); --color-yellow-200: var(--fish-200); --color-yellow-300: var(--fish-300); --color-yellow-400: var(--fish-500); --color-yellow-500: var(--fish-500); --color-yellow-600: var(--fish-600); --color-yellow-700: var(--fish-600); --color-yellow-800: var(--fish-800); --color-yellow-900: var(--fish-800); --color-yellow-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-orange-50: var(--fish-50); --color-orange-100: var(--fish-50); --color-orange-200: var(--fish-200); --color-orange-300: var(--fish-300); --color-orange-400: var(--fish-500); --color-orange-500: var(--fish-500); --color-orange-600: var(--fish-600); --color-orange-700: var(--fish-600); --color-orange-800: var(--fish-800); --color-orange-900: var(--fish-800); --color-orange-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-red-50: var(--fish-50); --color-red-100: var(--fish-50); --color-red-200: var(--fish-200); --color-red-300: var(--fish-300); --color-red-400: var(--fish-500); --color-red-500: var(--fish-500); --color-red-600: var(--fish-600); --color-red-700: var(--fish-600); --color-red-800: var(--fish-800); --color-red-900: var(--fish-800); --color-red-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-rose-50: var(--fish-50); --color-rose-100: var(--fish-50); --color-rose-200: var(--fish-200); --color-rose-300: var(--fish-300); --color-rose-400: var(--fish-500); --color-rose-500: var(--fish-500); --color-rose-600: var(--fish-600); --color-rose-700: var(--fish-600); --color-rose-800: var(--fish-800); --color-rose-900: var(--fish-800); --color-rose-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-pink-50: var(--fish-50); --color-pink-100: var(--fish-50); --color-pink-200: var(--fish-200); --color-pink-300: var(--fish-300); --color-pink-400: var(--fish-500); --color-pink-500: var(--fish-500); --color-pink-600: var(--fish-600); --color-pink-700: var(--fish-600); --color-pink-800: var(--fish-800); --color-pink-900: var(--fish-800); --color-pink-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-purple-50: var(--fish-50); --color-purple-100: var(--fish-50); --color-purple-200: var(--fish-200); --color-purple-300: var(--fish-300); --color-purple-400: var(--fish-500); --color-purple-500: var(--fish-500); --color-purple-600: var(--fish-600); --color-purple-700: var(--fish-600); --color-purple-800: var(--fish-800); --color-purple-900: var(--fish-800); --color-purple-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-violet-50: var(--fish-50); --color-violet-100: var(--fish-50); --color-violet-200: var(--fish-200); --color-violet-300: var(--fish-300); --color-violet-400: var(--fish-500); --color-violet-500: var(--fish-500); --color-violet-600: var(--fish-600); --color-violet-700: var(--fish-600); --color-violet-800: var(--fish-800); --color-violet-900: var(--fish-800); --color-violet-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] { --color-indigo-50: var(--fish-50); --color-indigo-100: var(--fish-50); --color-indigo-200: var(--fish-200); --color-indigo-300: var(--fish-300); --color-indigo-400: var(--fish-500); --color-indigo-500: var(--fish-500); --color-indigo-600: var(--fish-600); --color-indigo-700: var(--fish-600); --color-indigo-800: var(--fish-800); --color-indigo-900: var(--fish-800); --color-indigo-950: var(--fish-800); }
+html[data-domain-theme="fisheries"] [data-status-pill] { background-color: var(--fish-50) !important; color: var(--fish-800) !important; box-shadow: inset 0 0 0 1px var(--fish-300); }
+html[data-domain-theme="fisheries"] [data-status-pill][data-tone="amber"] { background-color: var(--fish-200) !important; }
+html[data-domain-theme="fisheries"] [data-status-pill][data-tone="teal"] { background-color: var(--fish-600) !important; color: #fff !important; box-shadow: none; }
+html[data-domain-theme="fisheries"] [data-status-pill][data-tone="rose"] { background-color: var(--fish-800) !important; color: #fff !important; box-shadow: none; }
+html[data-domain-theme="fisheries"] [data-status-pill][data-tone="slate"] { background-color: var(--color-milk) !important; color: var(--fish-800) !important; box-shadow: inset 0 0 0 1px var(--fish-300); }
+html[data-domain-theme="fisheries"] [data-status-pill] > span:first-child { background-color: currentColor !important; }
+
 * {
   box-sizing: border-box;
 }

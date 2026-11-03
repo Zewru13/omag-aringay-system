@@ -37,9 +37,13 @@ const STATUS_DEFAULT = TONE.slate
 
 function StatusPill({ tone = 'slate', status, children }) {
   const colors = status !== undefined ? (STATUS_MAP[status] || STATUS_DEFAULT) : (TONE[tone] || TONE.slate)
+  // The tone's name (green, amber, rose, teal, slate), for a theme that recolors the pills (index.css [data-domain-theme]).
+  const toneName = Object.keys(TONE).find((k) => TONE[k] === colors && !['blue', 'navy', 'marigold'].includes(k)) || 'slate'
 
   return (
     <span
+      data-status-pill=""
+      data-tone={toneName}
       className="inline-flex items-center gap-[6px] px-[10px] py-[4px] rounded-full text-[11px] font-semibold"
       style={{ backgroundColor: colors.bg, color: colors.text }}
     >
