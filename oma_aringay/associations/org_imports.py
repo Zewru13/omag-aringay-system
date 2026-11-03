@@ -11,6 +11,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -30,6 +31,7 @@ from .serializers import (
     FarmersOrganizationEquipmentSerializer, FarmersOrganizationMemberSerializer,
     FisherfolkOrganizationEquipmentSerializer, FisherfolkOrganizationMemberSerializer,
 )
+from .positions import check_position_free
 from .views import MainChoiceRequired, _resolve_and_assign_main
 from core.exports import SafeWorkbook
 
@@ -174,6 +176,11 @@ def run_member_import(domain, organization, file, dry_run, by_staff=True, user=N
                     if not serializer.is_valid():
                         first = next(iter(serializer.errors.values()))
                         add(row_num, 'invalid', label, str(first[0] if isinstance(first, list) else first))
+                        continue
+                    try:
+                        check_position_free(domain, organization.pk, position)
+                    except ValidationError as exc:
+                        add(row_num, 'invalid', label, str(exc.detail['position']))
                         continue
                     member = serializer.save(organization=organization)
                     _resolve_and_assign_main(

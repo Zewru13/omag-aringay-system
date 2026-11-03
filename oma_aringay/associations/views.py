@@ -32,6 +32,7 @@ from interventions.serializers import OrganizationDistributionRequestSerializer
 
 from .equipment_views import EquipmentRemoveGuard
 from .lifecycle import expire_due_officer_terms
+from .positions import check_person_has_no_position, check_position_free
 from .models import (
     FarmersOrganization,
     FarmersOrganizationEquipment,
@@ -280,6 +281,7 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
             raise serializers.ValidationError(
                 {'detail': 'This farmer is already a member of this organization.'}
             )
+        check_position_free('farmers', organization_id, serializer.validated_data.get('position'))
         member = serializer.save(organization_id=organization_id)
         # Only staff choose a person's main organization; an organization's own request never does (it could take
         # main status away from another organization the person belongs to).
@@ -460,12 +462,9 @@ class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
         expire_due_officer_terms()
         organization_id = self.kwargs['pk']
         position = serializer.validated_data.get('position')
-        if OrganizationOfficer.objects.filter(
-            organization_id=organization_id, position=position, is_active=True,
-        ).exists():
-            raise serializers.ValidationError(
-                {'detail': 'This position is currently held by someone else. End their term first before assigning a new officer.'}
-            )
+        # One position per person, one person per position (associations/positions.py).
+        check_person_has_no_position('farmers', organization_id, serializer.validated_data['farmer'])
+        check_position_free('farmers', organization_id, position, field='detail')
         serializer.save(organization_id=organization_id)
 
 
@@ -635,6 +634,7 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
             raise serializers.ValidationError(
                 {'detail': 'This fisherfolk is already a member of this organization.'}
             )
+        check_position_free('fisherfolk', organization_id, serializer.validated_data.get('position'))
         member = serializer.save(organization_id=organization_id)
         # Only staff choose a person's main organization; an organization's own request never does (it could take
         # main status away from another organization the person belongs to).
@@ -803,12 +803,8 @@ class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
         expire_due_officer_terms()
         organization_id = self.kwargs['pk']
         position = serializer.validated_data.get('position')
-        if FisherfolkOrganizationOfficer.objects.filter(
-            organization_id=organization_id, position=position, is_active=True,
-        ).exists():
-            raise serializers.ValidationError(
-                {'detail': 'This position is currently held by someone else. End their term first before assigning a new officer.'}
-            )
+        check_person_has_no_position('fisherfolk', organization_id, serializer.validated_data['member'].fisherfolk)
+        check_position_free('fisherfolk', organization_id, position, field='detail')
         serializer.save(organization_id=organization_id)
 
 
