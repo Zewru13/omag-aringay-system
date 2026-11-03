@@ -87,7 +87,8 @@ class AquacultureProductionCycleListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = _cycle_queryset(self.request.user).select_related('fisherfolk', 'organization').prefetch_related(
-            'feeding_logs__unit_quantities__production_unit', 'health_logs__production_unit', 'input_logs', 'units', 'stocking_records',
+            'feeding_logs__unit_quantities__production_unit', 'health_logs__production_unit', 'input_logs', 'units__pcic_extra_photos',
+            'stocking_records',
         ).order_by('-stocking_date')
         params = self.request.query_params
         if params.get('fisherfolk'):
@@ -139,7 +140,8 @@ class AquacultureProductionCycleDetailView(generics.RetrieveUpdateDestroyAPIView
 
     def get_queryset(self):
         return _cycle_queryset(self.request.user).select_related('fisherfolk', 'organization').prefetch_related(
-            'feeding_logs__unit_quantities__production_unit', 'health_logs__production_unit', 'input_logs', 'units', 'stocking_records',
+            'feeding_logs__unit_quantities__production_unit', 'health_logs__production_unit', 'input_logs', 'units__pcic_extra_photos',
+            'stocking_records',
         )
 
     def update(self, request, *args, **kwargs):

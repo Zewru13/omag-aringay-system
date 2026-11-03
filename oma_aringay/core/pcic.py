@@ -55,6 +55,12 @@ class PcicPhotoListMixin:
         return photo_list(obj, self.context.get('request'))
 
 
+def _forget_loaded_photos(record):
+    """A list or detail view may have loaded the record's extra photos ahead of time (prefetch_related); after the photos changed, the answer
+    must read them again."""
+    getattr(record, '_prefetched_objects_cache', {}).pop('pcic_extra_photos', None)
+
+
 class PcicFormPhotoMixin:
     """Mixed in front of a record's detail view (so it keeps that view's queryset, permissions and serializer):
     POST a photo as multipart `photo` to add it (up to MAX_PCIC_PHOTOS in all), DELETE to remove one (`photo`: its id, or 'main') or,
@@ -82,6 +88,7 @@ class PcicFormPhotoMixin:
             from core.models import PcicFormPhoto   # not at the top: core.models imports this module
             PcicFormPhoto.objects.create(
                 content_type=ContentType.objects.get_for_model(record, for_concrete_model=False), object_id=record.pk, image=photo)
+        _forget_loaded_photos(record)
         return Response(self.get_serializer(record).data)
 
     def delete(self, request, *args, **kwargs):
@@ -105,4 +112,5 @@ class PcicFormPhotoMixin:
             extra.image.delete(save=False)
             extra.delete()
         record.save(update_fields=['pcic_form_photo'])
+        _forget_loaded_photos(record)
         return Response(self.get_serializer(record).data)

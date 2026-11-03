@@ -206,7 +206,9 @@ class CropTypeSerializer(serializers.ModelSerializer):
         return data
 
     def get_remarks(self, obj):
-        return CropRemarkSerializer(obj.remarks.order_by('-date_recorded'), many=True).data
+        # Newest first. Sorted here (not with .order_by) so the remarks the list view already loaded are used instead of one query per crop.
+        remarks = sorted(obj.remarks.all(), key=lambda r: (r.date_recorded, r.id), reverse=True)
+        return CropRemarkSerializer(remarks, many=True).data
 
 
 class CropRemarkSerializer(serializers.ModelSerializer):
