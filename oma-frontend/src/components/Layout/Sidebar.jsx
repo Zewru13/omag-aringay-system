@@ -25,9 +25,9 @@ const DISASTER_GROUP = {
   ],
 };
 
-// Reports is one leaf: /reports opens ReportsPage's report-selection cards.
-// The link carries no ?tab=, so isItemActive keeps it highlighted on the
-// landing page and on every /reports?tab=... report view. The phone menu
+// Reports is one leaf: /reports opens ReportsPage, which has a Report type
+// dropdown. The link carries no ?tab=, so isItemActive keeps it highlighted
+// on the page and on every /reports?tab=... report. The phone menu
 // (StaffPhoneShell) lists it as a one-item group, REPORTS_GROUP.
 const REPORTS_ITEM = { to: "/reports", icon: FileBarChart, label: "Reports" };
 const REPORTS_GROUP = { key: "reports", label: "Reports", icon: FileBarChart, items: [REPORTS_ITEM] };

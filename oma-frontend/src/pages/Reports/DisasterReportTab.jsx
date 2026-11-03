@@ -42,6 +42,7 @@ export default function DisasterReportTab({ kind }) {
 
   return (
     <DocumentReport
+      reportId={`disaster_${kind}`}
       path={config.path}
       params={filters}
       stem={config.stem}

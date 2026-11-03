@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, CloudLightning, Fish, HandHeart, Users, Waves, Wheat } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -9,24 +8,16 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { printPdf } from '../../utils/printPdf.js'
-import { ActionButtons, PreviewTable, SignatoriesPanel, labelCls } from './ReportParts.jsx'
+import { ActionButtons, SignatoriesPanel, labelCls } from './ReportParts.jsx'
+import { ReportPaper, SelectedReportBox } from './ReportPaper.jsx'
+import { REPORT_TYPES, detailFromFilters, periodText, reportType, reportTypeFromParam } from './reportPaper.js'
 import { useSignatories } from './useSignatories.js'
 import DisasterReportTab from './DisasterReportTab.jsx'
 import OrganizationAssistanceReportTab from './OrganizationAssistanceReportTab.jsx'
 import RegisteredReportTab from './RegisteredReportTab.jsx'
 
-// One entry per report: `id` is the ?tab= value that opens it, and the rest feeds its card on the landing page.
-// The agreed reports (the Reports page offers exactly these; more are added as they are built):
-//   1. Registered Farmers / Fisherfolk / Organizations   2. Crop Records Harvested   3. Fisheries Production Harvested
-//   4. Fisheries Disaster Reports   5. Crop / Parcel Disaster Reports   6. Organization Assistance
-const TABS = [
-  { id: 'registered',          icon: Users,     label: 'Registered Farmers, Fisherfolk & Organizations', description: 'Registration records for everyone at once, filtered by barangay and date registered, or for one record.' },
-  { id: 'harvested',           icon: Wheat,     label: 'Crop Records Harvested',        description: 'Harvested crop records with their yield, by farmer, crop, barangay and season.' },
-  { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Harvested', description: 'Harvested aquaculture production, by fisherfolk, species, barangay and season.' },
-  { id: 'disaster_fisheries',  icon: Waves,     label: 'Fisheries Disaster Reports',     description: 'Disasters logged against fisherfolk and their stocks, with the volume lost and recovery status.' },
-  { id: 'disaster_crops',      icon: CloudLightning, label: 'Crop / Parcel Disaster Reports', description: 'Disasters logged against crops and farm parcels, with the area affected and recovery status.' },
-  { id: 'organization_assistance', icon: HandHeart, label: 'Organization Assistance', description: 'Assistance organizations gave to their members, for one organization or all, with who received it.' },
-]
+// One page for all six reports (the list is REPORT_TYPES in reportPaper.js). The Report type dropdown at the top picks one; under it that
+// report's filters, the Selected report box, the Signatories block, the Print / PDF / Excel buttons and the print-ready paper preview.
 
 // ── Harvested Crop Tab ─────────────────────────────────────────────────────────
 
@@ -146,6 +137,21 @@ function HarvestedCropTab() {
     'ESTIMATED HARVEST DATE', 'ACTUAL HARVEST DATE', 'ESTIMATED YIELD (KG)',
   ]
 
+  // What the paper preview and the Selected report box show: the same title, period and filters as the printed report.
+  const yieldLabels = { above: 'Above Average', average: 'Average', below: 'Below Average' }
+  const paperDoc = {
+    heading: 'Crop Harvest Report',
+    period: periodText(filters.start_date, filters.end_date),
+    detail: detailFromFilters([
+      ['Barangay', filters.barangay],
+      ['Organization', organizations.find(a => String(a.id) === String(filters.organization))?.name],
+      ['Crop', filters.crop_name],
+      ['Yield performance', yieldLabels[filters.yield_performance]],
+    ]),
+    stats: [['Barangay with highest yield', yieldData.top_barangay], ['Total estimated yield', `${yieldData.total_yield} kg`], ['Crop records', yieldData.count]],
+    sections: [{ title: '', headers: HEADERS, rows: previewRows, empty: 'No harvested records found.' }],
+  }
+
   return (
     <div className="space-y-5">
       {/* Filters */}
@@ -189,32 +195,7 @@ function HarvestedCropTab() {
         </FilterPanel>
       </div>
 
-      {/* Yield Analysis */}
-      <div>
-        <div className="flex items-center gap-3 mb-3">
-          <p className="text-[13px] font-semibold text-[#1A2B1A]">Yield Analysis</p>
-          {filters.yield_performance && (
-            <span className="inline-flex items-center rounded-full bg-[#1B4D2E] px-2.5 py-0.5 text-[11px] font-medium text-white">
-              Filtered by: {filters.yield_performance === 'above' ? 'Above Average' : filters.yield_performance === 'average' ? 'Average' : 'Below Average'}
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[#EBF5EE] rounded-xl p-4">
-            <p className="text-[11px] font-medium text-[#4A5E4A]">Barangay with Highest Yield</p>
-            <p className="text-[15px] font-bold text-[#1B4D2E] mt-1 truncate">{yieldData.top_barangay}</p>
-          </div>
-          <div className="bg-[#EBF5EE] rounded-xl p-4">
-            <p className="text-[11px] font-medium text-[#4A5E4A]">Total Estimated Yield</p>
-            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{yieldData.total_yield} kg</p>
-          </div>
-          <div className="bg-[#EBF5EE] rounded-xl p-4">
-            <p className="text-[11px] font-medium text-[#4A5E4A]">Crop Records</p>
-            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{yieldData.count}</p>
-            <p className="text-[11px] text-[#7A8E7A]">total records</p>
-          </div>
-        </div>
-      </div>
+      <SelectedReportBox type={reportType('harvested')} period={paperDoc.period} detail={paperDoc.detail} />
 
       <SignatoriesPanel signatories={signatories} />
 
@@ -226,17 +207,7 @@ function HarvestedCropTab() {
         isDownloading={isDownloading}
       />
 
-      {/* Preview Table */}
-      <div>
-        <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Harvested Crops</p>
-        <p className="text-[12px] text-[#7A8E7A] mb-3">
-          {filters.start_date || filters.end_date
-            ? `Period: ${filters.start_date || '—'} to ${filters.end_date || '—'}`
-            : 'All harvested records'}
-        </p>
-        <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No harvested records found." />
-      </div>
-
+      <ReportPaper doc={paperDoc} signers={signatories.params} isLoading={isLoading} />
     </div>
   )
 }
@@ -328,6 +299,20 @@ function FisheriesProductionTab() {
     'QUANTITY (KG)', 'FINAL?',
   ]
 
+  // What the paper preview and the Selected report box show: the same title, period and filters as the printed report.
+  const paperDoc = {
+    heading: 'Fisheries Production Report',
+    period: periodText(filters.start_date, filters.end_date),
+    detail: detailFromFilters([
+      ['Pond barangay', filters.barangay],
+      ['Organization', organizations.find(a => String(a.id) === String(filters.organization))?.name],
+      ['Species', speciesList.find(sp => String(sp.id) === String(filters.species))?.species_name],
+      ['Culture type', filters.culture_type],
+    ]),
+    stats: [['Harvest records', previewRows.length]],
+    sections: [{ title: '', headers: HEADERS, rows: previewRows, empty: 'No harvest records found.' }],
+  }
+
   return (
     <div className="space-y-5">
       <div className="print:hidden">
@@ -370,6 +355,8 @@ function FisheriesProductionTab() {
         </FilterPanel>
       </div>
 
+      <SelectedReportBox type={reportType('fisheries')} period={paperDoc.period} detail={paperDoc.detail} />
+
       <SignatoriesPanel signatories={signatories} />
 
       <ActionButtons
@@ -379,76 +366,45 @@ function FisheriesProductionTab() {
         isDownloading={isDownloading}
       />
 
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Fisheries Harvest Records</p>
-          {!isLoading && (
-            <span className="text-[12px] text-[#7A8E7A]">
-              Showing {previewRows.length} record{previewRows.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No harvest records found." />
-      </div>
-
+      <ReportPaper doc={paperDoc} signers={signatories.params} isLoading={isLoading} />
     </div>
   )
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-// The sidebar's single Reports link opens /reports with no tab: a landing page of report cards. Each card links to
-// /reports?tab=<id>, which renders that report with a link back here. Existing ?tab= deep links (notifications,
-// bookmarks) open their report directly; an unknown tab falls back to the landing page.
-function ReportSelection() {
-  return (
-    <div>
-      <p className="text-[13px] text-[#4A5E4A] mb-4">Select a report to continue.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {TABS.map(({ id, icon: Icon, label, description }) => (
-          <Link
-            key={id}
-            to={`/reports?tab=${id}`}
-            className="group flex flex-col rounded-xl border border-[#E2E8E2] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-[#1B4D2E] hover:shadow-[0_4px_12px_rgba(27,77,46,0.12)] focus-visible:outline-none focus-visible:border-[#1B4D2E] focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30"
-          >
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#EAF2EC] text-[#1B4D2E] transition-colors duration-200 group-hover:bg-[#1B4D2E] group-hover:text-white group-focus-visible:bg-[#1B4D2E] group-focus-visible:text-white">
-              <Icon size={20} aria-hidden="true" />
-            </span>
-            <span className="text-[15px] font-semibold text-[#1A2B1A]">{label}</span>
-            <span className="mt-1 flex-1 text-[13px] text-[#7A8E7A]">{description}</span>
-            <span className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-[#1B4D2E]">
-              Open Report
-              <ArrowRight size={14} aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5" />
-            </span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  )
-}
-
+// The sidebar's Reports link opens /reports with the first report chosen. The Report type dropdown swaps the report (and its filters);
+// the choice lives in the URL as ?tab=<id>, so existing links (notifications, bookmarks) open their report directly. An unknown tab opens the first.
 export default function ReportsPage() {
-  const [searchParams] = useSearchParams()
-  const activeTab = TABS.some(t => t.id === searchParams.get('tab')) ? searchParams.get('tab') : null
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = reportTypeFromParam(searchParams.get('tab'))
+  const active = reportType(activeTab)
 
   return (
-    <PageLayout title="Report Generation" subtitle="Generate and export data from different modules">
-      {!activeTab && <ReportSelection />}
-      {activeTab && (
-        <Link
-          to="/reports"
-          className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline print:hidden"
-        >
-          <ArrowLeft size={14} aria-hidden="true" /> Back to Reports
-        </Link>
-      )}
+    <PageLayout title="Report Generation" subtitle="Choose a report, set its filters, then print or download it">
       <div className="space-y-5">
-        {activeTab === 'registered'          && <RegisteredReportTab />}
-        {activeTab === 'harvested'           && <HarvestedCropTab />}
-        {activeTab === 'fisheries'           && <FisheriesProductionTab />}
-        {activeTab === 'disaster_fisheries'  && <DisasterReportTab kind="fisheries" />}
-        {activeTab === 'disaster_crops'      && <DisasterReportTab kind="crops" />}
-        {activeTab === 'organization_assistance' && <OrganizationAssistanceReportTab />}
+        <div className="rounded-xl border border-[#E2E8E2] bg-white p-4 print:hidden">
+          <label htmlFor="report-type" className={labelCls}>Report type</label>
+          <select
+            id="report-type"
+            className={baseInputClasses}
+            value={activeTab}
+            onChange={e => setSearchParams({ tab: e.target.value }, { replace: true })}
+          >
+            {REPORT_TYPES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+          <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Choose which report to generate. {active.description}</p>
+        </div>
+
+        {/* key: another report starts with its own filters */}
+        <div key={activeTab} className="space-y-5">
+          {activeTab === 'registered'          && <RegisteredReportTab />}
+          {activeTab === 'harvested'           && <HarvestedCropTab />}
+          {activeTab === 'fisheries'           && <FisheriesProductionTab />}
+          {activeTab === 'disaster_fisheries'  && <DisasterReportTab kind="fisheries" />}
+          {activeTab === 'disaster_crops'      && <DisasterReportTab kind="crops" />}
+          {activeTab === 'organization_assistance' && <OrganizationAssistanceReportTab />}
+        </div>
       </div>
     </PageLayout>
   )

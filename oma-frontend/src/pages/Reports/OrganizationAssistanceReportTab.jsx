@@ -84,6 +84,7 @@ export default function OrganizationAssistanceReportTab() {
 
   return (
     <DocumentReport
+      reportId="organization_assistance"
       path={PATH}
       params={params}
       stem={stem}

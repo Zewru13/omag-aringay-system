@@ -115,6 +115,7 @@ export default function RegisteredReportTab() {
 
   return (
     <DocumentReport
+      reportId="registered"
       path={PATH}
       params={params}
       stem={stem}
