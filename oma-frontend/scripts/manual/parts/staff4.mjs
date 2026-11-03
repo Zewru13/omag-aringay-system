@@ -6,7 +6,7 @@ const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
 const lastRowMenu = (item) => `const r=document.querySelector('tbody tr'); const bs=r.querySelectorAll('button'); bs[bs.length-1].click(); ${wait(700)}; ${item ? `const b=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()===${JSON.stringify(item)}); b&&b.click()` : ''}`
 const DOTS = { css: 'tbody tr:first-child td:last-child button', nth: 0 }
 const ASSIST_TABS = [
-  { find: [{ text: 'All Records', tag: 'button', exact: true }, { text: 'Needs Follow-up', tag: 'button' }], label: 'All Records / Needs Follow-up', desc: 'All Records lists every distribution. Needs Follow-up lists the recipients who reported that they did not receive the assistance, so the office can look into each one.' },
+  { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved.' },
   { find: { text: 'Import File', tag: 'button' }, label: 'Import File', desc: 'Brings in assistance records from a spreadsheet (xlsx, xls or csv). Download the Excel template, fill it in, choose it, then Preview Import to check it before saving. Undo a recent import reverses a recent import you made by mistake.' },
 ]
 
@@ -35,7 +35,7 @@ export const STAFF4 = [
     callouts: [
       { find: { text: 'View Details', tag: 'button' }, label: 'View Details', desc: 'Shows the cycle\'s details: fisherfolk, species, dates, ponds, fingerlings, estimated and actual harvest.' },
       { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle (dates, ownership, the number of fingerlings, PCIC insurance of each pond or cage).' },
-      { find: { text: 'View Cycle Details & Logs', tag: 'button' }, label: 'View Cycle Details & Logs', desc: 'Opens the cycle with its Feeding Log and Health Log, where the daily work is recorded.' },
+      { find: { text: 'Cycle & Logs', tag: 'button' }, label: 'Cycle & Logs', desc: 'Opens the cycle with its Feeding Log and Health Log, where the daily work is recorded.' },
       { find: { text: 'Force Harvest', tag: 'button' }, label: 'Force Harvest', desc: 'Harvests the cycle before it is ready, for a reason such as an upcoming typhoon.' },
     ] }),
   A({ id: 'admin-start-cycle', file: 'admin/start-cycle.png', url: '/fisheries-monitoring?tab=stocking', js: click('Start Production Cycle'), after: 2500, height: 1500, title: 'Start Production Cycle form', purpose: 'Starts a new production cycle for a fisherfolk.',
@@ -50,7 +50,7 @@ export const STAFF4 = [
       { find: { text: 'Number of Ponds', tag: 'label', up: 1 }, label: 'Number of Ponds', desc: 'Required. How many ponds or cages are in this cycle. A line for each opens below, to give its size, fingerlings and whether it has PCIC insurance.' },
       { find: { text: 'Start Cycle', tag: 'button' }, label: 'Start Cycle', desc: 'Saves the production cycle with its ponds.' },
     ] }),
-  A({ id: 'admin-cycle-details', file: 'admin/cycle-details.png', url: '/fisheries-monitoring?tab=stocking', js: lastRowMenu('View Cycle Details & Logs'), after: 3500, height: 1000, title: 'Cycle details and logs', purpose: 'One cycle, with its feeding and health logs.',
+  A({ id: 'admin-cycle-details', file: 'admin/cycle-details.png', url: '/fisheries-monitoring?tab=stocking', js: lastRowMenu('Cycle & Logs'), after: 3500, height: 1000, title: 'Cycle details and logs', purpose: 'One cycle, with its feeding and health logs.',
     callouts: [
       { find: { text: 'Cycle Info', tag: 'button' }, label: 'Cycle Info', desc: 'The cycle\'s details and its ponds: pond, size, fingerlings and PCIC Insured.' },
       { find: { text: 'Feeding Log', tag: 'button' }, label: 'Feeding Log', desc: 'The feed given: the date, the feed type (from Fisheries Settings) and the amount. Add a log from here.' },
@@ -155,8 +155,8 @@ export const STAFF4 = [
   A({ id: 'admin-distribute', file: 'admin/distribute.png', url: '/crop-assistance', js: click('Distribute to Organizations'), after: 2500, height: 1300, title: 'Distribute to Organizations window', purpose: 'Gives one assistance to the members of several organizations.',
     callouts: [
       { find: { text: 'Assistance Type', tag: 'label', up: 1 }, label: 'Assistance Type', desc: 'Required. Fertilizer, Seeds, Equipment, Cash Assistance, Training or Other (the list is in Assistance Settings). The fields below change with the type: cash asks for an amount, training for the days.' },
-      { find: { text: 'Source Agency', tag: 'label', up: 1 }, label: 'Source Agency', desc: 'Optional. The agencies that provided it (you can choose several).' },
-      { find: { text: 'Quantity per Recipient', tag: 'label', up: 1 }, label: 'Quantity per Recipient', desc: 'Optional. The quantity each recipient gets, and its unit (kg, sack, bag, piece, bundle, box, liter or set).' },
+      { find: { text: 'Source Agency', tag: 'label', up: 1 }, label: 'Source Agency', desc: 'Required. The agencies that provided it (you can choose several). Choose Others to type an agency that is not in the list.' },
+      { find: { text: 'Quantity per Recipient', tag: 'label', up: 1 }, label: 'Quantity per Recipient', desc: 'Required. The quantity each recipient gets, and its unit. The units offered depend on the assistance type (Seeds offers kg, sack, bag and bundle, for example); an Admin sets them in Assistance Settings.' },
       { find: { text: 'Distribution Date', tag: 'label', up: 1 }, label: 'Distribution Date', desc: 'Required. Today or a later date. A later date schedules the distribution: it stays Pending until then.' },
       { find: { text: 'Description', tag: 'label', up: 1 }, label: 'Description', desc: 'Optional notes about the assistance.' },
       { find: { css: 'input[type=search]', last: true }, label: 'Search organizations', desc: 'Find an organization by name.' },
