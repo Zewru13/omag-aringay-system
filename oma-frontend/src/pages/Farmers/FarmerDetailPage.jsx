@@ -11,6 +11,8 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
+import { buildPersonHistorySpec } from '../AssistanceManagement/assistanceHistoryReport.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import RecordCard from '../../components/UI/RecordCard.jsx'
@@ -71,7 +73,7 @@ const HISTORY_COLUMNS = [
   { key: 'date_given', label: 'Date Given' },
 ]
 
-function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
+function AssistanceHistoryModal({ history, isLoading, error, onClose, person }) {
   return (
     <ModalShell title="Assistance History" onClose={onClose} maxWidth="max-w-3xl">
       {isLoading ? (
@@ -79,7 +81,12 @@ function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
       ) : error ? (
         <ErrorMessage message={error} />
       ) : (
-        <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
+        <>
+          <div className="mb-3 flex flex-wrap justify-end gap-2">
+            <ListPrintButton disabled={history.length === 0} build={async () => buildPersonHistorySpec({ domain: 'crop', person, records: history })} />
+          </div>
+          <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
+        </>
       )}
     </ModalShell>
   )
@@ -843,6 +850,7 @@ function FarmerDetailPage() {
           error={historyError}
           history={history}
           isLoading={isLoadingHistory}
+          person={{ name: farmer?.full_name, rsbsa: farmer?.rsbsa_number, barangay: farmer?.barangay }}
           onClose={() => setIsHistoryModalOpen(false)}
         />
       )}

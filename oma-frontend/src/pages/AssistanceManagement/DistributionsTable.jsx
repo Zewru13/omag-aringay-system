@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, ChevronDown, Eye, Pencil } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, Eye, Pencil, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { downloadSpecReport, printSpecReport } from '../../utils/specActions.js'
+import { buildDistributionRecordSpec } from './assistanceHistoryReport.js'
 import { formatAssistanceQuantity } from './assistanceFieldHelpers.js'
 import { agenciesText, distributionRowLabel } from './distributionsTableRows.js'
 
@@ -16,6 +19,7 @@ import { agenciesText, distributionRowLabel } from './distributionsTableRows.js'
 //   noun      'farmers' | 'fisherfolk'
 //   filters   { year, barangay, status, ... }: sent as they are, blanks left out;  version  bump to read the list again
 //   onMemberAction(kind, member)   kind: 'view' | 'edit' | 'resolve'
+//   reportDomain   'crop' | 'fisheries': gives every row a ⋮ menu with Print Report / Download Report of that one distribution and its recipients
 const STATUS_LABELS = { PENDING: 'Pending', AWAITING_CONFIRMATION: 'Awaiting Confirmation', CONFIRMED: 'Confirmed', NOT_RECEIVED: 'Not Received', RESOLVED: 'Resolved' }
 const SUMMARY_TONE = { 'Confirmed': 'green', 'Awaiting confirmation': 'amber', 'Needs follow-up': 'rose' }
 const EDITABLE = new Set(['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED'])
@@ -70,7 +74,8 @@ function Members({ group, noun, onMemberAction }) {
   )
 }
 
-export default function DistributionsTable({ url, noun, filters, version = 0, onMemberAction, emptyText }) {
+export default function DistributionsTable({ url, noun, filters, version = 0, onMemberAction, emptyText, reportDomain = '' }) {
+  const { showToast } = useToast()
   const [page, setPage] = useState(1)
   const [openId, setOpenId] = useState(null)
   const [state, setState] = useState({ key: null, count: 0, results: [], failed: false })
@@ -93,6 +98,14 @@ export default function DistributionsTable({ url, noun, filters, version = 0, on
   }, [url, page, filterKey, key])
   useEffect(() => { load() }, [load])
 
+  const reportOf = useCallback((g, action, failure) => async () => {
+    try {
+      await action(buildDistributionRecordSpec({ domain: reportDomain, noun, distribution: g }))
+    } catch {
+      showToast(failure, 'error')
+    }
+  }, [reportDomain, noun, showToast])
+
   const rows = useMemo(() => state.results.map((g) => ({
     ...g,
     date_cell: formatDate(g.date_given),
@@ -106,14 +119,20 @@ export default function DistributionsTable({ url, noun, filters, version = 0, on
     quantity_cell: formatAssistanceQuantity(g.assistance_type, g.quantity) || '—',
     summary_cell: <StatusPill tone={SUMMARY_TONE[g.summary_status] || 'slate'}>{g.summary_status}</StatusPill>,
     name_title: distributionRowLabel(g, noun),
-  })), [state.results, noun, openId])
+    actions_cell: reportDomain ? (
+      <RowActions actions={[
+        { key: 'print', label: 'Print Report', icon: Printer, onClick: reportOf(g, printSpecReport, 'Failed to print the report.') },
+        { key: 'download', label: 'Download Report', icon: Download, onClick: reportOf(g, downloadSpecReport, 'Failed to download the report.') },
+      ]} />
+    ) : null,
+  })), [state.results, noun, openId, reportDomain, reportOf])
 
   if (state.failed && !isLoading) return <ErrorMessage message="Failed to load the assistance records." />
 
   return (
     <>
       <DataTable
-        columns={COLUMNS}
+        columns={reportDomain ? [...COLUMNS, { key: 'actions_cell', label: 'Actions' }] : COLUMNS}
         data={isLoading ? [] : rows}
         isLoading={isLoading}
         cardColumns={2}

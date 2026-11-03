@@ -4,11 +4,13 @@ import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
 import { emptyAssistanceText } from './assistanceGroups.js'
+import { buildDistributionsReportSpec, historyFilterPairs } from './assistanceHistoryReport.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
 import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
@@ -81,7 +83,7 @@ function MemberList({ item, onRemove }) {
   )
 }
 
-export default function OrgDistributionHistory({ domain = 'crop', group = 'current', refreshKey = 0, onChanged }) {
+export default function OrgDistributionHistory({ domain = 'crop', group = 'current', refreshKey = 0, onChanged, organizationName = '' }) {
   const config = DOMAINS[domain]
   const agencies = useAssistanceAgencies()
   const { showToast } = useToast()
@@ -171,6 +173,7 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
       <FilterPanel
         search={memberInput} onSearchChange={setMemberInput} searchPlaceholder="Search member..."
         activeCount={activeCount + (member ? 1 : 0)}
+        actions={group === 'history' ? <ListPrintButton disabled={isLoading || items.length === 0} build={async () => buildDistributionsReportSpec({ noun: domain === 'fisheries' ? 'fisherfolk' : 'farmers', distributions: items, organizationName, filters: historyFilterPairs({ ...filters, member, status: filters.status || group }) })} /> : null}
       >
         <select className={SELECT} value={filters.status} onChange={setFilter('status')} aria-label="Status">
           <option value="">All statuses</option>

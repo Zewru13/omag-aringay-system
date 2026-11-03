@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Download, Printer } from 'lucide-react'
-import api from '../api/axiosInstance.js'
 import { useToast } from '../context/ToastContext.jsx'
-import { printSpec } from '../pages/Monitoring/disasterReportDocument.js'
-import { saveResponse } from '../utils/fileDownload.js'
-import { specPdfBody, specPdfFilename } from '../utils/specPdf.js'
+import { downloadSpecReport, printSpecReport } from '../utils/specActions.js'
 
 // "Print Report" and "Download Report" on the crop and fisheries tables: `build` reads every row the table's filters match and returns the
 // document (see utils/listReport.js). Print shows that document; Download sends the same document to the server, which lays it out as a PDF
@@ -26,11 +23,8 @@ export default function ListPrintButton({ build, disabled = false }) {
     }
   }
 
-  const print = () => run('print', (spec) => printSpec(spec), 'Failed to print the report.')
-  const download = () => run('download', async (spec) => {
-    const response = await api.post('/reports/spec-pdf/', specPdfBody(spec), { responseType: 'blob' })
-    saveResponse(response, specPdfFilename(spec))
-  }, 'Failed to download the report.')
+  const print = () => run('print', printSpecReport, 'Failed to print the report.')
+  const download = () => run('download', downloadSpecReport, 'Failed to download the report.')
 
   return (
     <>
