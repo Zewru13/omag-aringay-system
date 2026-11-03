@@ -34,7 +34,7 @@ export const STEPS = [
   },
   {
     title: 'Generate reports',
-    desc: 'Reports is one page: choose the report in the Report type box and set its filters. The paper preview shows it as it will print. Pick who signs it in the Signatories block above the buttons, then preview it as a PDF, print it or download it.',
+    desc: 'Reports is one page: choose the report in the Report type box and set its filters. The paper preview shows it as it will print. Pick who signs it in the Signatories block above the buttons, then print it or download it.',
   },
 ]
 
@@ -196,11 +196,15 @@ export const SECTIONS = [
     items: [
       {
         q: 'How do I print or download a report?',
-        a: 'Open Reports and choose the report in the Report type box; the filters below it change with the report, so set the period and the rest there. The paper preview under the buttons shows the report as it will print and changes as you change the filters. Preview PDF shows it as a PDF, Print gives the same PDF ready to print, and Download Excel saves its rows.',
+        a: 'Open Reports and choose the report in the Report type box; the filters below it change with the report, so set the period and the rest there. The paper preview under the buttons shows the report as it will print and changes as you change the filters. Print Report prints it and Download Report saves it as a PDF: both are the report you see in the preview.',
+      },
+      {
+        q: 'How do I get the report of just one farmer, fisherfolk or organization?',
+        a: 'In Reports, choose the Registered report (or Organization Assistance) and either search for the person or organization, or click their row in the paper preview. When your search leaves exactly one record, or when you click a row, the report becomes that one record\'s individual report and a bar above says so. Press Show all records to go back to the list; if the search found it, clear the search instead. Print Report and Download Report then give the individual report.',
       },
       {
         q: 'How do I choose who signs a report?',
-        a: 'Above the Print, Preview PDF and Download Excel buttons, the Signatories block has four lists: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names are printed under their lines at the foot of Print and Preview PDF; Download Excel has no signature lines. What you choose is for that printout only, so choose again the next time. The names come from the list the Admin keeps.',
+        a: 'Above the Print Report and Download Report buttons, the Signatories block has four lists: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names are printed under their lines at the foot of the printed and downloaded report. What you choose is for that printout only, so choose again the next time. The names come from the list the Admin keeps.',
       },
       {
         q: 'How do I force harvest crops before a typhoon?',
