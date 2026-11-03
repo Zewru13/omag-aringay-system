@@ -6,7 +6,7 @@ Source of the idea: the BasaJuan capstone manuscript (`chap 1-4 RENEvise.docx`),
 
 Today every report's PDF/Excel asks for the signature names in a pop-up, typed again each time, with only Prepared / Reviewed / Noted by; Print carries no signatures at all. The Admin should keep one saved list of officials, and every report should pick its signers from that list.
 
-Success: an officer opens any of the six reports, sees a Signatories block above the buttons, picks the four signers (or leaves them empty), and Print, Preview PDF and Download Excel all carry exactly those signers.
+Success: an officer opens any of the six reports, sees a Signatories block above the buttons, picks the four signers (or leaves them empty), and Print and Preview PDF both carry exactly those signers. (Download Excel has no signature block today and stays as it is.)
 
 ## Decisions (agreed with the user 2026-11-03)
 
@@ -43,9 +43,10 @@ Sidebar entry beside Backup. Table: name, position, role, order, active. Add / E
 A `SignatoriesPanel` in `pages/Reports/ReportParts.jsx` plus a `useSignatories()` hook:
 
 - Four dropdowns: Prepared by, Checked by, Noted by, Approved by, each listing the active signatories of that role in order.
-- Prepared by defaults to "me" (logged-in user's full name, role label as position); Checked / Noted / Approved default to "None".
+- Prepared by defaults to "me" (the logged-in user's full name; the position is left blank so the backend keeps printing its existing default, the Records Officer line); Checked / Noted / Approved default to "None".
 - Help text: "Filled in from Manage Signatories. Change a line here for this printout only." (Selection is not saved; it resets per page visit.)
-- Print, Preview PDF and Download Excel all append the chosen signers to the report URL through one helper, `signatureParams(selection)`; the six tabs stop building those params by hand.
+- Print and Preview PDF append the chosen signers to the report URL through one helper, `signatureParams(selection)`; the six tabs stop building those params by hand. Download Excel is unchanged. The six reports are Harvested Crop and Fisheries Production (`ReportsPage.jsx`) and the four built on `DocumentReport.jsx` (registered, two disaster reports, organization assistance). The Forecasting pages keep their own separate pop-up and are not touched.
+- Who may read the list: the same roles that can open the report endpoints (Admin and Evaluator); farmers, fisherfolk and citizens get 403.
 
 ## PDF signature block
 
