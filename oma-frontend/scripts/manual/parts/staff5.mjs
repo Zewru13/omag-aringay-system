@@ -4,7 +4,9 @@ import { A, F, click, clickIncl, wait, rowMenu, SEARCH, FILTERS, PRINT, DOWNLOAD
 const H = '[class*="rounded-xl"]'
 const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
 const openReport = (name) => `const a=[...document.querySelectorAll('a')].find(x=>x.textContent.includes(${JSON.stringify(name)})); a&&a.click(); ${wait(3000)}`
+const REPORT_SIGNERS = { find: { text: 'Signatories', tag: 'legend', closest: 'fieldset' }, label: 'Signatories', desc: 'Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories.' }
 const REPORT_BUTTONS = [
+  REPORT_SIGNERS,
   { find: { text: 'Print', tag: 'button', exact: true }, label: 'Print', desc: 'Opens the report as the same PDF as the preview, ready to print.' },
   { find: { text: 'Preview PDF', tag: 'button' }, label: 'Preview PDF', desc: 'Shows the report as a PDF to read on screen. The document is titled with the period covered.' },
   { find: { text: 'Download Excel', tag: 'button' }, label: 'Download Excel', desc: 'Saves the rows of the report as an Excel file.' },
@@ -51,7 +53,7 @@ export const STAFF5 = [
       { find: { text: 'Crop / Parcel Disaster Reports', closest: 'a' }, label: 'Crop / Parcel Disaster Reports', desc: 'Disasters logged against crops and farm parcels, with the area affected and the recovery status.' },
       { find: { text: 'Organization Assistance', exact: true, closest: 'a' }, label: 'Organization Assistance', desc: 'The assistance organizations gave to their members, for one organization or all, with who received it.' },
     ] }),
-  A({ id: 'admin-report-registered', file: 'admin/report-registered.png', url: '/reports', js: openReport('Registered Farmers'), after: 1500, title: 'Report: Registered Farmers, Fisherfolk & Organizations', purpose: 'Registration records, ready to print.',
+  A({ id: 'admin-report-registered', file: 'admin/report-registered.png', url: '/reports', js: openReport('Registered Farmers'), after: 1500, height: 1000, title: 'Report: Registered Farmers, Fisherfolk & Organizations', purpose: 'Registration records, ready to print.',
     callouts: [
       REPORT_BACK,
       { find: [{ text: 'Farmers', tag: 'button', exact: true }, { text: 'Fisherfolk', tag: 'button', exact: true }, { text: 'Farmers Organizations', tag: 'button' }, { text: 'Fisherfolk Organizations', tag: 'button' }], label: 'What to report', desc: 'Choose Farmers, Fisherfolk, Farmers Organizations or Fisherfolk Organizations.' },
@@ -83,7 +85,7 @@ export const STAFF5 = [
       ...REPORT_BUTTONS,
       { find: COLS, label: 'Columns', desc: 'Reference number, fisherfolk, barangay, stock or cycle, disaster type, date of occurrence, volume lost (kg), total loss, status and the date logged.' },
     ] }),
-  A({ id: 'admin-report-org-assistance', file: 'admin/report-org-assistance.png', url: '/reports', js: openReport('Organization Assistance'), after: 1500, title: 'Report: Organization Assistance', purpose: 'The assistance organizations gave to their members.',
+  A({ id: 'admin-report-org-assistance', file: 'admin/report-org-assistance.png', url: '/reports', js: openReport('Organization Assistance'), after: 1500, height: 1000, title: 'Report: Organization Assistance', purpose: 'The assistance organizations gave to their members.',
     callouts: [
       REPORT_BACK,
       { find: [{ text: 'Farmers Organizations', tag: 'button' }, { text: 'Fisherfolk Organizations', tag: 'button' }], label: 'Kind of organization', desc: 'Choose Farmers Organizations or Fisherfolk Organizations.' },
@@ -188,6 +190,12 @@ export const STAFF5 = [
       { find: { text: 'Backups', tag: 'h2', closest: H }, label: 'Backups list', desc: 'Each backup with its date, who made it (or Scheduled for the nightly one), its size and its status: Running, Done or Failed. The latest 14 are kept.' },
       { find: { text: 'Download', tag: 'button', exact: true }, label: 'Download', desc: 'Saves the backup file (a .zip with the database and the uploaded files) to your computer. It holds personal records and is not encrypted: keep it somewhere safe.' },
       { find: { text: 'Delete', tag: 'button', exact: true }, label: 'Delete', desc: 'Removes a backup and its file after you confirm.' },
+    ] }),
+  A({ id: 'admin-signatories', file: 'admin/signatories.png', url: '/signatories', title: 'Admin > Signatories', purpose: 'The names that can sign the reports.',
+    callouts: [
+      { find: { text: 'Add Signatory', tag: 'button' }, label: 'Add Signatory', desc: 'Adds a name: the name, the position printed under it, the signing role (Prepared by, Checked by, Noted by or Approved by), the order and whether it is Active. A person who signs in two roles is added twice.' },
+      { find: COLS, label: 'Columns', desc: 'Name, position, signing role, order and whether the name is Active. The order sorts the names inside their role. A name that is not Active is no longer offered in the Reports pages.' },
+      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the name. Delete does not change reports that were already printed.' },
     ] }),
   A({ id: 'admin-profile', file: 'admin/profile.png', url: '/profile', title: 'My Profile (staff)', purpose: 'Your own account.',
     callouts: [

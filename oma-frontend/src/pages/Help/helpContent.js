@@ -34,7 +34,7 @@ export const STEPS = [
   },
   {
     title: 'Generate reports',
-    desc: 'Reports lets you preview a report as a PDF, then download or print it.',
+    desc: 'Reports lets you preview a report as a PDF, then download or print it. Pick who signs it in the Signatories block above the buttons.',
   },
 ]
 
@@ -199,6 +199,10 @@ export const SECTIONS = [
         a: 'Open Reports, choose the report and its period, and use Preview PDF. Print gives the same PDF as the preview, and Download saves it.',
       },
       {
+        q: 'How do I choose who signs a report?',
+        a: 'Above the Print, Preview PDF and Download Excel buttons, the Signatories block has four lists: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names are printed under their lines at the foot of Print and Preview PDF; Download Excel has no signature lines. What you choose is for that printout only, so choose again the next time. The names come from the list the Admin keeps.',
+      },
+      {
         q: 'How do I force harvest crops before a typhoon?',
         a: 'From Crop Monitoring, open the menu of one of the crops and choose Force Harvest. The window lists the crops of that farmer that are not ready yet, on every parcel, with the crop you chose already ticked. Choose the harvested date and the reason, tick the crops, type the area of each one and its quantity in the Qty / Unit box, picking the unit it was counted in (kg, sacks, cavan or whatever that crop allows; the kg it comes to shows under it), then press Review Force Harvest, check the tables and press Confirm Force Harvest. On Crop Records the menu of a parcel does the same for that parcel only. The red FORCED HARVEST label on a harvested crop opens the saved details.',
       },
@@ -233,7 +237,7 @@ export const SECTIONS = [
       },
       {
         q: 'What can a Focal Person do compared with an Admin?',
-        a: 'Both register and manage farmers, fisherfolk, organizations, crop records, monitoring, disasters, assistance and reports. Only an Admin manages the lists under Admin (Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings, Harvest Unit Settings), User Management and the audit log, and only an Admin deletes crop records.',
+        a: 'Both register and manage farmers, fisherfolk, organizations, crop records, monitoring, disasters, assistance and reports. Only an Admin manages the lists under Admin (Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings, Harvest Unit Settings), Signatories, User Management and the audit log, and only an Admin deletes crop records.',
       },
       {
         q: 'Where do I add a crop or change its growth duration?',
@@ -243,6 +247,11 @@ export const SECTIONS = [
       {
         q: 'How do I add a seed source?',
         a: 'Admin > Crop Settings > Seed Sources tab. Press Add Seed Source under the table, type the name in the new row and press Save (or Enter). Use the row\'s menu to rename or delete one.',
+        roles: ADMIN,
+      },
+      {
+        q: 'Where do I keep the names that sign the reports?',
+        a: 'Admin > Signatories. Press Add Signatory and give the name, the position that is printed under it, the signing role (Prepared by, Checked by, Noted by or Approved by) and the order. A person who signs in two roles is added twice. Turn off Active to stop offering a name without deleting it. The Reports pages offer these names in their Signatories block.',
         roles: ADMIN,
       },
       {
