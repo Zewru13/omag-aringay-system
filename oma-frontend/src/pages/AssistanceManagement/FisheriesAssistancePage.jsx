@@ -28,7 +28,7 @@ import useDistributeLink from './useDistributeLink.js'
 import DistributionsTable from './DistributionsTable.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import AssistanceTabs from './AssistanceTabs.jsx'
-import { emptyAssistanceText, tabFromParam } from './assistanceGroups.js'
+import { emptyAssistanceText, inGroup, tabFromParam } from './assistanceGroups.js'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
@@ -407,10 +407,18 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         setAssistance(mine)
         return
       }
+      if (isFisherfolk) {
+        // A fisherfolk account's own assistance (not filterable on the server): the tab (Current or History) and the year narrow it here.
+        const r = await api.get('/interventions/my-fisherfolk-beneficiary-history/')
+        let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
+        setAssistance(mine.filter((x) => inGroup(x.status, view)))
+        return
+      }
       // Staff: the distributions table (DistributionsTable) loads itself.
     } catch { setError('Failed to load assistance records.') }
     finally { setIsLoading(false) }
-  }, [year, view, isOrg])
+  }, [year, view, isOrg, isFisherfolk])
 
   useEffect(() => { fetchAssistance() }, [fetchAssistance])
 
@@ -572,7 +580,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         // A fisherfolk account sees each assistance as its name and date; tapping it shows the rest and the confirm actions.
         <CompactExpandList
           isLoading={isLoading}
-          emptyText="No assistance has been recorded for you yet."
+          emptyText={emptyAssistanceText(view)}
           items={rows.map(r => ({
             id: r.id,
             title: r.assistance_type || 'Assistance',
