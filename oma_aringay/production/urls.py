@@ -4,6 +4,7 @@ from .forced_harvest import ForcedHarvestDetailView, ForcedHarvestMultiCreateVie
 from .views import (
     ActivityStageNameSuggestionsView,
     HarvestUnitWeightDetailView,
+    HarvestUnitWeightGroupView,
     HarvestUnitWeightListCreateView,
     ActivityTypeDetailView,
     ActivityTypeListCreateView,
@@ -118,6 +119,7 @@ urlpatterns = [
     path('forced-harvest/', ForcedHarvestMultiCreateView.as_view(), name='forced-harvest-multi'),
     path('forced-harvest/<int:pk>/', ForcedHarvestDetailView.as_view(), name='forced-harvest-detail'),
     path('harvest-unit-weights/', HarvestUnitWeightListCreateView.as_view(), name='harvest-unit-weights'),
+    path('harvest-unit-weights/group/', HarvestUnitWeightGroupView.as_view(), name='harvest-unit-weights-group'),
     path('harvest-unit-weights/<int:pk>/', HarvestUnitWeightDetailView.as_view(), name='harvest-unit-weights-detail'),
     path('disasters/<int:pk>/resolve/', CropDisasterResolveView.as_view(), name='crop-disaster-resolve'),
     path('disasters/<int:pk>/', CropDisasterReportDeleteView.as_view(), name='crop-disaster-delete'),
