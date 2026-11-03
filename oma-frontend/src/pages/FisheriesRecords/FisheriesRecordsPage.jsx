@@ -37,6 +37,7 @@ import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPan
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
+import PcicUnitsCell from './PcicUnitsCell.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
 import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
@@ -70,6 +71,7 @@ const COLUMNS = [
   { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
   { key: 'status_cell',         label: 'STATUS' },
+  { key: 'pcic_cell',           label: 'PCIC INSURED' },
   { key: 'actions_cell',        label: 'ACTIONS' },
 ]
 
@@ -1108,6 +1110,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         )}
       </span>
     ),
+    pcic_cell: <PcicUnitsCell units={rec.pcic_units} recordInsured={rec.has_pcic_insurance} />,
     actions_cell: (
       <StockingRowActions
         rec={rec}

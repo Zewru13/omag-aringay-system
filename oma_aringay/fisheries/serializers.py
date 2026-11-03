@@ -1155,6 +1155,8 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
     harvest_count    = serializers.SerializerMethodField()
     stocking_density = serializers.SerializerMethodField()
     production_cycle_no = serializers.SerializerMethodField()
+    # [{id, label, insured}] for each pond/cage of the linked production cycle (PCIC insurance is kept per pond/cage); [] without a cycle.
+    pcic_units = serializers.SerializerMethodField()
     production_cycle_name = serializers.CharField(source='production_cycle.cycle_name', read_only=True, default=None)
     # Organization of the linked Production Cycle (None for records without one).
     organization_name = serializers.CharField(source='production_cycle.organization.name', read_only=True, default=None)
@@ -1193,7 +1195,7 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'final_harvest_date', 'actual_harvest_date',
             'actual_harvest_timing', 'actual_harvest_timing_label', 'actual_harvest_timing_days',
-            'stocking_density', 'production_cycle_no', 'next_feeding_date',
+            'stocking_density', 'production_cycle_no', 'next_feeding_date', 'pcic_units',
             'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
             'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
         ]
@@ -1325,6 +1327,12 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
         if obj.area_hectares and obj.area_hectares > 0 and obj.number_of_fingerlings is not None:
             return round(float(obj.number_of_fingerlings) / float(obj.area_hectares), 2)
         return None
+
+    def get_pcic_units(self, obj):
+        cycle = obj.production_cycle
+        if cycle is None:
+            return []
+        return [{'id': u.id, 'label': f'{u.get_unit_type_display()} {u.unit_number}', 'insured': bool(u.has_pcic_insurance)} for u in cycle.units.all()]
 
     def get_production_cycle_no(self, obj):
         ctx = self._list()

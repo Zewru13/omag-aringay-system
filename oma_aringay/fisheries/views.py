@@ -533,7 +533,7 @@ class StockingListView(generics.ListAPIView):
         qs = StockingRecord.objects.select_related(
             'fisherfolk', 'species', 'species__category', 'recorded_by', 'production_cycle',
             'production_cycle__organization',
-        ).prefetch_related('logs', 'disaster_reports', 'harvests', 'pcic_extra_photos').order_by('-date_recorded', '-id')
+        ).prefetch_related('logs', 'disaster_reports', 'harvests', 'pcic_extra_photos', 'production_cycle__units').order_by('-date_recorded', '-id')
 
         if self.request.user.role == 'CITIZEN':
             fisherfolk_id = self.request.user.get_linked_fisherfolk_id()
@@ -613,8 +613,8 @@ class StockingHistoryView(generics.ListAPIView):
 
     def get_queryset(self):
         qs = scope_to_fisherfolk(StockingRecord.objects.all(), self.request.user).select_related(
-            'fisherfolk', 'species', 'species__category',
-        ).prefetch_related('logs', 'disaster_reports', 'harvests', 'pcic_extra_photos').order_by(
+            'fisherfolk', 'species', 'species__category', 'production_cycle',
+        ).prefetch_related('logs', 'disaster_reports', 'harvests', 'pcic_extra_photos', 'production_cycle__units').order_by(
             'fisherfolk__last_name', 'fisherfolk__first_name', '-date_stocked',
         )
         params = self.request.query_params
@@ -644,7 +644,7 @@ class StockingDetailView(generics.RetrieveUpdateDestroyAPIView):
         # A fisherfolk citizen only ever reaches their own stocking records - another id is a 404.
         return scope_to_fisherfolk(StockingRecord.objects.all(), self.request.user).select_related(
             'fisherfolk', 'species', 'species__category', 'recorded_by',
-        ).prefetch_related('logs', 'disaster_reports', 'disaster_reports__photos', 'harvests', 'harvests__production_units', 'harvests__unit_harvests__production_unit', 'pcic_extra_photos')
+        ).prefetch_related('logs', 'disaster_reports', 'disaster_reports__photos', 'harvests', 'harvests__production_units', 'harvests__unit_harvests__production_unit', 'pcic_extra_photos', 'production_cycle__units')
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
