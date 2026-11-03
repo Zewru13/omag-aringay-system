@@ -5,6 +5,7 @@
 // they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
 import { equipmentToServer } from '../../utils/equipmentNames.js'
+import { FARMERS_EQUIPMENT } from '../Organizations/registrationEquipment.js'
 import { EMPTY_PCIC, pcicChanged, pcicError, pcicPayload } from '../../utils/pcic.js'
 import { withParcelStatus } from '../CropInformation/cropEntry.js'
 import { buildCropRecordPayload, cropRecordProblem } from '../Monitoring/cropRecordForm.js'
@@ -22,7 +23,10 @@ export const CROP_OPTIONS = [
   'Pechay', 'Cabbage', 'Mango', 'Cacao (Kakaw)', 'Banana (Saging)', 'Coffee (Kape)', 'Cassava', 'Sweet Potato (Kamote)',
   'Other Vegetables', 'Other Fruits', 'Other Root Crops', 'Cash Crops', 'Other',
 ]
-export const MACHINERY_OPTIONS = ['Hand Tractor', 'Four-Wheel Tractor', 'Thresher', 'Water Pump', 'Sprayer', 'Harvester', 'Rice Mill', 'Other']
+// The farmer Machinery dropdown reads Crop Settings > Equipment Types, the same list as the organization Equipment dropdown. Until Settings has one
+// it offers the organization forms' names. The server stores these names as they are; any other name is saved as Other + that name.
+export const MACHINERY_FALLBACK = FARMERS_EQUIPMENT.filter((name) => name !== 'Other')
+export const MACHINERY_SERVER_NAMES = ['Hand Tractor', 'Four-Wheel Tractor', 'Thresher', 'Water Pump', 'Sprayer', 'Harvester', 'Rice Mill', 'Other']
 export const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Organization-Owned']
 export const LAND_OWNERSHIP_OPTIONS = ['Owner', 'Tenant', 'Lessee']
 // The DA RSBSA Enrollment Form's Farm Type legend, and the cropping schedules (FarmParcel.FARM_TYPE_CHOICES / CROPPING_SCHEDULE_CHOICES).
@@ -254,7 +258,7 @@ export function cropPayload(crop) {
 
 // The machinery list comes from Crop Settings > Equipment Types; a name the server does not list is sent as Other + that name.
 export const machineryPayload = (m) => {
-  const { name, other } = equipmentToServer(m.machinery_type, m.machinery_type_other, MACHINERY_OPTIONS)
+  const { name, other } = equipmentToServer(m.machinery_type, m.machinery_type_other, MACHINERY_SERVER_NAMES)
   return { machinery_type: name, machinery_type_other: other, quantity: parseInt(m.quantity, 10) || 1, ownership: m.ownership }
 }
 

@@ -25,6 +25,9 @@ class AssistanceOptionTests(APITestCase):
         cls.citizen = User.objects.create_user(username='ao-cit', password='pw', role='CITIZEN', email='aoc@x.test')
 
     def setUp(self):
+        # The migrations start the Equipment Types lists with the organization forms' names (test_equipment_defaults.py); these tests are about
+        # how a list is managed, so they begin from an empty one.
+        AssistanceOption.objects.filter(kind='equipment').delete()
         self.client.force_authenticate(self.staff)
 
     def add(self, domain, kind, name):
