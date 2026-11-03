@@ -12,6 +12,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -22,6 +23,7 @@ import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
 import ConfirmedReportModal from './ConfirmedReportModal.jsx'
 import { buildAssistanceReportSpec } from './assistanceReport.js'
+import { buildStaffHistoryReport } from './assistanceHistoryReport.js'
 import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
 import useConfirmSelection from './useConfirmSelection.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
@@ -563,10 +565,13 @@ export default function CropAssistancePage({ asTab = false }) {
       </div>}
 
       {isOrg && view !== 'confirm' ? (
-        <OrgDistributionHistory key={view} domain="crop" group={view} refreshKey={historyKey} />
+        <OrgDistributionHistory key={view} domain="crop" group={view} refreshKey={historyKey} organizationName={orgRecord?.label || ''} />
       ) : (
       <>
-      <FilterPanel activeCount={[(isFarmer || isOrg) ? '' : barangay, year].filter(Boolean).length}>
+      <FilterPanel
+        activeCount={[(isFarmer || isOrg) ? '' : barangay, year].filter(Boolean).length}
+        actions={!isFarmer && !isOrg && view === 'history' ? <ListPrintButton build={() => buildStaffHistoryReport({ get: api.get, url: '/interventions/beneficiaries/distributions/', filters: { year, barangay, status: view }, noun: 'farmers' })} /> : null}
+      >
         {!isFarmer && !isOrg && <div className="w-48">
           <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
         </div>}
@@ -603,6 +608,7 @@ export default function CropAssistancePage({ asTab = false }) {
           version={tableVersion}
           onMemberAction={memberAction}
           emptyText={emptyAssistanceText(view)}
+          reportDomain={view === 'history' ? 'crop' : ''}
         />
       )}
       </>

@@ -10,6 +10,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -27,6 +28,7 @@ import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import useDistributeLink from './useDistributeLink.js'
 import DistributionsTable from './DistributionsTable.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
+import { buildStaffHistoryReport } from './assistanceHistoryReport.js'
 import AssistanceTabs from './AssistanceTabs.jsx'
 import { emptyAssistanceText, inGroup, tabFromParam } from './assistanceGroups.js'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
@@ -526,12 +528,13 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       </div>
 
       {isOrg && view !== 'confirm' ? (
-        <OrgDistributionHistory key={view} domain="fisheries" group={view} refreshKey={historyKey} />
+        <OrgDistributionHistory key={view} domain="fisheries" group={view} refreshKey={historyKey} organizationName={orgRecord?.label || ''} />
       ) : (
       <>
       <FilterPanel
         {...(isOrg ? {} : { search, onSearchChange: setSearch, searchPlaceholder: 'Search fisherfolk or RSBSA no.' })}
         activeCount={(isOrg ? [Boolean(year)] : [Boolean(barangay), Boolean(source), Boolean(type), Boolean(year)]).filter(Boolean).length}
+        actions={!isFisherfolk && !isOrg && view === 'history' ? <ListPrintButton build={() => buildStaffHistoryReport({ get: api.get, url: '/interventions/fisherfolk-beneficiaries/distributions/', filters: { year, barangay, member: search, source_agency: source, assistance_type: type, status: view }, noun: 'fisherfolk' })} /> : null}
       >
         {!isOrg && <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />}
         {!isOrg && (
@@ -597,6 +600,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           version={tableVersion}
           onMemberAction={memberAction}
           emptyText={emptyAssistanceText(view)}
+          reportDomain={view === 'history' ? 'fisheries' : ''}
         />
       )}
       </>

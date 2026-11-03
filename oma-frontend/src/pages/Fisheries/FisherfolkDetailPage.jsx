@@ -13,6 +13,8 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicCheck from '../../components/UI/PcicCheck.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
+import { buildPersonHistorySpec } from '../AssistanceManagement/assistanceHistoryReport.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -87,11 +89,16 @@ function initialsOf(fullName) {
 
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
 
-function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
+function AssistanceHistoryModal({ history, isLoading, error, onClose, person }) {
   return (
     <ModalShell title="Assistance History" onClose={onClose} maxWidth="max-w-3xl">
       {isLoading ? <LoadingSpinner /> : error ? <ErrorMessage message={error} /> : (
-        <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
+        <>
+          <div className="mb-3 flex flex-wrap justify-end gap-2">
+            <ListPrintButton disabled={history.length === 0} build={async () => buildPersonHistorySpec({ domain: 'fisheries', person, records: history })} />
+          </div>
+          <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
+        </>
       )}
     </ModalShell>
   )
@@ -551,6 +558,7 @@ function FisherfolkDetailPage() {
           error={historyError}
           history={history}
           isLoading={isLoadingHistory}
+          person={{ name: fisherfolk?.full_name, rsbsa: fisherfolk?.rsbsa_number, barangay: fisherfolk?.barangay }}
           onClose={() => setIsHistoryModalOpen(false)}
         />
       )}
