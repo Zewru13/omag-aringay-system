@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2, MailWarning, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import logo from '../../assets/LOGO OMAg.jpg'
+import logo from '../../assets/LOGO OMAg-small.png'
 import EmailInput from '../../components/UI/EmailInput.jsx'
 
 function VerifyEmailPage() {

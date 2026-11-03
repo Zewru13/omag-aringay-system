@@ -125,6 +125,12 @@ _DATABASES_POSTGRES = {
         'PASSWORD': os.environ.get('SUPABASE_DB_PASSWORD', ''),
         'HOST': os.environ.get('SUPABASE_DB_HOST', ''),
         'PORT': os.environ.get('SUPABASE_DB_PORT', ''),
+        # Keep a connection open between requests instead of opening a new SSL connection to the pooler for each one (about 0.3 s, and a
+        # page makes several requests). A connection the pooler dropped while idle is detected and replaced before the request uses it
+        # (CONN_HEALTH_CHECKS). The pooler is a transaction pooler, which cannot hold a server-side cursor across statements.
+        'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '60')),
+        'CONN_HEALTH_CHECKS': True,
+        'DISABLE_SERVER_SIDE_CURSORS': True,
         'OPTIONS': {
             'sslmode': 'require',
             # The pooler hostname resolves to several addresses and some intermittently never answer the

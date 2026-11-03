@@ -1,5 +1,5 @@
 import { LogOut } from 'lucide-react'
-import logo from '../../assets/LOGO OMAg.jpg'
+import logo from '../../assets/LOGO OMAg-small.png'
 import { useAuth } from '../../context/AuthContext.jsx'
 import FisherfolkPhoneHome from './FisherfolkPhoneHome.jsx'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'

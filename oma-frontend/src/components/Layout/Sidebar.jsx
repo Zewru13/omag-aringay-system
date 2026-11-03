@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Activity, AlertTriangle, BarChart2, Building2, Package, ChevronDown, ClipboardList, FileBarChart, Fish, HandHeart, Home, LayoutDashboard, Leaf, LineChart, Settings2, HeartHandshake, ListChecks, Scale, ShieldCheck, Sprout, TrendingUp, UserCog, Users, Waves, Wheat, X, HardDriveDownload, PenLine } from "lucide-react";
 import { useLocation, NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
-import logo from "../../assets/LOGO OMAg.jpg";
+import logo from "../../assets/LOGO OMAg-small.png";
 
 // ─── Nav structure ──────────────────────────────────────────────────────────
 // Leaf items carry `to`, which may include a `?tab=` query — the same

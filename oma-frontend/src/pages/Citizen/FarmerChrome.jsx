@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeftRight, ChevronDown, ChevronLeft, HelpCircle, Menu, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
-import omagLogo from '../../assets/LOGO OMAg.jpg'
+import omagLogo from '../../assets/LOGO OMAg-small.png'
 import { labels } from './labels.js'
 
 // Farmer-only chrome for the citizen redesign (UPDATED FARMER CITIZEN UI.docx):

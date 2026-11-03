@@ -1,45 +1,59 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import Toast from "./components/UI/Toast.jsx";
 import InactivityMonitor from "./components/InactivityMonitor.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
-import AuditLogPage from "./pages/Admin/AuditLogPage.jsx";
-import OrganizationDetailPage from "./pages/Organizations/OrganizationDetailPage.jsx";
-import MyEquipmentPage from "./pages/Equipment/MyEquipmentPage.jsx";
-import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
-import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
-import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
-import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
 import AutoLabels from "./components/UI/AutoLabels.jsx";
-import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
-import BackupPage from "./pages/Backup/BackupPage.jsx";
-import SignatoriesPage from "./pages/Signatories/SignatoriesPage.jsx";
-import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
-import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
-import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
-import FisheriesSettingsHub from "./pages/FisheriesSettings/FisheriesSettingsHub.jsx";
 import LoginPage from "./pages/Login/LoginPage.jsx";
-import ForceChangePasswordPage from "./pages/Auth/ForceChangePasswordPage.jsx";
-import VerifyEmailPage from "./pages/Auth/VerifyEmailPage.jsx";
-import CropMonitoringPage from "./pages/Monitoring/CropMonitoringPage.jsx";
-import FisheriesMonitoringPage from "./pages/Monitoring/FisheriesMonitoringPage.jsx";
-import FisheriesForecastingTab from "./pages/Monitoring/FisheriesForecastingTab.jsx";
-import ProductionPage from "./pages/Production/ProductionPage.jsx";
-import ProfilePage from "./pages/Profile/ProfilePage.jsx";
-import ReportsPage from "./pages/Reports/ReportsPage.jsx";
-import ForecastingPage from "./pages/Forecasting/ForecastingPage.jsx";
-import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx";
-import AddCropMonitoringPage from "./pages/Monitoring/AddCropMonitoringPage.jsx";
-import AddFarmParcelsPage from "./pages/CropInformation/AddFarmParcelsPage.jsx";
-import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
-import ActivitySettingsHub from "./pages/ActivitySettings/ActivitySettingsHub.jsx";
-import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
-import HelpPage from "./pages/Help/HelpPage.jsx";
-import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
-import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
-import CitizenHomePage from "./pages/Citizen/CitizenHomePage.jsx";
-import { OwnHelpPage, OwnProfilePage } from "./pages/Citizen/OwnAccountPages.jsx";
-import DisasterPage from "./pages/Monitoring/DisasterPage.jsx";
+import LoadingSpinner from "./components/UI/LoadingSpinner.jsx";
+
+// Every page except the login page loads when it is opened, so the first visit downloads the shell and the page it lands on, not all of them.
+// A navigation keeps the page you are on until the next one has arrived; only the first load shows the placeholder.
+const AuditLogPage = lazy(() => import("./pages/Admin/AuditLogPage.jsx"));
+const OrganizationDetailPage = lazy(() => import("./pages/Organizations/OrganizationDetailPage.jsx"));
+const MyEquipmentPage = lazy(() => import("./pages/Equipment/MyEquipmentPage.jsx"));
+const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage.jsx"));
+const FarmerDetailPage = lazy(() => import("./pages/Farmers/FarmerDetailPage.jsx"));
+const AssistanceAgenciesPage = lazy(() => import("./pages/AssistanceManagement/AssistanceAgenciesPage.jsx"));
+const ClassificationSettingsPage = lazy(() => import("./pages/Farmers/ClassificationSettingsPage.jsx"));
+const HarvestUnitSettingsPage = lazy(() => import("./pages/Production/HarvestUnitSettingsPage.jsx"));
+const BackupPage = lazy(() => import("./pages/Backup/BackupPage.jsx"));
+const SignatoriesPage = lazy(() => import("./pages/Signatories/SignatoriesPage.jsx"));
+const FarmersHub = lazy(() => import("./pages/Farmers/FarmersHub.jsx"));
+const FisherfolkDetailPage = lazy(() => import("./pages/Fisheries/FisherfolkDetailPage.jsx"));
+const FisherfolkHub = lazy(() => import("./pages/Fisherfolk/FisherfolkHub.jsx"));
+const FisheriesSettingsHub = lazy(() => import("./pages/FisheriesSettings/FisheriesSettingsHub.jsx"));
+const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePasswordPage.jsx"));
+const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
+const CropMonitoringPage = lazy(() => import("./pages/Monitoring/CropMonitoringPage.jsx"));
+const FisheriesMonitoringPage = lazy(() => import("./pages/Monitoring/FisheriesMonitoringPage.jsx"));
+const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
+const ProductionPage = lazy(() => import("./pages/Production/ProductionPage.jsx"));
+const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
+const ReportsPage = lazy(() => import("./pages/Reports/ReportsPage.jsx"));
+const ForecastingPage = lazy(() => import("./pages/Forecasting/ForecastingPage.jsx"));
+const CropInformationPage = lazy(() => import("./pages/CropInformation/CropInformationPage.jsx"));
+const AddCropMonitoringPage = lazy(() => import("./pages/Monitoring/AddCropMonitoringPage.jsx"));
+const AddFarmParcelsPage = lazy(() => import("./pages/CropInformation/AddFarmParcelsPage.jsx"));
+const CropSettingsHub = lazy(() => import("./pages/CropSettings/CropSettingsHub.jsx"));
+const ActivitySettingsHub = lazy(() => import("./pages/ActivitySettings/ActivitySettingsHub.jsx"));
+const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.jsx"));
+const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
+const CropAssistancePage = lazy(() => import("./pages/AssistanceManagement/CropAssistancePage.jsx"));
+const FisheriesAssistancePage = lazy(() => import("./pages/AssistanceManagement/FisheriesAssistancePage.jsx"));
+const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
+const OwnHelpPage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnHelpPage })));
+const OwnProfilePage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnProfilePage })));
+const DisasterPage = lazy(() => import("./pages/Monitoring/DisasterPage.jsx"));
+
+function PageLoading() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <LoadingSpinner message="Loading…" />
+    </div>
+  );
+}
 
 function HomeRedirect() {
   const { isAuthenticated, isCitizen, isFisherfolk, isLoading } = useAuth();
@@ -72,6 +86,7 @@ function App() {
     <BrowserRouter>
       <AutoLabels />
       <InactivityMonitor>
+        <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<LoginPage />} />
@@ -454,6 +469,7 @@ function App() {
             }
           />
         </Routes>
+        </Suspense>
       </InactivityMonitor>
       <Toast />
     </BrowserRouter>

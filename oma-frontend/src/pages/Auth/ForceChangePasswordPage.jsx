@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance.js'
 import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
 import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import logo from '../../assets/LOGO OMAg.jpg'
+import logo from '../../assets/LOGO OMAg-small.png'
 
 function ForceChangePasswordPage() {
   const { user, logout } = useAuth()

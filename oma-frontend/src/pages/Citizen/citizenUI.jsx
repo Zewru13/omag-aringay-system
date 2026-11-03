@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 import { ChevronRight, Lock, Pencil, RefreshCw, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
-import omagLogo from '../../assets/LOGO OMAg.jpg'
+import omagLogo from '../../assets/LOGO OMAg-small.png'
 import { labels } from './labels.js'
 import { FarmerChromeContext } from './farmerChromeContext.js'
 import { FarmerHeader } from './FarmerChrome.jsx'

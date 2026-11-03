@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import api from "../../api/axiosInstance.js";
 import { useAuth } from "../../context/AuthContext.jsx";
-import logo from "../../assets/LOGO OMAg.jpg";
+import logo from "../../assets/LOGO OMAg-small.png";
 import LoginArt from "./LoginArt.jsx";
 import { SYSTEM_TITLE } from "../../constants/appInfo.js";
 

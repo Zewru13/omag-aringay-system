@@ -793,7 +793,9 @@ class CropTypeListView(generics.ListCreateAPIView):
         # Newest-first, matching every other list in this app (Farmers,
         # Fisherfolk, Organizations, Stocking/Harvest/Crop records, Audit
         # Log, CropVariety, SeedSource) — this was the one real exception.
-        qs = CropType.objects.all().order_by('-id')
+        qs = CropType.objects.select_related('category', 'subcategory').prefetch_related(
+            Prefetch('remarks', queryset=CropRemark.objects.select_related('recorded_by')),
+        ).order_by('-id')
         # ?is_active=true opts a caller into active-only — same convention
         # CropVarietyListCreateView already uses (is_active=True kicks in
         # only once a crop_type param is given). Default stays unfiltered
@@ -818,7 +820,7 @@ class CropTypeDetailView(generics.RetrieveUpdateAPIView):
     """
     serializer_class = CropTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = CropType.objects.all()
+    queryset = CropType.objects.select_related('category', 'subcategory')
 
 
 # ─── Module 2: CropMonitoringRecord ──────────────────────────────────────────
@@ -977,7 +979,7 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
         qs = CropMonitoringRecord.objects.select_related(
             'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_organization',
         ).prefetch_related(
-            'activity_logs', 'labor_logs', 'harvest_records', 'disaster_reports',
+            'activity_logs', 'labor_logs', 'harvest_records', 'disaster_reports', 'pcic_extra_photos',
             Prefetch('farmer__farmer_organizations', queryset=FarmersOrganizationMember.objects.select_related('organization')),
         ).order_by('-date_recorded', '-id')
         qs = qs.annotate(

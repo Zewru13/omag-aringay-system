@@ -71,3 +71,13 @@ class MonitoringListQueryCountTests(APITestCase):
         self.assertEqual(row['harvest_count'], 0)
         self.assertIsNone(row['harvest_record_id'])
         self.assertTrue(row['farmer_organization_name'].startswith('List Org'))
+
+    def test_insured_crops_do_not_add_a_query_each_for_their_pcic_form_photos(self):
+        for _ in range(2):
+            make_record(has_pcic_insurance=True)
+        few, _ = self.fetch()
+        for _ in range(8):
+            make_record(has_pcic_insurance=True)
+        many, rows = self.fetch()
+        self.assertEqual(len(rows), 10)
+        self.assertLessEqual(many, few, f'{few} queries for 2 insured rows but {many} for 10')

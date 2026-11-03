@@ -1048,7 +1048,9 @@ class PondSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
         read_only_fields = ['id', 'date_created', 'fisherfolk', 'pcic_form_photo']
 
     def get_stocking_record_count(self, obj):
-        return obj.stocking_records.count()
+        # The pond list counts them in its own query (annotated); a single pond falls back to counting.
+        annotated = getattr(obj, 'stocking_count', None)
+        return annotated if annotated is not None else obj.stocking_records.count()
 
 
 class FeedTypeSerializer(serializers.ModelSerializer):
