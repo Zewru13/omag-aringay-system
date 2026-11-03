@@ -486,9 +486,9 @@ def build_status_badge(is_active):
 
 # ─── 0H — Signature / verification block ─────────────────────────────────────
 
-def _sig_line():
-    """140pt horizontal rule used as a signature line."""
-    t = Table([['']], colWidths=[140])
+def _sig_line(width=140):
+    """Horizontal rule used as a signature line (140pt, or the width of a narrow column)."""
+    t = Table([['']], colWidths=[width])
     t.setStyle(TableStyle([
         ('LINEBELOW', (0, 0), (0, 0), 0.5, BLACK),
         ('TOPPADDING', (0, 0), (0, 0), 0),
@@ -508,20 +508,35 @@ def build_signature_block(
     reviewed_role=None,
     noted_by=None,
     noted_role=None,
+    approved_by=None,
+    approved_role=None,
     page_width=468,
 ):
     """
-    Signature table with 2 or 3 signatories.
-    If reviewed_by is provided → 3-col (prepared | reviewed | noted/MA).
-    Otherwise → 2-col (prepared | noted/MA).
+    Signature table, left to right: Prepared | Checked (reviewed_by) | Noted | Approved. A slot nobody fills is left out.
+    When nobody is noting or approving, the office's own "Certified by: Municipal Agriculturist" column closes the row, as it always has.
     """
     S = get_styles()
+    gap = 10
+    slots = [(left_label, left_name, left_role, f'Printed by: {printed_by_name}' if printed_by_name else None)]
+    if reviewed_by:
+        slots.append(('Checked by', reviewed_by, reviewed_role or '', None))
+    if noted_by:
+        slots.append(('Noted by', noted_by, noted_role or 'Municipal Agriculturist', None))
+    if approved_by:
+        slots.append(('Approved by', approved_by, approved_role or '', None))
+    certified = not (noted_by or approved_by)
+
+    # One slot is a column wide; a row of 3+ shares the page width equally, and the signature line shrinks with its column.
+    count = len(slots) + (1 if certified else 0)
+    col_w = 200 if count <= 2 else int((page_width - gap * (count - 1)) / count)
+    line_w = min(140, col_w - 6)
 
     def _sig_col(label, name, role, sub=None):
         col = [
             Paragraph(f'{escape(str(label))}:', S['SigLabel']),
             Spacer(1, 18),
-            _sig_line(),
+            _sig_line(line_w),
             Spacer(1, 3),
         ]
         if name:
@@ -532,36 +547,29 @@ def build_signature_block(
             col.append(Paragraph(escape(sub), S['SigSub']))
         return col
 
-    col_prepared = _sig_col(
-        left_label,
-        left_name,
-        left_role,
-        f'Printed by: {printed_by_name}' if printed_by_name else None,
-    )
-
-    # Rightmost column: noted_by or Municipal Agriculturist
-    if noted_by:
-        col_right = _sig_col('Noted by', noted_by, noted_role or 'Municipal Agriculturist')
-    else:
-        col_right = [
+    columns = [_sig_col(*slot) for slot in slots]
+    if certified:
+        columns.append([
             Paragraph('Certified by:', S['SigLabel']),
             Spacer(1, 18),
-            _sig_line(),
+            _sig_line(line_w),
             Spacer(1, 3),
             Paragraph('MUNICIPAL AGRICULTURIST', S['SigName']),
             Paragraph('Municipality of Aringay, La Union', S['SigSub']),
-        ]
+        ])
 
-    if reviewed_by:
-        col_w = int((page_width - 30) / 3)
-        col_reviewed = _sig_col('Reviewed by', reviewed_by, reviewed_role or '')
-        sig_tbl = Table(
-            [[col_prepared, '', col_reviewed, '', col_right]],
-            colWidths=[col_w, 10, col_w, 10, col_w],
-        )
+    if count <= 2:
+        # Two columns hug the page edges, as before.
+        sig_tbl = Table([[columns[0], '', columns[1]]], colWidths=[col_w, page_width - 2 * col_w, col_w])
     else:
-        spacer_w = page_width - 200 - 200
-        sig_tbl = Table([[col_prepared, '', col_right]], colWidths=[200, spacer_w, 200])
+        row, widths = [], []
+        for index, column in enumerate(columns):
+            if index:
+                row.append('')
+                widths.append(gap)
+            row.append(column)
+            widths.append(col_w)
+        sig_tbl = Table([row], colWidths=widths)
 
     sig_tbl.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),

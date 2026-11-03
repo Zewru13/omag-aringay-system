@@ -9,7 +9,7 @@ GET /api/reports/disasters/fisheries/   and   GET /api/reports/disasters/crops/
     year                  disaster occurred in this year (the Disaster tables' Year filter)
     farmer / fisherfolk   the report of one person (their id), used by the ⋮ menu of the Disaster tables
     search                name, species / crop, disaster type, reference no.
-    format                json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by / noted_by for the PDF)
+    format                json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 Staff only (Admin and Focal Person). Read-only: these are the logs already kept by Admin > Disaster. The preview, the PDF and
 the Excel are all built from one document (reports.documents).

@@ -158,6 +158,8 @@ def build_pdf(doc, request, filename_stem):
         reviewed_role=sig.get('reviewed_role'),
         noted_by=sig.get('noted_by'),
         noted_role=sig.get('noted_role'),
+        approved_by=sig.get('approved_by'),
+        approved_role=sig.get('approved_role'),
         page_width=width,
     ))
     pdf.build(story, canvasmaker=ReportPageCanvas)

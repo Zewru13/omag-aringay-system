@@ -10,7 +10,7 @@ GET /api/reports/organization-assistance/
     source_agency    assistance from this agency
     status           confirmed | awaiting | follow_up   (the distribution's overall status)
     search           organization name (all-organizations report only)
-    format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by / noted_by for the PDF)
+    format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 One row per distribution (the records one distribution submit created, shown as one unit - interventions.distributions).
 Only distributions an organization ran are included (records with `distributed_by_organization`); assistance staff logged for a
