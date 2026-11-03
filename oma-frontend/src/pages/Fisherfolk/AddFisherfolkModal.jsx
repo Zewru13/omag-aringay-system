@@ -11,6 +11,7 @@ import EmailInput from '../../components/UI/EmailInput.jsx'
 import { guardPhilsys as formatPhilsys } from '../../utils/inputGuards.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import SearchSelect from '../../components/UI/SearchSelect.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import { FISHR_GROUPS, RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
@@ -574,18 +575,17 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
 
           <div className="mt-4">
             <FormLabel>Fisherfolk Organization</FormLabel>
-            <select
-              className={baseInputClasses}
-              value={form.fisherfolk_organization || ''}
-              onChange={e => updateField('fisherfolk_organization', e.target.value || null)}
-            >
-              <option value="">— Not a member of any organization</option>
-              {organizations.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            <SearchSelect
+              id="fisherfolk_organization"
+              ariaLabel="Fisherfolk Organization"
+              options={organizations.map(a => ({ value: a.id, label: a.name }))}
+              value={form.fisherfolk_organization}
+              onChange={value => updateField('fisherfolk_organization', value)}
+              emptyLabel="— Not a member of any organization"
+              placeholder="Type the organization name"
+            />
             <p className="text-[12px] text-[#7A8E7A] mt-1">
-              Leave blank if the fisherfolk is not part of any organization.
+              Type to search the organizations, or leave blank if the fisherfolk is not part of any organization.
             </p>
           </div>
         </Section>
