@@ -38,7 +38,7 @@ export const STAFF2 = [
       { find: { text: 'Person with Disability', tag: 'label', up: 2 }, label: 'Classification', desc: 'Tick Person with Disability, 4Ps Beneficiary and ICC/IP Member if they apply. Senior Citizen is automatic from the birthdate.' },
       { find: field('Fisherfolk Type'), label: 'Fisherfolk Type', desc: 'Required. Aquaculture (ponds and cages: they get production cycles) or Capture (fishing trips: they get catch logs).' },
       { find: { text: 'Mariculture', tag: 'label', up: 2 }, label: 'Activities', desc: 'Tick what the fisherfolk does: Aquaculture, Capture Fishery, Mariculture, Inland Fishery. It shows in the Activities column.' },
-      { find: field('Fisherfolk Organization'), label: 'Fisherfolk Organization', desc: 'Optional. Choose an organization to make the fisherfolk one of its members.' },
+      { find: field('Fisherfolk Organization'), label: 'Fisherfolk Organization', desc: 'Optional. Click the box and type part of the organization\'s name: the list narrows as you type. Pick it (or Not a member) to make the fisherfolk one of its members.' },
       { find: field('Email'), label: 'Email', desc: 'Optional. Only kept on the record; the login account is set up later from the profile.' },
       { find: { text: 'Cancel', tag: 'button', exact: true, last: true }, label: 'Cancel', desc: 'Closes the form; nothing is saved.' },
       { find: { text: 'Save Fisherfolk', tag: 'button', exact: true }, label: 'Save Fisherfolk', desc: 'Saves the fisherfolk and returns to the list.' },
@@ -46,7 +46,7 @@ export const STAFF2 = [
   A({ id: 'admin-fisherfolk-profile', file: 'admin/fisherfolk-profile.png', url: '/fisheries/1', wait: 6000, height: 1300, title: 'Fisherfolk profile', purpose: 'Everything about one fisherfolk: details, stocking records and ponds.',
     callouts: [
       { find: { text: 'Back to Fisherfolk Registry', tag: 'a' }, label: 'Back', desc: 'Returns to the fisherfolk list.' },
-      { find: { text: 'View Assistance History', tag: 'button' }, label: 'View Assistance History', desc: 'Opens every assistance this fisherfolk received: type, source agency, quantity, season, year and the date given.' },
+      { find: { text: 'View Assistance History', tag: 'button' }, label: 'View Assistance History', desc: 'Opens every assistance this fisherfolk received: type, source agency, quantity, season, year and the date given. Print Report and Download Report in that window give the history as a PDF.' },
       { find: { text: 'Generate Report', tag: 'button' }, label: 'Generate Report', desc: 'Makes a PDF profile of the fisherfolk and downloads it.' },
       { find: { text: 'Edit Profile', tag: 'button' }, label: 'Edit Profile', desc: 'Opens the same form as Register Fisherfolk, to correct the details.' },
       { find: { text: 'Regenerate Password', tag: 'button' }, label: 'Regenerate Password', desc: 'Makes a new random password for the fisherfolk\'s login account and shows it once, to be read to them. Until an account exists it says Set Up Account.' },

@@ -6,7 +6,7 @@ const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
 const lastRowMenu = (item) => `const r=document.querySelector('tbody tr'); const bs=r.querySelectorAll('button'); bs[bs.length-1].click(); ${wait(700)}; ${item ? `const b=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()===${JSON.stringify(item)}); b&&b.click()` : ''}`
 const DOTS = { css: 'tbody tr:first-child td:last-child button', nth: 0 }
 const ASSIST_TABS = [
-  { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved.' },
+  { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution.' },
   { find: { text: 'Import File', tag: 'button' }, label: 'Import File', desc: 'Brings in assistance records from a spreadsheet (xlsx, xls or csv). Download the Excel template, fill it in, choose it, then Preview Import to check it before saving. Undo a recent import reverses a recent import you made by mistake.' },
 ]
 
@@ -18,7 +18,7 @@ export const STAFF4 = [
       SEARCH_ROW('a cycle by fisherfolk name, RSBSA number, species or barangay'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: pond or cage name, status, species, season, year and the Stocked From / To dates.' },
       PRINT_ROW, DOWNLOAD_ROW,
-      { find: COLS, label: 'Columns', desc: 'Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status and Actions.' },
+      { find: COLS, label: 'Columns', desc: 'Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status, PCIC Insured (one tick for each pond or cage of the cycle, so you see which ones are insured) and Actions.' },
       { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Harvest / Actions', desc: 'The harvest button of a row is grayed out until at least half of the expected time has passed. The three dots next to it open the menu of the cycle.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
@@ -93,7 +93,7 @@ export const STAFF4 = [
       { find: [{ text: 'Forecast', tag: 'button', exact: true }, { text: 'Yield analysis', tag: 'button' }], label: 'Forecast / Yield analysis', desc: 'Forecast looks ahead at the crops that are planted. Yield analysis looks back, comparing the estimate with the actual harvest (next pictures).' },
       SEARCH_ROW('a crop by farmer, RSBSA number, crop or organization'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: crop, barangay, status, season and year.' },
-      { find: [{ text: 'All crops', tag: 'button' }, { text: 'By farmer', tag: 'button' }], label: 'All crops / By farmer', desc: 'All crops lists each crop. By farmer groups them under each farmer, with the totals.' },
+      { find: [{ text: 'All crops', tag: 'button' }, { text: 'By farmer', tag: 'button' }], label: 'All crops / By farmer', desc: 'All crops lists each crop. By farmer groups them under each farmer: a row shows the farmer\'s RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance.' },
       { find: COLS, label: 'Columns', desc: 'Crop, farmer, area planted, the estimated yield in kg (area times the crop\'s yield per hectare), the expected harvest date, the status and Details.' },
       { find: { text: 'View', tag: 'button', exact: true, nth: 0 }, label: 'View', desc: 'Opens the forecast details of the crop, with a box for your remarks and notes.' },
       { ...PAGER_ROW, find: PAGER },
@@ -119,7 +119,7 @@ export const STAFF4 = [
       { find: [{ text: 'Forecast', tag: 'button', exact: true }, { text: 'Yield analysis', tag: 'button' }], label: 'Forecast / Yield analysis', desc: 'Forecast looks ahead at the cycles; Yield analysis compares the estimate with the actual harvest, by fisherfolk, barangay or species.' },
       SEARCH_ROW('a cycle by fisherfolk, species or barangay'),
       FILTERS_ROW,
-      { find: [{ text: 'All stockings', tag: 'button' }, { text: 'By fisherfolk', tag: 'button' }], label: 'All stockings / By fisherfolk', desc: 'All stockings lists each cycle; By fisherfolk groups them under each fisherfolk.' },
+      { find: [{ text: 'All stockings', tag: 'button' }, { text: 'By fisherfolk', tag: 'button' }], label: 'All stockings / By fisherfolk', desc: 'All stockings lists each cycle; By fisherfolk groups them under each fisherfolk: a row shows their RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance.' },
       { find: COLS, label: 'Columns', desc: 'Species, fisherfolk, culture type, date stocked, fingerlings, the estimated harvest yield (kg), the actual harvest, the estimated and actual harvest dates and the status.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
@@ -133,6 +133,15 @@ export const STAFF4 = [
       { find: FILTERS, label: 'Filters', desc: 'Opens the filter row: barangay and year.' },
       { find: COLS, label: 'Columns', desc: 'Date given, who it was given to (the organization, or the names of the farmers when it went to selected people), assistance type, source agency, quantity and status.' },
       { find: ROW1, label: 'A distribution row', desc: 'Click a row to drop down the members who benefited, with their barangay and status.' },
+      { ...PAGER_ROW, find: PAGER },
+    ] }),
+  A({ id: 'admin-assistance-history', file: 'admin/assistance-history.png', url: '/crop-assistance', js: click('History'), after: 2500, title: 'Assistance History', purpose: 'The assistance that was received and confirmed, or resolved, with a report you can print or download.',
+    callouts: [
+      ...ASSIST_TABS,
+      { find: PRINT, label: 'Print Report', desc: 'Opens the History list as a report with the signature lines, ready to print. It follows the filters.' },
+      { find: DOWNLOAD, label: 'Download Report', desc: 'Saves the same report as a PDF file.' },
+      { find: COLS, label: 'Columns', desc: 'Date given, who it was given to, assistance type, source agency, quantity and status.' },
+      { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Row menu', desc: 'The three dots of a distribution: Print Report and Download Report give a report of that one distribution, with the people who received it.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
   A({ id: 'admin-assistance-members', file: 'admin/assistance-members.png', url: '/crop-assistance', js: "const r=document.querySelector('tbody tr'); r&&r.click()", after: 2000, title: 'The members of a distribution', purpose: 'Who received it, and what you can do for each.',
