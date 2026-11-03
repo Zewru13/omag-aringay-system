@@ -1,133 +1,37 @@
-import { useState } from 'react'
 import { Download, FileText, Printer } from 'lucide-react'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import ModalShell from '../../components/UI/ModalShell.jsx'
-import { useAuth } from '../../context/AuthContext.jsx'
+import { SIGNATORY_ROLES, meSignatory, signatoryOptions } from '../../utils/signatories.js'
 
 export const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
-// The pieces every report on the Reports page shares: the signature pop-up for the PDF / Excel, the Print / PDF /
-// Excel button row, and the preview table.
+// The pieces every report on the Reports page shares: the Signatories block, the Print / PDF / Excel button row, and the preview table.
 
-// ── Signature Modal ────────────────────────────────────────────────────────────
+// ── Signatories block ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export function SignatureModal({ purpose, onClose, onGenerate }) {
-  const { user } = useAuth()
-  const [showReviewer, setShowReviewer] = useState(false)
-  const [showNotedBy,  setShowNotedBy]  = useState(false)
-  const [preparedBy,   setPreparedBy]   = useState(user?.full_name || '')
-  const [position,     setPosition]     = useState('')
-  const [reviewerName, setReviewerName] = useState('')
-  const [notedByName,  setNotedByName]  = useState('')
-
-  const isPdf = purpose === 'pdf'
-  const title = isPdf
-    ? 'Enter Signature Information for PDF Preview'
-    : 'Enter Signature Information for Excel Download'
-
+// The four signers of the printed report, picked from the saved list (Admin > Signatories). `signatories` is the result of useSignatories().
+// Print and Preview PDF carry the picks; Download Excel has no signature block.
+export function SignatoriesPanel({ signatories }) {
+  const { list, user, choices, setChoice } = signatories
+  const me = meSignatory(user)
   return (
-    <ModalShell
-      title={title}
-      onClose={onClose}
-      maxWidth="max-w-sm"
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          >
-            {isPdf ? 'Generate PDF' : 'Generate Excel'}
-          </button>
-        </>
-      }
-    >
-      <p className="text-[12px] text-[#7A8E7A] text-center mb-4">
-        Please provide the names and positions for the signature section of the PDF report.
-      </p>
-
-      <p className="text-[13px] font-semibold text-[#1A2B1A] mb-2">* Prepared by</p>
-      <div className="max-md:w-full">
-        <label className={labelCls}>Name:</label>
-        <input
-          type="text"
-          value={preparedBy}
-          onChange={e => setPreparedBy(e.target.value)}
-          className={baseInputClasses}
-        />
-        <p className="text-[11px] text-[#A8BCA8] italic mt-0.5">Auto-filled with your name (editable)</p>
+    <fieldset className="rounded-xl border border-[#E2E8E2] bg-white p-4 print:hidden">
+      <legend className="px-1 text-[13px] font-semibold text-[#1A2B1A]">Signatories</legend>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {SIGNATORY_ROLES.map(({ value, label }) => (
+          <div key={value}>
+            <label htmlFor={`signatory-${value}`} className={labelCls}>{label}</label>
+            <select id={`signatory-${value}`} className={baseInputClasses} value={choices[value]} onChange={(e) => setChoice(value, e.target.value)}>
+              <option value="">— None —</option>
+              {value === 'prepared' && me && <option value="me">{me.name} (me)</option>}
+              {signatoryOptions(list, value).map((s) => (
+                <option key={s.id} value={String(s.id)}>{s.name}{s.position ? ` — ${s.position}` : ''}</option>
+              ))}
+            </select>
+          </div>
+        ))}
       </div>
-      <div className="mt-2">
-        <label className={labelCls}>Position/Designation:</label>
-        <input
-          type="text"
-          value={position}
-          onChange={e => setPosition(e.target.value)}
-          placeholder="Your position or designation"
-          className={baseInputClasses}
-        />
-      </div>
-
-      <div className="border-t border-[#F0F4F0] my-3" />
-
-      <div className="mb-1">
-        <div className="flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-[#1A2B1A]">
-            Reviewed by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowReviewer(v => !v)}
-            className="text-[12px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-2"
-          >
-            {showReviewer ? 'Remove' : 'Add'}
-          </button>
-        </div>
-        {showReviewer && (
-          <input
-            type="text"
-            value={reviewerName}
-            onChange={e => setReviewerName(e.target.value)}
-            placeholder="Enter reviewer name"
-            className={`${baseInputClasses} mt-2`}
-          />
-        )}
-      </div>
-
-      <div className="border-t border-[#F0F4F0] my-3" />
-
-      <div className="mb-1">
-        <div className="flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-[#1A2B1A]">
-            Noted by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowNotedBy(v => !v)}
-            className="text-[12px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-2"
-          >
-            {showNotedBy ? 'Remove' : 'Add'}
-          </button>
-        </div>
-        {showNotedBy && (
-          <input
-            type="text"
-            value={notedByName}
-            onChange={e => setNotedByName(e.target.value)}
-            placeholder="Enter noted-by name"
-            className={`${baseInputClasses} mt-2`}
-          />
-        )}
-      </div>
-
-    </ModalShell>
+      <p className="mt-2 text-[11.5px] text-[#7A8E7A]">Filled in from Manage Signatories. Change a line here for this printout only.</p>
+    </fieldset>
   )
 }
 

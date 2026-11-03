@@ -12,14 +12,12 @@ export function reportQuery(params, format) {
   return q.toString()
 }
 
-// Appends the signature block's names. The position is sent as `prepared_role`, which is what the PDF builders read.
-export function withSignature(query, sig) {
-  if (!sig || !sig.prepared_by) return query
+// Appends the signers picked on the page (the output of signatureParams in utils/signatories.js); blank values are left out.
+export function withSignature(query, params) {
   const q = new URLSearchParams(query)
-  q.set('prepared_by', sig.prepared_by)
-  if (sig.position) q.set('prepared_role', sig.position)
-  if (sig.reviewed_by) q.set('reviewed_by', sig.reviewed_by)
-  if (sig.noted_by) q.set('noted_by', sig.noted_by)
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (String(value ?? '').trim() !== '') q.set(key, value)
+  })
   return q.toString()
 }
 
