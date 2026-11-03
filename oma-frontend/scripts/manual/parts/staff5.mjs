@@ -6,13 +6,13 @@ const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
 const REPORT_TYPE = { find: { css: '#report-type' }, label: 'Report type', desc: 'Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report.' }
 const REPORT_SELECTED = { find: { css: '[aria-label="Selected report"]' }, label: 'Selected report', desc: 'Repeats the report you chose, what it covers, the period and the filters applied right now.' }
 const REPORT_PAPER = { find: { css: '[aria-label="Print-ready report preview template"]' }, label: 'Print-ready preview', desc: 'The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers.' }
+const ROW_CLICK = ' Click a row to see that one record\'s individual report.'
 const REPORT_SIGNERS = { find: { text: 'Signatories', tag: 'legend', closest: 'fieldset' }, label: 'Signatories', desc: 'Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories.' }
 const REPORT_BUTTONS = [
   REPORT_SELECTED,
   REPORT_SIGNERS,
-  { find: { text: 'Print', tag: 'button', exact: true }, label: 'Print', desc: 'Opens the report as the same PDF as the preview, ready to print.' },
-  { find: { text: 'Preview PDF', tag: 'button' }, label: 'Preview PDF', desc: 'Shows the report as a PDF to read on screen. The document is titled with the period covered.' },
-  { find: { text: 'Download Excel', tag: 'button' }, label: 'Download Excel', desc: 'Saves the rows of the report as an Excel file.' },
+  { find: { text: 'Print Report', tag: 'button', exact: true }, label: 'Print Report', desc: 'Opens the report as the same PDF as the preview, with the signature lines, ready to print.' },
+  { find: { text: 'Download Report', tag: 'button', exact: true }, label: 'Download Report', desc: 'Saves the same report as a PDF file.' },
 ]
 export const STAFF5 = [
   // ───────────────────────────── Fisheries Disaster ─────────────────────────────
@@ -55,12 +55,20 @@ export const STAFF5 = [
   A({ id: 'admin-report-registered', file: 'admin/report-registered.png', url: '/reports?tab=registered', after: 1500, height: 1400, title: 'Report: Registered Farmers, Fisherfolk & Organizations', purpose: 'Registration records, ready to print.',
     callouts: [
       REPORT_TYPE,
-      { find: [{ text: 'Farmers', tag: 'button', exact: true }, { text: 'Fisherfolk', tag: 'button', exact: true }, { text: 'Farmers Organizations', tag: 'button' }, { text: 'Fisherfolk Organizations', tag: 'button' }], label: 'What to report', desc: 'Choose Farmers, Fisherfolk, Farmers Organizations or Fisherfolk Organizations.' },
-      { find: [{ text: 'All records (bulk)', tag: 'button' }, { text: 'One farmer', tag: 'button' }], label: 'All records / One record', desc: 'All records (bulk) reports everyone that matches the filters. One farmer (or fisherfolk, organization) searches one person and reports only that record.' },
-      SEARCH_ROW('the person or organization to report on'),
+      { find: { css: '#registered-kind' }, label: 'Report on', desc: 'Chooses what the report is about: Farmers, Fisherfolk, Farmers Organizations or Fisherfolk Organizations.' },
+      { ...SEARCH_ROW('the person or organization to report on'), desc: 'Types a name or number to narrow the list. When the search leaves exactly one record, the report becomes that one record\'s individual report.' },
       { ...FILTERS_ROW, desc: 'Opens the filter row: Barangay and the Registered From / To dates.' },
       ...REPORT_BUTTONS,
-      REPORT_PAPER,
+      { ...REPORT_PAPER, desc: REPORT_PAPER.desc + ROW_CLICK },
+    ] }),
+  A({ id: 'admin-report-individual', file: 'admin/report-individual.png', url: '/reports?tab=registered', js: "const r=[...document.querySelectorAll('tr[role=button]')][0]; r&&r.click()", after: 3000, height: 1400, title: 'Report: an individual report', purpose: 'The report of one farmer, fisherfolk or organization.',
+    callouts: [
+      { find: { css: '[role=status]' }, label: 'Individual report', desc: 'Says whose report this is. It appears when you click a row of the list, or when your search leaves exactly one record.' },
+      { find: { text: 'Show all records', tag: 'button' }, label: 'Show all records', desc: 'Goes back to the list of all the records that match the search and the filters. (When the search found the record, clear the search instead.)' },
+      REPORT_SIGNERS,
+      { find: { text: 'Print Report', tag: 'button', exact: true }, label: 'Print Report', desc: 'Prints this individual report as a PDF with the signature lines.' },
+      { find: { text: 'Download Report', tag: 'button', exact: true }, label: 'Download Report', desc: 'Saves this individual report as a PDF file.' },
+      { ...REPORT_PAPER, desc: 'The individual report as it will print: the details of the record, then its parcels and organizations (or members), with the signature lines.' },
     ] }),
   A({ id: 'admin-report-crop', file: 'admin/report-crop.png', url: '/reports?tab=harvested', after: 1500, height: 1400, title: 'Report: Crop Records Harvested', purpose: 'Harvested crops with their yield.',
     callouts: [
@@ -87,12 +95,11 @@ export const STAFF5 = [
   A({ id: 'admin-report-org-assistance', file: 'admin/report-org-assistance.png', url: '/reports?tab=organization_assistance', after: 1500, height: 1400, title: 'Report: Organization Assistance', purpose: 'The assistance organizations gave to their members.',
     callouts: [
       REPORT_TYPE,
-      { find: [{ text: 'Farmers Organizations', tag: 'button' }, { text: 'Fisherfolk Organizations', tag: 'button' }], label: 'Kind of organization', desc: 'Choose Farmers Organizations or Fisherfolk Organizations.' },
-      { find: [{ text: 'All organizations', tag: 'button' }, { text: 'One organization', tag: 'button' }], label: 'All / One organization', desc: 'All organizations reports every distribution; One organization searches one and reports only its own.' },
+      { find: { css: '#assistance-kind' }, label: 'Report on', desc: 'Chooses Farmers Organizations or Fisherfolk Organizations.' },
       SEARCH_ROW('the organization'),
       FILTERS_ROW,
       ...REPORT_BUTTONS,
-      { ...REPORT_PAPER, desc: `${REPORT_PAPER.desc} Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status.` },
+      { ...REPORT_PAPER, desc: `${REPORT_PAPER.desc}${ROW_CLICK} Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status.` },
     ] }),
 
   // ───────────────────────────── Admin settings ─────────────────────────────

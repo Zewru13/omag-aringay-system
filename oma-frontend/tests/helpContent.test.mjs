@@ -54,9 +54,16 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['drafts', 'Discard draft'],
     ['the report signers', 'Signatories block'],
     ['the Report type box', 'Report type box'],
+    ['the two report buttons', 'Print Report and Download Report'],
   ]) {
     assert.ok(text.includes(needle), `${label} help should explain ${what} (${needle})`); n++
   }
+}
+
+// ── the individual report of one record
+for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
+  assert.ok(questions(help).includes('How do I get the report of just one farmer, fisherfolk or organization?'), `${label} help should say how to get an individual report`); n++
+  assert.ok(!everything(help).includes('Preview PDF') && !everything(help).includes('Download Excel') && !everything(help).includes('All records (bulk)'), `${label} help should not mention the removed report buttons`); n++
 }
 
 // ── report signers: everyone is told how to pick them, only the Admin is told where the list is kept
