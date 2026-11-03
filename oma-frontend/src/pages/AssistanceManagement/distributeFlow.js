@@ -11,6 +11,8 @@ export const makeAssistanceForm = (today) => ({
   assistance_type: '',
   assistance_type_other: '',
   source_agencies: [],
+  source_other_on: false,   // the "Others" source agency is ticked: its name is typed in source_other
+  source_other: '',
   date_given: today,
   quantity_amount: '',   // the quantity per recipient is a number and a unit picked from the Units list
   quantity_unit: '',
@@ -23,6 +25,14 @@ export const makeAssistanceForm = (today) => ({
 export const withAssistanceType = (form, type) => ({
   ...form, assistance_type: type, quantity_amount: '', quantity_unit: '', cash_amount: '', training_duration_days: '', equipment_type: '', seed_type: '', fertilizer_type: '',
 })
+
+// The source agencies of the form as sent: the ones chosen, plus the typed "Others" one (when ticked and not the same as a chosen one).
+export function sourceAgencies(form) {
+  const list = [...form.source_agencies]
+  const other = (form.source_other || '').trim()
+  if (form.source_other_on && other && !list.some((a) => a.toLowerCase() === other.toLowerCase())) list.push(other)
+  return list
+}
 
 export const typeName = (form) => (form.assistance_type === 'Other' ? (form.assistance_type_other || '').trim() : form.assistance_type)
 
@@ -37,11 +47,16 @@ export function quantityText(form) {
 export function assistanceFormProblem(form, { today }) {
   if (!form.assistance_type) return 'Choose the assistance type.'
   if (form.assistance_type === 'Other' && !(form.assistance_type_other || '').trim()) return 'Say what the assistance type is.'
+  // The source agency (one chosen, or "Others" typed out), the quantity per recipient (an amount for cash, days for training) and the date
+  // are all required.
+  if (form.source_other_on && !(form.source_other || '').trim()) return 'Type the other source agency.'
+  if (sourceAgencies(form).length === 0) return 'Choose the source agency.'
   const dateProblem = assistanceDateProblem(form.date_given, { today })
   if (dateProblem) return dateProblem
   if (isCashType(form.assistance_type) && !(Number(form.cash_amount) > 0)) return 'Enter the cash amount per member.'
   const amount = String(form.quantity_amount ?? '').trim()
-  if (!isCashType(form.assistance_type) && !isTrainingType(form.assistance_type) && amount) {
+  if (!isCashType(form.assistance_type) && !isTrainingType(form.assistance_type)) {
+    if (!amount) return 'Enter the quantity per recipient.'
     if (!(Number(amount) > 0)) return 'Enter a quantity of more than 0.'
     if (!form.quantity_unit) return 'Choose the unit of the quantity.'
   }
@@ -52,7 +67,7 @@ export function assistanceFormProblem(form, { today }) {
 export function organizationRequest(form, { dryRun = false, memberIds = null, allowSeedFertilizer = true } = {}) {
   return {
     assistance_type: typeName(form),
-    source_agencies: form.source_agencies,
+    source_agencies: sourceAgencies(form),
     date_given: form.date_given,
     quantity: quantityText(form),
     description: form.description,
@@ -67,7 +82,7 @@ export function organizationRequest(form, { dryRun = false, memberIds = null, al
 export function peopleRequest(form, { idsKey, ids, descriptionKey = 'remarks', dryRun = false, allowSeedFertilizer = true }) {
   return {
     assistance_type: typeName(form),
-    source_agencies: form.source_agencies,
+    source_agencies: sourceAgencies(form),
     date_given: form.date_given,
     quantity: quantityText(form),
     [descriptionKey]: form.description,
@@ -134,7 +149,7 @@ export function reportRecords(results, form, { organizationName = '' } = {}) {
     barangay: r.barangay || '',
     assistance_type: typeName(form),
     quantity: quantityText(form),
-    source_agencies: form.source_agencies,
+    source_agencies: sourceAgencies(form),
     date_given: form.date_given,
     organization_name: r.organization_name || organizationName,
   }))

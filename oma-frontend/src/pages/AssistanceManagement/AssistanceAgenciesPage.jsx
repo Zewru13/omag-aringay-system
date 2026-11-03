@@ -13,6 +13,7 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import AssistanceTypeUnitsCard from './AssistanceTypeUnitsCard.jsx'
 import { resetAssistanceAgencies } from './useAssistanceAgencies.js'
 
 // Assistance Settings: the list of source agencies that every assistance form offers in its Source Agency dropdown. Renaming or
@@ -129,7 +130,7 @@ export default function AssistanceAgenciesPage() {
   }
 
   return (
-    <PageLayout title="Assistance Settings" subtitle="The source agencies offered when assistance is recorded or distributed.">
+    <PageLayout title="Assistance Settings" subtitle="The source agencies and the units offered when assistance is recorded or distributed.">
       <div className="space-y-4">
         {error && <ErrorMessage message={error} />}
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -137,6 +138,7 @@ export default function AssistanceAgenciesPage() {
           <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
           {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Agency" />}
         </div>
+        <AssistanceTypeUnitsCard />
       </div>
 
       {editing && <AgencyModal agency={editing} onClose={() => setEditing(null)} onSaved={refresh} />}

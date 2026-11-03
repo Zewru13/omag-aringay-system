@@ -15,8 +15,9 @@ import useAssistanceChoices from './useAssistanceChoices.js'
 // export components only — see react-refresh/only-export-components).
 
 // Source Agency: one multi-select dropdown. The choices are the active agencies of the managed list (Assistance Settings);
-// the chosen ones show as chips, and an agency already on a record (hidden since, or typed long ago) stays selectable.
-export function SourceAgencyMultiSelect({ value, onChange }) {
+// the chosen ones show as chips, and an agency already on a record (hidden since, or typed long ago) stays selectable. A form that passes
+// `other` ({ on, text, onToggle, onText }) also offers "Others": ticking it opens a box to type an agency that is not in the list.
+export function SourceAgencyMultiSelect({ value, onChange, other = null }) {
   const agencies = useAssistanceAgencies()
   const [open, setOpen] = useState(false)
   const box = useRef(null)
@@ -33,6 +34,7 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
   }, [open])
 
   const toggle = (agency) => onChange(value.includes(agency) ? value.filter((a) => a !== agency) : [...value, agency])
+  const nothing = value.length === 0 && !other?.on
 
   return (
     <div ref={box} className="relative">
@@ -45,7 +47,7 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
         className={`${baseInputClasses} flex min-h-[40px] w-full items-center justify-between gap-2 text-left`}
       >
         <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-          {value.length === 0 ? (
+          {nothing ? (
             <span className="text-[#9AAB9A]">Select source agencies…</span>
           ) : summary.shown.map((a) => (
             <span key={a} className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[12px] font-medium text-[#1B4D2E]">
@@ -63,6 +65,7 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
             </span>
           ))}
           {summary.more > 0 && <span className="shrink-0 whitespace-nowrap text-[12px] font-medium text-[#4A5E4A]">and {summary.more} more</span>}
+          {other?.on && <span className="inline-flex shrink-0 items-center rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[12px] font-medium text-[#1B4D2E]">Others</span>}
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#7A8E7A] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
@@ -80,7 +83,19 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
               </li>
             )
           })}
+          {other && (
+            <li role="option" aria-selected={other.on}>
+              <label className="flex min-h-[40px] cursor-pointer items-center gap-2 border-t border-[#F0F4F0] px-3 py-1.5 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5]">
+                <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" checked={other.on} onChange={() => other.onToggle(!other.on)} />
+                Others
+              </label>
+            </li>
+          )}
         </ul>
+      )}
+      {other?.on && (
+        <input type="text" className={`${baseInputClasses} mt-2`} value={other.text} maxLength={150} placeholder="Type the source agency"
+          aria-label="Other source agency" onChange={(e) => other.onText(e.target.value)} />
       )}
     </div>
   )
