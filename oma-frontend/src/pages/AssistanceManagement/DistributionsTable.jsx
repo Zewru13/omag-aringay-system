@@ -9,8 +9,8 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { formatAssistanceQuantity } from './assistanceFieldHelpers.js'
 import { agenciesText, distributionRowLabel } from './distributionsTableRows.js'
 
-// The staff view of assistance on the Crop and Fisheries Assistance pages: one row per distribution, named after the organization that
-// gave it (or "Individual farmers (5)" when it was given to selected people), dropping down to the members who benefited. A distribution
+// The staff view of assistance on the Crop and Fisheries Assistance pages: one row per distribution, named after the organization it went to
+// (or the farmers / fisherfolk themselves when it was given to selected people), dropping down to the members who benefited. A distribution
 // cannot be cancelled from here; a member's own record can be viewed, edited while that is allowed, or marked resolved.
 //   url       the staff distributions list (interventions/.../distributions/)
 //   noun      'farmers' | 'fisherfolk'
@@ -23,7 +23,7 @@ const PAGE_SIZE = 10
 
 const COLUMNS = [
   { key: 'date_cell', label: 'Date Given' },
-  { key: 'who_cell', label: 'Organization' },
+  { key: 'who_cell', label: 'Given To' },
   { key: 'assistance_type', label: 'Assistance Type' },
   { key: 'agencies_cell', label: 'Source Agency' },
   { key: 'quantity_cell', label: 'Quantity' },
@@ -120,7 +120,7 @@ export default function DistributionsTable({ url, noun, filters, version = 0, on
         phoneTitleKey="name_title"
         phoneSubtitleKey="date_cell"
         expandedRowId={openId}
-        rowClickLabel={(r) => `Show the ${noun} who received this assistance from ${r.name_title}`}
+        rowClickLabel={(r) => `Show the ${noun} who received this assistance (${r.name_title})`}
         onRowClick={(r) => setOpenId((id) => (id === r.id ? null : r.id))}
         renderExpanded={(r) => <Members group={r} noun={noun} onMemberAction={onMemberAction} />}
         renderExpandedMobile={(r) => <Members group={r} noun={noun} onMemberAction={onMemberAction} />}

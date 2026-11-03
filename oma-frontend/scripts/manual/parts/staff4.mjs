@@ -131,7 +131,7 @@ export const STAFF4 = [
       { find: { text: 'Distribute to Organizations', tag: 'button' }, label: 'Distribute to Organizations', desc: 'Gives one assistance to the members of the organizations you tick (next pictures).' },
       { find: { text: 'Distribute Farmer Assistance', tag: 'button' }, label: 'Distribute Farmer Assistance', desc: 'Gives one assistance to the individual farmers you tick.' },
       { find: FILTERS, label: 'Filters', desc: 'Opens the filter row: barangay and year.' },
-      { find: COLS, label: 'Columns', desc: 'Date given, organization (or Individual farmers when it went to selected people), assistance type, source agency, quantity and status.' },
+      { find: COLS, label: 'Columns', desc: 'Date given, who it was given to (the organization, or the names of the farmers when it went to selected people), assistance type, source agency, quantity and status.' },
       { find: ROW1, label: 'A distribution row', desc: 'Click a row to drop down the members who benefited, with their barangay and status.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
