@@ -122,12 +122,12 @@ function HarvestedCropTab() {
     } finally { setIsDownloading(false) }
   }
 
-  const handleDownload = async (fmt) => {
+  const handleDownload = async () => {
     setIsDownloading(true)
     try {
-      await downloadFile(api, buildUrl(fmt), fmt === 'pdf' ? 'harvested_crop_report.pdf' : 'harvested_crop_report.xlsx')
+      await downloadFile(api, buildUrl('pdf'), 'harvested_crop_report.pdf')
     } catch {
-      showToast(`Failed to generate ${fmt === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+      showToast('Failed to download the report.', 'error')
     } finally { setIsDownloading(false) }
   }
 
@@ -202,8 +202,7 @@ function HarvestedCropTab() {
       {/* Action Buttons */}
       <ActionButtons
         onPrint={handlePrint}
-        onPdf={() => handleDownload('pdf')}
-        onExcel={() => handleDownload('excel')}
+        onDownload={handleDownload}
         isDownloading={isDownloading}
       />
 
@@ -283,12 +282,12 @@ function FisheriesProductionTab() {
     } finally { setIsDownloading(false) }
   }
 
-  const handleDownload = async (fmt) => {
+  const handleDownload = async () => {
     setIsDownloading(true)
     try {
-      await downloadFile(api, buildUrl(fmt), fmt === 'pdf' ? 'fisheries_production_report.pdf' : 'fisheries_production_report.xlsx')
+      await downloadFile(api, buildUrl('pdf'), 'fisheries_production_report.pdf')
     } catch {
-      showToast(`Failed to generate ${fmt === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+      showToast('Failed to download the report.', 'error')
     } finally { setIsDownloading(false) }
   }
 
@@ -361,8 +360,7 @@ function FisheriesProductionTab() {
 
       <ActionButtons
         onPrint={handlePrint}
-        onPdf={() => handleDownload('pdf')}
-        onExcel={() => handleDownload('excel')}
+        onDownload={handleDownload}
         isDownloading={isDownloading}
       />
 

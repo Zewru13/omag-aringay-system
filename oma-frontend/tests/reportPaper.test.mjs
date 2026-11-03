@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-const { REPORT_TYPES, reportType, reportTypeFromParam, periodText, detailFromFilters, filtersLine, paperDocument, selectedReport, signatureSlots } =
+const { REPORT_TYPES, reportType, reportTypeFromParam, periodText, detailFromFilters, filtersLine, paperDocument, selectedReport, signatureSlots, rowRefsOf, individualFrom, individualParams } =
   await import(new URL('../src/pages/Reports/reportPaper.js', import.meta.url).href)
 
 let n = 0
@@ -39,6 +39,7 @@ eq(filtersLine({ title: 'Fisheries Disaster Reports', heading: 'Fisheries Disast
 eq(filtersLine({ title: 'Same', heading: 'Same', subtitle: '' }), '', 'a title that only repeats the heading is left out')
 eq(paperDocument({ title: 'T', heading: 'Heading', period: 'As of x', detail: 'd', stats: [['Total', 4]], sections: [{ headers: ['A'], rows: [[1]] }] }),
   { heading: 'Heading', period: 'As of x', detail: 'd', stats: [['Total', 4]], sections: [{ headers: ['A'], rows: [[1]] }] }, 'a full document')
+eq(paperDocument({ title: 'T', row_refs: [{ id: 1, label: 'A' }] }).row_refs, [{ id: 1, label: 'A' }], 'a list keeps its row refs')
 eq(paperDocument({ title: 'Only Title' }), { heading: 'Only Title', period: '', detail: '', stats: [], sections: [] }, 'defaults')
 
 // ── the Selected report box
@@ -60,5 +61,21 @@ eq(signatureSlots({ prepared_by: 'Dee Lim', prepared_role: 'Clerk', reviewed_by:
 eq(signatureSlots({ prepared_by: 'Dee Lim', approved_by: 'Ben Reyes' }).map((s) => s.label), ['Prepared by', 'Approved by'], 'approved alone drops the certified-by column')
 eq(signatureSlots({ prepared_by: 'Dee Lim', reviewed_by: 'Cy Diaz' }).map((s) => s.label), ['Prepared by', 'Checked by', 'Certified by'], 'checked alone keeps the certified-by column')
 eq(signatureSlots({ noted_by: 'R&D <Chief>' })[1].name, 'R&D <CHIEF>', 'names are kept as typed, only upper-cased')
+
+// ── the individual report: a clicked row, or a search that left one record
+const refs = [{ id: 1, label: 'Ana Cruz' }, { id: 2, label: 'Ben Reyes' }]
+eq(rowRefsOf({ row_refs: refs, sections: [] }), refs, 'a list document names its rows')
+eq(rowRefsOf({ sections: [] }), [], 'an individual document has no row refs')
+eq(rowRefsOf(null), [], 'no document yet')
+
+eq(individualFrom({ individual: { id: 1, label: 'Ana Cruz' } }, null), { label: 'Ana Cruz', picked: false }, 'the search left one record')
+eq(individualFrom({}, { id: 2, label: 'Ben Reyes' }), { label: 'Ben Reyes', picked: true }, 'a clicked row')
+eq(individualFrom({ individual: { id: 1, label: 'Ana Cruz' } }, { id: 2, label: 'Ben Reyes' }), { label: 'Ben Reyes', picked: true }, 'the click wins')
+eq(individualFrom({}, null), null, 'the list')
+eq(individualFrom(null, null), null, 'no document yet, nothing picked')
+
+// the query of a report that can show one record: no row clicked -> let the search decide; a row clicked -> that record
+eq(individualParams({ kind: 'farmers', search: 'Cruz' }, null), { kind: 'farmers', search: 'Cruz', individual: 'auto' }, 'no row clicked')
+eq(individualParams({ kind: 'farmers', search: 'Cruz' }, { id: 2, label: 'Ben' }), { kind: 'farmers', search: 'Cruz', id: 2 }, 'a row clicked')
 
 console.log(`reportPaper: ${n} checks passed`)

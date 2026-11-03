@@ -1,4 +1,4 @@
-import { Download, FileText, Printer } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { SIGNATORY_ROLES, meSignatory, signatoryOptions } from '../../utils/signatories.js'
 
@@ -37,40 +37,29 @@ export function SignatoriesPanel({ signatories }) {
 
 // ── Shared: Action Buttons Row ─────────────────────────────────────────────────
 
-// print:hidden on the whole row — action buttons have no business appearing
-// on the printed page itself, same reason the filter panels and tab
-// switcher below are hidden on print.
-// `onPrint` prints the report itself: the same PDF as Preview PDF, formatted as an official document (see utils/printPdf.js).
-// Without it the button falls back to printing the screen.
-export function ActionButtons({ onPrint, onPdf, onExcel, isDownloading }) {
+// print:hidden on the whole row: the buttons have no business on the printed page itself.
+// Print Report prints the report itself and Download Report saves it as a PDF: both are the same PDF, with the signers picked in the
+// Signatories block (see utils/printPdf.js and utils/fileDownload.js). The buttons are named like the ones on the registry tables.
+export function ActionButtons({ onPrint, onDownload, isDownloading }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end print:hidden [&>*:last-child:nth-child(odd)]:col-span-2 [&>*]:justify-center max-md:[&>*]:min-h-[40px]">
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end print:hidden [&>*]:justify-center max-md:[&>*]:min-h-[40px]">
       <button
         type="button"
-        onClick={onPrint || (() => window.print())}
+        onClick={onPrint}
         disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-white border border-[#C8D5C8] hover:bg-[#F5F7F5] text-[#4A5E4A] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 bg-white border border-[#C8D5C8] hover:bg-[#F5F7F5] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-60"
       >
-        <Printer className="w-4 h-4" />
-        Print
+        <Printer className="w-4 h-4" aria-hidden="true" />
+        Print Report
       </button>
       <button
         type="button"
-        onClick={onPdf}
+        onClick={onDownload}
         disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#C0392B] hover:bg-[#A93226] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-60"
       >
-        <FileText className="w-4 h-4" />
-        Preview PDF
-      </button>
-      <button
-        type="button"
-        onClick={onExcel}
-        disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
-      >
-        <Download className="w-4 h-4" />
-        Download Excel
+        <Download className="w-4 h-4" aria-hidden="true" />
+        Download Report
       </button>
     </div>
   )

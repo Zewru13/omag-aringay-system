@@ -54,6 +54,21 @@ def make_document(title, subtitle='', stats=None, sections=None, heading=None, p
             'heading': heading or title, 'period': period or '', 'detail': detail}
 
 
+def with_row_refs(doc, refs):
+    """A list report's document with, for each row of its first table, the id and name of the record the row is: [{id, label}, ...].
+    The Reports page uses it to ask for one row's individual report. Only the page preview carries it; the PDF and Excel ignore it."""
+    doc['row_refs'] = refs
+    return doc
+
+
+def individual_of(request, refs):
+    """`individual=auto` and exactly one record behind the rows -> that record as {id, label}; otherwise None (the list stays)."""
+    if request.query_params.get('individual') != 'auto':
+        return None
+    records = {ref['id']: ref for ref in refs}
+    return dict(next(iter(records.values()))) if len(records) == 1 else None
+
+
 class ReportPageCanvas(NumberedCanvas):
     """Page footer of the Reports page PDFs: page numbers and a plain line, without the system-name tagline."""
     disclaimer = f'This is an official record of the {OFFICE_NAME}.'
