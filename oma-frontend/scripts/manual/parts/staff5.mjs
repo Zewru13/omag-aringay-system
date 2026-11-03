@@ -143,6 +143,8 @@ export const STAFF5 = [
       { find: { text: 'Source Agencies', tag: 'h2', closest: H }, label: 'Source Agencies', desc: 'The agencies that give assistance. They are the choices of the Source Agency box when assistance is distributed or imported.' },
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the agency.' },
       { find: { text: 'Add Agency', tag: 'button' }, label: 'Add Agency', desc: 'Opens a new row at the top: type the agency name and press Save.' },
+      { find: { text: 'Units by Assistance Type', tag: 'h2', closest: H }, label: 'Units by Assistance Type', desc: 'For each type of assistance that has a quantity box, the units its Unit box offers (Seeds: kg, sack, bag, bundle). Cash Assistance and Training have no unit.' },
+      { find: { text: 'APPLICABLE UNITS', tag: 'th' }, label: 'Applicable Units', desc: 'The units offered for that type. The pencil opens a window to tick the units; at least one is needed.' },
     ] }),
   A({ id: 'admin-classification-settings', file: 'admin/classification-settings.png', url: '/classification-settings', title: 'Admin > Classification Settings', purpose: 'The parcel classifications.',
     callouts: [
@@ -153,9 +155,9 @@ export const STAFF5 = [
   A({ id: 'admin-harvest-unit-settings', file: 'admin/harvest-unit-settings.png', url: '/harvest-unit-settings', title: 'Admin > Harvest Unit Settings', purpose: 'How many kg one harvest unit weighs.',
     callouts: [
       { find: { text: 'Unit Weights', tag: 'h2', closest: H }, label: 'Unit Weights', desc: 'A harvest counted in sacks, cavans or another unit is saved in kilograms with these weights, so the totals and reports add up.' },
-      { find: COLS, label: 'Columns', desc: 'The unit, the crop it applies to (a unit can have a different weight for each crop), the kg per unit and a note.' },
-      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the unit.' },
-      { find: { text: 'Add Unit', tag: 'button' }, label: 'Add Unit', desc: 'Opens a new row at the top: the unit, the crop, the kg per unit and a note, then Save. A unit added here also appears in the unit list of the forms.' },
+      { find: COLS, label: 'Columns', desc: 'The unit, the crops it applies to (one weight can be set for several crops at once; none chosen means every crop), the kg per unit and a note.' },
+      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the unit: they change or remove it for all of its crops.' },
+      { find: { text: 'Add Unit', tag: 'button' }, label: 'Add Unit', desc: 'Opens a new row at the top: the unit, the crops (tick one or more, or none for every crop), the kg per unit and a note, then Save. A unit added here also appears in the unit list of the forms.' },
     ] }),
 
   // ───────────────────────────── Users, Activity Log, Backup, My Profile ─────────────────────────────

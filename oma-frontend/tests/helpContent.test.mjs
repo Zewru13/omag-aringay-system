@@ -34,7 +34,7 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['ending a term with a reason', 'Transferred Registration'],
     ['the Others reason', 'choose Others'],
     ['lending to several members', 'Lend equipment'],
-    ['the Returned table', 'Returned lists everything that was closed'],
+    ['the Borrowed History tab', 'The Borrowed History tab lists everything that was closed'],
     ['equipment without a condition', 'new equipment starts as Good'],
     ['required parcel fields', 'Cropping Schedule'],
     ['crops inside the parcel form', 'same as Add Crop Records'],

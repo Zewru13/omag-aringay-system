@@ -786,7 +786,7 @@ export default {
    {
     "n": 8,
     "label": "Add Pond",
-    "desc": "Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance."
+    "desc": "Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance (with up to 5 photos of the insurance form)."
    },
    {
     "n": 9,
@@ -1061,7 +1061,7 @@ export default {
    {
     "n": 5,
     "label": "Add Member",
-    "desc": "Opens a window: search a registered farmer, choose the position and the date joined, then Add Member."
+    "desc": "Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member."
    },
    {
     "n": 6,
@@ -1081,7 +1081,7 @@ export default {
    {
     "n": 9,
     "label": "Assign Officer",
-    "desc": "Choose a position and one of the organization's members, then Assign Officer. If the position is held, end that term first (open the officer, End term early, give the reason)."
+    "desc": "Choose a position and one of the organization's members, then Assign Officer. Positions that are held are grayed out, and a member who already holds a position cannot be given another: end that term first (open the officer, End term early, give the reason)."
    }
   ]
  },
@@ -1146,7 +1146,7 @@ export default {
    {
     "n": 1,
     "label": "Position",
-    "desc": "President, Vice President, Secretary, Treasurer, Auditor, Board Member and the others. A position already held shows that someone holds it."
+    "desc": "President, Vice President, Secretary, Treasurer, Auditor, Board Member and the others. A position that is already held is grayed out and marked (taken); the first free one is chosen for you."
    },
    {
     "n": 2,
@@ -1546,12 +1546,12 @@ export default {
    {
     "n": 6,
     "label": "PCIC Insured tick",
-    "desc": "Ticked when the crop has PCIC insurance. Tick it to add insurance (a photo of the form is asked for)."
+    "desc": "Ticked when the crop has PCIC insurance. Tick it to add insurance (photos of the form are asked for)."
    },
    {
     "n": 7,
     "label": "Actions menu",
-    "desc": "The three dots of a crop: Record Activity, View Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture)."
+    "desc": "The three dots of a crop: Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture)."
    },
    {
     "n": 8,
@@ -1620,13 +1620,13 @@ export default {
    },
    {
     "n": 2,
-    "label": "View Crop Details",
+    "label": "Crop Details",
     "desc": "Opens everything about the crop: activities, pest and disease reports, disasters and remarks."
    },
    {
     "n": 3,
     "label": "Record Harvest",
-    "desc": "Records the harvest once half of the crop's growing time has passed. Before that it says Not Yet Available: use Force Harvest instead."
+    "desc": "Records the harvest once half of the crop's growing time has passed. Before that it is grayed out (hold the pointer on it to see why): use Force Harvest instead."
    },
    {
     "n": 4,
@@ -1755,31 +1755,36 @@ export default {
   "legend": [
    {
     "n": 1,
+    "label": "The crop",
+    "desc": "Which crop this harvest is for: its name, variety, the farmer and the date planted."
+   },
+   {
+    "n": 2,
     "label": "Harvested Date",
     "desc": "Required. The day it was harvested. A harvest more than 7 days after the expected date asks for a reason."
    },
    {
-    "n": 2,
+    "n": 3,
     "label": "Area Harvested (ha)",
     "desc": "Required. It is filled with the area planted; it cannot be more than that."
    },
    {
-    "n": 3,
+    "n": 4,
     "label": "Unit of Measure",
     "desc": "Required. The unit the harvest was counted in (cavan, kg, metric ton and the units set in Harvest Unit Settings)."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Quantity Harvested",
     "desc": "Required. The amount in that unit. Harvest Unit Settings turns it into kilograms for the totals."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Notes",
     "desc": "Optional harvest notes or observations."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Save Harvest Record",
     "desc": "Saves the harvest. The crop moves to Harvested and its actual yield is filled in."
    }
@@ -2175,7 +2180,7 @@ export default {
    },
    {
     "n": 3,
-    "label": "View Cycle Details & Logs",
+    "label": "Cycle & Logs",
     "desc": "Opens the cycle with its Feeding Log and Health Log, where the daily work is recorded."
    },
    {
@@ -2560,8 +2565,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "All Records / Needs Follow-up",
-    "desc": "All Records lists every distribution. Needs Follow-up lists the recipients who reported that they did not receive the assistance, so the office can look into each one."
+    "label": "Current / History",
+    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved."
    },
    {
     "n": 2,
@@ -2686,12 +2691,12 @@ export default {
    {
     "n": 2,
     "label": "Source Agency",
-    "desc": "Optional. The agencies that provided it (you can choose several)."
+    "desc": "Required. The agencies that provided it (you can choose several). Choose Others to type an agency that is not in the list."
    },
    {
     "n": 3,
     "label": "Quantity per Recipient",
-    "desc": "Optional. The quantity each recipient gets, and its unit (kg, sack, bag, piece, bundle, box, liter or set)."
+    "desc": "Required. The quantity each recipient gets, and its unit. The units offered depend on the assistance type (Seeds offers kg, sack, bag and bundle, for example); an Admin sets them in Assistance Settings."
    },
    {
     "n": 4,
@@ -2760,8 +2765,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "All Records / Needs Follow-up",
-    "desc": "All Records lists every distribution. Needs Follow-up lists the recipients who reported that they did not receive the assistance, so the office can look into each one."
+    "label": "Current / History",
+    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved."
    },
    {
     "n": 2,
@@ -3397,6 +3402,16 @@ export default {
     "n": 3,
     "label": "Add Agency",
     "desc": "Opens a new row at the top: type the agency name and press Save."
+   },
+   {
+    "n": 4,
+    "label": "Units by Assistance Type",
+    "desc": "For each type of assistance that has a quantity box, the units its Unit box offers (Seeds: kg, sack, bag, bundle). Cash Assistance and Training have no unit."
+   },
+   {
+    "n": 5,
+    "label": "Applicable Units",
+    "desc": "The units offered for that type. The pencil opens a window to tick the units; at least one is needed."
    }
   ]
  },
@@ -3441,17 +3456,17 @@ export default {
    {
     "n": 2,
     "label": "Columns",
-    "desc": "The unit, the crop it applies to (a unit can have a different weight for each crop), the kg per unit and a note."
+    "desc": "The unit, the crops it applies to (one weight can be set for several crops at once; none chosen means every crop), the kg per unit and a note."
    },
    {
     "n": 3,
     "label": "Row menu",
-    "desc": "Edit and Delete for the unit."
+    "desc": "Edit and Delete for the unit: they change or remove it for all of its crops."
    },
    {
     "n": 4,
     "label": "Add Unit",
-    "desc": "Opens a new row at the top: the unit, the crop, the kg per unit and a note, then Save. A unit added here also appears in the unit list of the forms."
+    "desc": "Opens a new row at the top: the unit, the crops (tick one or more, or none for every crop), the kg per unit and a note, then Save. A unit added here also appears in the unit list of the forms."
    }
   ]
  },
@@ -3765,7 +3780,7 @@ export default {
    },
    {
     "n": 9,
-    "label": "View Crop Details",
+    "label": "Crop Details",
     "desc": "Opens everything about the crop: activities, pest and disease reports, disasters and remarks."
    },
    {
@@ -3880,8 +3895,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "History / Upcoming / Needs Follow-up",
-    "desc": "History is what you received. Upcoming is what is scheduled for a later date. Needs Follow-up is what you reported as not received, until the office resolves it."
+    "label": "Current / History",
+    "desc": "Current is what is scheduled for a later date, what waits for you to confirm it, and what you reported as not received (until the office resolves it). History is what you received and confirmed, or that was resolved."
    },
    {
     "n": 2,
@@ -4120,8 +4135,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "All Records / Needs Follow-up",
-    "desc": "All Records is everything you received. Needs Follow-up is what you reported as not received, until the office resolves it."
+    "label": "Current / History",
+    "desc": "Current is what is scheduled, what waits for you to confirm it, and what you reported as not received. History is what you received and confirmed, or that was resolved."
    },
    {
     "n": 2,
@@ -4246,7 +4261,7 @@ export default {
    {
     "n": 1,
     "label": "Tabs",
-    "desc": "Members, Equipment, Borrowed (with the number of loans), Officers and Confirmed for Members. Equipment is a tab here, not a separate page."
+    "desc": "Members, Equipment, Borrowed (with the number of loans waiting), Borrowed History, Officers and Confirmed for Members. Equipment is a tab here, not a separate page."
    },
    {
     "n": 2,
@@ -4365,8 +4380,8 @@ export default {
    },
    {
     "n": 2,
-    "label": "Borrowed / Returned",
-    "desc": "Borrowed lists what is still out, one row per person. Returned lists everything that came back, with when and in what condition."
+    "label": "Borrowed History",
+    "desc": "This tab lists what is still out (and the requests), one row per person. Everything that came back, with when and in what condition, is in the Borrowed History tab."
    },
    {
     "n": 3,
@@ -4446,7 +4461,7 @@ export default {
    {
     "n": 3,
     "label": "Assign Officer",
-    "desc": "Choose a position and one of your members. If the position is held, end that term first (open the officer, End term early, give the reason: migrated or transferred registration, or Others)."
+    "desc": "Choose a position and one of your members. Positions that are held are grayed out, and a member who already holds a position cannot be given another: end that term first (open the officer, End term early, give the reason: migrated or transferred registration, or Others)."
    }
   ]
  },
@@ -4475,31 +4490,36 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "History / Confirm for Members",
-    "desc": "History lists the assistance given to your members. Confirm for Members lists members who cannot confirm for themselves (next picture)."
+    "label": "Current / History",
+    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up. History lists what your members received and confirmed, or that was resolved."
    },
    {
     "n": 2,
-    "label": "Distribute to All Members",
-    "desc": "Gives the same assistance to every member in one step. Choose the type, source agency, quantity, date and description, then Review and confirm."
+    "label": "Confirm for Members",
+    "desc": "Opens the list of members who cannot confirm for themselves (next picture); Back to Current returns."
    },
    {
     "n": 3,
+    "label": "Distribute to All Members",
+    "desc": "Gives the same assistance to every member in one step. Choose the type, source agency (required; Others lets you type one), quantity and its unit (required), date and description, then Review and confirm."
+   },
+   {
+    "n": 4,
     "label": "Distribute to Individual",
     "desc": "Gives an assistance to only the members you tick."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Search box",
     "desc": "Type to find a member. The table updates as you type."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Filters",
     "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Columns",
     "desc": "The date and time, the assistance, the quantity, how many members, the status and Action. Click a row to open the members who benefited."
    }
@@ -4735,7 +4755,7 @@ export default {
    {
     "n": 3,
     "label": "A parcel card",
-    "desc": "Tap a parcel to open the crops planted on it. Each crop has its own menu with Record Activity, View Crop Details, Record Harvest and Report Disaster."
+    "desc": "Tap a parcel to open the crops planted on it. Each crop has its own menu with Record Activity, Crop Details, Record Harvest and Report Disaster."
    },
    {
     "n": 4,
@@ -4812,8 +4832,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "History / Upcoming / Needs Follow-up",
-    "desc": "What you received, what is scheduled, and what you reported as not received."
+    "label": "Current / History",
+    "desc": "Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed."
    },
    {
     "n": 2,
@@ -4993,8 +5013,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "All Records / Needs Follow-up",
-    "desc": "Everything you received, and what you reported as not received."
+    "label": "Current / History",
+    "desc": "Current: what is scheduled, waiting for you to confirm, or reported as not received. History: what you received and confirmed."
    },
    {
     "n": 2,
@@ -5096,8 +5116,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "History / Confirm for Members",
-    "desc": "What was given, and the members you confirm for."
+    "label": "Current / History",
+    "desc": "Current: what is scheduled or waiting. History: what was given and confirmed. Confirm for Members (a button in Current) is for the members you confirm for."
    },
    {
     "n": 2,
@@ -5113,6 +5133,36 @@ export default {
     "n": 4,
     "label": "Bottom menu",
     "desc": "Home, Organization and Assistance. Tap one to open it; the open one is highlighted."
+   }
+  ]
+ },
+ "org-borrowed-history": {
+  "audience": "org",
+  "title": "My Organization: Borrowed History",
+  "purpose": "Everything that was lent and came back.",
+  "image": "/manual/org/borrowed-history.png",
+  "width": 1280,
+  "height": 700,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Borrowed History tab",
+    "desc": "Everything that was lent and has come back, on its own page. What is still out is in the Borrowed tab."
+   },
+   {
+    "n": 2,
+    "label": "Search box",
+    "desc": "Type to find a member. The table updates as you type."
+   },
+   {
+    "n": 3,
+    "label": "Filters",
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+   },
+   {
+    "n": 4,
+    "label": "Columns",
+    "desc": "Who borrowed it, the equipment, how many units, when it went out and when it came back, and the condition the units came back in (Returned late if it came back after its return-by date)."
    }
   ]
  }

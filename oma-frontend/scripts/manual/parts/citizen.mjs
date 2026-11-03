@@ -9,7 +9,7 @@ const HEADER_BAR = (extra = '') => ({ find: { css: 'header' }, label: 'Top bar',
 const ACCOUNT_MENU = { find: [BELL, { css: 'button[aria-label="Open account menu"]', up: 1 }], label: 'Bell and account menu', desc: 'The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, the User Manual and Log out.' }
 const MENU_BTN = { find: MENU_TOGGLE, label: 'Menu button', desc: 'Hides the left menu to give the page more room, or shows it again.' }
 const crop = (up) => ({ text: up, tag: 'button, p, span, div' })
-const farmerCropMenu = "const b=[...document.querySelectorAll('button')].find(x=>/crops on/.test(x.getAttribute('aria-label')||'')||/01-33-02-005/.test(x.textContent)); b&&b.click(); await new Promise(r=>setTimeout(r,1500)); const rows=[...document.querySelectorAll('tbody tr')]; const r=rows.find(x=>/Palay/.test(x.textContent)); if(r){const bs=r.querySelectorAll('button'); bs[bs.length-1].click()}"
+const farmerCropMenu = "const b=[...document.querySelectorAll('button')].find(x=>/crops on/.test(x.getAttribute('aria-label')||'')||/01-33-02-005/.test(x.textContent))||document.querySelector('tbody tr button'); b&&b.click(); await new Promise(r=>setTimeout(r,1500)); const rows=[...document.querySelectorAll('tbody tr')]; const r=rows.find(x=>/Palay/.test(x.textContent)); if(r){const bs=r.querySelectorAll('button'); bs[bs.length-1].click()}"
 
 const PROFILE_ROWS = [
   { find: { css: 'button[aria-label*="photo"], button[title*="photo"], button[aria-label="Change photo"]' }, label: 'Change photo', desc: 'The camera button on your picture changes your photo (JPG, PNG or WEBP, up to 5 MB).' },
@@ -51,7 +51,7 @@ export const CITIZEN = [
       { find: { css: 'tbody tr', nth: 0 }, label: 'A parcel row', desc: 'The arrow at the end of the row opens or closes the crops planted on that parcel.' },
       { find: { text: 'CROP', tag: 'th', closest: 'thead' }, label: 'Crop columns', desc: 'Under an open parcel: the crop, its variety, the organization, barangay, date planted, expected harvest, how many activities were logged, whether it is PCIC insured and its status (Planted, Near Harvest, Harvested...).' },
       { find: { text: 'Record Activity', tag: 'button' }, label: 'Record Activity', desc: 'Logs what you did on the crop (for example watering, fertilizing or spraying): the activity, the date, the plant condition and notes. Get Suggestions shows what is recommended next.' },
-      { find: { text: 'View Crop Details', tag: 'button' }, label: 'View Crop Details', desc: 'Opens everything about the crop: activities, pest and disease reports, disasters and remarks.' },
+      { find: { text: 'Crop Details', tag: 'button', exact: true }, label: 'Crop Details', desc: 'Opens everything about the crop: activities, pest and disease reports, disasters and remarks.' },
       { find: { text: 'Record Harvest', tag: 'button' }, label: 'Record Harvest', desc: 'Records the harvest once at least half of the crop\'s growing time has passed: the date, the area harvested, the unit and the quantity.' },
       { find: { text: 'Report Disaster', tag: 'button' }, label: 'Report Disaster', desc: 'Reports damage on this crop: the type, the date, the area affected, a description, whether it is a total loss, and photos.' },
     ] }),
@@ -78,7 +78,7 @@ export const CITIZEN = [
     ] }),
   FA({ id: 'farmer-assistance', file: 'farmer/assistance.png', url: '/crop-assistance', title: 'Assistance Received (Farmer)', purpose: 'The help given to you.',
     callouts: [
-      { find: [{ text: 'History', tag: 'button', exact: true }, { text: 'Upcoming', tag: 'button' }, { text: 'Needs Follow-up', tag: 'button' }], label: 'History / Upcoming / Needs Follow-up', desc: 'History is what you received. Upcoming is what is scheduled for a later date. Needs Follow-up is what you reported as not received, until the office resolves it.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current is what is scheduled for a later date, what waits for you to confirm it, and what you reported as not received (until the office resolves it). History is what you received and confirmed, or that was resolved.' },
       FILTERS_ROW,
       { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'An assistance', desc: 'Each one shows its type and date. Click it to open the details: the source agency, the quantity, the status, and a button to confirm that you received it (or that you did not) when it asks you to.' },
     ] }),
@@ -99,7 +99,7 @@ export const CITIZEN = [
       { find: COLS, label: 'Columns', desc: 'Ownership, species, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status and Actions.' },
       { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Harvest / Actions', desc: 'The harvest button is grayed out until at least half of the expected time has passed. The three dots open the menu of the cycle: view and edit it, see its logs, or force a harvest.' },
       { find: { text: 'ponds', tag: 'span, p, div', up: 1 }, label: 'Ponds of the cycle', desc: 'Click a row to open its ponds or cages: the unit, species, fingerlings, dimensions, area, estimated and actual harvest, the date harvested and the status.' },
-      { find: { text: 'View Cycle Details & Logs', tag: 'button' }, label: 'View Cycle Details & Logs', desc: 'Opens the cycle with its Feeding Log and Health Log, where you record the feed given and any disease and treatment.' },
+      { find: { text: 'Cycle & Logs', tag: 'button' }, label: 'Cycle & Logs', desc: 'Opens the cycle with its Feeding Log and Health Log, where you record the feed given and any disease and treatment.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
   FI({ id: 'fisherfolk-start-cycle', file: 'fisherfolk/start-cycle.png', url: '/fisheries-monitoring', js: click('Start Production Cycle'), after: 2500, height: 1500, title: 'Start Production Cycle (Fisherfolk)', purpose: 'Starts a new production cycle for your ponds or cages.',
@@ -134,7 +134,7 @@ export const CITIZEN = [
     ] }),
   FI({ id: 'fisherfolk-assistance', file: 'fisherfolk/assistance.png', url: '/fisheries-assistance', title: 'Assistance Received (Fisherfolk)', purpose: 'The help given to you.',
     callouts: [
-      { find: [{ text: 'All Records', tag: 'button' }, { text: 'Needs Follow-up', tag: 'button' }], label: 'All Records / Needs Follow-up', desc: 'All Records is everything you received. Needs Follow-up is what you reported as not received, until the office resolves it.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current is what is scheduled, what waits for you to confirm it, and what you reported as not received. History is what you received and confirmed, or that was resolved.' },
       SEARCH_ROW('an assistance'),
       FILTERS_ROW,
     ] }),
@@ -156,7 +156,7 @@ export const CITIZEN = [
     ] }),
   O({ id: 'org-members', file: 'org/my-organization.png', url: '/my-organization', height: 800, title: 'My Organization: Members', purpose: 'The members of your organization.',
     callouts: [
-      { find: [{ text: 'Members', tag: 'button', exact: true }, { text: 'Equipment', tag: 'button', exact: true }, { text: 'Borrowed', tag: 'button' }, { text: 'Officers', tag: 'button', exact: true }, { text: 'Confirmed for Members', tag: 'button' }], label: 'Tabs', desc: 'Members, Equipment, Borrowed (with the number of loans), Officers and Confirmed for Members. Equipment is a tab here, not a separate page.' },
+      { find: [{ text: 'Members', tag: 'button', exact: true }, { text: 'Equipment', tag: 'button', exact: true }, { text: 'Borrowed', tag: 'button' }, { text: 'Borrowed History', tag: 'button', exact: true }, { text: 'Officers', tag: 'button', exact: true }, { text: 'Confirmed for Members', tag: 'button' }], label: 'Tabs', desc: 'Members, Equipment, Borrowed (with the number of loans waiting), Borrowed History, Officers and Confirmed for Members. Equipment is a tab here, not a separate page.' },
       { find: { text: 'Import Members', tag: 'button' }, label: 'Import Members', desc: 'Adds many members from a spreadsheet, with a preview first.' },
       { find: { text: 'Add Member', tag: 'button', exact: true }, label: 'Add Member', desc: 'Adds one registered farmer to the organization (next picture).' },
       SEARCH_ROW('a member by name'),
@@ -183,10 +183,17 @@ export const CITIZEN = [
   O({ id: 'org-borrowed', file: 'org/borrowed.png', url: '/my-organization', js: "const b=[...document.querySelectorAll('button')].find(x=>x.offsetParent&&/^Borrowed/.test(x.textContent.trim())); b&&b.click()", after: 2000, height: 800, title: 'My Organization: Borrowed', purpose: 'Equipment that is out, and what came back.',
     callouts: [
       { find: { text: 'Lend equipment', tag: 'button' }, label: 'Lend equipment', desc: 'Records that members borrowed equipment (picture after next).' },
-      { find: [{ text: 'Borrowed (', tag: 'button' }, { text: 'Returned (', tag: 'button' }], label: 'Borrowed / Returned', desc: 'Borrowed lists what is still out, one row per person. Returned lists everything that came back, with when and in what condition.' },
+      { find: { text: 'Borrowed History', tag: 'button', exact: true }, label: 'Borrowed History', desc: 'This tab lists what is still out (and the requests), one row per person. Everything that came back, with when and in what condition, is in the Borrowed History tab.' },
       SEARCH_ROW('a member'),
       FILTERS_ROW,
       { find: { text: 'Needs action', tag: 'span, p, div', up: 2 }, label: 'A borrower', desc: 'Click a borrower to open their items. A request made by a member with an account shows Needs action: Approve or Reject it. For an item that came back, choose Mark returned and say what happened: Returned, Damaged (and how) or Not returned (the unit is recorded as Lost). An item past its return-by date shows Overdue.' },
+    ] }),
+  O({ id: 'org-borrowed-history', file: 'org/borrowed-history.png', url: '/my-organization', js: click('Borrowed History'), after: 2000, height: 700, title: 'My Organization: Borrowed History', purpose: 'Everything that was lent and came back.',
+    callouts: [
+      { find: { text: 'Borrowed History', tag: 'button', exact: true }, label: 'Borrowed History tab', desc: 'Everything that was lent and has come back, on its own page. What is still out is in the Borrowed tab.' },
+      SEARCH_ROW('a member'),
+      FILTERS_ROW,
+      { find: COLS, label: 'Columns', desc: 'Who borrowed it, the equipment, how many units, when it went out and when it came back, and the condition the units came back in (Returned late if it came back after its return-by date).' },
     ] }),
   O({ id: 'org-lend', file: 'org/lend-equipment.png', url: '/my-organization', js: `const b=[...document.querySelectorAll('button')].find(x=>x.offsetParent&&/^Borrowed/.test(x.textContent.trim())); b&&b.click(); ${wait(1500)}; const l=[...document.querySelectorAll('button')].find(x=>/Lend equipment/.test(x.textContent)); l&&l.click()`, after: 2500, height: 1000, title: 'Lend equipment window', purpose: 'Records that members borrowed equipment (for members who have no account to request it themselves).',
     callouts: [
@@ -201,7 +208,7 @@ export const CITIZEN = [
     callouts: [
       { find: { text: 'Officers', tag: 'button', exact: true }, label: 'Officers tab', desc: 'The president, vice president, secretary, treasurer, auditor, board members and the other officers, with their term.' },
       { find: { text: 'Officer History', tag: 'button' }, label: 'Officer History', desc: 'Every officer who held a position before, with the term dates and why it ended.' },
-      { find: { text: 'Assign Officer', tag: 'button' }, label: 'Assign Officer', desc: 'Choose a position and one of your members. If the position is held, end that term first (open the officer, End term early, give the reason: migrated or transferred registration, or Others).' },
+      { find: { text: 'Assign Officer', tag: 'button' }, label: 'Assign Officer', desc: 'Choose a position and one of your members. Positions that are held are grayed out, and a member who already holds a position cannot be given another: end that term first (open the officer, End term early, give the reason: migrated or transferred registration, or Others).' },
     ] }),
   O({ id: 'org-confirmed', file: 'org/confirmed.png', url: '/my-organization', js: "const b=[...document.querySelectorAll('button')].find(x=>x.offsetParent&&/Confirmed/.test(x.textContent.trim())); b&&b.click()", after: 2000, height: 700, title: 'My Organization: Confirmed for Members', purpose: 'The record of what you confirmed for your members.',
     callouts: [
@@ -209,8 +216,9 @@ export const CITIZEN = [
     ] }),
   O({ id: 'org-assistance', file: 'org/assistance.png', url: '/crop-assistance', height: 800, title: 'Assistance (Organization)', purpose: 'Gives assistance to your members and shows what was given.',
     callouts: [
-      { find: [{ text: 'History', tag: 'button', exact: true }, { text: 'Confirm for Members', tag: 'button' }], label: 'History / Confirm for Members', desc: 'History lists the assistance given to your members. Confirm for Members lists members who cannot confirm for themselves (next picture).' },
-      { find: { text: 'Distribute to All Members', tag: 'button' }, label: 'Distribute to All Members', desc: 'Gives the same assistance to every member in one step. Choose the type, source agency, quantity, date and description, then Review and confirm.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up. History lists what your members received and confirmed, or that was resolved.' },
+      { find: { text: 'Confirm for Members', tag: 'button', last: true }, label: 'Confirm for Members', desc: 'Opens the list of members who cannot confirm for themselves (next picture); Back to Current returns.' },
+      { find: { text: 'Distribute to All Members', tag: 'button' }, label: 'Distribute to All Members', desc: 'Gives the same assistance to every member in one step. Choose the type, source agency (required; Others lets you type one), quantity and its unit (required), date and description, then Review and confirm.' },
       { find: { text: 'Distribute to Individual', tag: 'button' }, label: 'Distribute to Individual', desc: 'Gives an assistance to only the members you tick.' },
       SEARCH_ROW('a member'),
       FILTERS_ROW,

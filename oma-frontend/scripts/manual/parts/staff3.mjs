@@ -59,7 +59,7 @@ export const STAFF3 = [
   A({ id: 'admin-add-crops-right', file: 'admin/add-crops-right.png', url: '/crop-records', js: `${parcelMenu('Add crops')}; ${wait(2500)}; document.querySelector('header button').click(); ${wait(800)}; document.querySelectorAll('div').forEach(d=>{ if(d.scrollWidth>d.clientWidth+40 && d.querySelector('table')) d.scrollLeft=99999 })`, after: 1500, title: 'Add Crops to Parcel table (2 of 2)', purpose: 'The last columns of the same table, scrolled to the right.',
     callouts: [
       { find: { text: 'QTY OF SEEDS', tag: 'th' }, label: 'Qty of Seeds (kg)', desc: 'Optional. How many seeds were used, in kg (Edit Crop later allows other units). A tree crop shows Qty of Trees instead; a crop that can be either has a small arrow on this heading to choose.' },
-      { find: { text: 'PCIC', tag: 'th' }, label: 'PCIC', desc: 'Tick Insured if the crop has PCIC insurance. A window asks for a photo of the insurance form (JPG, PNG or WEBP, up to 5 MB); without it the crop cannot be saved as insured. Cancel the window and the box unticks.' },
+      { find: { text: 'PCIC', tag: 'th' }, label: 'PCIC', desc: 'Tick Insured if the crop has PCIC insurance. A window asks for photos of the insurance form (one for each page, up to 5; JPG, PNG or WEBP, up to 5 MB each); without at least one the crop cannot be saved as insured. Cancel the window and the box unticks.' },
       { find: { text: 'FARM PARCEL', tag: 'th' }, label: 'Farm Parcel', desc: 'Required. The parcel the crop is planted on. Opened from a parcel\'s menu, it is already chosen.' },
     ] }),
   A({ id: 'admin-edit-parcel', file: 'admin/edit-parcel.png', url: '/farmers/6', js: "const b=[...document.querySelectorAll('table button')].find(x=>x.textContent.trim()==='Edit'); b&&b.click()", after: 2500, height: 1000, title: 'Edit Farm Parcel window', purpose: 'Changes a parcel\'s details.',
@@ -81,8 +81,8 @@ export const STAFF3 = [
       { ...FILTERS_ROW, desc: 'Opens the filter row (next picture): group by, crop, status, PCIC, season, year and the date planted.' },
       PRINT_ROW, DOWNLOAD_ROW,
       { find: COLS, label: 'Columns', desc: 'Crop, variety, farmer, organization, barangay, date planted, expected harvest, Logs (how many activities were recorded), PCIC insured, status and Actions.' },
-      { find: { css: 'tbody tr:first-child input[type=checkbox]' }, label: 'PCIC Insured tick', desc: 'Ticked when the crop has PCIC insurance. Tick it to add insurance (a photo of the form is asked for).' },
-      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'The three dots of a crop: Record Activity, View Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture).' },
+      { find: { css: 'tbody tr:first-child input[type=checkbox]' }, label: 'PCIC Insured tick', desc: 'Ticked when the crop has PCIC insurance. Tick it to add insurance (photos of the form are asked for).' },
+      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'The three dots of a crop: Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture).' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
   A({ id: 'admin-crop-filters', file: 'admin/crop-filters.png', url: '/crop-monitoring', js: click('Filters'), after: 1200, title: 'Crop Monitoring filters', purpose: 'Narrow the crops; the reports follow the filters.',
@@ -98,12 +98,12 @@ export const STAFF3 = [
   A({ id: 'admin-crop-menu', file: 'admin/crop-row-menu.png', url: '/crop-monitoring', js: cropMenu('XXXX_NONE'), after: 800, title: 'The menu of a crop', purpose: 'The actions of one crop.',
     callouts: [
       { find: { text: 'Record Activity', tag: 'button' }, label: 'Record Activity', desc: 'Logs work done on the crop (fertilizing, spraying, irrigation and so on) and shows its history and suggestions.' },
-      { find: { text: 'View Crop Details', tag: 'button' }, label: 'View Crop Details', desc: 'Opens everything about the crop: activities, pest and disease reports, disasters and remarks.' },
-      { find: { text: 'Record Harvest', tag: 'button' }, label: 'Record Harvest', desc: 'Records the harvest once half of the crop\'s growing time has passed. Before that it says Not Yet Available: use Force Harvest instead.' },
+      { find: { text: 'Crop Details', tag: 'button', exact: true }, label: 'Crop Details', desc: 'Opens everything about the crop: activities, pest and disease reports, disasters and remarks.' },
+      { find: { text: 'Record Harvest', tag: 'button' }, label: 'Record Harvest', desc: 'Records the harvest once half of the crop\'s growing time has passed. Before that it is grayed out (hold the pointer on it to see why): use Force Harvest instead.' },
       { find: { text: 'Force Harvest', tag: 'button', exact: true }, label: 'Force Harvest', desc: 'Harvests crops that are not ready, because of something coming such as a typhoon.' },
       { find: { text: 'Report Disaster', tag: 'button' }, label: 'Report Disaster', desc: 'Reports damage on this one crop.' },
     ] }),
-  A({ id: 'admin-crop-details', file: 'admin/crop-details.png', url: '/crop-monitoring', js: cropMenu('View Crop Details'), after: 3000, height: 1400, title: 'Crop Details window', purpose: 'Everything recorded about one crop.',
+  A({ id: 'admin-crop-details', file: 'admin/crop-details.png', url: '/crop-monitoring', js: cropMenu('Crop Details'), after: 3000, height: 1400, title: 'Crop Details window', purpose: 'Everything recorded about one crop.',
     callouts: [
       { find: { text: 'Crop Details', tag: 'h2' }, label: 'Crop Details', desc: 'The top shows the crop, its variety, farmer, parcel, dates, status, area and yield estimate.' },
       { find: { text: 'Activities', tag: 'h3', closest: 'div' }, label: 'Activities', desc: 'Every activity logged on the crop, newest first, with the date, the plant condition and the recommendations.' },
@@ -128,6 +128,7 @@ export const STAFF3 = [
     ] }),
   A({ id: 'admin-record-harvest', file: 'admin/record-harvest.png', url: '/crop-monitoring', js: cropMenu('Record Harvest'), after: 3000, title: 'Record Harvest window', purpose: 'Records the harvest of one crop.',
     callouts: [
+      { find: { css: '[data-testid=harvest-crop-card]' }, label: 'The crop', desc: 'Which crop this harvest is for: its name, variety, the farmer and the date planted.' },
       { find: { text: 'Harvested Date', tag: 'label', up: 1 }, label: 'Harvested Date', desc: 'Required. The day it was harvested. A harvest more than 7 days after the expected date asks for a reason.' },
       { find: { text: 'Area Harvested', tag: 'label', up: 1 }, label: 'Area Harvested (ha)', desc: 'Required. It is filled with the area planted; it cannot be more than that.' },
       { find: { text: 'Unit of Measure', tag: 'label', up: 1 }, label: 'Unit of Measure', desc: 'Required. The unit the harvest was counted in (cavan, kg, metric ton and the units set in Harvest Unit Settings).' },

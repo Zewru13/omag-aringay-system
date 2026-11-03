@@ -76,7 +76,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record that a crop has PCIC insurance?',
-        a: 'In the crop table, tick Insured in the PCIC column. A window asks for a photo of the PCIC insurance form (JPG, PNG or WEBP, up to 5 MB); the crop cannot be saved insured without it. Cancel the window without a photo and the box unticks. In fisheries, insurance is kept for each pond or cage: tick PCIC Insured on its row when you start a production cycle, or in the Edit form of the cycle. The pond table on a fisherfolk profile shows a checked PCIC Insured column.',
+        a: 'In the crop table, tick Insured in the PCIC column. A window asks for photos of the PCIC insurance form, one for each page, up to 5 (JPG, PNG or WEBP, up to 5 MB each); the crop cannot be saved insured without at least one. Cancel the window without a photo and the box unticks. In fisheries, insurance is kept for each pond or cage: tick PCIC Insured on its row when you start a production cycle, or in the Edit form of the cycle. The pond table on a fisherfolk profile shows a checked PCIC Insured column.',
       },
       {
         q: 'Why can\'t I add more area to a parcel?',
@@ -158,7 +158,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where are borrowed and returned equipment?',
-        a: 'The Borrowed tab has two tables. Borrowed lists what is still out, one row per person that opens onto their items: approve or reject a request, and press Mark returned on an item to say what happened: Returned, Damaged (and how damaged) or Not returned (the unit is recorded as Lost). Damaged units leave the lendable stock until they are repaired. An item past its return-by date shows Overdue, and Overdue is also a choice in the Status filter. Returned lists everything that was closed, with when, and what happened to each unit. The equipment list can be filtered by Condition and by Availability (Available units or Not available). Staff accounts see each organization\'s Equipment Inventory, where an item can be lent to one member.',
+        a: 'The Borrowed tab lists what is still out, one row per person that opens onto their items: approve or reject a request, and press Mark returned on an item to say what happened: Returned, Damaged (and how damaged) or Not returned (the unit is recorded as Lost). Damaged units leave the lendable stock until they are repaired. An item past its return-by date shows Overdue, and Overdue is also a choice in the Status filter. The Borrowed History tab lists everything that was closed, with when, and what happened to each unit. The equipment list can be filtered by Condition and by Availability (Available units or Not available). Staff accounts see each organization\'s Equipment Inventory, where an item can be lent to one member.',
       },
       {
         q: 'Who can request equipment?',

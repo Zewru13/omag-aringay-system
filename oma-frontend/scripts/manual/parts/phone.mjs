@@ -47,7 +47,7 @@ export const PHONE = [
     callouts: [
       SEARCH,
       { find: { text: 'Filters', tag: 'button', exact: true }, label: 'Filters', desc: 'Opens the filter row. Print Report and Download Report are in the row above.' },
-      { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'A parcel card', desc: 'Tap a parcel to open the crops planted on it. Each crop has its own menu with Record Activity, View Crop Details, Record Harvest and Report Disaster.' },
+      { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'A parcel card', desc: 'Tap a parcel to open the crops planted on it. Each crop has its own menu with Record Activity, Crop Details, Record Harvest and Report Disaster.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
   FA({ id: 'farmer-p-disaster', phone: true, file: 'farmer/phone-disaster.png', url: '/disaster', wait: 5000, title: 'Disaster on a phone (Farmer)', purpose: 'Report a disaster from the field.',
@@ -65,7 +65,7 @@ export const PHONE = [
     ] }),
   FA({ id: 'farmer-p-assistance', phone: true, file: 'farmer/phone-assistance.png', url: '/crop-assistance', wait: 5000, title: 'Assistance on a phone (Farmer)', purpose: 'The help given to you.',
     callouts: [
-      { find: [{ text: 'History', tag: 'button', exact: true }, { text: 'Upcoming', tag: 'button' }, { text: 'Needs Follow-up', tag: 'button' }], label: 'History / Upcoming / Needs Follow-up', desc: 'What you received, what is scheduled, and what you reported as not received.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed.' },
       { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'An assistance', desc: 'Tap one to open its details and to confirm that you received it when it asks you to.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
@@ -108,7 +108,7 @@ export const PHONE = [
     ] }),
   FI({ id: 'fisherfolk-p-assistance', phone: true, file: 'fisherfolk/phone-assistance.png', url: '/fisheries-assistance', wait: 5000, title: 'Assistance on a phone (Fisherfolk)', purpose: 'The help given to you.',
     callouts: [
-      { find: [{ text: 'All Records', tag: 'button' }, { text: 'Needs Follow-up', tag: 'button' }], label: 'All Records / Needs Follow-up', desc: 'Everything you received, and what you reported as not received.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled, waiting for you to confirm, or reported as not received. History: what you received and confirmed.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
 
@@ -133,7 +133,7 @@ export const PHONE = [
     ] }),
   O({ id: 'org-p-assistance', phone: true, file: 'org/phone-assistance.png', url: '/crop-assistance', wait: 5000, title: 'Assistance on a phone (Organization)', purpose: 'Give assistance to your members from the phone.',
     callouts: [
-      { find: [{ text: 'History', tag: 'button', exact: true }, { text: 'Confirm for Members', tag: 'button' }], label: 'History / Confirm for Members', desc: 'What was given, and the members you confirm for.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled or waiting. History: what was given and confirmed. Confirm for Members (a button in Current) is for the members you confirm for.' },
       { find: { text: 'Distribute to All Members', tag: 'button' }, label: 'Distribute to All Members', desc: 'Gives the same assistance to every member.' },
       { find: { text: 'Distribute to Individual', tag: 'button' }, label: 'Distribute to Individual', desc: 'Gives an assistance to the members you tick.' },
       BOTTOM('Home, Organization and Assistance.'),
