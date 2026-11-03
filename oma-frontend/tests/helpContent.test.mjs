@@ -53,6 +53,7 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['PCIC photo', 'ticks Insured'.replace('ticks', 'tick')],
     ['drafts', 'Discard draft'],
     ['the report signers', 'Signatories block'],
+    ['the Report type box', 'Report type box'],
   ]) {
     assert.ok(text.includes(needle), `${label} help should explain ${what} (${needle})`); n++
   }

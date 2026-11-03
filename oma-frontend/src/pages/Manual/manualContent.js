@@ -172,12 +172,13 @@ const STAFF_GUIDES = (focal) => [
   {
     id: 'reports',
     title: 'Reports',
-    intro: 'Reports has the official reports. Open one, set its filters, choose who signs it, then Preview PDF, Print or Download Excel.',
+    intro: 'Reports is one page for the official reports. Choose the report in the Report type box, set its filters, choose who signs it, then Preview PDF, Print or Download Excel.',
     screens: ['admin-reports', 'admin-report-registered', 'admin-report-crop', 'admin-report-fisheries-production', 'admin-report-fisheries-disaster', 'admin-report-org-assistance'],
     steps: [
-      'Open Reports and choose a report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; Organization Assistance.',
-      'Set what to report and the filters (barangay, dates, crop or species and so on). The registered and the assistance reports can cover all records or one person or organization, which you search for.',
+      'Open Reports. In the Report type box choose a report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; Organization Assistance. The filters under it change with the report.',
+      'Set what to report and the filters (barangay, dates, crop or species and so on). The registered and the assistance reports can cover all records or one person or organization, which you search for. The Selected report box repeats the report, the period and the filters you set.',
       'In the Signatories block above the buttons, choose Prepared by (your own name to start with), Checked by, Noted by and Approved by from their lists, or leave one on None. Their names print at the foot of the report. The choice is for this printout only; the lists come from Admin > Signatories.',
+      'The print-ready preview under the buttons shows the report as it will print, with the letterhead, the tables and the signature lines, and it changes as you change the filters or the signers.',
       'Preview PDF shows the report as a PDF to read; Print gives the same PDF ready to print; Download Excel saves its rows as a spreadsheet, without signature lines.',
       'On the farmers, fisherfolk, organizations, crop and fisheries tables, set the filters first: Print Report and Download Report give exactly the rows the table shows.',
     ],
