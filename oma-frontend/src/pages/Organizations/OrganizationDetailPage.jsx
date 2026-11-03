@@ -24,6 +24,7 @@ import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
 import LendEquipmentForm from "./LendEquipmentForm.jsx";
 import { END_TERM_OTHER_LABEL, END_TERM_REASONS, endTermRequest } from "./endTermReasons.js";
 import OrgCompactList from "./OrgCompactList.jsx";
+import { OFFICER_POSITIONS, firstFreeOfficerPosition, heldPositions, holdersByPerson, positionLabel } from "./positionRules.js";
 import useEquipmentOptions from "../../hooks/useEquipmentOptions.js";
 import { equipmentToServer } from "../../utils/equipmentNames.js";
 import { FARMERS_EQUIPMENT, FISHERFOLK_EQUIPMENT } from "./registrationEquipment.js";
@@ -57,11 +58,6 @@ const POSITIONS = [
   "Member",
 ];
 
-// Matches OrganizationOfficer.POSITION_CHOICES / FisherfolkOrganizationOfficer.POSITION_CHOICES
-// on the backend — narrower than the Member-position list above (no "Chairperson" /
-// "Vice Chairperson" / "Member").
-const OFFICER_POSITIONS = ["President", "Vice President", "Secretary", "Treasurer", "Auditor", "Board Member", "Manager"];
-
 function positionTone(pos) {
   if (pos === "President") return "navy";
   if (pos === "Chairperson" || pos === "Vice Chairperson") return "green";
@@ -84,7 +80,7 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-function AddMemberModal({ type, organizationId, organizationName, own = false, onClose, onSuccess }) {
+function AddMemberModal({ type, organizationId, organizationName, own = false, held = new Set(), onClose, onSuccess }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [position, setPosition] = useState("Member");
@@ -287,8 +283,8 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, o
               onChange={(e) => setPosition(e.target.value)}
             >
               {POSITIONS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+                <option key={p} value={p} disabled={p !== "Member" && held.has(p)}>
+                  {positionLabel(p, held)}
                 </option>
               ))}
             </select>
@@ -321,7 +317,7 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, o
 
 // ─── Member Search Input (officer assignment — this organization's members only) ──
 
-function MemberSearchInput({ type, organizationId, onSelect, selected }) {
+function MemberSearchInput({ type, organizationId, onSelect, selected, holders = new Map() }) {
   const [query, setQuery] = useState("");
   const [showDrop, setShowDrop] = useState(false);
   const wrapperRef = useRef(null);
@@ -384,17 +380,22 @@ function MemberSearchInput({ type, organizationId, onSelect, selected }) {
               {!active ? "Type at least 2 characters." : searching ? "Searching…" : failed ? "Search failed — please try again." : "No matching members in this organization."}
             </p>
           ) : (
-            results.map((item) => (
-              <button
-                key={getId(item)}
-                type="button"
-                onMouseDown={() => handleSelect(item)}
-                className="flex w-full flex-col items-start px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors"
-              >
-                <span className="text-xs font-semibold text-[#1A2B1A]">{getName(item)}</span>
-                <span className="text-[11px] text-[#7A8E7A]">{getBarangay(item)}</span>
-              </button>
-            ))
+            results.map((item) => {
+              // One position per person: someone who already holds one is listed but cannot be picked.
+              const holds = holders.get(getId(item));
+              return (
+                <button
+                  key={getId(item)}
+                  type="button"
+                  disabled={!!holds}
+                  onMouseDown={() => { if (!holds) handleSelect(item); }}
+                  className="flex w-full flex-col items-start px-4 py-2.5 text-left transition-colors enabled:hover:bg-[#F5F7F5] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="text-xs font-semibold text-[#1A2B1A]">{getName(item)}</span>
+                  <span className="text-[11px] text-[#7A8E7A]">{holds ? `Already ${holds}. One position per person.` : getBarangay(item)}</span>
+                </button>
+              );
+            })
           )}
         </div>
       )}
@@ -404,15 +405,19 @@ function MemberSearchInput({ type, organizationId, onSelect, selected }) {
 
 // ─── Assign Officer Modal ──────────────────────────────────────────────────────
 
-function AssignOfficerModal({ type, organizationId, existingOfficers, own = false, onClose, onSuccess }) {
-  const [position, setPosition] = useState(OFFICER_POSITIONS[0]);
+function AssignOfficerModal({ type, organizationId, existingOfficers, members = [], own = false, onClose, onSuccess }) {
+  // A position somebody holds is greyed out in the list (an officer's, or a member's position on the membership), and anyone who already has a
+  // position cannot be picked: one position per person, one person per position.
+  const taken = heldPositions(existingOfficers, members);
+  const holders = holdersByPerson(existingOfficers, members, type);
+  const [position, setPosition] = useState(firstFreeOfficerPosition(taken));
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
 
-  const positionFilled = existingOfficers.some((o) => o.position === position);
+  const positionFilled = !position || taken.has(position);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -473,16 +478,16 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, own = fals
             onChange={(e) => setPosition(e.target.value)}
           >
             {OFFICER_POSITIONS.map((p) => (
-              <option key={p} value={p}>
-                {p}
+              <option key={p} value={p} disabled={taken.has(p)}>
+                {positionLabel(p, taken)}
               </option>
             ))}
           </select>
           {positionFilled && (
             <p className="mt-1 text-[11px] text-amber-600">
               {own
-                ? "This position is currently held by someone else. End their term first (open the officer and choose End term early), then assign the new officer."
-                : "This position is currently held by someone else. End their term first before assigning a new officer."}
+                ? "Every position is taken. End an officer's term first (open the officer and choose End term early), then assign the new officer."
+                : "Every position is taken. End an officer's term first, then assign the new officer."}
             </p>
           )}
         </div>
@@ -495,6 +500,7 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, own = fals
               organizationId={organizationId}
               onSelect={setSelected}
               selected={selected}
+              holders={holders}
             />
           </div>
           <p className="mt-1 text-[11px] text-[#7A8E7A]">
@@ -1451,6 +1457,7 @@ function OrganizationDetailPage({ own = false }) {
           organizationId={id}
           organizationName={organization.name}
           own={own}
+          held={heldPositions(organization.officers || [], (organization.members || []).filter((m) => m.is_active !== false))}
           onClose={() => setShowAddMember(false)}
           onSuccess={handleMemberAdded}
         />
@@ -1496,6 +1503,7 @@ function OrganizationDetailPage({ own = false }) {
           type={type}
           organizationId={id}
           existingOfficers={organization.officers || []}
+          members={(organization.members || []).filter((m) => m.is_active !== false)}
           own={own}
           onClose={() => setShowAssignOfficer(false)}
           onSuccess={handleOfficerAssigned}

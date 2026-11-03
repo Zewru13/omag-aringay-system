@@ -7,6 +7,7 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { positionLabel, takenForLine } from './positionRules.js'
 import { MEMBER_POSITIONS } from './registrationMembers.js'
 
 // "Add Members" on the organization forms: a table of the registered farmers (or fisherfolk) who are not members of this organization yet. Search,
@@ -16,7 +17,7 @@ import { MEMBER_POSITIONS } from './registrationMembers.js'
 const PAGE_SIZE = 10
 const TH = 'whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#4A5E4A]'
 
-export default function MembersPickerModal({ type, organizationId = null, taken = [], onAdd, onClose }) {
+export default function MembersPickerModal({ type, organizationId = null, taken = [], held = new Set(), onAdd, onClose }) {
   const farmers = type === 'farmers'
   const noun = farmers ? 'farmers' : 'fisherfolk'
   const [search, setSearch] = useState('')
@@ -93,7 +94,7 @@ export default function MembersPickerModal({ type, organizationId = null, taken 
                       {entry
                         ? (
                           <select className={baseInputClasses} value={entry.position} aria-label={`Position of ${p.full_name}`} onChange={(e) => setPosition(p.id, e.target.value)}>
-                            {MEMBER_POSITIONS.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
+                            {MEMBER_POSITIONS.map((pos) => { const off = takenForLine(held, picked.map((x) => ({ _uid: x.person.id, position: x.position })), p.id); return <option key={pos} value={pos} disabled={pos !== 'Member' && off.has(pos)}>{positionLabel(pos, off)}</option> })}
                           </select>
                         )
                         : <span className="text-[#A8BCA8]">—</span>}

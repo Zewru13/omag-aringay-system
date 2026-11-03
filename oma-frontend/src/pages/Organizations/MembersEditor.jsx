@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { localToday } from '../../utils/inputGuards.js'
 import ImportFileAttach from './ImportFileAttach.jsx'
 import MembersPickerModal from './MembersPickerModal.jsx'
+import { heldPositions, positionLabel, takenForLine } from './positionRules.js'
 import { MEMBER_POSITIONS, addMemberLine } from './registrationMembers.js'
 
 // The members of an organization, as lines on its registration or edit form: "Add Members" opens a table of the registered farmers / fisherfolk who
@@ -16,6 +18,17 @@ const SUB_CELL = 'px-2 py-2 align-top max-md:block max-md:w-full max-md:px-0 max
 export default function MembersEditor({ type, lines, onChange, registered, organizationId = null, importFile = null, onImportFile = null }) {
   const nextUid = useRef(1)
   const [showPicker, setShowPicker] = useState(false)
+  // The positions the organization's officers and members hold already (only an organization that exists has any): they are greyed out in
+  // every position list, as is whatever another line of this table chose. One person per position.
+  const [held, setHeld] = useState(() => new Set())
+  useEffect(() => {
+    if (!organizationId) return undefined
+    let alive = true
+    Promise.all([api.get(`/organizations/${type}/${organizationId}/officers/`), api.get(`/organizations/${type}/${organizationId}/members/`, { params: { active_only: true } })])
+      .then(([o, m]) => { if (alive) setHeld(heldPositions(Array.isArray(o.data) ? o.data : (o.data.results || []), Array.isArray(m.data) ? m.data : (m.data.results || []))) })
+      .catch(() => {})   // the server still refuses a taken position, with a message
+    return () => { alive = false }
+  }, [type, organizationId])
 
   const addPicked = (picked) => {
     let next = lines
@@ -56,7 +69,7 @@ export default function MembersEditor({ type, lines, onChange, registered, organ
                   </td>
                   <td data-label="Position" className={SUB_CELL}>
                     <select className={baseInputClasses} value={line.position} aria-label={`Position of ${line.name}`} onChange={(e) => update(line._uid, { position: e.target.value })}>
-                      {MEMBER_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      {MEMBER_POSITIONS.map((p) => { const taken = takenForLine(held, lines, line._uid); return <option key={p} value={p} disabled={p !== 'Member' && taken.has(p)}>{positionLabel(p, taken)}</option> })}
                     </select>
                   </td>
                   <td data-label="Date joined" className={SUB_CELL}>
@@ -90,7 +103,7 @@ export default function MembersEditor({ type, lines, onChange, registered, organ
       )}
 
       {showPicker && (
-        <MembersPickerModal type={type} organizationId={organizationId} taken={lines.map((l) => l.person_id)} onAdd={addPicked} onClose={() => setShowPicker(false)} />
+        <MembersPickerModal type={type} organizationId={organizationId} taken={lines.map((l) => l.person_id)} held={takenForLine(held, lines, null)} onAdd={addPicked} onClose={() => setShowPicker(false)} />
       )}
     </div>
   )
