@@ -2961,7 +2961,7 @@ export default {
   "purpose": "Registration records, ready to print.",
   "image": "/manual/admin/report-registered.png",
   "width": 1280,
-  "height": 800,
+  "height": 1000,
   "legend": [
    {
     "n": 1,
@@ -2990,21 +2990,26 @@ export default {
    },
    {
     "n": 6,
+    "label": "Signatories",
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+   },
+   {
+    "n": 7,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 9,
+    "n": 10,
     "label": "Preview table",
     "desc": "The registration records exactly as it will print, one row per record. It follows the filters."
    }
@@ -3030,21 +3035,26 @@ export default {
    },
    {
     "n": 3,
+    "label": "Signatories",
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+   },
+   {
+    "n": 4,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Columns",
     "desc": "Barangay, farmer, organization, crop, area planted and area harvested (ha), the estimated and actual harvest dates, and the estimated yield and actual yield (kg)."
    }
@@ -3070,21 +3080,26 @@ export default {
    },
    {
     "n": 3,
+    "label": "Signatories",
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+   },
+   {
+    "n": 4,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Columns",
     "desc": "Barangay, fisherfolk, organization, species, culture type, date stocked, harvest date, quantity (kg) and whether it is the final harvest of the cycle."
    }
@@ -3115,21 +3130,26 @@ export default {
    },
    {
     "n": 4,
+    "label": "Signatories",
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+   },
+   {
+    "n": 5,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Columns",
     "desc": "Reference number, fisherfolk, barangay, stock or cycle, disaster type, date of occurrence, volume lost (kg), total loss, status and the date logged."
    }
@@ -3141,7 +3161,7 @@ export default {
   "purpose": "The assistance organizations gave to their members.",
   "image": "/manual/admin/report-org-assistance.png",
   "width": 1280,
-  "height": 800,
+  "height": 1000,
   "legend": [
    {
     "n": 1,
@@ -3170,21 +3190,26 @@ export default {
    },
    {
     "n": 6,
+    "label": "Signatories",
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+   },
+   {
+    "n": 7,
     "label": "Print",
     "desc": "Opens the report as the same PDF as the preview, ready to print."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Preview PDF",
     "desc": "Shows the report as a PDF to read on screen. The document is titled with the period covered."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Download Excel",
     "desc": "Saves the rows of the report as an Excel file."
    },
    {
-    "n": 9,
+    "n": 10,
     "label": "Columns",
     "desc": "Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status."
    }
@@ -5163,6 +5188,31 @@ export default {
     "n": 4,
     "label": "Columns",
     "desc": "Who borrowed it, the equipment, how many units, when it went out and when it came back, and the condition the units came back in (Returned late if it came back after its return-by date)."
+   }
+  ]
+ },
+ "admin-signatories": {
+  "audience": "admin",
+  "title": "Admin > Signatories",
+  "purpose": "The names that can sign the reports.",
+  "image": "/manual/admin/signatories.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Add Signatory",
+    "desc": "Adds a name: the name, the position printed under it, the signing role (Prepared by, Checked by, Noted by or Approved by), the order and whether it is Active. A person who signs in two roles is added twice."
+   },
+   {
+    "n": 2,
+    "label": "Columns",
+    "desc": "Name, position, signing role, order and whether the name is Active. The order sorts the names inside their role. A name that is not Active is no longer offered in the Reports pages."
+   },
+   {
+    "n": 3,
+    "label": "Row menu",
+    "desc": "Edit and Delete for the name. Delete does not change reports that were already printed."
    }
   ]
  }

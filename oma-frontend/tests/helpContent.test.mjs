@@ -52,9 +52,15 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['the distributions table', 'Each row is one distribution'],
     ['PCIC photo', 'ticks Insured'.replace('ticks', 'tick')],
     ['drafts', 'Discard draft'],
+    ['the report signers', 'Signatories block'],
   ]) {
     assert.ok(text.includes(needle), `${label} help should explain ${what} (${needle})`); n++
   }
 }
+
+// ── report signers: everyone is told how to pick them, only the Admin is told where the list is kept
+assert.ok(questions(admin).includes('How do I choose who signs a report?') && questions(focal).includes('How do I choose who signs a report?')); n++
+assert.ok(questions(admin).includes('Where do I keep the names that sign the reports?')); n++
+assert.ok(!questions(focal).includes('Where do I keep the names that sign the reports?')); n++
 
 console.log(`ok - ${n} assertions`)
