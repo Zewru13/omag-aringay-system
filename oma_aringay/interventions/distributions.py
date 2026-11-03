@@ -86,11 +86,20 @@ def build_distributions(records, person_field):
     return result
 
 
+# The two tabs of an Assistance page: Current (still open: scheduled, awaiting confirmation, needing follow-up) and History (finished).
+STATUS_GROUPS = {
+    'current': [DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION, DistributionStatus.NOT_RECEIVED],
+    'history': [DistributionStatus.CONFIRMED, DistributionStatus.RESOLVED],
+}
+
+
 def filter_records(queryset, person_field, params):
     """Apply the history filters (status, assistance_type, date_from, date_to, member, source_agency) to a record
     queryset and return a list of records."""
     status = (params.get('status') or '').strip()
-    if status:
+    if status.lower() in STATUS_GROUPS:
+        queryset = queryset.filter(status__in=STATUS_GROUPS[status.lower()])
+    elif status:
         status = DistributionStatus.NOT_RECEIVED.value if status.lower() == 'needs-follow-up' else status.upper()
         queryset = queryset.filter(status=status)
     if params.get('assistance_type'):

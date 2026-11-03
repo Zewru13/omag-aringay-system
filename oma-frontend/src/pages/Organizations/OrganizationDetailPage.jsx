@@ -16,9 +16,11 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useSuggestSearch from "../../hooks/useSuggestSearch.js";
 import { apiMessage, availabilityOf, conditionTone, groupEquipment, openRequestCount } from "../../utils/equipmentLoans.js";
+import { splitLoans } from "../../utils/borrowerGroups.js";
 import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
 import BorrowedPanel from "./BorrowedPanel.jsx";
+import ReturnedTable from "./ReturnedTable.jsx";
 import ConfirmedForMembersPanel from "./ConfirmedForMembersPanel.jsx";
 import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
 import LendEquipmentForm from "./LendEquipmentForm.jsx";
@@ -856,6 +858,7 @@ function OrganizationDetailPage({ own = false }) {
         { value: "members", label: "Members" },
         { value: "equipment", label: "Equipment" },
         { value: "borrowed", label: openRequestCount(loans) > 0 ? `Borrowed (${openRequestCount(loans)})` : "Borrowed" },
+        { value: "borrowed-history", label: "Borrowed History" },
         { value: "officers", label: "Officers" },
         { value: "confirmed", label: "Confirmed for Members" },
       ]
@@ -871,7 +874,7 @@ function OrganizationDetailPage({ own = false }) {
   const [searchParams] = useSearchParams();
   // An organization account can open straight onto a tab (the bell links to ?tab=borrowed, the Home shortcuts to the others).
   const [activeSection, setActiveSection] = useState(
-    own && ["members", "equipment", "borrowed", "officers", "confirmed"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "members",
+    own && ["members", "equipment", "borrowed", "borrowed-history", "officers", "confirmed"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "members",
   );
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
@@ -1182,7 +1185,7 @@ function OrganizationDetailPage({ own = false }) {
                         Lend equipment
                       </button>
                     </div>
-                  ) : activeSection === "confirmed" ? null : own && activeSection === "officers" ? (
+                  ) : activeSection === "confirmed" || activeSection === "borrowed-history" ? null : own && activeSection === "officers" ? (
                     <div className={ACTION_ROW}>
                       <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
                         Officer History
@@ -1354,6 +1357,9 @@ function OrganizationDetailPage({ own = false }) {
               {own && activeSection === "borrowed" && (
                 <BorrowedPanel type={type} loans={loans} onChanged={() => setRefreshKey((k) => k + 1)} />
               )}
+
+              {/* Everything that was lent and came back, on its own page: the Borrowed tab keeps only what is still out */}
+              {own && activeSection === "borrowed-history" && <ReturnedTable loans={splitLoans(loans).returned} />}
 
               {/* The history of what this organization confirmed for its members (final, no staff review) */}
               {activeSection === "confirmed" && (

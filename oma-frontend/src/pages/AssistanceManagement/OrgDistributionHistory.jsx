@@ -8,6 +8,7 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
+import { emptyAssistanceText } from './assistanceGroups.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
 import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
@@ -25,12 +26,18 @@ const DOMAINS = {
   },
 }
 
-const STATUS_FILTERS = [
-  { value: 'AWAITING_CONFIRMATION', label: 'Awaiting confirmation' },
-  { value: 'CONFIRMED', label: 'Confirmed' },
-  { value: 'needs-follow-up', label: 'Needs follow-up' },
-  { value: 'PENDING', label: 'Scheduled (not yet due)' },
-]
+// The statuses each tab can narrow to (Current: still open; History: finished).
+const STATUS_FILTERS = {
+  current: [
+    { value: 'AWAITING_CONFIRMATION', label: 'Awaiting confirmation' },
+    { value: 'needs-follow-up', label: 'Needs follow-up' },
+    { value: 'PENDING', label: 'Scheduled (not yet due)' },
+  ],
+  history: [
+    { value: 'CONFIRMED', label: 'Confirmed' },
+    { value: 'RESOLVED', label: 'Resolved' },
+  ],
+}
 const MEMBER_STATUS_LABELS = {
   PENDING: 'Scheduled',
   AWAITING_CONFIRMATION: 'Awaiting confirmation',
@@ -74,7 +81,7 @@ function MemberList({ item, onRemove }) {
   )
 }
 
-export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0, onChanged }) {
+export default function OrgDistributionHistory({ domain = 'crop', group = 'current', refreshKey = 0, onChanged }) {
   const config = DOMAINS[domain]
   const agencies = useAssistanceAgencies()
   const { showToast } = useToast()
@@ -98,8 +105,9 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
     const p = { ...filters }
     if (member) p.member = member
     Object.keys(p).forEach((k) => { if (!p[k]) delete p[k] })
+    if (!p.status) p.status = group   // no status chosen: everything that belongs to the tab
     return p
-  }, [filters, member])
+  }, [filters, member, group])
 
   // Loads on mount, on every filter change, when the page bumps refreshKey (a new distribution) and after a removal.
   useEffect(() => {
@@ -166,7 +174,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
       >
         <select className={SELECT} value={filters.status} onChange={setFilter('status')} aria-label="Status">
           <option value="">All statuses</option>
-          {STATUS_FILTERS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          {STATUS_FILTERS[group].map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <select className={SELECT} value={filters.assistance_type} onChange={setFilter('assistance_type')} aria-label="Assistance type">
           <option value="">All assistance types</option>
@@ -200,7 +208,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
           {isLoading && items.length === 0 && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading...</p>}
           {!isLoading && items.length === 0 && (
             <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-6 text-center text-[13px] text-[#7A8E7A]">
-              {activeCount || member ? 'No distributions match these filters.' : 'No assistance has been given yet.'}
+              {activeCount || member ? 'No distributions match these filters.' : emptyAssistanceText(group)}
             </p>
           )}
           {items.map((item) => {
@@ -257,7 +265,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
               )}
               {!isLoading && items.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-[#7A8E7A]">
-                  {activeCount || member ? 'No distributions match these filters.' : 'No assistance has been given yet.'}
+                  {activeCount || member ? 'No distributions match these filters.' : emptyAssistanceText(group)}
                 </td></tr>
               )}
               {items.map((item) => {
