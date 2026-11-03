@@ -86,6 +86,8 @@ def _sig_params(request):
         'reviewed_role': request.query_params.get('reviewed_role', '').strip() or None,
         'noted_by':      request.query_params.get('noted_by', '').strip() or None,
         'noted_role':    request.query_params.get('noted_role', '').strip() or None,
+        'approved_by':   request.query_params.get('approved_by', '').strip() or None,
+        'approved_role': request.query_params.get('approved_role', '').strip() or None,
     }
 
 
@@ -1004,6 +1006,8 @@ class HarvestProductionReport(APIView):
             reviewed_role=sig.get('reviewed_role'),
             noted_by=sig.get('noted_by'),
             noted_role=sig.get('noted_role'),
+            approved_by=sig.get('approved_by'),
+            approved_role=sig.get('approved_role'),
             page_width=PAGE_WIDTH,
         ))
 
@@ -2331,6 +2335,8 @@ class FarmerCropHistoryReport(APIView):
             reviewed_role=sig.get('reviewed_role') or None,
             noted_by=sig.get('noted_by') or None,
             noted_role=sig.get('noted_role') or None,
+            approved_by=sig.get('approved_by') or None,
+            approved_role=sig.get('approved_role') or None,
             page_width=PAGE_WIDTH,
         ))
         doc.build(story, canvasmaker=NumberedCanvas)
@@ -2528,6 +2534,8 @@ class YieldAnalysisReport(APIView):
             reviewed_role=sig.get('reviewed_role') or None,
             noted_by=sig.get('noted_by') or None,
             noted_role=sig.get('noted_role') or None,
+            approved_by=sig.get('approved_by') or None,
+            approved_role=sig.get('approved_role') or None,
             page_width=PAGE_WIDTH,
         ))
         doc.build(story, canvasmaker=NumberedCanvas)
@@ -2757,6 +2765,8 @@ class FisheriesYieldAnalysisReport(APIView):
             reviewed_role=sig.get('reviewed_role') or None,
             noted_by=sig.get('noted_by') or None,
             noted_role=sig.get('noted_role') or None,
+            approved_by=sig.get('approved_by') or None,
+            approved_role=sig.get('approved_role') or None,
             page_width=PAGE_WIDTH,
         ))
         doc.build(story, canvasmaker=NumberedCanvas)

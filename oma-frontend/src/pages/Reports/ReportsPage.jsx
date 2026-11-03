@@ -9,7 +9,8 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { printPdf } from '../../utils/printPdf.js'
-import { ActionButtons, PreviewTable, SignatureModal, labelCls } from './ReportParts.jsx'
+import { ActionButtons, PreviewTable, SignatoriesPanel, labelCls } from './ReportParts.jsx'
+import { useSignatories } from './useSignatories.js'
 import DisasterReportTab from './DisasterReportTab.jsx'
 import OrganizationAssistanceReportTab from './OrganizationAssistanceReportTab.jsx'
 import RegisteredReportTab from './RegisteredReportTab.jsx'
@@ -36,8 +37,7 @@ function HarvestedCropTab() {
   const [allRecords,    setAllRecords]    = useState([])
   const [isLoading,     setIsLoading]     = useState(true)
   const [isDownloading, setIsDownloading] = useState(false)
-  const [showSig,       setShowSig]       = useState(false)
-  const [sigPurpose,    setSigPurpose]    = useState('pdf')
+  const signatories = useSignatories()
   const [filters, setFilters] = useState({
     start_date: '', end_date: '', barangay: '', organization: '', crop_name: '', yield_performance: '',
   })
@@ -116,6 +116,8 @@ function HarvestedCropTab() {
     if (filters.crop_name)         p.set('crop_name',         filters.crop_name)
     if (filters.organization)       p.set('organization',       filters.organization)
     if (filters.yield_performance) p.set('yield_performance', filters.yield_performance)
+    // The PDF carries the signers picked in the Signatories block; the Excel has no signature block.
+    if (fmt === 'pdf') Object.entries(signatories.params).forEach(([k, v]) => p.set(k, v))
     return `/reports/production/harvested-crop/?${p}`
   }
 
@@ -129,19 +131,12 @@ function HarvestedCropTab() {
     } finally { setIsDownloading(false) }
   }
 
-  const handleGenerate = async (sigData) => {
-    setShowSig(false)
+  const handleDownload = async (fmt) => {
     setIsDownloading(true)
-    const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
-    const file = sigPurpose === 'pdf' ? 'harvested_crop_report.pdf' : 'harvested_crop_report.xlsx'
     try {
-      let url = buildUrl(fmt)
-      if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
-      if (sigData.reviewed_by) url += `&reviewed_by=${encodeURIComponent(sigData.reviewed_by)}`
-      if (sigData.noted_by)    url += `&noted_by=${encodeURIComponent(sigData.noted_by)}`
-      await downloadFile(api, url, file)
+      await downloadFile(api, buildUrl(fmt), fmt === 'pdf' ? 'harvested_crop_report.pdf' : 'harvested_crop_report.xlsx')
     } catch {
-      showToast(`Failed to generate ${sigPurpose === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+      showToast(`Failed to generate ${fmt === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
     } finally { setIsDownloading(false) }
   }
 
@@ -221,11 +216,13 @@ function HarvestedCropTab() {
         </div>
       </div>
 
+      <SignatoriesPanel signatories={signatories} />
+
       {/* Action Buttons */}
       <ActionButtons
         onPrint={handlePrint}
-        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
-        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+        onPdf={() => handleDownload('pdf')}
+        onExcel={() => handleDownload('excel')}
         isDownloading={isDownloading}
       />
 
@@ -240,9 +237,6 @@ function HarvestedCropTab() {
         <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No harvested records found." />
       </div>
 
-      {showSig && (
-        <SignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
-      )}
     </div>
   )
 }
@@ -256,8 +250,7 @@ function FisheriesProductionTab() {
   const [previewRows,   setPreviewRows]   = useState([])
   const [isLoading,     setIsLoading]     = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
-  const [showSig,       setShowSig]       = useState(false)
-  const [sigPurpose,    setSigPurpose]    = useState('pdf')
+  const signatories = useSignatories()
   const [filters, setFilters] = useState({
     start_date: '', end_date: '', barangay: '', organization: '', species: '', culture_type: '',
   })
@@ -306,6 +299,7 @@ function FisheriesProductionTab() {
     if (filters.organization)  p.set('organization',  filters.organization)
     if (filters.species)      p.set('species',      filters.species)
     if (filters.culture_type) p.set('culture_type', filters.culture_type)
+    if (fmt === 'pdf') Object.entries(signatories.params).forEach(([k, v]) => p.set(k, v))
     return `/reports/fisheries/production/?${p}`
   }
 
@@ -318,19 +312,12 @@ function FisheriesProductionTab() {
     } finally { setIsDownloading(false) }
   }
 
-  const handleGenerate = async (sigData) => {
-    setShowSig(false)
+  const handleDownload = async (fmt) => {
     setIsDownloading(true)
-    const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
-    const file = sigPurpose === 'pdf' ? 'fisheries_production_report.pdf' : 'fisheries_production_report.xlsx'
     try {
-      let url = buildUrl(fmt)
-      if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
-      if (sigData.reviewed_by) url += `&reviewed_by=${encodeURIComponent(sigData.reviewed_by)}`
-      if (sigData.noted_by)    url += `&noted_by=${encodeURIComponent(sigData.noted_by)}`
-      await downloadFile(api, url, file)
+      await downloadFile(api, buildUrl(fmt), fmt === 'pdf' ? 'fisheries_production_report.pdf' : 'fisheries_production_report.xlsx')
     } catch {
-      showToast(`Failed to generate ${sigPurpose === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+      showToast(`Failed to generate ${fmt === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
     } finally { setIsDownloading(false) }
   }
 
@@ -383,10 +370,12 @@ function FisheriesProductionTab() {
         </FilterPanel>
       </div>
 
+      <SignatoriesPanel signatories={signatories} />
+
       <ActionButtons
         onPrint={handlePrint}
-        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
-        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+        onPdf={() => handleDownload('pdf')}
+        onExcel={() => handleDownload('excel')}
         isDownloading={isDownloading}
       />
 
@@ -402,9 +391,6 @@ function FisheriesProductionTab() {
         <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No harvest records found." />
       </div>
 
-      {showSig && (
-        <SignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
-      )}
     </div>
   )
 }

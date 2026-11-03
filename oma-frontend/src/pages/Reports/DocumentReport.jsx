@@ -4,7 +4,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { printPdf } from '../../utils/printPdf.js'
 import { reportFileName, reportQuery, withSignature } from '../../utils/documentReport.js'
-import { ActionButtons, PreviewTable, SignatureModal } from './ReportParts.jsx'
+import { ActionButtons, PreviewTable, SignatoriesPanel } from './ReportParts.jsx'
+import { useSignatories } from './useSignatories.js'
 
 // A report built from a backend "document": { title, subtitle, stats: [[label, value]], sections: [{ title, pairs } | { title, headers, rows, empty }] }.
 // The same document is the on-screen preview, the PDF and the Excel, so they always agree.
@@ -62,7 +63,7 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
   const { showToast } = useToast()
   const [loaded, setLoaded] = useState({ key: null, doc: null })
   const [isDownloading, setIsDownloading] = useState(false)
-  const [sigPurpose, setSigPurpose] = useState(null)
+  const signatories = useSignatories()
 
   const key = ready ? reportQuery(params, 'json') : null
   const isLoading = ready && loaded.key !== key
@@ -80,11 +81,14 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
     return () => { current = false }
   }, [path, key, showToast])
 
-  // Print: the same PDF the Preview PDF button gives (same filters, same period, same table), printed from a hidden frame.
+  // The PDF carries the signers picked in the Signatories block; the Excel has no signature block.
+  const pdfQuery = () => withSignature(reportQuery(params, 'pdf'), signatories.params)
+
+  // Print: the same PDF the Preview PDF button gives (same filters, same period, same table, same signers), printed from a hidden frame.
   const print = async () => {
     setIsDownloading(true)
     try {
-      await printPdf(api, `${path}?${reportQuery(params, 'pdf')}`)
+      await printPdf(api, `${path}?${pdfQuery()}`)
     } catch {
       showToast('Failed to print the report.', 'error')
     } finally {
@@ -92,12 +96,10 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
     }
   }
 
-  const generate = async (sig) => {
-    const format = sigPurpose === 'pdf' ? 'pdf' : 'excel'
-    setSigPurpose(null)
+  const generate = async (format) => {
     setIsDownloading(true)
     try {
-      await downloadFile(api, `${path}?${withSignature(reportQuery(params, format), sig)}`, reportFileName(stem, format))
+      await downloadFile(api, `${path}?${format === 'pdf' ? pdfQuery() : reportQuery(params, format)}`, reportFileName(stem, format))
     } catch {
       showToast(`Failed to generate ${format === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
     } finally {
@@ -111,18 +113,18 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
     <div className="space-y-5">
       {filters}
 
+      <SignatoriesPanel signatories={signatories} />
+
       <ActionButtons
         onPrint={print}
-        onPdf={() => setSigPurpose('pdf')}
-        onExcel={() => setSigPurpose('excel')}
+        onPdf={() => generate('pdf')}
+        onExcel={() => generate('excel')}
         isDownloading={isDownloading || !ready || isLoading || failed}
       />
 
       {!ready && <p className="rounded-xl border border-dashed border-[#C8D5C8] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">{notReady}</p>}
       {ready && !failed && <DocumentView doc={loaded.doc} isLoading={isLoading} emptyText={emptyText} />}
       {failed && <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">The report could not be loaded. Change a filter to try again.</p>}
-
-      {sigPurpose && <SignatureModal purpose={sigPurpose} onClose={() => setSigPurpose(null)} onGenerate={generate} />}
     </div>
   )
 }

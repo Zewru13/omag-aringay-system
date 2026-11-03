@@ -14,7 +14,7 @@ GET /api/reports/registered/
     fisherfolk_type, is_4ps                    fisherfolk only
     options          1: instead of a report, list up to 25 matching records as {id, label, detail} for the "one record" picker
                      (uses search and barangay)
-    format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by / noted_by for the PDF)
+    format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 Staff only (Admin and Focal Person). The preview, the PDF and the Excel are all built from one document (reports.documents).
 """
