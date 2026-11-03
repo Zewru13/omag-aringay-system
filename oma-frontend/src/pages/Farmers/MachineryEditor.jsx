@@ -5,7 +5,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useEquipmentOptions from '../../hooks/useEquipmentOptions.js'
 import ParcelCropsImportModal from './ParcelCropsImportModal.jsx'
-import { MACHINERY_OPTIONS, OWNERSHIP_OPTIONS, addImportedMachinery, makeMachineryRow } from './parcelRows.js'
+import { MACHINERY_FALLBACK, OWNERSHIP_OPTIONS, addImportedMachinery, makeMachineryRow } from './parcelRows.js'
 
 // The machinery a farmer has: the lines of Register Farmer and of the profile's Add Machinery window. The page owns the list (rows
 // made by makeMachineryRow, checked by machineryProblem, sent through machineryPayload); this draws it and its Add / Import buttons.
@@ -15,7 +15,7 @@ const REMOVE_BTN = 'inline-flex items-center gap-1.5 rounded-md p-1.5 text-rose-
 
 export default function MachineryEditor({ machinery, onChange }) {
   const { showToast } = useToast()
-  const equipmentChoices = useEquipmentOptions('crop', MACHINERY_OPTIONS)   // Crop Settings > Equipment Types
+  const equipmentChoices = useEquipmentOptions('crop', MACHINERY_FALLBACK)   // Crop Settings > Equipment Types
   const nextUid = useRef(1)
   const [isImporting, setIsImporting] = useState(false)
   const update = (uid, patch) => onChange(machinery.map((m) => (m._uid === uid ? { ...m, ...patch } : m)))
