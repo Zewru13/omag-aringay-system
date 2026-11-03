@@ -27,6 +27,8 @@ import useConfirmSelection from './useConfirmSelection.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import useDistributeLink from './useDistributeLink.js'
 import DistributionsTable from './DistributionsTable.jsx'
+import AssistanceTabs from './AssistanceTabs.jsx'
+import { emptyAssistanceText, inGroup, tabFromParam } from './assistanceGroups.js'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
@@ -415,9 +417,8 @@ export default function CropAssistancePage({ asTab = false }) {
   const [barangay, setBarangay] = useState('')
   const [year, setYear] = useState('')
   const initialTab = searchParams.get('tab')
-  const [view, setView] = useState(
-    (initialTab === 'needs-follow-up' && !isOrg) || (initialTab === 'upcoming' && isFarmer) || (initialTab === 'confirm' && isOrg) ? initialTab : 'all',
-  )
+  // Current | History on every account (an organization's Confirm for Members list is part of Current).
+  const [view, setView] = useState(tabFromParam(initialTab, { allowConfirm: isOrg }))
   // The members picked on the organization's Confirm for Members list.
   const selection = useConfirmSelection(isOrg && view === 'confirm' ? records : NO_RECORDS)
   const [showAdd, setShowAdd] = useState(false)   // an organization account: distribute to chosen members
@@ -433,25 +434,24 @@ export default function CropAssistancePage({ asTab = false }) {
   const fetchAll = useCallback(async () => {
     setIsLoading(true); setError('')
     try {
-      if (isOrg && view === 'all') {
-        // The organization's history is OrgDistributionHistory, which loads its own distributions.
+      if (isOrg && view !== 'confirm') {
+        // The organization's Current and History are OrgDistributionHistory, which loads its own distributions.
         return
       }
       if (isOrg) {
         // The members' awaiting records this organization may confirm for (year narrows them).
-        const r = await api.get(view === 'confirm' ? FARMERS_ORG_DOMAIN.accountlessConfirmablesUrl : FARMERS_ORG_DOMAIN.historyUrl)
+        const r = await api.get(FARMERS_ORG_DOMAIN.accountlessConfirmablesUrl)
         let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
         if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
         setRecords(mine)
         return
       }
       if (isFarmer) {
-        // Own history (not filterable on the server): the year and Needs Follow-up views narrow it here.
+        // Own assistance (not filterable on the server): the tab (Current or History) and the year narrow it here.
         const r = await api.get('/interventions/my-beneficiary-history/')
         let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
         if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
-        if (view === 'needs-follow-up') mine = mine.filter((x) => x.status === 'NOT_RECEIVED')
-        if (view === 'upcoming') mine = mine.filter((x) => x.status === 'PENDING')
+        mine = mine.filter((x) => inGroup(x.status, view))
         setRecords(mine)
         return
       }
@@ -483,7 +483,7 @@ export default function CropAssistancePage({ asTab = false }) {
   const changeView = (next) => {
     setView(next)
     const params = new URLSearchParams(searchParams)
-    if (next !== 'all') params.set('tab', next); else params.delete('tab')
+    if (next !== 'current') params.set('tab', next); else params.delete('tab')
     setSearchParams(params, { replace: true })
   }
 
@@ -532,26 +532,16 @@ export default function CropAssistancePage({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <div className="flex w-full overflow-hidden rounded-xl border border-slate-300 sm:w-fit">
-        {[
-          { key: 'all', label: (isFarmer || isOrg) ? 'History' : 'All Records' },
-          isFarmer && { key: 'upcoming', label: 'Upcoming' },
-          isOrg && { key: 'confirm', label: 'Confirm for Members' },
-          !isOrg && { key: 'needs-follow-up', label: 'Needs Follow-up' },
-        ].filter(Boolean).map((t) => (
-          <button
-            key={t.key} type="button" onClick={() => changeView(t.key)}
-            className={`flex-1 whitespace-nowrap px-2 py-2 text-[12px] font-semibold transition-colors sm:flex-none sm:px-4 sm:text-[13px] ${
-              view === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <AssistanceTabs active={view} onChange={changeView} />
 
-      {isOrg && view === 'all' && (
+      {isOrg && view === 'confirm' && (
+        <Button variant="outline" className="w-full sm:w-auto" onClick={() => changeView('current')}>Back to Current</Button>
+      )}
+      {isOrg && view === 'current' && (
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => changeView('confirm')}>
+            <UserCheck size={15} className="mr-1" /> Confirm for Members
+          </Button>
           <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowDistribute(true)}>
             <Users size={15} className="mr-1" /> Distribute to All Members
           </Button>
@@ -572,8 +562,8 @@ export default function CropAssistancePage({ asTab = false }) {
         </Button>
       </div>}
 
-      {isOrg && view === 'all' ? (
-        <OrgDistributionHistory domain="crop" refreshKey={historyKey} />
+      {isOrg && view !== 'confirm' ? (
+        <OrgDistributionHistory key={view} domain="crop" group={view} refreshKey={historyKey} />
       ) : (
       <>
       <FilterPanel activeCount={[(isFarmer || isOrg) ? '' : barangay, year].filter(Boolean).length}>
@@ -596,7 +586,7 @@ export default function CropAssistancePage({ asTab = false }) {
         // A farmer account sees each assistance as its name and date; tapping it shows the rest and the confirm actions.
         <CompactExpandList
           isLoading={isLoading}
-          emptyText="No assistance has been recorded for you yet."
+          emptyText={emptyAssistanceText(view)}
           items={rows.map(r => ({
             id: r.id,
             title: r.assistance_type || 'Assistance',
@@ -609,10 +599,10 @@ export default function CropAssistancePage({ asTab = false }) {
         <DistributionsTable
           url="/interventions/beneficiaries/distributions/"
           noun="farmers"
-          filters={{ year, barangay, status: view === 'needs-follow-up' ? 'NOT_RECEIVED' : '' }}
+          filters={{ year, barangay, status: view }}
           version={tableVersion}
           onMemberAction={memberAction}
-          emptyText={view === 'needs-follow-up' ? 'Nothing needs follow-up.' : 'No assistance has been given yet.'}
+          emptyText={emptyAssistanceText(view)}
         />
       )}
       </>

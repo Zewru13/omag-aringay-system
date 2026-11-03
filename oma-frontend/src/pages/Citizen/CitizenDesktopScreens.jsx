@@ -6,6 +6,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 import { DesktopRailCard } from './CitizenDesktopUI.jsx'
+import AssistanceTabs from '../AssistanceManagement/AssistanceTabs.jsx'
+import { emptyAssistanceText, inGroup } from '../AssistanceManagement/assistanceGroups.js'
 
 // ─── Assistance Received ───────────────────────────────────────────────────────
 // Frames 4 and 8. Reuses the same read-only /interventions/my-*-beneficiary-
@@ -21,6 +23,7 @@ export function CitizenAssistanceList({ endpoint }) {
   const [reportingId, setReportingId] = useState(null)
   const [reason, setReason] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [tab, setTab] = useState('current')   // Current: scheduled, awaiting confirmation, not received. History: confirmed, resolved
 
   // Confirm/Report-Not-Received live on the record's own domain-specific
   // path — /interventions/beneficiaries/ vs /interventions/fisherfolk-
@@ -46,6 +49,7 @@ export function CitizenAssistanceList({ endpoint }) {
   // record) — flatMap to get one distinct set across every record's own
   // (possibly several) agencies, same summary-rail purpose as before.
   const sources = [...new Set(records.flatMap((r) => r.source_agencies || []))]
+  const shown = records.filter((r) => inGroup(r.status, tab))
 
   const confirmReceived = async (rec) => {
     setBusyId(rec.id)
@@ -78,11 +82,12 @@ export function CitizenAssistanceList({ endpoint }) {
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1 space-y-2.5">
-        {records.length === 0 ? (
+        <AssistanceTabs active={tab} onChange={setTab} />
+        {shown.length === 0 ? (
           <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
-            {D.assistanceEmpty}
+            {records.length === 0 ? D.assistanceEmpty : emptyAssistanceText(tab)}
           </p>
-        ) : records.map((rec) => (
+        ) : shown.map((rec) => (
           <div key={rec.id} className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-page">
