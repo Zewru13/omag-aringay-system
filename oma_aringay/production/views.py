@@ -50,6 +50,7 @@ from .models import (
     FarmInputLog, HarvestRecord, HarvestUnitWeight, LaborOperationLog, PestDiseaseReport, PlantingRecord,
     SeedSource,
 )
+from .unit_weight_groups import delete_group, save_group
 from .serializers import (
     ActivityTypeSerializer,
     BarangayCropSummarySerializer,
@@ -124,6 +125,43 @@ class HarvestUnitWeightListCreateView(generics.ListCreateAPIView):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsAdmin()]
+
+    def create(self, request, *args, **kwargs):
+        # `crop_types` (a list; empty = every crop) adds the unit for several crops at once: one row per crop, all or nothing.
+        if 'crop_types' not in request.data:
+            return super().create(request, *args, **kwargs)
+        data = request.data
+        rows = save_group([], data.get('unit'), data.get('kg_per_unit'), data.get('note'), _crop_ids(data))
+        return Response(HarvestUnitWeightSerializer(rows, many=True).data, status=drf_status.HTTP_201_CREATED)
+
+
+def _crop_ids(data):
+    ids = data.get('crop_types') or []
+    if not isinstance(ids, list) or any(not isinstance(i, int) for i in ids):
+        raise ValidationError({'crop_types': ['Send the crops as a list of ids.']})
+    return ids
+
+
+class HarvestUnitWeightGroupView(APIView):
+    """Settings > Harvest Units, one unit weight for several crops. PUT {ids, unit, kg_per_unit, note, crop_types} makes the rows `ids` the unit
+    for exactly those crops (none = every crop); DELETE {ids} removes them all. Only an Admin."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @staticmethod
+    def _ids(data):
+        ids = data.get('ids')
+        if not isinstance(ids, list) or not ids or any(not isinstance(i, int) for i in ids):
+            raise ValidationError({'ids': ['Send the ids of the unit weight rows.']})
+        return ids
+
+    def put(self, request):
+        data = request.data
+        rows = save_group(self._ids(data), data.get('unit'), data.get('kg_per_unit'), data.get('note'), _crop_ids(data))
+        return Response(HarvestUnitWeightSerializer(rows, many=True).data)
+
+    def delete(self, request):
+        delete_group(self._ids(request.data))
+        return Response(status=drf_status.HTTP_204_NO_CONTENT)
 
 
 class HarvestUnitWeightDetailView(generics.RetrieveUpdateDestroyAPIView):

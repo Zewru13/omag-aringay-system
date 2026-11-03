@@ -8,16 +8,18 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
-import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
-import { newestFirst } from '../../utils/listOrder.js'
+import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import MultiSelectDropdown from '../../components/UI/MultiSelectDropdown.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetHarvestUnitWeights } from '../Monitoring/useHarvestUnitWeights.js'
+import { cropsText, groupRequest, groupWeights } from './unitWeightGroups.js'
 
 // Harvest Unit Settings: how many kg one harvest unit weighs. A harvest is typed in the unit it was counted in (20 sacks) and saved in
-// kg using these weights. A row for one crop wins over the row for the same unit with no crop; a unit with no weight has no standard,
+// kg using these weights. A unit weight can be set for several crops at once (one row here, one entry per crop underneath). A weight for a
+// crop wins over the weight for the same unit with no crop; a unit with no weight has no standard,
 // and the harvest form then asks for the total kg. Changing a weight never changes a harvest that is already saved. New weights are added in
 // the table itself (the Add button under it); Edit changes one.
 
@@ -33,7 +35,7 @@ const fmtKg = (value) => (value === null || value === undefined || value === '' 
 
 function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
   const { showToast } = useToast()
-  const original = { unit: weight.unit, crop_type: weight.crop_type ?? '', kg_per_unit: weight.kg_per_unit === null || weight.kg_per_unit === undefined ? '' : String(Number(weight.kg_per_unit)), note: weight.note || '' }
+  const original = { unit: weight.unit, crop_types: weight.crop_ids, kg_per_unit: weight.kg_per_unit === null || weight.kg_per_unit === undefined ? '' : String(Number(weight.kg_per_unit)), note: weight.note || '' }
   const [form, setForm] = useState(original)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,14 +47,13 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
     if (!form.unit.trim()) { setErrors({ unit: 'Enter the unit name, as the harvest form lists it.' }); return }
     setIsSubmitting(true)
     try {
-      const body = { unit: form.unit.trim(), crop_type: form.crop_type === '' ? null : Number(form.crop_type), kg_per_unit: form.kg_per_unit === '' ? null : form.kg_per_unit, note: form.note.trim() }
-      await api.patch(`/production/harvest-unit-weights/${weight.id}/`, body)
+      await api.put('/production/harvest-unit-weights/group/', { ids: weight.ids, ...groupRequest(form) })
       showToast('Unit weight updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       const data = err?.response?.data || {}
       const first = (v) => (Array.isArray(v) ? v[0] : v)
-      setErrors({ unit: first(data.unit), kg_per_unit: first(data.kg_per_unit), general: first(data.detail) || first(data.non_field_errors) || (Object.keys(data).length ? undefined : 'Failed to save the unit weight.') })
+      setErrors({ unit: first(data.unit), kg_per_unit: first(data.kg_per_unit), crop_types: first(data.crop_types), general: first(data.detail) || first(data.non_field_errors) || (Object.keys(data).length ? undefined : 'Failed to save the unit weight.') })
     } finally {
       setIsSubmitting(false)
     }
@@ -61,7 +62,7 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
   return (
     <ModalShell
       title="Edit Unit Weight"
-      subtitle={`${weight.unit}${weight.crop_type_name ? ` · ${weight.crop_type_name}` : ' · every crop'}`}
+      subtitle={`${weight.unit} · ${cropsText(weight)}`}
       icon={Scale}
       onClose={onClose}
       maxWidth="max-w-md"
@@ -80,12 +81,10 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
           <input className={baseInputClasses} list="harvest-unit-names" value={form.unit} autoFocus placeholder="e.g. Sack" onChange={(e) => set('unit', e.target.value)} />
           <datalist id="harvest-unit-names">{unitSuggestions.map((u) => <option key={u} value={u} />)}</datalist>
         </FormField>
-        <FormField label="Crop">
-          <select className={baseInputClasses} value={form.crop_type} onChange={(e) => set('crop_type', e.target.value)}>
-            <option value="">Every crop</option>
-            {cropTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <p className="mt-1 text-[11.5px] text-[#7A8E7A]">A row for one crop is used for that crop instead of the row for every crop.</p>
+        <FormField label="Crops" error={errors.crop_types}>
+          <MultiSelectDropdown ariaLabel="Crops" emptyLabel="Every crop" value={form.crop_types} onChange={(v) => set('crop_types', v)}
+            options={cropTypes.map((c) => ({ value: c.id, label: c.name }))} />
+          <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Choose one or more crops, or none for every crop. A weight for a crop is used for that crop instead of the weight for every crop.</p>
         </FormField>
         <FormField label="Kg per unit" error={errors.kg_per_unit}>
           <DecimalInput decimals={4} className={baseInputClasses} value={form.kg_per_unit} placeholder="e.g. 50" onChange={(v) => set('kg_per_unit', v)} />
@@ -106,7 +105,7 @@ export default function HarvestUnitSettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
-  const add = useAddRow({ unit: '', crop_type: '', kg_per_unit: '', note: '' })
+  const add = useAddRow({ unit: '', crop_types: [], kg_per_unit: '', note: '' })
   const [deleting, setDeleting] = useState(null)
   const [version, setVersion] = useState(0)
 
@@ -130,25 +129,25 @@ export default function HarvestUnitSettingsPage() {
   const unitSuggestions = useMemo(() => [...new Set([...cropTypes.flatMap((c) => c.allowed_units || []), ...weights.map((w) => w.unit)])].filter((u) => u.toLowerCase() !== 'kg').sort(), [cropTypes, weights])
 
   const saveDraft = async () => {
-    const { unit, crop_type, kg_per_unit, note } = add.draft
-    if (!unit.trim()) { showToast('Type the unit name first, as the harvest form lists it.', 'error'); return }
+    if (!add.draft.unit.trim()) { showToast('Type the unit name first, as the harvest form lists it.', 'error'); return }
     add.setIsSaving(true)
     try {
-      await api.post('/production/harvest-unit-weights/', { unit: unit.trim(), crop_type: crop_type === '' ? null : Number(crop_type), kg_per_unit: kg_per_unit === '' ? null : kg_per_unit, note: note.trim() })
+      await api.post('/production/harvest-unit-weights/', groupRequest(add.draft))
       showToast('Unit weight added.', 'success')
       add.close(); refresh()
     } catch (err) {
       const data = err?.response?.data || {}
       const first = (v) => (Array.isArray(v) ? v[0] : v)
-      showToast(first(data.unit) || first(data.kg_per_unit) || first(data.detail) || first(data.non_field_errors) || 'Failed to save the unit weight.', 'error')
+      showToast(first(data.unit) || first(data.kg_per_unit) || first(data.crop_types) || first(data.detail) || first(data.non_field_errors) || 'Failed to save the unit weight.', 'error')
     } finally {
       add.setIsSaving(false)
     }
   }
 
-  const rows = newestFirst(weights).map((w) => ({
+  const groups = groupWeights(weights)
+  const rows = groups.map((w) => ({
     ...w,
-    crop: w.crop_type_name || <span className="text-[#7A8E7A]">Every crop</span>,
+    crop: w.every ? <span className="text-[#7A8E7A]">Every crop</span> : cropsText(w),
     weight: fmtKg(w.kg_per_unit) ? `${fmtKg(w.kg_per_unit)} kg` : <span className="text-amber-700">No standard weight</span>,
     note: w.note || <span className="text-[#A8BCA8]">—</span>,
     actions: (
@@ -169,10 +168,8 @@ export default function HarvestUnitSettingsPage() {
         </>
       ),
       crop: (
-        <DraftSelect value={add.draft.crop_type} aria-label="Crop" onChange={(e) => add.change({ crop_type: e.target.value })}>
-          <option value="">Every crop</option>
-          {cropTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </DraftSelect>
+        <MultiSelectDropdown ariaLabel="Crops" emptyLabel="Every crop" value={add.draft.crop_types} onChange={(v) => add.change({ crop_types: v })}
+          options={cropTypes.map((c) => ({ value: c.id, label: c.name }))} />
       ),
       weight: <DraftInput inputMode="decimal" value={add.draft.kg_per_unit} aria-label="Kg per unit" placeholder="e.g. 50"
         onChange={(e) => add.change({ kg_per_unit: e.target.value.replace(/[^0-9.]/g, '') })} onSave={saveDraft} onCancel={add.close} />,
@@ -194,7 +191,7 @@ export default function HarvestUnitSettingsPage() {
         </div>
         {error && <ErrorMessage message={error} />}
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <CardHeader title="Unit Weights" count={weights.length} />
+          <CardHeader title="Unit Weights" count={groups.length} />
           <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
           {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Unit" />}
         </div>
@@ -205,12 +202,12 @@ export default function HarvestUnitSettingsPage() {
       {deleting && (
         <ConfirmDialog
           title="Delete Unit Weight"
-          message={`Delete the weight of ${deleting.unit}${deleting.crop_type_name ? ` for ${deleting.crop_type_name}` : ' for every crop'}? Harvests already saved keep their kg.`}
+          message={`Delete the weight of ${deleting.unit} for ${deleting.every ? 'every crop' : cropsText(deleting)}? Harvests already saved keep their kg.`}
           confirmLabel="Delete"
           variant="danger"
           onConfirm={async () => {
             try {
-              await api.delete(`/production/harvest-unit-weights/${deleting.id}/`)
+              await api.delete('/production/harvest-unit-weights/group/', { data: { ids: deleting.ids } })
               showToast('Unit weight deleted.', 'success')
               setDeleting(null); refresh()
             } catch {
