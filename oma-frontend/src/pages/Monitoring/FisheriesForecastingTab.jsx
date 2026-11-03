@@ -924,6 +924,9 @@ export default function ForecastingTab({ asTab = false }) {
           return {
             id: rec.id,
             person: rec.fisherfolk_name,
+            personRsbsa: rec.fisherfolk_rsbsa_number,
+            personBarangay: rec.fisherfolk_barangay,
+            personContact: rec.fisherfolk_contact_number,
             commodity: rec.species_name,
             landStatus: rec.land_status,
             dateField: rec.date_stocked,
@@ -1130,6 +1133,9 @@ export default function ForecastingTab({ asTab = false }) {
           return {
             id: rec.id,
             person: rec.fisherfolk_name,
+            personRsbsa: rec.fisherfolk_rsbsa_number,
+            personBarangay: rec.fisherfolk_barangay,
+            personContact: rec.fisherfolk_contact_number,
             commodity: rec.species_name,
             landStatus: rec.land_status,
             dateField: rec.date_stocked,

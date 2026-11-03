@@ -905,7 +905,7 @@ class CropMonitoringGroupsView(APIView):
             raise ValidationError({'group_by': 'Use group_by=crop, group_by=farmer or group_by=parcel.'})
         qs = _filter_monitoring_queryset(CropMonitoringRecord.objects.all(), request)
         totals = dict(
-            count=Count('id'), area=Sum('area_planted_ha'),
+            count=Count('id'), area=Sum('area_planted_ha'), farmers=Count('farmer_id', distinct=True),
             near_harvest=Count('id', filter=Q(status=CropMonitoringRecord.Status.NEAR_HARVEST)),
         )
         if group_by == 'crop':
@@ -920,7 +920,7 @@ class CropMonitoringGroupsView(APIView):
         else:
             rows = qs.values(
                 'farmer_id', 'farmers_organization_id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name',
-                'farmer__barangay', 'farmers_organization__name', 'farmers_organization__barangay',
+                'farmer__barangay', 'farmer__rsbsa_number', 'farmer__contact_number', 'farmers_organization__name', 'farmers_organization__barangay',
             ).annotate(**totals).order_by('farmer__last_name', 'farmer__first_name', 'farmers_organization__name', 'farmer_id', 'farmers_organization_id')
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(rows, request, view=self)
@@ -928,7 +928,7 @@ class CropMonitoringGroupsView(APIView):
 
     @staticmethod
     def _shape(group_by, row):
-        shared = {'count': row['count'], 'area_planted_ha': float(row['area'] or 0), 'near_harvest': row['near_harvest']}
+        shared = {'count': row['count'], 'area_planted_ha': float(row['area'] or 0), 'near_harvest': row['near_harvest'], 'farmers': row['farmers']}
         if group_by == 'crop':
             return {'key': f"c{row['crop_type_id']}", 'id': row['crop_type_id'], 'name': row['crop_type__name'], 'barangay': '', **shared}
         if group_by == 'parcel':
@@ -941,11 +941,13 @@ class CropMonitoringGroupsView(APIView):
                     'parcel_area_hectares': float(row['farm_parcel__area_hectares'] or 0), 'land_ownership': row['farm_parcel__land_ownership'] or '', **shared}
         if row['farmer_id']:
             name = ' '.join(n for n in (row['farmer__first_name'], row['farmer__middle_name'], row['farmer__last_name']) if n)
-            return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '', **shared}
+            return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '',
+                    'rsbsa_number': row['farmer__rsbsa_number'] or '', 'contact_number': row['farmer__contact_number'] or '', **shared}
         if row['farmers_organization_id']:
             return {'key': f"o{row['farmers_organization_id']}", 'id': row['farmers_organization_id'],
-                    'name': row['farmers_organization__name'], 'barangay': row['farmers_organization__barangay'] or '', **shared}
-        return {'key': 'none', 'id': None, 'name': 'Not linked to a farmer', 'barangay': '', **shared}
+                    'name': row['farmers_organization__name'], 'barangay': row['farmers_organization__barangay'] or '',
+                    'rsbsa_number': '', 'contact_number': '', **shared}
+        return {'key': 'none', 'id': None, 'name': 'Not linked to a farmer', 'barangay': '', 'rsbsa_number': '', 'contact_number': '', **shared}
 
 
 class CropMonitoringListCreateView(generics.ListCreateAPIView):

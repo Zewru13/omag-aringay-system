@@ -46,18 +46,6 @@ export function groupChildParams(groupBy, group) {
   return null
 }
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-
-export function groupSummary(group) {
-  const parts = [plural(group.parcels, 'parcel')]
-  const area = Math.round((group.area_hectares || 0) * 100) / 100
-  if (area > 0) parts.push(`${area} ha`)
-  parts.push(cropCountLabel(group.crops))
-  return parts.join(' · ')
-}
-
-export const groupHeading = (groupBy, group) => (groupBy === 'farmer' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)
-
 // The crops with no parcel on file (older records, organization crops). A parcel filter does not apply to them.
 export function noParcelParams({ search, barangay, pcic, planted } = {}) {
   const params = { farm_parcel: 'none' }

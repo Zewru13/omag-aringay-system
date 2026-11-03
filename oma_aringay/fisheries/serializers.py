@@ -1122,6 +1122,10 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
     pcic_form_photos = serializers.SerializerMethodField()
 
     fisherfolk_name  = serializers.SerializerMethodField()
+    # The fisherfolk's own facts, for the Fisheries Forecasting group rows (RSBSA No., Barangay, Contact No.).
+    fisherfolk_rsbsa_number = serializers.CharField(source='fisherfolk.rsbsa_number', read_only=True, default='')
+    fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True, default='')
+    fisherfolk_contact_number = serializers.CharField(source='fisherfolk.contact_number', read_only=True, default='')
     pond_name        = serializers.CharField(source='pond.name', read_only=True, default=None)
     species_name     = serializers.CharField(source='species.species_name', read_only=True)
     category_name    = serializers.CharField(source='species.category.name', read_only=True)
@@ -1177,7 +1181,7 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
         model  = StockingRecord
         list_serializer_class = StockingRecordListSerializer
         fields = [
-            'id', 'fisherfolk', 'fisherfolk_name',
+            'id', 'fisherfolk', 'fisherfolk_name', 'fisherfolk_rsbsa_number', 'fisherfolk_barangay', 'fisherfolk_contact_number',
             'pond', 'pond_name', 'production_cycle', 'production_cycle_name', 'organization_name',
             'ownership', 'owner_name', 'owner_registration_number',
             'pond_location_barangay', 'land_status', 'land_status_other_specify', 'culture_type',

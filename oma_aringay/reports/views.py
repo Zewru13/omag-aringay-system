@@ -2262,6 +2262,9 @@ class FarmerCropHistoryReport(APIView):
                 data.append({
                     'id': rec.id,
                     'farmer': _farmer_name(rec),
+                    'farmer_rsbsa': (rec.farmer.rsbsa_number or '') if rec.farmer else '',
+                    'farmer_barangay': (rec.farmer.barangay or '') if rec.farmer else '',
+                    'farmer_contact': (rec.farmer.contact_number or '') if rec.farmer else '',
                     'barangay': _barangay(rec),
                     'crop_type': fmt_field(rec.crop_type.name),
                     'variety': rec.variety_used or '—',
