@@ -20,7 +20,6 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
-import useFisheriesTheme from '../../hooks/useFisheriesTheme.js'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 
@@ -315,7 +314,6 @@ function EditCatchModal({ record, onClose, onSaved }) {
 // a fisherfolk account only ever has Aquaculture.
 // Disaster management lives in its own module (Admin > Disaster > Fisheries Disaster), not here.
 export default function FisheriesMonitoringPage() {
-  useFisheriesTheme()
   const { isFisherfolk } = useAuth()
   const [searchParams] = useSearchParams()
   const rawTab = searchParams.get('tab') || 'stocking'
