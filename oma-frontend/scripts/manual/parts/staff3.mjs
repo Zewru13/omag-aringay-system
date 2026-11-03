@@ -1,5 +1,5 @@
 // Staff screens, part 3: Crop Management (Crop Records, Crop Monitoring and their forms) and the Crop Disaster page.
-import { A, click, clickIncl, wait, rowMenu, SEARCH, FILTERS, PRINT, DOWNLOAD, COLS, ROW1, PAGER, PAGER_ROW, FILTERS_ROW, PRINT_ROW, DOWNLOAD_ROW, SEARCH_ROW } from './common.mjs'
+import { A, click, clickIncl, wait, rowMenu, groupBy, SEARCH, FILTERS, PRINT, DOWNLOAD, COLS, ROW1, PAGER, PAGER_ROW, FILTERS_ROW, PRINT_ROW, DOWNLOAD_ROW, SEARCH_ROW } from './common.mjs'
 
 const H = '[class*="rounded-xl"]'
 const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
@@ -10,13 +10,20 @@ export const STAFF3 = [
   A({ id: 'admin-crop-records', file: 'admin/crop-records.png', url: '/crop-records', js: "const b=[...document.querySelectorAll('button')].find(x=>/Show the crops on/.test(x.getAttribute('aria-label')||'')&&x.offsetParent); b&&b.click()", after: 1500, title: 'Crop Management > Crop Records', purpose: 'Every farm parcel, with the crops planted on it.',
     callouts: [
       SEARCH_ROW('a parcel by farmer name, RSBSA number or parcel number'),
-      { ...FILTERS_ROW, desc: 'Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Crop, Farmer, Farm Parcel or No grouping). Print Report and Download Report follow them.' },
+      { ...FILTERS_ROW, desc: 'Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture). Print Report and Download Report follow them.' },
       PRINT_ROW, DOWNLOAD_ROW,
       { find: { text: 'Import Farm Parcels', tag: 'button' }, label: 'Import Farm Parcels', desc: 'Adds parcels for all farmers from one spreadsheet. You choose the file, see a preview, and confirm; rows with a problem are listed with the reason.' },
       { find: { text: 'Add Farm Parcel', tag: 'button', exact: true }, label: 'Add Farm Parcel', desc: 'Opens the Add Farm Parcels table: choose a farmer, then one row per parcel, with the crops planted on each.' },
       { find: COLS, label: 'Columns', desc: 'The arrow to open a parcel, its number, the farmer, barangay, area in hectares, ownership (Owner, Lessee or Tenant), how many crops it has, and Actions.' },
       { find: { css: 'tbody button[aria-label*="crops on"]', nth: 0 }, label: 'Open arrow', desc: 'Shows or hides the crops planted on that parcel, right under it, with their dates and status.' },
       { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Actions menu', desc: 'The three dots of a parcel: Add crops, Force harvest, Print report and Edit parcel (next picture).' },
+      { ...PAGER_ROW, find: PAGER },
+    ] }),
+  A({ id: 'admin-crop-records-grouped', file: 'admin/crop-records-grouped.png', url: '/crop-records', js: groupBy('farmer'), after: 2500, title: 'Crop Records grouped by farmer', purpose: 'Group by gives each farmer, barangay or land ownership one row with its own columns. Click a row to open the parcels inside it.',
+    callouts: [
+      { find: { css: 'select[aria-label="Group by"]' }, label: 'Group by', desc: 'Farmer, Barangay or Land ownership. Choose No grouping to go back to the list of parcels.' },
+      { find: { css: '[data-testid="grouped-parcels-table"] > div:first-child' }, label: 'Column names', desc: 'For a farmer group: Farmer, RSBSA No., Barangay, Contact No., Parcels, Area (ha) and Crops. A barangay or land ownership group has Farmers (how many farmers it holds), Parcels, Area (ha) and Crops instead.' },
+      { find: { css: '[data-testid="grouped-parcels-table"] li button', nth: 0 }, label: 'A group row', desc: 'One farmer with the personal facts and the totals of their parcels. Click it to drop down the parcels, with the same three-dot menu as the ordinary list.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
   A({ id: 'admin-parcel-menu', file: 'admin/parcel-menu.png', url: '/crop-records', js: parcelMenu(), after: 800, title: 'The menu of a parcel', purpose: 'What the three-dot menu of a farm parcel does.',
@@ -87,13 +94,20 @@ export const STAFF3 = [
     ] }),
   A({ id: 'admin-crop-filters', file: 'admin/crop-filters.png', url: '/crop-monitoring', js: click('Filters'), after: 1200, title: 'Crop Monitoring filters', purpose: 'Narrow the crops; the reports follow the filters.',
     callouts: [
-      { find: { css: 'select', nth: 0 }, label: 'Group by', desc: 'Group the crops by Crop, Farmer or Farm Parcel, or No grouping (the default).' },
+      { find: { css: 'select', nth: 0 }, label: 'Group by', desc: 'Group the crops by Crop, Farmer or Farm Parcel, or No grouping (the default). Each group row has its own columns (see the pictures after this one).' },
       { find: { css: 'select', nth: 1 }, label: 'Crop name', desc: 'Only one crop (rice, corn, onion and so on).' },
       { find: { css: 'select', nth: 2 }, label: 'Status', desc: 'Planted is the default view. Choose Near Harvest, Due Harvest, Ready for Harvest, Overdue, Harvested, Total Loss or All Status to see the others.' },
       { find: { css: 'select', nth: 3 }, label: 'PCIC insured', desc: 'Only insured crops, or only crops without insurance.' },
       { find: { css: 'select', nth: 4 }, label: 'Season', desc: 'Dry Season or Wet Season.' },
       { find: { css: 'select', nth: 5 }, label: 'Year', desc: 'The year the crop was planted.' },
       { find: [{ text: 'Planted From', tag: 'label' }, { text: 'Planted To', tag: 'label' }], label: 'Planted From / To', desc: 'The first and last date planted. Either can be left empty.' },
+    ] }),
+  A({ id: 'admin-crop-monitoring-grouped', file: 'admin/crop-monitoring-grouped.png', url: '/crop-monitoring', js: groupBy('farmer'), after: 2500, title: 'Crop Monitoring grouped by farmer', purpose: 'Group by Crop or Farmer gives each one row with its own columns. Click a row to open the crops inside it.',
+    callouts: [
+      { find: { css: 'select[aria-label="Group by"]' }, label: 'Group by', desc: 'Crop, Farmer or Farm Parcel. Choose No grouping to go back to the list of crops.' },
+      { find: { css: '[data-testid="grouped-monitoring-table"] > div:first-child' }, label: 'Column names', desc: 'For a farmer group: Farmer, RSBSA No., Barangay, Contact No., Records, Area planted (ha) and Near harvest. A crop group has Farmers (how many farmers grow it), Records, Area planted (ha) and Near harvest.' },
+      { find: { css: '[data-testid="grouped-monitoring-table"] li button', nth: 0 }, label: 'A group row', desc: 'One farmer with the personal facts and the totals of their crops. Click it to drop down the crops, with the same three-dot menu as the ordinary list.' },
+      { ...PAGER_ROW, find: PAGER },
     ] }),
   A({ id: 'admin-crop-menu', file: 'admin/crop-row-menu.png', url: '/crop-monitoring', js: cropMenu('XXXX_NONE'), after: 800, title: 'The menu of a crop', purpose: 'The actions of one crop.',
     callouts: [

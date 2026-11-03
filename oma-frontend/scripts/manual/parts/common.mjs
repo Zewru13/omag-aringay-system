@@ -8,6 +8,8 @@ export const clickIncl = (text, tag = 'button') => `const b=[...document.querySe
 export const wait = (ms) => `await new Promise(r=>setTimeout(r,${ms}))`
 export const rowMenu = "const r=[...document.querySelectorAll('tbody tr')].filter(x=>x.offsetParent)[0]; const bs=[...r.querySelectorAll('button')]; bs[bs.length-1].click()"
 export const rowMenuThen = (text, ms = 700) => `${rowMenu}; ${wait(ms)}; ${clickIncl(text)}`
+// Opens the Filters row and chooses a "Group by" value (the list pages' Group by select).
+export const groupBy = (value) => `const f=[...document.querySelectorAll('button')].find(x=>x.offsetParent&&x.textContent.trim().startsWith('Filters')); if(f) f.click(); await new Promise(r=>setTimeout(r,800)); const s=document.querySelector('select[aria-label="Group by"]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,${JSON.stringify(value)}); s.dispatchEvent(new Event('change',{bubbles:true}))`
 export const expandMenu = "document.querySelectorAll('aside nav button, aside button').forEach(b=>{ if(!/Dashboard/.test(b.textContent)) b.click() })"
 
 export const A = (o) => ({ role: 'ADMIN', audience: 'admin', ...o })

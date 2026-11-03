@@ -27,7 +27,7 @@ export const STAFF1B = [
       { find: { text: 'RSBSA Number', tag: 'label', up: 1 }, label: 'RSBSA Number', desc: 'Required. Type the digits only; the dashes are added as you type. It identifies the farmer in every list and report, so a number that is already registered is refused.' },
       { find: { text: 'PhilSys', tag: 'label', up: 1 }, label: 'PhilSys / National ID No.', desc: 'Optional. The national ID number.' },
       { find: { text: 'RSBSA CLASSIFICATION', tag: 'p, span, h4, div', up: 1 }, label: 'RSBSA classification', desc: 'Tick Person with Disability (PWD), 4Ps Beneficiary and ICC/IP Member if they apply. Senior Citizen cannot be ticked: it is set automatically when the birthdate makes the farmer 60 or older.' },
-      { find: { text: 'Farmer Organization', tag: 'label', up: 1 }, label: 'Farmer Organization', desc: 'Optional. Choose an organization to make the farmer one of its members from the start. It can be changed later from the profile.' },
+      { find: { text: 'Farmer Organization', tag: 'label', up: 1 }, label: 'Farmer Organization', desc: 'Optional. Click the box and type part of the organization\'s name: the list narrows as you type. Pick it (or Not a member) and the farmer becomes one of its members from the start. It can be changed later from the profile.' },
       { find: { text: 'Import machinery', tag: 'button' }, label: 'Import machinery', desc: 'Reads the farmer\'s machinery lines from a spreadsheet.' },
       { find: { text: 'Add machinery', tag: 'button' }, label: 'Add machinery', desc: 'Adds one machinery line: choose the machinery, how many, and whether it is Owned, Borrowed, Rented or Organization-Owned. Machinery belongs to the farmer, not to a parcel. Leave it empty if there is none.' },
       { find: { text: 'Save Farmer & Add Farm Parcels', tag: 'button' }, label: 'Save Farmer & Add Farm Parcels', desc: 'Saves the farmer and opens the Add Farm Parcels table straight away, to record their parcels and the crops planted on each. When the parcels are saved you come back to the farmer\'s profile.' },
@@ -38,7 +38,7 @@ export const STAFF1B = [
   A({ id: 'admin-farmer-profile', file: 'admin/farmer-profile.png', url: '/farmers/6', wait: 6000, height: 1500, title: 'Farmer profile', purpose: 'Everything about one farmer: details, machinery, farm parcels, crops and visits.',
     callouts: [
       { find: { text: 'Back to Farmers', tag: 'a' }, label: 'Back to Farmers', desc: 'Returns to the farmers list.' },
-      { find: { text: 'View Assistance History', tag: 'button' }, label: 'View Assistance History', desc: 'Opens every assistance this farmer received, with its date, type, quantity and status.' },
+      { find: { text: 'View Assistance History', tag: 'button' }, label: 'View Assistance History', desc: 'Opens every assistance this farmer received, with its date, type, quantity and status. Print Report and Download Report in that window give the farmer\'s history as a PDF.' },
       { find: { text: 'Generate Report', tag: 'button' }, label: 'Generate Report', desc: 'Makes a PDF profile of the farmer (personal details, parcels and crops) and downloads it.' },
       { find: { text: 'Add Farm Parcel', tag: 'button' }, label: 'Add Farm Parcel', desc: 'Opens the Add Farm Parcels table for this farmer, to record parcels and the crops planted on them.' },
       { find: { text: 'Import Farm Parcels', tag: 'button' }, label: 'Import Farm Parcels', desc: 'Reads this farmer\'s parcels from a spreadsheet, with a preview first.' },

@@ -86,6 +86,10 @@ export const SECTIONS = [
         q: 'What do the ⋮ menus on Crop Records do?',
         a: 'On a parcel: Add crops, Force harvest and Edit parcel. Opening a farmer\'s profile shows their parcels and the crops they planted.',
       },
+      {
+        q: 'What do the rows of Group by show?',
+        a: 'Crop Records and Crop Monitoring can group their rows (Filters > Group by). A group row has columns just like the table. A farmer group shows the farmer\'s RSBSA No., Barangay and Contact No. with its totals (parcels, area and crops in Crop Records; records, area planted and near harvest in Crop Monitoring). A barangay, land ownership or crop group shows how many farmers it holds with its totals. Click a row to open what is inside it. Forecasting\'s By farmer and By fisherfolk views show the RSBSA No., Barangay and Contact No. as well. On a phone the same facts are stacked inside the row.',
+      },
     ],
   },
   {
@@ -138,7 +142,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where do the equipment names in the lists come from?',
-        a: 'From the settings: Crop Settings > Equipment Types for the machinery of a farmer and the equipment of a farmers organization, and Fisheries Settings > Equipment Types for a fisherfolk organization. Add a name there and it appears in the dropdowns. Choose Other to type a name that is not on the list.',
+        a: 'From the settings: Crop Settings > Equipment Types for the machinery of a farmer and the equipment of a farmers organization, and Fisheries Settings > Equipment Types for a fisherfolk organization. Both lists start filled with the usual names. Add a name there and it appears in the dropdowns. Choose Other to type a name that is not on the list.',
       },
       {
         q: 'Can I add equipment when I register an organization?',
@@ -188,6 +192,10 @@ export const SECTIONS = [
       {
         q: 'I imported the wrong file. Can I undo it?',
         a: 'Yes. In the Import dialog choose Undo a recent import to review and reverse a recent import.',
+      },
+      {
+        q: 'Can I print or download the assistance history?',
+        a: 'Yes. On the History tab of Crop Assistance and Fisheries Assistance, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution with the people who received it. A farmer\'s or fisherfolk\'s own history (View Assistance History on the profile) and an organization\'s History tab have the same two buttons.',
       },
     ],
   },
@@ -262,6 +270,10 @@ export const SECTIONS = [
         q: 'How do I give someone an account?',
         a: 'Admin > User Management. Create the account and choose its role. Farmers, fisherfolk and organizations get their own accounts from their record.',
         roles: ADMIN,
+      },
+      {
+        q: 'Why does a page take a moment the first time I open it?',
+        a: 'Each page is loaded when you first open it, and a list asks the server only for the rows it shows. The first visit to a page is therefore the slowest; after that it opens faster. If a list keeps loading for a long time, check the internet connection and reload the page.',
       },
     ],
   },

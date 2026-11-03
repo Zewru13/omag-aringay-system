@@ -511,7 +511,7 @@ export default {
    {
     "n": 12,
     "label": "Farmer Organization",
-    "desc": "Optional. Choose an organization to make the farmer one of its members from the start. It can be changed later from the profile."
+    "desc": "Optional. Click the box and type part of the organization's name: the list narrows as you type. Pick it (or Not a member) and the farmer becomes one of its members from the start. It can be changed later from the profile."
    },
    {
     "n": 13,
@@ -561,7 +561,7 @@ export default {
    {
     "n": 2,
     "label": "View Assistance History",
-    "desc": "Opens every assistance this farmer received, with its date, type, quantity and status."
+    "desc": "Opens every assistance this farmer received, with its date, type, quantity and status. Print Report and Download Report in that window give the farmer's history as a PDF."
    },
    {
     "n": 3,
@@ -721,7 +721,7 @@ export default {
    {
     "n": 9,
     "label": "Fisherfolk Organization",
-    "desc": "Optional. Choose an organization to make the fisherfolk one of its members."
+    "desc": "Optional. Click the box and type part of the organization's name: the list narrows as you type. Pick it (or Not a member) to make the fisherfolk one of its members."
    },
    {
     "n": 10,
@@ -756,7 +756,7 @@ export default {
    {
     "n": 2,
     "label": "View Assistance History",
-    "desc": "Opens every assistance this fisherfolk received: type, source agency, quantity, season, year and the date given."
+    "desc": "Opens every assistance this fisherfolk received: type, source agency, quantity, season, year and the date given. Print Report and Download Report in that window give the history as a PDF."
    },
    {
     "n": 3,
@@ -1221,7 +1221,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Crop, Farmer, Farm Parcel or No grouping). Print Report and Download Report follow them."
+    "desc": "Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture). Print Report and Download Report follow them."
    },
    {
     "n": 3,
@@ -1571,7 +1571,7 @@ export default {
    {
     "n": 1,
     "label": "Group by",
-    "desc": "Group the crops by Crop, Farmer or Farm Parcel, or No grouping (the default)."
+    "desc": "Group the crops by Crop, Farmer or Farm Parcel, or No grouping (the default). Each group row has its own columns (see the pictures after this one)."
    },
    {
     "n": 2,
@@ -2106,7 +2106,7 @@ export default {
    {
     "n": 6,
     "label": "Columns",
-    "desc": "Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status and Actions."
+    "desc": "Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status, PCIC Insured (one tick for each pond or cage of the cycle, so you see which ones are insured) and Actions."
    },
    {
     "n": 7,
@@ -2426,7 +2426,7 @@ export default {
    {
     "n": 4,
     "label": "All crops / By farmer",
-    "desc": "All crops lists each crop. By farmer groups them under each farmer, with the totals."
+    "desc": "All crops lists each crop. By farmer groups them under each farmer: a row shows the farmer's RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance."
    },
    {
     "n": 5,
@@ -2541,7 +2541,7 @@ export default {
    {
     "n": 4,
     "label": "All stockings / By fisherfolk",
-    "desc": "All stockings lists each cycle; By fisherfolk groups them under each fisherfolk."
+    "desc": "All stockings lists each cycle; By fisherfolk groups them under each fisherfolk: a row shows their RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance."
    },
    {
     "n": 5,
@@ -2566,7 +2566,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved."
+    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
    },
    {
     "n": 2,
@@ -2766,7 +2766,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved."
+    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
    },
    {
     "n": 2,
@@ -3216,7 +3216,7 @@ export default {
    {
     "n": 1,
     "label": "Tabs",
-    "desc": "Crop Options (the crops), Categories, Seed Sources, Varieties, Input Types (fertilizers, pesticides and so on) and Equipment Types (the machinery names used for farmers and farmers organizations). Each tab has its own table."
+    "desc": "Crop Options (the crops), Categories, Seed Sources, Varieties, Input Types (fertilizers, pesticides and so on) and Equipment Types (one list of machinery names: it is the Machinery dropdown of a farmer and the Equipment dropdown of a farmers organization, and it starts filled with the usual names). Each tab has its own table."
    },
    {
     "n": 2,
@@ -3341,7 +3341,7 @@ export default {
    {
     "n": 1,
     "label": "Tabs",
-    "desc": "Species, Categories, Feed Types (for the Feeding Log), Diseases (for the Health Log), Fingerling Sources (for Start Production Cycle), Equipment Types (for fisherfolk organizations) and Fishing Gear (for Log Catch)."
+    "desc": "Species, Categories, Feed Types (for the Feeding Log), Diseases (for the Health Log), Fingerling Sources (for Start Production Cycle), Equipment Types (the Equipment dropdown of fisherfolk organizations; it starts filled with the usual names) and Fishing Gear (for Log Catch)."
    },
    {
     "n": 2,
@@ -5243,6 +5243,111 @@ export default {
     "n": 6,
     "label": "Print-ready preview",
     "desc": "The individual report as it will print: the details of the record, then its parcels and organizations (or members), with the signature lines."
+   }
+  ]
+ },
+ "admin-crop-records-grouped": {
+  "audience": "admin",
+  "title": "Crop Records grouped by farmer",
+  "purpose": "Group by gives each farmer, barangay or land ownership one row with its own columns. Click a row to open the parcels inside it.",
+  "image": "/manual/admin/crop-records-grouped.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Group by",
+    "desc": "Farmer, Barangay or Land ownership. Choose No grouping to go back to the list of parcels."
+   },
+   {
+    "n": 2,
+    "label": "Column names",
+    "desc": "For a farmer group: Farmer, RSBSA No., Barangay, Contact No., Parcels, Area (ha) and Crops. A barangay or land ownership group has Farmers (how many farmers it holds), Parcels, Area (ha) and Crops instead."
+   },
+   {
+    "n": 3,
+    "label": "A group row",
+    "desc": "One farmer with the personal facts and the totals of their parcels. Click it to drop down the parcels, with the same three-dot menu as the ordinary list."
+   },
+   {
+    "n": 4,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
+   }
+  ]
+ },
+ "admin-crop-monitoring-grouped": {
+  "audience": "admin",
+  "title": "Crop Monitoring grouped by farmer",
+  "purpose": "Group by Crop or Farmer gives each one row with its own columns. Click a row to open the crops inside it.",
+  "image": "/manual/admin/crop-monitoring-grouped.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Group by",
+    "desc": "Crop, Farmer or Farm Parcel. Choose No grouping to go back to the list of crops."
+   },
+   {
+    "n": 2,
+    "label": "Column names",
+    "desc": "For a farmer group: Farmer, RSBSA No., Barangay, Contact No., Records, Area planted (ha) and Near harvest. A crop group has Farmers (how many farmers grow it), Records, Area planted (ha) and Near harvest."
+   },
+   {
+    "n": 3,
+    "label": "A group row",
+    "desc": "One farmer with the personal facts and the totals of their crops. Click it to drop down the crops, with the same three-dot menu as the ordinary list."
+   },
+   {
+    "n": 4,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
+   }
+  ]
+ },
+ "admin-assistance-history": {
+  "audience": "admin",
+  "title": "Assistance History",
+  "purpose": "The assistance that was received and confirmed, or resolved, with a report you can print or download.",
+  "image": "/manual/admin/assistance-history.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Current / History",
+    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
+   },
+   {
+    "n": 2,
+    "label": "Import File",
+    "desc": "Brings in assistance records from a spreadsheet (xlsx, xls or csv). Download the Excel template, fill it in, choose it, then Preview Import to check it before saving. Undo a recent import reverses a recent import you made by mistake."
+   },
+   {
+    "n": 3,
+    "label": "Print Report",
+    "desc": "Opens the History list as a report with the signature lines, ready to print. It follows the filters."
+   },
+   {
+    "n": 4,
+    "label": "Download Report",
+    "desc": "Saves the same report as a PDF file."
+   },
+   {
+    "n": 5,
+    "label": "Columns",
+    "desc": "Date given, who it was given to, assistance type, source agency, quantity and status."
+   },
+   {
+    "n": 6,
+    "label": "Row menu",
+    "desc": "The three dots of a distribution: Print Report and Download Report give a report of that one distribution, with the people who received it."
+   },
+   {
+    "n": 7,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  }
