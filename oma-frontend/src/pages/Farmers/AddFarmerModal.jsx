@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
+import SearchSelect from '../../components/UI/SearchSelect.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import EmailInput from '../../components/UI/EmailInput.jsx'
 import { guardPhilsys as formatPhilsys } from '../../utils/inputGuards.js'
@@ -410,18 +411,17 @@ function AddFarmerModal({ onClose, onSuccess }) {
 
           <div className="mt-4">
             <FormLabel>Farmer Organization</FormLabel>
-            <select
-              className={baseInputClasses}
-              value={form.farmers_organization || ''}
-              onChange={e => updateField('farmers_organization', e.target.value || null)}
-            >
-              <option value="">— Not a member of any organization</option>
-              {organizations.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            <SearchSelect
+              id="farmers_organization"
+              ariaLabel="Farmer Organization"
+              options={organizations.map(a => ({ value: a.id, label: a.name }))}
+              value={form.farmers_organization}
+              onChange={value => updateField('farmers_organization', value)}
+              emptyLabel="— Not a member of any organization"
+              placeholder="Type the organization name"
+            />
             <p className="text-[12px] text-[#7A8E7A] mt-1">
-              Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
+              Type to search the organizations, or leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
             </p>
           </div>
         </Section>
