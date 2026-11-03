@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  GROUP_OPTIONS, DEFAULT_GROUP, DEFAULT_STATUS, DISPLAY_STATUSES, STATUS_FILTER_OPTIONS, cropDisplayStatus, farmerCropParams, monitoringParams, groupChildParams, groupSummary, groupHeading, PARCEL_GROUP_COLUMNS, parcelGroupFacts,
+  GROUP_OPTIONS, DEFAULT_GROUP, DEFAULT_STATUS, DISPLAY_STATUSES, STATUS_FILTER_OPTIONS, cropDisplayStatus, farmerCropParams, monitoringParams, groupChildParams, groupSummary, PARCEL_GROUP_COLUMNS, parcelGroupFacts,
 } = await import(new URL('../src/pages/Monitoring/monitoringGroups.js', import.meta.url).href)
 
 let n = 0
@@ -40,10 +40,6 @@ eq(groupSummary({ count: 3, area_planted_ha: 4.5, near_harvest: 1 }), '3 records
 eq(groupSummary({ count: 1, area_planted_ha: 2, near_harvest: 0 }), '1 record · 2 ha', 'singular, no near-harvest part')
 eq(groupSummary({ count: 2, area_planted_ha: 0, near_harvest: 0 }), '2 records', 'no area recorded')
 eq(groupSummary({ count: 2, area_planted_ha: 1.23456, near_harvest: 2 }), '2 records · 1.23 ha · 2 near harvest', 'area rounded to 2 places')
-eq(groupHeading('crop', { name: 'Palay (Rice)', barangay: '' }), 'Palay (Rice)', 'crop heading')
-eq(groupHeading('farmer', { name: 'Ana Cruz', barangay: 'Alaska' }), 'Ana Cruz · Alaska', 'farmer heading includes the barangay')
-eq(groupHeading('parcel', { name: '01-33-02-005-001-02-003', barangay: 'Alaska' }), '01-33-02-005-001-02-003 · Alaska', 'parcel heading includes the barangay')
-eq(groupHeading('parcel', { name: 'No farm parcel on file', barangay: '' }), 'No farm parcel on file', 'the no-parcel heading')
 
 // ── "Group by Farm Parcel" as columns
 eq(PARCEL_GROUP_COLUMNS, ['Farm parcel', 'Farmer', 'Barangay', 'Area (ha)', 'Ownership', 'Records'], 'parcel group columns')

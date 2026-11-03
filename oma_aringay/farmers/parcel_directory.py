@@ -92,9 +92,12 @@ class FarmParcelDirectoryGroupsView(APIView):
         if ordering not in ORDERINGS:
             raise ValidationError({'ordering': f'Use one of: {", ".join(ORDERINGS)}.'})
         qs = directory_filters(request.query_params).order_by()
-        totals = dict(parcels=Count('id'), area=Sum('area_hectares'), crops=Sum('crop_count'))
+        totals = dict(parcels=Count('id'), area=Sum('area_hectares'), crops=Sum('crop_count'), farmers=Count('farmer_id', distinct=True))
         if group_by == 'farmer':
-            rows = qs.values('farmer_id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name', 'farmer__barangay').annotate(**totals)
+            rows = qs.values(
+                'farmer_id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name', 'farmer__barangay',
+                'farmer__rsbsa_number', 'farmer__contact_number',
+            ).annotate(**totals)
             name_order = ('farmer__last_name', 'farmer__first_name', 'farmer_id')
         elif group_by == 'barangay':
             rows = qs.values('barangay').annotate(**totals)
@@ -111,10 +114,11 @@ class FarmParcelDirectoryGroupsView(APIView):
 
     @staticmethod
     def _shape(group_by, row):
-        shared = {'parcels': row['parcels'], 'area_hectares': float(row['area'] or 0), 'crops': row['crops'] or 0}
+        shared = {'parcels': row['parcels'], 'area_hectares': float(row['area'] or 0), 'crops': row['crops'] or 0, 'farmers': row['farmers']}
         if group_by == 'farmer':
             name = ' '.join(n for n in (row['farmer__first_name'], row['farmer__middle_name'], row['farmer__last_name']) if n)
-            return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '', **shared}
+            return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '',
+                    'rsbsa_number': row['farmer__rsbsa_number'] or '', 'contact_number': row['farmer__contact_number'] or '', **shared}
         if group_by == 'barangay':
             return {'key': f"b{row['barangay']}", 'id': row['barangay'], 'name': row['barangay'] or 'No barangay', 'barangay': '', **shared}
         return {'key': f"o{row['land_ownership']}", 'id': row['land_ownership'], 'name': row['land_ownership'] or 'No ownership', 'barangay': '', **shared}

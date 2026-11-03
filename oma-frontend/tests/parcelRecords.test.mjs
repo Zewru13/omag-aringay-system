@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 const {
   parcelLabel, cropCountLabel, directoryParams, noParcelParams, addCropState, recordActionKeys, ownerParcelFill, parcelProblem,
   addCropsLockedState,
-  GROUP_OPTIONS, DEFAULT_GROUP, groupFilterParams, groupChildParams, groupSummary, groupHeading,
+  GROUP_OPTIONS, DEFAULT_GROUP, groupFilterParams, groupChildParams,
 } = await import(new URL('../src/pages/CropInformation/parcelRecords.js', import.meta.url).href)
 
 let n = 0
@@ -36,10 +36,6 @@ eq(groupChildParams('barangay', { key: 'bAlaska', id: 'Alaska' }), { barangay: '
 eq(groupChildParams('ownership', { key: 'oTenant', id: 'Tenant' }), { land_ownership: 'Tenant' }, 'an ownership group')
 eq(groupChildParams('barangay', { key: 'b', id: '' }), null, 'a group with no value has nothing to open onto')
 eq(groupChildParams('none', { id: 1 }), null, 'no grouping has no groups')
-eq(groupSummary({ parcels: 2, area_hectares: 3.5, crops: 5 }), '2 parcels · 3.5 ha · 5 crops', 'summary')
-eq(groupSummary({ parcels: 1, area_hectares: 0, crops: 0 }), '1 parcel · No crops yet', 'summary of an empty parcel')
-eq(groupHeading('farmer', { name: 'Ben Dizon', barangay: 'Poblacion' }), 'Ben Dizon · Poblacion', 'farmer heading shows the home barangay')
-eq(groupHeading('barangay', { name: 'Alaska', barangay: '' }), 'Alaska', 'barangay heading')
 
 // ── the request for the crops that have no parcel on file (only the filters that apply to them)
 eq(noParcelParams({ search: 'Ana', barangay: 'Alaska', farmStatus: 'Inactive' }), { farm_parcel: 'none', search: 'Ana', barangay: 'Alaska' }, 'no-parcel request')

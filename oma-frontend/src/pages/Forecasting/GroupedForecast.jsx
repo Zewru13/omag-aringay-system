@@ -1,12 +1,14 @@
 import { Fragment, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { STACK_TABLES } from '../../components/UI/ForecastCard.jsx'
+import { personFacts } from '../../utils/groupColumns.js'
 
 // Shared grouped-by-person view for BOTH crop (by farmer) and fisheries
 // (by fisherfolk) forecasting. Callers pass a normalized `records` array so
 // this component stays domain-agnostic:
-//   { id, person, commodity, landStatus, dateField, status, harvestDate,
+//   { id, person, personRsbsa, personBarangay, personContact, commodity, landStatus, dateField, status, harvestDate,
 //     variancePct, isTotalLoss }
+// The person's RSBSA No. / Barangay / Contact No. are their own facts (on every record of theirs); a group row shows them as columns.
 // variancePct is null for anything not yet harvested; the row then reads
 // "In progress" (or "Total Loss") — descriptive only, no causal wording.
 
@@ -69,7 +71,7 @@ export default function GroupedForecast({
         const avgVar = harvested.length
           ? harvested.reduce((s, r) => s + r.variancePct, 0) / harvested.length
           : null
-        return { person, recs, count: recs.length, harvestedCount: harvested.length, avgVar }
+        return { person, recs, ...personFacts(recs), count: recs.length, harvestedCount: harvested.length, avgVar }
       })
       .sort((a, b) => a.person.localeCompare(b.person))
   }, [records])
@@ -92,16 +94,16 @@ export default function GroupedForecast({
         <table className="min-w-full text-sm">
           <thead className="bg-[#1B4D2E] text-white">
             <tr>
-              {['', personLabel, 'Records', 'Harvested', 'Avg Variance'].map((h, i) => (
+              {['', personLabel, 'RSBSA No.', 'Barangay', 'Contact No.', 'Records', 'Harvested', 'Avg Variance'].map((h, i) => (
                 <th key={i} className="px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={5} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
+              <tr><td colSpan={8} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
             ) : groups.length === 0 ? (
-              <tr><td colSpan={5} className="py-8 text-center text-[13px] text-[#7A8E7A]">No records found in scope.</td></tr>
+              <tr><td colSpan={8} className="py-8 text-center text-[13px] text-[#7A8E7A]">No records found in scope.</td></tr>
             ) : groups.map(g => {
               const isOpen = expanded.has(g.person)
               return (
@@ -109,6 +111,9 @@ export default function GroupedForecast({
                   <tr onClick={() => toggle(g.person)} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer max-md:grid! max-md:grid-cols-3 max-md:gap-x-3">
                     <td className="px-3 py-[11px] text-[#7A8E7A] max-md:hidden!">{isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
                     <td className="max-md:col-span-3 max-md:flex! max-md:items-center max-md:justify-between gap-2 px-3 py-[11px] text-[13px] font-semibold text-[#1A2B1A] max-md:text-[15px] md:whitespace-nowrap">{g.person}<span className="text-[#7A8E7A] md:hidden">{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span></td>
+                    <td data-label="RSBSA No." className="px-3 py-[11px] text-[13px] text-[#4A5E4A] md:whitespace-nowrap">{g.rsbsa || '—'}</td>
+                    <td data-label="Barangay" className="px-3 py-[11px] text-[13px] text-[#4A5E4A] md:whitespace-nowrap">{g.barangay || '—'}</td>
+                    <td data-label="Contact No." className="px-3 py-[11px] text-[13px] text-[#4A5E4A] md:whitespace-nowrap">{g.contact || '—'}</td>
                     <td data-label="Records" className="px-3 py-[11px] text-[13px] text-[#1A2B1A]">{g.count}</td>
                     <td data-label="Harvested" className="px-3 py-[11px] text-[13px] text-[#1A2B1A]">{g.harvestedCount}</td>
                     <td data-label="Avg variance" className="px-3 py-[11px]">
@@ -117,7 +122,7 @@ export default function GroupedForecast({
                   </tr>
                   {isOpen && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
-                      <td colSpan={5} className="px-4 py-3">
+                      <td colSpan={8} className="px-4 py-3">
                         <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white">
                           <table className="min-w-full text-[12px]">
                             <thead className="text-[#4A5E4A]">

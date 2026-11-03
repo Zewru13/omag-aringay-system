@@ -613,6 +613,9 @@ function YieldAnalysisTab() {
       .then(r => setGrouped((r.data.records || []).map(rec => ({
         id: rec.id,
         person: rec.farmer,
+        personRsbsa: rec.farmer_rsbsa,
+        personBarangay: rec.farmer_barangay,
+        personContact: rec.farmer_contact,
         commodity: rec.crop_type,
         landStatus: rec.land_status,
         dateField: rec.date_planted,
@@ -886,6 +889,9 @@ export default function ForecastingPage() {
         setGrouped((r.data.records || []).map(rec => ({
           id: rec.id,
           person: rec.farmer,
+          personRsbsa: rec.farmer_rsbsa,
+          personBarangay: rec.farmer_barangay,
+          personContact: rec.farmer_contact,
           commodity: rec.crop_type,
           landStatus: rec.land_status,
           dateField: rec.date_planted,

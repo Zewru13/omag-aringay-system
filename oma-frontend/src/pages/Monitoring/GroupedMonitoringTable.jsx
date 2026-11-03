@@ -4,8 +4,10 @@ import api from '../../api/axiosInstance.js'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import { groupRowButtonClass } from '../../utils/groupColumns.js'
 import RowActions from '../../components/UI/RowActions.jsx'
-import { PARCEL_GROUP_COLUMNS, groupChildParams, groupHeading, groupSummary, parcelGroupFacts } from './monitoringGroups.js'
+import { GroupColumnsHeader, GroupColumnsRow } from '../../components/UI/GroupColumns.jsx'
+import { PARCEL_GROUP_COLUMNS, groupChildParams, parcelGroupFacts } from './monitoringGroups.js'
 
 // Crop Monitoring grouped by crop or by farmer. The groups come from the server (GET /production/monitoring/groups/, ten
 // per page, with the same filters as the list); opening a group loads that group's own records from the ordinary list
@@ -115,9 +117,7 @@ export default function GroupedMonitoringTable({
             {parcelActions && <div className={`flex items-center justify-center py-3 ${ACTIONS_WIDTH}`}><span className="sr-only">Actions</span></div>}
           </div>
         ) : (
-          <div className="hidden bg-[#1B4D2E] px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-white sm:block">
-            {{ farmer: 'Farmer', parcel: 'Farm parcel' }[groupBy] || 'Crop'}
-          </div>
+          <GroupColumnsHeader kind={`monitoring:${groupBy}`} />
         )}
         {isLoading && <p className="px-4 py-8 text-center text-sm text-slate-500">Loading…</p>}
         {!isLoading && !error && groups.length === 0 && (
@@ -155,13 +155,9 @@ export default function GroupedMonitoringTable({
                   disabled={!canOpen}
                   onClick={() => toggle(group)}
                   aria-expanded={isOpen}
-                  className="grid min-h-[56px] w-full grid-cols-[minmax(0,1fr)_2rem] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F5F7F5] focus-visible:bg-[#F5F7F5] focus-visible:outline-none disabled:cursor-default"
+                  className={groupRowButtonClass(`monitoring:${groupBy}`)}
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[14px] font-semibold text-[#1A2B1A]">{groupHeading(groupBy, group)}</span>
-                    <span className="block truncate text-[12px] text-[#7A8E7A]">{groupSummary(group)}</span>
-                  </span>
-                  <ChevronDown size={18} className={`justify-self-end text-[#7A8E7A] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  <GroupColumnsRow kind={`monitoring:${groupBy}`} group={group} isOpen={isOpen} />
                 </button>
                 )}
                 {asParcelRow && parcelActions && (

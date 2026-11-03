@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { GroupColumnsHeader, GroupColumnsRow } from '../../components/UI/GroupColumns.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import { groupChildParams, groupHeading, groupSummary } from './parcelRecords.js'
+import { groupRowButtonClass } from '../../utils/groupColumns.js'
+import { groupChildParams } from './parcelRecords.js'
 
 // Crop Records grouped by farmer, barangay or land ownership. The groups come from the server (GET /farmers/parcels/directory/groups/,
 // ten per page, with the page's filters and sort); opening a group loads that group's own parcels from the ordinary parcel list
@@ -13,9 +14,9 @@ import { groupChildParams, groupHeading, groupSummary } from './parcelRecords.js
 //   version: bump to reload after an action
 
 const GROUP_PAGE_SIZE = 10
-const HEADER = { farmer: 'Farmer', barangay: 'Barangay', ownership: 'Land ownership' }
 
 export default function GroupedParcelsTable({ groupBy, filters, version, renderRows, emptyText = 'No farm parcels found' }) {
+  const kind = `parcels:${groupBy}`
   const [page, setPage] = useState(1)
   // What the last answer was for: while it differs from what is asked now, the table is loading.
   const [result, setResult] = useState({ key: null, groups: [], total: 0, error: '' })
@@ -71,9 +72,7 @@ export default function GroupedParcelsTable({ groupBy, filters, version, renderR
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
       <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-testid="grouped-parcels-table">
-        <div className="hidden bg-[#1B4D2E] px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-white sm:block">
-          {HEADER[groupBy] || 'Group'}
-        </div>
+        <GroupColumnsHeader kind={kind} />
         {isLoading && <p className="px-4 py-8 text-center text-sm text-slate-500">Loading…</p>}
         {!isLoading && !error && groups.length === 0 && (
           <div className="px-4 py-12 text-center">
@@ -93,13 +92,9 @@ export default function GroupedParcelsTable({ groupBy, filters, version, renderR
                   disabled={!canOpen}
                   onClick={() => toggle(group)}
                   aria-expanded={isOpen}
-                  className="grid min-h-[56px] w-full grid-cols-[minmax(0,1fr)_2rem] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F5F7F5] focus-visible:bg-[#F5F7F5] focus-visible:outline-none disabled:cursor-default"
+                  className={groupRowButtonClass(kind)}
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[14px] font-semibold text-[#1A2B1A]">{groupHeading(groupBy, group)}</span>
-                    <span className="block truncate text-[12px] text-[#7A8E7A]">{groupSummary(group)}</span>
-                  </span>
-                  <ChevronDown size={18} className={`justify-self-end text-[#7A8E7A] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  <GroupColumnsRow kind={kind} group={group} isOpen={isOpen} />
                 </button>
                 {isOpen && (
                   <div className="border-t border-[#E2E8E2] bg-[#F9FAF9] px-2 py-2 sm:px-4" data-testid="group-parcels">

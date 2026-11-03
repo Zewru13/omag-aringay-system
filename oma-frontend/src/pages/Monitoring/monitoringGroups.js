@@ -106,5 +106,3 @@ export function parcelGroupFacts(group) {
     records: groupSummary(group),
   }
 }
-
-export const groupHeading = (groupBy, group) => (groupBy !== 'crop' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)
