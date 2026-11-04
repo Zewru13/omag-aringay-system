@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import {
   BarChart2, ChevronDown, ChevronRight, Download, FileText,
-  Info, Search, TrendingUp, User,
+  Info, TrendingUp, User,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -10,7 +10,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import PillTabs from '../../components/UI/PillTabs.jsx'
-import ViewToggle from '../../components/UI/ViewToggle.jsx'
+import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -21,6 +21,7 @@ import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import GroupedForecast from './GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { dateRangeParams } from '../../utils/dateRange.js'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { countdownText, daysUntil, fmtShortDate } from '../../utils/forecastDates.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
@@ -356,20 +357,12 @@ function VarianceBadge({ pct }) {
 
 // ── Yield Analysis: Aggregate Panel ─────────────────────────────────────────────
 
-function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
+function AggregatePanel({ groups, overall, isLoading }) {
   const maxAbsVariance = Math.max(10, ...groups.map(g => Math.abs(g.avg_variance_pct ?? 0)))
 
   return (
     <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
-        <ViewToggle
-          ariaLabel="Group the summary by"
-          options={[{ id: 'barangay', label: 'By barangay' }, { id: 'crop_type', label: 'By crop type' }]}
-          value={groupBy}
-          onChange={setGroupBy}
-        />
-      </div>
+      <p className="mb-4 text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
 
       <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
         <div className="bg-[#EBF5EE] rounded-xl p-3">
@@ -460,75 +453,6 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
   )
 }
 
-// ── Farmer filter (autocomplete search-select) ──────────────────────────────
-// Mirrors FisheriesForecastingTab.jsx's FisherfolkFilterInput exactly, swapped
-// to the farmers endpoint, so "Group by farmer" behaves identically to
-// fisheries' "Group by fisherfolk".
-
-function FarmerFilterInput({ selected, onSelect }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [showDrop, setShowDrop] = useState(false)
-  const debounceRef = useRef(null)
-  const wrapperRef = useRef(null)
-
-  const doSearch = useCallback(async (q) => {
-    if (!q.trim()) { setResults([]); return }
-    try {
-      const r = await api.get('/farmers/', { params: { search: q } })
-      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
-      setResults(list.slice(0, 8))
-    } catch { setResults([]) }
-  }, [])
-
-  const handleChange = (e) => {
-    const v = e.target.value
-    setQuery(v)
-    setShowDrop(true)
-    if (!v.trim()) onSelect(null)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => doSearch(v), 300)
-  }
-
-  useEffect(() => {
-    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const displayValue = selected ? selected.full_name : query
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
-        <input
-          className={`${baseInputClasses} pl-7`}
-          placeholder="All Farmers"
-          value={displayValue}
-          onChange={handleChange}
-          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
-        />
-      </div>
-      {showDrop && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
-          {results.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onMouseDown={() => { onSelect(f); setQuery(''); setShowDrop(false) }}
-              className="flex flex-col w-full px-3 py-2 text-left hover:bg-[#F5F7F5] transition-colors"
-            >
-              <span className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</span>
-              <span className="text-[11px] text-[#7A8E7A]">{f.barangay}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Yield Analysis Tab ───────────────────────────────────────────────────────
 
 function YieldAnalysisTab() {
@@ -540,15 +464,13 @@ function YieldAnalysisTab() {
   const [records, setRecords] = useState([])
   const [groups, setGroups] = useState([])
   const [overall, setOverall] = useState({})
-  const [groupBy, setGroupBy] = useState('barangay')
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isDownloading, setIsDownloading] = useState(false)
   const [showSig, setShowSig] = useState(false)
   const [sigPurpose, setSigPurpose] = useState('pdf')
   const [expanded, setExpanded] = useState(() => new Set())
-  const [filters, setFilters] = useState({ crop_type: '', barangay: '', season: '', year: '' })
-  const [farmerFilter, setFarmerFilter] = useState(null)
+  const [filters, setFilters] = useState({ crop_type: '', barangay: '', season: '', planted_from: '', planted_to: '' })
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState('analysis') // 'analysis' | 'grouped'
   const [grouped, setGrouped] = useState([])
@@ -571,8 +493,7 @@ function YieldAnalysisTab() {
     if (filters.crop_type) p.crop_type = filters.crop_type
     if (filters.barangay)  p.barangay  = filters.barangay
     if (filters.season)    p.season    = filters.season
-    if (filters.year)      p.year      = filters.year
-    if (farmerFilter)      p.farmer    = farmerFilter.id
+    Object.assign(p, dateRangeParams(filters.planted_from, filters.planted_to, 'planted_from', 'planted_to'))
     return p
   }
 
@@ -580,7 +501,7 @@ function YieldAnalysisTab() {
   // filters or the search change (without an effect: the page number is remembered together with what it was for).
   const YIELD_PAGE_SIZE = 25
   const yieldSearch = useDebouncedValue(search.trim())
-  const yieldPageKey = JSON.stringify([[filters, farmerFilter?.id], yieldSearch])
+  const yieldPageKey = JSON.stringify([filters, yieldSearch])
   const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
   const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
   const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
@@ -593,12 +514,12 @@ function YieldAnalysisTab() {
       .catch(() => showToast('Failed to load yield analysis.', 'error'))
       .finally(() => setIsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter, yieldPage, yieldSearch])
+  }, [filters.crop_type, filters.barangay, filters.season, filters.planted_from, filters.planted_to, yieldPage, yieldSearch])
 
   useEffect(() => {
     if (isFarmer) { setIsLoadingSummary(false); return }
     setIsLoadingSummary(true)
-    api.get('/production/yield-analysis/summary/', { params: buildParams({ group_by: groupBy }) })
+    api.get('/production/yield-analysis/summary/', { params: buildParams({ group_by: 'barangay' }) })
       .then(r => {
         setGroups(r.data.groups || [])
         setOverall(r.data.overall || {})
@@ -606,7 +527,7 @@ function YieldAnalysisTab() {
       .catch(() => showToast('Failed to load aggregate summary.', 'error'))
       .finally(() => setIsLoadingSummary(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter, groupBy])
+  }, [filters.crop_type, filters.barangay, filters.season, filters.planted_from, filters.planted_to])
 
   // Grouped-by-farmer view — reuses the Farmer Crop History report's JSON
   // query (all statuses, not just harvested), normalized to GroupedForecast's
@@ -633,7 +554,7 @@ function YieldAnalysisTab() {
       .catch(() => showToast('Failed to load grouped view.', 'error'))
       .finally(() => setIsLoadingGrouped(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter])
+  }, [viewMode, filters.crop_type, filters.barangay, filters.season, filters.planted_from, filters.planted_to])
 
   const toggleExpand = (id) => {
     setExpanded(prev => {
@@ -646,7 +567,7 @@ function YieldAnalysisTab() {
 
 
   const buildUrl = (fmt) => {
-    const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
+    const p = new URLSearchParams({ ...buildParams({ group_by: 'barangay' }), format: fmt })
     return `/reports/yield-analysis/?${p}`
   }
 
@@ -674,7 +595,7 @@ function YieldAnalysisTab() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by crop, farmer, or barangay...'}
-        activeCount={[filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter?.id].filter(Boolean).length}
+        activeCount={[filters.crop_type, filters.barangay, filters.season, viewMode === 'grouped', filters.planted_from || filters.planted_to].filter(Boolean).length}
         actions={!isFarmer && viewMode === 'analysis' ? (
           <YAActionButtons
             onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
@@ -696,25 +617,20 @@ function YieldAnalysisTab() {
           <option value="Dry">Dry season</option>
           <option value="Wet">Wet season</option>
         </select>
-        <input
-          type="number"
-          placeholder="Year"
-          aria-label="Year"
-          className={`${filterSelectCls} w-24`}
-          value={filters.year}
-          onChange={e => set('year', e.target.value)}
+        {!isFarmer && (
+          <select className={filterSelectCls} value={viewMode} onChange={e => setViewMode(e.target.value)} aria-label="Group by">
+            <option value="analysis">Group by: none</option>
+            <option value="grouped">Group by farmer</option>
+          </select>
+        )}
+        <DateRangeFields
+          label="Date Planted"
+          from={filters.planted_from}
+          to={filters.planted_to}
+          onFromChange={v => set('planted_from', v)}
+          onToChange={v => set('planted_to', v)}
         />
-        {!isFarmer && <div className="w-56"><FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} /></div>}
       </FilterPanel>
-
-      {!isFarmer && (
-        <ViewToggle
-          ariaLabel="Show the yield analysis as"
-          options={[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By farmer' }]}
-          value={viewMode}
-          onChange={setViewMode}
-        />
-      )}
 
       {viewMode === 'analysis' && <DisclaimerBanner />}
 
@@ -727,7 +643,7 @@ function YieldAnalysisTab() {
           dateLabel="Date Planted"
         />
       ) : (<>
-      {!isFarmer && <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} isLoading={isLoadingSummary} />}
+      {!isFarmer && <AggregatePanel groups={groups} overall={overall} isLoading={isLoadingSummary} />}
 
       {/* Per-crop table */}
       <div>
@@ -859,6 +775,9 @@ export default function ForecastingPage() {
   const [cropTypes,     setCropTypes]     = useState([])
   const [barangayFilter, setBarangayFilter] = useState('')
   const [cropTypeFilter, setCropTypeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')   // '' | Planted | Near Harvest | Overdue, as the Status pill reads
+  const [plantedFrom, setPlantedFrom] = useState('')
+  const [plantedTo, setPlantedTo] = useState('')
   const { showToast } = useToast()
 
   useEffect(() => {
@@ -889,6 +808,8 @@ export default function ForecastingPage() {
     const params = { format: 'json' }
     if (barangayFilter) params.barangay = barangayFilter
     if (cropTypeFilter) params.crop_type = cropTypeFilter
+    if (statusFilter) params.forecast_status = statusFilter
+    Object.assign(params, dateRangeParams(plantedFrom, plantedTo, 'planted_from', 'planted_to'))
     api.get('/reports/farmer-crop-history/', { params })
       .then(r => {
         if (cancelled) return
@@ -911,7 +832,7 @@ export default function ForecastingPage() {
       .finally(() => { if (!cancelled) setIsLoadingGrouped(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forecastView, barangayFilter, cropTypeFilter])
+  }, [forecastView, barangayFilter, cropTypeFilter, statusFilter, plantedFrom, plantedTo])
 
   // Same cancelled-flag idiom as the grouped view above, for the flat view's
   // fetch. fetchRecords is also called imperatively elsewhere (after an
@@ -926,6 +847,8 @@ export default function ForecastingPage() {
       const params = { status: 'Planted,Near Harvest', page: pageNum, ordering: 'expected_harvest_date' }
       if (barangayFilter) params.barangay = barangayFilter
       if (cropTypeFilter) params.crop_type = cropTypeFilter
+      if (statusFilter) params.forecast_status = statusFilter
+      Object.assign(params, dateRangeParams(plantedFrom, plantedTo, 'planted_from', 'planted_to'))
       if (debouncedSearch) params.search = debouncedSearch
       const r = await api.get('/production/monitoring/', { params })
       if (isCancelled()) return
@@ -937,9 +860,9 @@ export default function ForecastingPage() {
       if (!isCancelled()) setIsLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [barangayFilter, cropTypeFilter, debouncedSearch])
+  }, [barangayFilter, cropTypeFilter, statusFilter, plantedFrom, plantedTo, debouncedSearch])
 
-  useEffect(() => { setPage(1) }, [barangayFilter, cropTypeFilter, debouncedSearch])
+  useEffect(() => { setPage(1) }, [barangayFilter, cropTypeFilter, statusFilter, plantedFrom, plantedTo, debouncedSearch])
   useEffect(() => {
     let cancelled = false
     fetchRecords(page, () => cancelled)
@@ -1012,7 +935,7 @@ export default function ForecastingPage() {
               search={search}
               onSearchChange={setSearch}
               searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-              activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
+              activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter), forecastView === 'grouped', Boolean(statusFilter), Boolean(plantedFrom || plantedTo)].filter(Boolean).length}
             >
               <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)} aria-label="Crop type">
                 <option value="">All crops</option>
@@ -1022,26 +945,28 @@ export default function ForecastingPage() {
                 <option value="">All barangays</option>
                 {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
+              {!isFarmer && (
+                <select className={filterSelectCls} value={forecastView} onChange={e => setForecastView(e.target.value)} aria-label="Group by">
+                  <option value="flat">Group by: none</option>
+                  <option value="grouped">Group by farmer</option>
+                </select>
+              )}
+              <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label="Status">
+                <option value="">All statuses</option>
+                <option value="Planted">Planted</option>
+                <option value="Near Harvest">Near Harvest</option>
+                <option value="Overdue">Overdue</option>
+              </select>
+              <DateRangeFields label="Date Planted" from={plantedFrom} to={plantedTo} onFromChange={setPlantedFrom} onToChange={setPlantedTo} />
             </FilterPanel>
 
             {error && <ErrorMessage message={error} />}
 
-            {/* How the crops are shown on the left, how many there are on the right. */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {isFarmer ? <span /> : (
-                <ViewToggle
-                  ariaLabel="Show crops as"
-                  options={[{ id: 'flat', label: 'All crops' }, { id: 'grouped', label: 'By farmer' }]}
-                  value={forecastView}
-                  onChange={setForecastView}
-                />
-              )}
-              {forecastView === 'flat' && !isLoading && (
-                <p className="text-[12px] text-[#7A8E7A]">
-                  {totalCount.toLocaleString()} growing crop{totalCount === 1 ? '' : 's'}, soonest harvest first
-                </p>
-              )}
-            </div>
+            {forecastView === 'flat' && !isLoading && (
+              <p className="text-[12px] text-[#7A8E7A]">
+                {totalCount.toLocaleString()} growing crop{totalCount === 1 ? '' : 's'}, soonest harvest first
+              </p>
+            )}
 
             {forecastView === 'flat' ? (
               <>

@@ -25,6 +25,7 @@ from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, filter_date_range, filter_people_search, is_plain_int, new_yield_group
+from .forecast_filters import filter_forecast_status
 from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
@@ -860,6 +861,8 @@ def _filter_monitoring_queryset(qs, request):
         qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
     # The page splits "Near Harvest" by how far the expected date is (the same days the page used to compute itself):
     # Due Harvest = still ahead, Ready for Harvest = today or up to 7 days past, Overdue = more than 7 days past.
+    # Forecasting's status filter: ?forecast_status=Planted | Near Harvest | Overdue (see production/forecast_filters.py).
+    qs = filter_forecast_status(qs, params.get('forecast_status'))
     display = params.get('display_status')
     if display in ('Due Harvest', 'Ready for Harvest', 'Overdue'):
         today = timezone.localdate()
@@ -1314,6 +1317,8 @@ def _yield_analysis_queryset(request):
     season    = request.query_params.get('season', '')
     year      = request.query_params.get('year', '')
     farmer    = request.query_params.get('farmer', '')
+    # Date planted: ?planted_from= and ?planted_to= (YYYY-MM-DD, both ends included), as on the Forecast list.
+    qs = filter_date_range(qs, 'date_planted', request.query_params, 'planted_from', 'planted_to')
     if barangay:
         qs = qs.filter(farm_location_barangay__iexact=barangay)
     if crop_type:

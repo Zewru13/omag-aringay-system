@@ -88,7 +88,7 @@ export const SECTIONS = [
       },
       {
         q: 'What do the rows of Group by show?',
-        a: 'Crop Records and Crop Monitoring can group their rows (Filters > Group by). A group row has columns just like the table. A farmer group shows the farmer\'s RSBSA No., Barangay and Contact No. with its totals (parcels, area and crops in Crop Records; records, area planted and near harvest in Crop Monitoring). A barangay, land ownership or crop group shows how many farmers it holds with its totals. Click a row to open what is inside it. Forecasting\'s By farmer and By fisherfolk views show the RSBSA No., Barangay and Contact No. as well. On a phone the same facts are stacked inside the row.',
+        a: 'Crop Records and Crop Monitoring can group their rows (Filters > Group by). A group row has columns just like the table. A farmer group shows the farmer\'s RSBSA No., Barangay and Contact No. with its totals (parcels, area and crops in Crop Records; records, area planted and near harvest in Crop Monitoring). A barangay, land ownership or crop group shows how many farmers it holds with its totals. Click a row to open what is inside it. Forecasting\'s Group by farmer and Group by fisherfolk views show the RSBSA No., Barangay and Contact No. as well. On a phone the same facts are stacked inside the row.',
       },
     ],
   },
