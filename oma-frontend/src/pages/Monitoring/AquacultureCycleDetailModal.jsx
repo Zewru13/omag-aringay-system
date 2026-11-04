@@ -23,6 +23,10 @@ import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { ForcedHarvestedStatus } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import { LogCell, LogHead, LogRow, LogTable, LogTh } from './LogFormTable.jsx'
+import {
+  HEALTH_OBSERVATION_OPTIONS, HEALTH_RECOMMENDED_TREATMENT, HEALTH_TREATMENT_OPTIONS, isForceObservation, unitEntryNeeds, unitLabel, validateUnitEntry,
+} from './cycleLogForms.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
@@ -375,21 +379,21 @@ function CycleInfoTab({ cycle, onRefresh }) {
     </div>
   )
 }
-function FeedingLogTab({ cycleId, units = [], cycle }) {
+// formOnly: the Log Activity window - just the form (open at once, today's date), no history list; onSaved() after a save, onCancel() on Cancel.
+export function FeedingLogTab({ cycleId, units = [], cycle, formOnly = false, onSaved, onCancel }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   // What is typed in the form is a draft: still here when the cycle is opened again (see hooks/useDraftForm.js); it opens the form.
   const draft = useDraftForm(`feeding-log:${cycleId}`)
-  const [showForm, setShowForm] = useState(draft.restored)
-  const EMPTY_FEEDING_FORM = { feeding_date: '', feed_type: '', feed_type_other: '', feed_custom: '', quantity_kg: '', notes: '' }
+  const [showForm, setShowForm] = useState(draft.restored || formOnly)
+  const EMPTY_FEEDING_FORM = { feeding_date: formOnly ? todayISOLocal() : '', feed_type: '', feed_type_other: '', feed_custom: '', quantity_kg: '', notes: '' }
   const [form, setForm] = useDraftField(draft, 'form', EMPTY_FEEDING_FORM)
   // false = the Feed Type shown is the system's suggestion; true = the user picked one (never overwritten).
   const [feedTouched, setFeedTouched] = useDraftField(draft, 'feedTouched', false)
   const [isSaving, setIsSaving] = useState(false)
   // The cycle's own ponds/cages (its Production Units). When it has any, feed is entered per unit
   // and the total is calculated; cycles without units keep the single Quantity (kg) field.
-  const unitLabel = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
   const hasUnits = units.length > 0
   const [unitQty, setUnitQty] = useDraftField(draft, 'unitQty', {})
   const unitValue = (u) => { const n = parseFloat(unitQty[u.id]); return n > 0 ? n : 0 }
@@ -425,7 +429,7 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
     } catch { setLogs([]) } finally { setIsLoading(false) }
   }
 
-  useEffect(() => { fetch() }, [cycleId])
+  useEffect(() => { if (!formOnly) fetch() }, [cycleId])
 
   const handleAdd = async (e) => {
     e.preventDefault()
@@ -469,7 +473,8 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
       setForm(EMPTY_FEEDING_FORM)
       setFeedTouched(false)
       setUnitQty({})
-      fetch()
+      if (formOnly) onSaved?.()
+      else fetch()
     } catch { showToast('Failed to save.', 'error') }
     finally { setIsSaving(false) }
   }
@@ -486,6 +491,7 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
 
   return (
     <div className="space-y-3">
+      {!formOnly && (
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-500">
           {logs.length} log{logs.length !== 1 ? 's' : ''}
@@ -502,130 +508,115 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
           Log Feeding
         </Button>
       </div>
+      )}
 
       {showForm && (
-        <form onSubmit={handleAdd} className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
+        <form onSubmit={handleAdd} className="space-y-3 rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 sm:p-4" data-testid="feeding-form">
           <DraftBanner draft={draft} />
-          {/* Table 1 - feed per production unit; the total is always the sum of the unit quantities. */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white" data-testid="feeding-units-table">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-                  <th className="px-3 py-2">Pond/Cage</th>
-                  <th className="px-3 py-2 text-right">Feed Quantity (kg)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hasUnits ? units.map(u => (
-                  <tr key={u.id} className="border-t border-slate-100">
-                    <td className="px-3 py-1.5 font-medium text-slate-800">{unitLabel(u)}</td>
-                    <td className="px-3 py-1.5">
-                      <DecimalInput
-                        decimals={2} className={`${baseInputClasses} text-right`} aria-label={`${unitLabel(u)} feed quantity (kg)`}
-                        value={unitQty[u.id] ?? ''} onChange={v => setUnitQty(q => ({ ...q, [u.id]: v }))}
-                      />
-                    </td>
-                  </tr>
-                )) : (
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-1.5 font-medium text-slate-800">Whole cycle <span className="text-red-500">*</span></td>
-                    <td className="px-3 py-1.5">
-                      <DecimalInput decimals={2} className={`${baseInputClasses} text-right`} required aria-label="Feed quantity (kg)"
-                        value={form.quantity_kg} onChange={v => setForm(f => ({ ...f, quantity_kg: v }))} />
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-              {hasUnits && (
-                <tfoot>
-                  <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800">
-                    <td className="px-3 py-2">TOTAL</td>
-                    <td className="px-3 py-2 text-right" data-testid="feed-total">{unitsTotal.toFixed(2)} kg</td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-
-          {/* Table 2 - the details of this feeding. */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white" data-testid="feeding-detail-table">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-                  <th className="w-[38%] px-3 py-2">Feeding Detail</th>
-                  <th className="px-3 py-2">Value</th>
-                </tr>
-              </thead>
-              <tbody className="align-top">
-                <tr className="border-t border-slate-100">
-                  <td className="px-3 py-2 text-xs font-medium text-slate-700">Date <span className="text-red-500">*</span></td>
-                  <td className="px-3 py-1.5">
-                    <input type="date" className={baseInputClasses} required value={form.feeding_date} onChange={e => setForm(f => ({ ...f, feeding_date: e.target.value }))} />
-                  </td>
-                </tr>
-                <tr className="border-t border-slate-100">
-                  <td className="px-3 py-2 text-xs font-medium text-slate-700">Suggested Feed Type <span className="text-red-500">*</span></td>
-                  <td className="px-3 py-1.5">
-                    <select
-                      className={baseInputClasses} required value={feedType} data-testid="feed-type-select"
-                      onChange={e => { setFeedTouched(true); setForm(f => ({ ...f, feed_type: e.target.value, feed_type_other: '', feed_custom: '' })) }}
-                    >
-                      <option value="" disabled>Select Feed Type</option>
-                      {feedTypeChoices.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    {suggestion ? (
-                      <p className="mt-1 text-xs text-slate-500" data-testid="feed-suggestion-note">
-                        Suggested: <span className="font-medium">{suggestion.value}</span>. {suggestion.note} You can change it based on your farm practice, fish size and available feed.
-                        {showUseSuggested && (
-                          <> <button type="button" className="font-medium text-[#1E4620] underline" data-testid="use-suggested-feed"
-                            onClick={() => { setFeedTouched(false); setForm(f => ({ ...f, feed_type: '', feed_type_other: '', feed_custom: '' })) }}>Use Suggested Feed</button></>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-slate-500">No suggestion is available for this cycle - choose the feed used.</p>
-                    )}
-                  </td>
-                </tr>
+          {/* 1 - the details of this feeding: one row, one labelled column per field. */}
+          <LogTable label="Feeding details" testId="feeding-detail-table">
+            <LogHead>
+              <LogTh required>Date</LogTh>
+              <LogTh required>Feed Type</LogTh>
+              {feedType === 'Others' && <LogTh required>Other Feed Type</LogTh>}
+              {feedType === 'Others' && form.feed_type_other === 'Custom Feed' && <LogTh required>Custom Feed Name</LogTh>}
+              <LogTh>Notes</LogTh>
+            </LogHead>
+            <tbody>
+              <LogRow>
+                <LogCell label="Date *" className="md:w-[12rem] md:min-w-[12rem]">
+                  <input type="date" className={baseInputClasses} required value={form.feeding_date} aria-label="Date" onChange={e => setForm(f => ({ ...f, feeding_date: e.target.value }))} />
+                </LogCell>
+                <LogCell label="Feed Type *">
+                  <select
+                    className={baseInputClasses} required value={feedType} data-testid="feed-type-select" aria-label="Feed Type"
+                    onChange={e => { setFeedTouched(true); setForm(f => ({ ...f, feed_type: e.target.value, feed_type_other: '', feed_custom: '' })) }}
+                  >
+                    <option value="" disabled>Select Feed Type</option>
+                    {feedTypeChoices.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </LogCell>
                 {feedType === 'Others' && (
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Other Feed Type <span className="text-red-500">*</span></td>
-                    <td className="px-3 py-1.5">
-                      <select className={baseInputClasses} required value={form.feed_type_other}
-                        onChange={e => setForm(f => ({ ...f, feed_type_other: e.target.value, feed_custom: '' }))}>
-                        <option value="" disabled>Select Other Feed Type</option>
-                        {OTHER_FEED_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                      <p className="mt-1 text-xs text-slate-500">Alternative/supplemental feed examples - not suitable for every species or system.</p>
-                    </td>
-                  </tr>
+                  <LogCell label="Other Feed Type *">
+                    <select className={baseInputClasses} required value={form.feed_type_other} aria-label="Other Feed Type"
+                      onChange={e => setForm(f => ({ ...f, feed_type_other: e.target.value, feed_custom: '' }))}>
+                      <option value="" disabled>Select Other Feed Type</option>
+                      {OTHER_FEED_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </LogCell>
                 )}
                 {feedType === 'Others' && form.feed_type_other === 'Custom Feed' && (
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Custom Feed Name <span className="text-red-500">*</span></td>
-                    <td className="px-3 py-1.5">
-                      <input className={baseInputClasses} required maxLength={100} value={form.feed_custom}
-                        onChange={e => setForm(f => ({ ...f, feed_custom: e.target.value }))} placeholder="Enter feed name" />
-                    </td>
-                  </tr>
+                  <LogCell label="Custom Feed Name *">
+                    <input className={baseInputClasses} required maxLength={100} value={form.feed_custom} aria-label="Custom Feed Name"
+                      onChange={e => setForm(f => ({ ...f, feed_custom: e.target.value }))} placeholder="Enter feed name" />
+                  </LogCell>
                 )}
-                <tr className="border-t border-slate-100">
-                  <td className="px-3 py-2 text-xs font-medium text-slate-700">Notes</td>
-                  <td className="px-3 py-1.5">
-                    <input className={baseInputClasses} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                <LogCell label="Notes">
+                  <input className={baseInputClasses} value={form.notes} aria-label="Notes" onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" />
+                </LogCell>
+              </LogRow>
+            </tbody>
+          </LogTable>
+          {suggestion ? (
+            <p className="px-1 text-xs text-[#4A5E4A]" data-testid="feed-suggestion-note">
+              Suggested feed type: <span className="font-medium">{suggestion.value}</span>. {suggestion.note} You can change it based on your farm practice, fish size and available feed.
+              {showUseSuggested && (
+                <> <button type="button" className="font-medium text-[#1E4620] underline" data-testid="use-suggested-feed"
+                  onClick={() => { setFeedTouched(false); setForm(f => ({ ...f, feed_type: '', feed_type_other: '', feed_custom: '' })) }}>Use Suggested Feed</button></>
+              )}
+            </p>
+          ) : (
+            <p className="px-1 text-xs text-[#4A5E4A]">No suggestion is available for this cycle - choose the feed used.</p>
+          )}
+          {feedType === 'Others' && (
+            <p className="px-1 text-xs text-[#4A5E4A]">Other feeds are alternative/supplemental examples - not suitable for every species or system.</p>
+          )}
 
-          <div className="flex gap-2 justify-end">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+          {/* 2 - feed per production unit (one row each); the total is always the sum of the unit quantities. */}
+          <LogTable label="Feed per pond or cage" testId="feeding-units-table">
+            <LogHead>
+              <LogTh>Pond/Cage</LogTh>
+              <LogTh required className="md:text-right">Feed Quantity (kg)</LogTh>
+            </LogHead>
+            <tbody>
+              {hasUnits ? units.map(u => (
+                <LogRow key={u.id}>
+                  <LogCell label="Pond/Cage" className="font-medium text-[#1A2B1A] md:w-[40%]">{unitLabel(u)}</LogCell>
+                  <LogCell label="Feed Quantity (kg)">
+                    <DecimalInput
+                      decimals={2} className={`${baseInputClasses} md:text-right`} aria-label={`${unitLabel(u)} feed quantity (kg)`}
+                      value={unitQty[u.id] ?? ''} onChange={v => setUnitQty(q => ({ ...q, [u.id]: v }))}
+                    />
+                  </LogCell>
+                </LogRow>
+              )) : (
+                <LogRow>
+                  <LogCell label="Pond/Cage" className="font-medium text-[#1A2B1A] md:w-[40%]">Whole cycle</LogCell>
+                  <LogCell label="Feed Quantity (kg) *">
+                    <DecimalInput decimals={2} className={`${baseInputClasses} md:text-right`} required aria-label="Feed quantity (kg)"
+                      value={form.quantity_kg} onChange={v => setForm(f => ({ ...f, quantity_kg: v }))} />
+                  </LogCell>
+                </LogRow>
+              )}
+            </tbody>
+            {hasUnits && (
+              <tfoot>
+                <tr className="border-t-2 border-[#E2E8E2] bg-[#EBF5EE] font-semibold text-[#1B4D2E] max-md:flex max-md:justify-between max-md:px-3 max-md:py-2">
+                  <td className="px-3 py-2 max-md:p-0">TOTAL</td>
+                  <td className="px-3 py-2 text-right max-md:p-0" data-testid="feed-total">{unitsTotal.toFixed(2)} kg</td>
+                </tr>
+              </tfoot>
+            )}
+          </LogTable>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" size="sm" variant="ghost" onClick={() => (formOnly ? onCancel?.() : setShowForm(false))}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
           </div>
         </form>
       )}
 
-      {isLoading ? <LoadingSpinner /> : logs.length === 0 ? (
+      {formOnly ? null : isLoading ? <LoadingSpinner /> : logs.length === 0 ? (
         <p className="py-3 text-center text-sm italic text-slate-400">No feeding logs.</p>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
@@ -653,21 +644,22 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
   )
 }
 
-function HealthLogTab({ cycleId, units = [], onChanged }) {
+// formOnly: the Log Activity window - just the form (open at once, today's date), no history list; onSaved() after a save, onCancel() on Cancel.
+export function HealthLogTab({ cycleId, units = [], onChanged, formOnly = false, onSaved, onCancel }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   // What is typed in the form is a draft: still here when the cycle is opened again (see hooks/useDraftForm.js); it opens the form.
   const draft = useDraftForm(`health-log:${cycleId}`)
-  const [showForm, setShowForm] = useState(draft.restored)
+  const [showForm, setShowForm] = useState(draft.restored || formOnly)
   // The cycle's own ponds/cages (its existing Production Units) - the affected one must be chosen
   // when the cycle has any. Nothing is typed: options come straight from the units.
   const hasUnits = units.length > 0
-  const unitName = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
+  const unitName = unitLabel
   const EMPTY_HEALTH_FORM = {
     production_units: [],       // ids of the affected ponds/cages (multi-select)
     unit_mortality: {},         // {unitId: count}, used when several units are selected with Fish Mortality
-    log_date: '',
+    log_date: formOnly ? todayISOLocal() : '',
     observation: '',
     observation_other: '',
     mortality_count: '0',
@@ -687,8 +679,6 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
     setUnitEntries(prev => ({ ...prev, [id]: { ...(prev[id] || EMPTY_UNIT_ENTRY), ...patch } }))
     setUnitErrors(prev => ({ ...prev, [id]: '' }))
   }
-  // Same rule as the backend (monitoring.models.health_requires_force_harvest) - display only.
-  const isForceObservation = (obs) => obs === 'Fish Mortality' || HEALTH_DISEASE_OBSERVATIONS.includes(obs)
   const chooseUnitObservation = (id, obs) => {
     const current = entryFor(id)
     setEntry(id, {
@@ -697,13 +687,6 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
       mortality_count: obs === 'Fish Mortality' ? (Number(current.mortality_count) > 0 ? current.mortality_count : '') : '',
       treatment_applied: isForceObservation(obs) ? '' : (HEALTH_RECOMMENDED_TREATMENT[obs] || ''),
     })
-  }
-  const validateUnitEntry = (e) => {
-    if (!e.observation) return 'Observation is required.'
-    if (e.observation === 'Other' && !e.observation_other.trim()) return 'Specify the observation.'
-    if (e.observation === 'Fish Mortality' && !(Number(e.mortality_count) > 0)) return 'Mortality Count is required for Fish Mortality.'
-    if (!isForceObservation(e.observation) && !e.treatment_applied) return 'Treatment is required for this observation.'
-    return ''
   }
   const resetForm = () => { setForm(EMPTY_HEALTH_FORM); setUnitEntries({}); setUnitErrors({}) }
 
@@ -719,7 +702,7 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
 
   // Force Harvest is a status decided from the observation (and enforced again by the backend).
   // It is display-only here: nothing is sent for it and no harvest is created by saving the log.
-  const forceHarvest = form.observation === 'Fish Mortality' || HEALTH_DISEASE_OBSERVATIONS.includes(form.observation)
+  const forceHarvest = isForceObservation(form.observation)
 
   // Ponds/cages that already have a Health Log in THIS cycle are not offered again (the backend enforces
   // it too). Deleting that log brings the unit back on the next fetch. Logs without a unit block nothing.
@@ -767,7 +750,8 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
         setShowForm(false)
         resetForm()
         fetch()
-        onChanged?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
+        onChanged?.()
+        onSaved?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
       } catch (err) {
         const d = err?.response?.data?.unit_logs
         if (Array.isArray(d) && d.length === selectedUnits.length && d.some(x => x && typeof x === 'object')) {
@@ -834,7 +818,8 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
       setShowForm(false)
       resetForm()
       fetch()
-      onChanged?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
+      onChanged?.()
+      onSaved?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
     } catch (err) {
       const d = err?.response?.data
       const msg = d && typeof d === 'object' ? [].concat(d.production_units || d.production_unit || []).join(' ') : ''
@@ -858,6 +843,7 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
 
   return (
     <div className="space-y-3">
+      {!formOnly && (
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-500">
           {logs.length} log{logs.length !== 1 ? 's' : ''}
@@ -874,9 +860,10 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
           Log Health
         </Button>
       </div>
+      )}
 
       {/* Force Harvest is per pond/cage: only a unit with its own mortality/disease log is marked. */}
-      {hasUnits && (
+      {hasUnits && !formOnly && (
         <div className="flex flex-wrap gap-1.5" data-testid="unit-status">
           {units.map(u => {
             const force = logs.some(l => l.production_unit === u.id && l.force_harvest)
@@ -894,160 +881,170 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
       )}
 
       {showForm && (
-        <form onSubmit={handleAdd} className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-3">
+        <form onSubmit={handleAdd} className="space-y-3 rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 sm:p-4" data-testid="health-form">
           <DraftBanner draft={draft} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className={labelCls}>Date *</label>
-              <input type="date" className={baseInputClasses} required value={form.log_date} onChange={e => setForm(f => ({...f, log_date: e.target.value}))} />
-            </div>
-            {hasUnits && (
-              <div className="sm:col-span-2" data-testid="affected-units">
-                <label className={labelCls}>Affected Pond/Cage *</label>
-                {availableUnits.length === 0 ? (
-                  <p className="text-xs italic text-slate-500">Every pond/cage in this cycle already has a Health Log.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Affected Pond/Cage">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <label htmlFor="health-log-date" className="text-xs font-semibold text-[#1B4D2E]">Date <span className="text-red-500">*</span></label>
+            <input id="health-log-date" type="date" className={`${baseInputClasses} w-full sm:w-48`} required value={form.log_date} onChange={e => setForm(f => ({ ...f, log_date: e.target.value }))} />
+          </div>
+
+          {hasUnits ? (
+            availableUnits.length === 0 ? (
+              <p className="rounded-lg border border-[#E2E8E2] bg-white px-3 py-2 text-xs italic text-[#4A5E4A]" data-testid="affected-units">
+                Every pond/cage in this cycle already has a Health Log.
+              </p>
+            ) : (
+              <div data-testid="affected-units" className="space-y-1.5">
+                {/* One row per pond/cage: tick the affected ones, then each has its OWN Observation. Mortality Count (Fish Mortality) and
+                    Treatment (non-Force-Harvest observations) are needed only when the row's observation asks for them. */}
+                <LogTable label="Health log per pond or cage" testId="unit-health-entries">
+                  <LogHead>
+                    <LogTh className="w-10">
+                      <input
+                        type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" aria-label="Select every pond/cage"
+                        checked={availableUnits.length > 0 && selectedUnits.length === availableUnits.length}
+                        onChange={() => setForm(f => ({ ...f, production_units: selectedUnits.length === availableUnits.length ? [] : availableUnits.map(u => u.id) }))}
+                      />
+                    </LogTh>
+                    <LogTh required>Affected Pond/Cage</LogTh>
+                    <LogTh required>Observation</LogTh>
+                    <LogTh required>Mortality Count</LogTh>
+                    <LogTh required>Treatment</LogTh>
+                  </LogHead>
+                  <tbody>
                     {availableUnits.map(u => {
                       const on = form.production_units.includes(u.id)
-                      return (
-                        <button
-                          key={u.id} type="button" aria-pressed={on} onClick={() => toggleUnit(u.id)}
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors max-md:min-h-[36px] ${on ? 'border-[#1E4620] bg-[#1E4620] text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
-                        >
-                          {unitName(u)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-                {availableUnits.length > 0 && availableUnits.length < units.length && (
-                  <p className="mt-1 text-[11px] text-slate-500">Ponds/cages that already have a Health Log are not listed.</p>
-                )}
-              </div>
-            )}
-            {hasUnits && selectedUnits.length > 0 && (
-              // Compact table: one row per selected pond/cage with its OWN Observation. Mortality Count
-              // (Fish Mortality) and Treatment (non-Force-Harvest observations) appear under it only when needed.
-              <div className="sm:col-span-2 overflow-hidden rounded-lg border border-orange-200 bg-white" data-testid="unit-health-entries">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-orange-100/60 text-left text-xs font-semibold text-slate-700">
-                      <th className="w-[30%] px-3 py-2">Pond/Cage</th>
-                      <th className="px-3 py-2">Observation <span className="text-red-500">*</span></th>
-                    </tr>
-                  </thead>
-                  <tbody className="align-top">
-                    {selectedUnits.map(u => {
                       const e = entryFor(u.id)
-                      const force = isForceObservation(e.observation)
+                      const needs = unitEntryNeeds(e)
                       const err = unitErrors[u.id]
                       return (
-                        <tr key={u.id} data-testid={`unit-health-${u.id}`} className={`border-t border-orange-100 ${err ? 'bg-rose-50/60' : ''}`}>
-                          <td className="px-3 py-2">
+                        <LogRow key={u.id} data-testid={`unit-health-${u.id}`} tone={err ? 'bg-rose-50/60' : on ? 'bg-[#F5F8F5]' : ''}>
+                          <LogCell label="Affected" className="md:w-10">
+                            <input
+                              type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" aria-label={`Affected: ${unitName(u)}`}
+                              checked={on} onChange={() => toggleUnit(u.id)}
+                            />
+                          </LogCell>
+                          <LogCell label="Pond/Cage *" className="md:w-[16%]">
                             <span className="font-semibold text-slate-800">{unitName(u)}</span>
-                            {force && (
+                            {on && needs.force && (
                               <span className="mt-1 block w-fit" style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#ffebee', color: '#c62828', fontWeight: 600 }}>
                                 ⚠ Force Harvest
                               </span>
                             )}
-                          </td>
-                          <td className="space-y-1.5 px-3 py-1.5">
-                            <ComboboxWithOther
-                              options={HEALTH_OBSERVATION_OPTIONS.filter(o => o !== 'Other')}
-                              value={e.observation}
-                              otherValue={e.observation_other}
-                              onChange={(obs) => chooseUnitObservation(u.id, obs)}
-                              onOtherChange={(v) => setEntry(u.id, { observation_other: v })}
-                              placeholder="Select Observation"
-                              required
-                            />
-                            {e.observation === 'Fish Mortality' && (
+                          </LogCell>
+                          <LogCell label="Observation *" className={`md:w-[30%] ${on ? '' : 'max-md:hidden'}`}>
+                            {on ? (
+                              <div className="space-y-1">
+                                <ComboboxWithOther
+                                  options={HEALTH_OBSERVATION_OPTIONS.filter(o => o !== 'Other')}
+                                  value={e.observation}
+                                  otherValue={e.observation_other}
+                                  onChange={(obs) => chooseUnitObservation(u.id, obs)}
+                                  onOtherChange={(v) => setEntry(u.id, { observation_other: v })}
+                                  placeholder="Select Observation"
+                                  required
+                                />
+                                {err && <p className="text-xs text-rose-600" role="alert">{err}</p>}
+                              </div>
+                            ) : <span className="text-xs text-[#7A8E7A]">Tick the pond/cage to log it</span>}
+                          </LogCell>
+                          <LogCell label="Mortality Count *" className={on && needs.mortality ? '' : 'max-md:hidden'}>
+                            {on && needs.mortality ? (
                               <input
                                 type="number" min="1" required className={baseInputClasses}
-                                aria-label={`${unitName(u)} mortality count`} placeholder="Mortality Count *"
+                                aria-label={`${unitName(u)} mortality count`} placeholder="Mortality Count"
                                 value={e.mortality_count}
                                 onChange={ev => setEntry(u.id, { mortality_count: ev.target.value })}
                               />
-                            )}
-                            {e.observation && !force && (
+                            ) : <span className="text-[#C8D5C8]">—</span>}
+                          </LogCell>
+                          <LogCell label="Treatment *" className={on && (needs.treatment || needs.force) ? '' : 'max-md:hidden'}>
+                            {on && needs.treatment ? (
                               <select
                                 className={baseInputClasses} required aria-label={`${unitName(u)} treatment`}
                                 value={e.treatment_applied}
                                 onChange={ev => setEntry(u.id, { treatment_applied: ev.target.value })}
                               >
-                                <option value="">Select Treatment *</option>
+                                <option value="">Select Treatment</option>
                                 {HEALTH_TREATMENT_OPTIONS.map(option => (
                                   <option key={option} value={option}>{option}</option>
                                 ))}
                               </select>
-                            )}
-                            {err && <p className="text-xs text-rose-600" role="alert">{err}</p>}
-                          </td>
-                        </tr>
+                            ) : on && needs.force ? <span className="text-xs text-rose-700">Force Harvest applies instead</span> : <span className="text-[#C8D5C8]">—</span>}
+                          </LogCell>
+                        </LogRow>
                       )
                     })}
                   </tbody>
-                </table>
+                </LogTable>
+                {availableUnits.length < units.length && (
+                  <p className="px-1 text-[11px] text-[#4A5E4A]">Ponds/cages that already have a Health Log are not listed.</p>
+                )}
               </div>
-            )}
-            {/* Cycles without ponds/cages (Fishpen, older cycles): the single shared form, as before. */}
-            {!hasUnits && (<>
-            <div>
-              <label className={labelCls}>Observation *</label>
-              <ComboboxWithOther
-                options={HEALTH_OBSERVATION_OPTIONS.filter(o => o !== 'Other')}
-                value={form.observation}
-                otherValue={form.observation_other}
-                onChange={(selectedObservation) => {
-                  const isMortality = selectedObservation === 'Fish Mortality'
-                  const noTreatment = isMortality || HEALTH_DISEASE_OBSERVATIONS.includes(selectedObservation)
-                  const recommended = noTreatment ? '' : (HEALTH_RECOMMENDED_TREATMENT[selectedObservation] || '')
-                  setForm(f => ({
-                    ...f,
-                    observation: selectedObservation,
-                    // The user must type the real number of dead fish - it is never pre-filled or calculated.
-                    mortality_count: isMortality ? (f.mortality_count && Number(f.mortality_count) > 0 ? f.mortality_count : '') : '0',
-                    treatment_applied: recommended,
-                    treatment_applied_other: '',
-                  }))
-                }}
-                onOtherChange={(v) => setForm(f => ({ ...f, observation_other: v }))}
-                placeholder="Select Observation"
-                required
-              />
-            </div>
-            {form.observation === 'Fish Mortality' && (
-              <div>
-                <label className={labelCls}>Mortality Count *</label>
-                <input
-                  type="number"
-                  min="1"
-                  className={baseInputClasses}
-                  required
-                  value={form.mortality_count}
-                  onChange={e => setForm(f => ({ ...f, mortality_count: e.target.value }))}
-                />
-              </div>
-            )}
-            {form.observation && !forceHarvest && (
-              <div>
-                <label className={labelCls}>Treatment *</label>
-                <select
-                  className={baseInputClasses}
-                  value={form.treatment_applied}
-                  required
-                  onChange={e => setForm(f => ({ ...f, treatment_applied: e.target.value }))}
-                >
-                  <option value="">Select Treatment</option>
-                  {HEALTH_TREATMENT_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            </>)}
-          </div>
+            )
+          ) : (
+            // Cycles without ponds/cages (Fishpen, older cycles): the single shared row, as before.
+            <LogTable label="Health log of the cycle" testId="cycle-health-entry">
+              <LogHead>
+                <LogTh>Pond/Cage</LogTh>
+                <LogTh required>Observation</LogTh>
+                <LogTh required>Mortality Count</LogTh>
+                <LogTh required>Treatment</LogTh>
+              </LogHead>
+              <tbody>
+                <LogRow>
+                  <LogCell label="Pond/Cage" className="font-semibold text-slate-800 md:w-[16%]">Whole cycle</LogCell>
+                  <LogCell label="Observation *" className="md:w-[30%]">
+                    <ComboboxWithOther
+                      options={HEALTH_OBSERVATION_OPTIONS.filter(o => o !== 'Other')}
+                      value={form.observation}
+                      otherValue={form.observation_other}
+                      onChange={(selectedObservation) => {
+                        const isMortality = selectedObservation === 'Fish Mortality'
+                        const noTreatment = isForceObservation(selectedObservation)
+                        const recommended = noTreatment ? '' : (HEALTH_RECOMMENDED_TREATMENT[selectedObservation] || '')
+                        setForm(f => ({
+                          ...f,
+                          observation: selectedObservation,
+                          // The user must type the real number of dead fish - it is never pre-filled or calculated.
+                          mortality_count: isMortality ? (f.mortality_count && Number(f.mortality_count) > 0 ? f.mortality_count : '') : '0',
+                          treatment_applied: recommended,
+                          treatment_applied_other: '',
+                        }))
+                      }}
+                      onOtherChange={(v) => setForm(f => ({ ...f, observation_other: v }))}
+                      placeholder="Select Observation"
+                      required
+                    />
+                  </LogCell>
+                  <LogCell label="Mortality Count *" className={form.observation === 'Fish Mortality' ? '' : 'max-md:hidden'}>
+                    {form.observation === 'Fish Mortality' ? (
+                      <input
+                        type="number" min="1" className={baseInputClasses} required aria-label="Mortality Count"
+                        value={form.mortality_count}
+                        onChange={e => setForm(f => ({ ...f, mortality_count: e.target.value }))}
+                      />
+                    ) : <span className="text-[#C8D5C8]">—</span>}
+                  </LogCell>
+                  <LogCell label="Treatment *" className={form.observation && !forceHarvest ? '' : 'max-md:hidden'}>
+                    {form.observation && !forceHarvest ? (
+                      <select
+                        className={baseInputClasses} value={form.treatment_applied} required aria-label="Treatment"
+                        onChange={e => setForm(f => ({ ...f, treatment_applied: e.target.value }))}
+                      >
+                        <option value="">Select Treatment</option>
+                        {HEALTH_TREATMENT_OPTIONS.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    ) : form.observation && forceHarvest ? <span className="text-xs text-rose-700">Force Harvest applies instead</span> : <span className="text-[#C8D5C8]">—</span>}
+                  </LogCell>
+                </LogRow>
+              </tbody>
+            </LogTable>
+          )}
+
           {(hasUnits ? forceSelectedUnits.length > 0 : forceHarvest) && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2" data-testid="force-harvest-banner">
               <p className="text-sm font-semibold text-rose-700">⚠ Force Harvest: Yes <span className="font-normal">(default)</span></p>
@@ -1062,14 +1059,14 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
               </p>
             </div>
           )}
-          <div className="flex gap-2 justify-end">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+          <div className="flex justify-end gap-2">
+            <Button type="button" size="sm" variant="ghost" onClick={() => (formOnly ? onCancel?.() : setShowForm(false))}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
           </div>
         </form>
       )}
 
-      {isLoading ? <LoadingSpinner /> : logs.length === 0 ? (
+      {formOnly ? null : isLoading ? <LoadingSpinner /> : logs.length === 0 ? (
         <p className="py-3 text-center text-sm italic text-slate-400">No health logs.</p>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
@@ -1099,66 +1096,6 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
     </div>
   )
 }
-
-const HEALTH_OBSERVATION_OPTIONS = [
-  'Fish Mortality',
-  'Bacterial Infection',
-  'Fungal Infection',
-  'Fin Rot',
-  'Gill Disease',
-  'White Spot (Ich)',
-  'Parasites',
-  'Poor Water Quality',
-  'Low Dissolved Oxygen',
-  'Weak Swimming',
-  'Feeding Issue',
-  'Injury',
-  'Predator Attack',
-  'Other',
-]
-
-// The disease entries of HEALTH_OBSERVATION_OPTIONS. Mirrors monitoring.models.HEALTH_DISEASE_OBSERVATIONS,
-// which is the authoritative rule; this only drives the live banner.
-const HEALTH_DISEASE_OBSERVATIONS = [
-  'Bacterial Infection',
-  'Fungal Infection',
-  'Fin Rot',
-  'Gill Disease',
-  'White Spot (Ich)',
-  'Parasites',
-]
-
-const HEALTH_RECOMMENDED_TREATMENT = {
-  'Fish Mortality': 'Remove dead fish and disinfect pond',
-  'Bacterial Infection': 'Oxytetracycline',
-  'Fungal Infection': 'Salt Bath',
-  'Fin Rot': 'Oxytetracycline',
-  'Gill Disease': 'Improve water quality',
-  'White Spot (Ich)': 'Salt Treatment',
-  Parasites: 'Formalin Bath',
-  'Poor Water Quality': 'Water Exchange',
-  'Low Dissolved Oxygen': 'Increase Aeration',
-  'Weak Swimming': 'Improve water quality, increase aeration, and closely observe affected fish.',
-  'Feeding Issue': 'Adjust Feeding Schedule',
-  Injury: 'Isolate Injured Fish',
-  'Predator Attack': 'Install Protective Netting',
-  Other: 'Manual Input',
-}
-
-const HEALTH_TREATMENT_OPTIONS = [
-  'Oxytetracycline',
-  'Salt Bath',
-  'Improve water quality',
-  'Salt Treatment',
-  'Formalin Bath',
-  'Water Exchange',
-  'Increase Aeration',
-  'Improve water quality, increase aeration, and closely observe affected fish.',
-  'Adjust Feeding Schedule',
-  'Isolate Injured Fish',
-  'Install Protective Netting',
-  'Manual Input',
-]
 
 /* const INPUT_TYPE_OPTIONS = [
   'Feed',
