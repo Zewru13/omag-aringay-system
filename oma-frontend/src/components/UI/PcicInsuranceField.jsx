@@ -106,7 +106,8 @@ function RoundToggle({ checked, disabled, onChange, className = '', children }) 
   )
 }
 
-export default function PcicInsuranceField({ value, onChange, disabled = false, subject = 'record', error = '', compact = false }) {
+// `uploadLabel`: the words of the button that adds the form photos when none is attached yet.
+export default function PcicInsuranceField({ value, onChange, disabled = false, subject = 'record', error = '', compact = false, uploadLabel = 'Add the form photos' }) {
   const [asking, setAsking] = useState(false)
   const count = pcicPhotoCount(value)
   const hasPhoto = count > 0
@@ -143,7 +144,7 @@ export default function PcicInsuranceField({ value, onChange, disabled = false, 
             <button type="button" disabled={disabled} onClick={() => setAsking(true)} className="font-medium text-[#1E5637] underline disabled:opacity-50">Change</button>
           </>
         )
-        : <button type="button" disabled={disabled} onClick={() => setAsking(true)} className="font-medium text-rose-600 underline disabled:opacity-50">Add the form photos</button>}
+        : <button type="button" disabled={disabled} onClick={() => setAsking(true)} className="font-medium text-rose-600 underline disabled:opacity-50">{uploadLabel}</button>}
     </span>
   )
 

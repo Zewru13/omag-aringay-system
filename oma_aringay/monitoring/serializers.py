@@ -303,8 +303,11 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     pond_location = serializers.SerializerMethodField()
     water_source = serializers.ChoiceField(choices=WATER_SOURCE_CHOICES, write_only=True, required=False)
     water_source_other_specify = serializers.CharField(max_length=150, write_only=True, required=False, allow_blank=True)
-    # Read-only: PCIC insurance is kept per pond/cage (see `units`). A cycle counts as insured when any of its ponds/cages is; a cycle
-    # made before ponds/cages existed reads the box of its stocking record, and its document.
+    # Create-only: PCIC insurance is recorded ONCE per cycle when it starts (Start Production Cycle). It marks every pond/cage of the cycle insured
+    # and its stocking record, which also holds the one uploaded document (POST /fisheries/stocking/<id>/pcic-form/, see stocking_record_id).
+    pcic_insured = serializers.BooleanField(write_only=True, required=False, default=False)
+    # Read-only: a cycle counts as insured when any of its ponds/cages is; a cycle made before ponds/cages existed reads the box of its
+    # stocking record. The cycle's document is its stocking record's.
     has_pcic_insurance = serializers.SerializerMethodField()
     pcic_form_photo = serializers.SerializerMethodField()
     pcic_form_photos = serializers.SerializerMethodField()
@@ -325,7 +328,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             'feeding_logs', 'health_logs', 'input_logs', 'species_option', 'units',
             'estimated_harvest_kg', 'season',
             'pond_location_barangay', 'pond_location_other_specify', 'pond_location',
-            'water_source', 'water_source_other_specify', 'fingerling_source', 'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos', 'stocking_record_id',
+            'water_source', 'water_source_other_specify', 'fingerling_source', 'pcic_insured', 'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos', 'stocking_record_id',
             'ownership', 'owner_name', 'owner_registration_number',
         ]
         read_only_fields = [
@@ -367,14 +370,11 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         record = _first_stocking_record(obj)
         return bool(record and record.has_pcic_insurance)
 
+    # The cycle's own document is its stocking record's (older cycles may also have documents on their ponds/cages, listed with each unit).
     def get_pcic_form_photo(self, obj):
-        if obj.units.all():
-            return None   # the documents are the ponds'/cages' own
         return _photo_link(_first_stocking_record(obj), self.context.get('request'))
 
     def get_pcic_form_photos(self, obj):
-        if obj.units.all():
-            return []   # the documents are the ponds'/cages' own
         return photo_list(_first_stocking_record(obj), self.context.get('request'))
 
     def _check_ownership(self, data):
@@ -427,6 +427,8 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'units': f'At most {self.MAX_UNITS} {label}s are allowed.'})
         elif units:
             raise serializers.ValidationError({'units': 'Pond/cage details apply only to Fishpond and Fishcage cycles.'})
+        if data.get('pcic_insured') and not data.get('species_option'):
+            raise serializers.ValidationError({'pcic_insured': 'PCIC insurance is recorded with the stocking, so choose a species first.'})
         if any(u.get('has_pcic_insurance') for u in units) and not data.get('species_option'):
             raise serializers.ValidationError({'units': 'PCIC insurance is recorded with the stocking, so choose a species first.'})
         if data.get('species_option'):
@@ -469,7 +471,8 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         water_source = validated_data.pop('water_source', '')
         water_source_other = validated_data.pop('water_source_other_specify', '')
         units = validated_data.pop('units', None) or []
-        has_pcic_insurance = any(u.get('has_pcic_insurance') for u in units)   # the stocking is insured when a pond/cage is
+        cycle_insured = bool(validated_data.pop('pcic_insured', False))   # the one cycle-level checkbox: every pond/cage and the stocking
+        has_pcic_insurance = cycle_insured or any(u.get('has_pcic_insurance') for u in units)   # the stocking is insured when a pond/cage is
         fingerling_source = validated_data.pop('fingerling_source', '')
         if units:
             # Totals are always derived from the units — any client-sent values are overridden.
@@ -482,7 +485,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
                 production_cycle=cycle, unit_type=unit_type, unit_number=n,
                 length_m=u['length_m'], width_m=u['width_m'], size_sqm=u['size_sqm'],
                 fingerling_count=u['fingerling_count'],
-                has_pcic_insurance=bool(u.get('has_pcic_insurance')),
+                has_pcic_insurance=cycle_insured or bool(u.get('has_pcic_insurance')),
             )
             for n, u in enumerate(units, start=1)
         ])
@@ -512,6 +515,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data.pop('species_option', None)
         validated_data.pop('units', None)
+        validated_data.pop('pcic_insured', None)   # chosen when the cycle starts; the ponds'/cages' own PCIC boxes change it afterwards
         validated_data.pop('fingerling_source', None)   # chosen when the cycle starts; the stocking record's edit form changes it
         for field in ('pond_location_barangay', 'pond_location_other_specify', 'water_source', 'water_source_other_specify'):
             validated_data.pop(field, None)

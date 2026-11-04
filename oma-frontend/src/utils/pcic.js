@@ -17,6 +17,9 @@ export function pcicStateFrom(record) {
 }
 
 export const pcicPayload = (state) => ({ has_pcic_insurance: !!state?.insured })
+// Start Production Cycle: PCIC is recorded ONCE per cycle (not per pond/cage). The box travels with the cycle; its one document is uploaded to the cycle's
+// stocking record afterwards (uploadPcicForm(api, 'stocking', res.data.stocking_record_id, state)).
+export const cyclePcicPayload = (state) => ({ pcic_insured: !!state?.insured })
 // What the round check icon says in words (screen readers and the hover title).
 export const pcicLabel = (insured) => (insured ? 'PCIC insured' : 'Not PCIC insured')
 

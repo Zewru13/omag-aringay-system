@@ -40,6 +40,7 @@ import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPan
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
+import PcicCell from '../../components/UI/PcicCell.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
 import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
@@ -72,6 +73,7 @@ const COLUMNS = [
   { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
   { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
+  { key: 'pcic_cell',           label: 'PCIC INSURED' },
   { key: 'status_cell',         label: 'STATUS' },
   { key: 'actions_cell',        label: 'ACTIONS' },
 ]
@@ -777,6 +779,7 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
     ['Date Stocked', row.date_stocked_fmt],
     ['Expected Harvest', row.expected_harvest_fmt],
     ['Pond Location', row.pond_location],
+    ['PCIC Insured', row.pcic_cell],
   ]
   const btn = 'flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 text-[13px] font-medium transition-colors'
   return (
@@ -1095,6 +1098,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
     assoc_name:   rec.organization_name || '—',
     pond_location: rec.pond_location_barangay || '—',
+    // Read-only: the cycle's own PCIC status (recorded once when it starts), the same round check as Crop Monitoring's PCIC INSURED column.
+    pcic_cell: <PcicCell insured={rec.has_pcic_insurance} photos={rec.pcic_form_photos} url={rec.pcic_form_photo} />,
     status_cell: (
       <span className="flex items-center gap-1.5">
         {/* Overall cycle status is the backend's display_status (rec.status with Stocked / Near Harvest / Late
