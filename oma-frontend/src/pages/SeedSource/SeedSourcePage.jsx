@@ -11,6 +11,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
 
 const PAGE_SIZE = 10
 
@@ -23,7 +25,9 @@ const COLUMNS = [
 function SeedSourceModal({ source, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { name: source.name, is_active: source.is_active ?? true }
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`seed-source-edit:${source?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
@@ -36,6 +40,7 @@ function SeedSourceModal({ source, onClose, onSaved }) {
     try {
       await api.patch(`/production/seed-sources/${source.id}/`, form)
       showToast('Seed source updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -61,6 +66,7 @@ function SeedSourceModal({ source, onClose, onSaved }) {
       }
     >
       <form id="seed-source-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Seed Source Name" required>
           <input
             className={baseInputClasses}
@@ -81,7 +87,9 @@ export default function SeedSourcePage({ asTab = false }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [editSource,   setEditSource]   = useState(null)
-  const [draft,        setDraft]        = useState(null)   // the name typed in the new row, or null when there is no new row
+  // The name typed in the new row is kept while the page is left: it is still there, in an open row, when the page is opened again.
+  const rowDraft = useDraftForm('seed-source-row')
+  const [draft,        setDraft]        = useDraftField(rowDraft, 'row', null)   // the name typed in the new row, or null when there is no new row
   const [isAdding,     setIsAdding]     = useState(false)
   const [deletingSource, setDeletingSource] = useState(null)
   const [page,         setPage]         = useState(1)

@@ -14,6 +14,8 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { SIGNATORY_ROLES, roleLabel, signatoryError } from '../../utils/signatories.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Admin > Signatories: the officials the Reports pages offer as Prepared / Checked / Noted / Approved by. One row is one person in one
 // signing role (a person who signs in two roles is added twice). A row that is not Active is no longer offered; Order sorts a role's list.
@@ -36,7 +38,9 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
   const original = isEdit
     ? { name: signatory.name, position: signatory.position || '', role: signatory.role, sort_order: String(signatory.sort_order ?? 0), is_active: signatory.is_active }
     : EMPTY
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`signatory:${signatory?.id ?? 'new'}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
@@ -52,6 +56,7 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
       if (isEdit) await api.put(`/reports/signatories/${signatory.id}/`, body)
       else await api.post('/reports/signatories/', body)
       showToast(isEdit ? 'Signatory updated.' : 'Signatory added.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       const data = err?.response?.data || {}
@@ -78,6 +83,7 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
       )}
     >
       <form id="signatory-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <DraftBanner draft={draft} />
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
         <FormField label="Name" required error={errors.name}>
           <input className={baseInputClasses} value={form.name} maxLength={150} autoFocus placeholder="e.g. Ana R. Cruz" onChange={(e) => set('name', e.target.value)} />

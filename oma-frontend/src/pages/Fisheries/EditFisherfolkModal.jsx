@@ -11,6 +11,8 @@ import { FISHR_GROUPS, RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { tidyPhone } from '../../utils/inputGuards.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 
@@ -50,7 +52,9 @@ const getMaxBirthdate = () => {
 function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
   const { showToast } = useToast()
 
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-fisherfolk:${fisherfolk.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', {
     prefix: fisherfolk.prefix || '',
     first_name: fisherfolk.first_name || '',
     middle_name: fisherfolk.middle_name || '',
@@ -145,6 +149,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     try {
       await api.patch(`/fisheries/fisherfolk/${fisherfolk.id}/`, form)
       showToast('Fisherfolk profile updated successfully.', 'success')
+      draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
@@ -181,6 +186,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
       >
         <p className="mb-4 text-sm text-slate-500">{fisherfolk.rsbsa_number}</p>
         <form id="edit-fisherfolk-form" onSubmit={handleSubmit} className="space-y-5">
+          <DraftBanner draft={draft} />
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <FormLabel className={labelCls}>Prefix</FormLabel>

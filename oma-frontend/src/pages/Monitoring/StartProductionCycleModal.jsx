@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
@@ -13,6 +13,8 @@ import { detectSeason } from '../FisheriesRecords/stockingHelpers.js'
 import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
 import OwnershipFields from '../../components/UI/OwnershipFields.jsx'
 import { EMPTY_OWNERSHIP, ownershipPayload, ownershipProblem } from '../../utils/ownership.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Aquaculture production cycles: ponds or cages only (the backend accepts only these for a new cycle).
 const CULTURE_SYSTEMS = ['Fishpond', 'Fishcage']
@@ -49,9 +51,11 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   // Oyster is not offered when starting a production cycle (Admin and fisherfolk accounts). Only this form's
   // list is filtered: the Oyster SpeciesOption, the shared species API and existing records are untouched.
   const hideOyster = isFisherfolk || user?.role === 'ADMIN'
-  const [ffSearch, setFfSearch] = useState(prefilledFf ? prefilledFf.full_name : '')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`start-production-cycle:${prefilledFf?.id ?? 'any'}`)
+  const [ffSearch, setFfSearch] = useDraftField(draft, 'ffSearch', prefilledFf ? prefilledFf.full_name : '', { skip: isFisherfolk || Boolean(prefilledFf) })
   const [ffResults, setFfResults] = useState([])
-  const [selectedFf, setSelectedFf] = useState(prefilledFf)
+  const [selectedFf, setSelectedFf] = useDraftField(draft, 'selectedFf', prefilledFf, { skip: isFisherfolk || Boolean(prefilledFf) })
   const [ffError, setFfError] = useState('')   // shown under Fisherfolk when Save is pressed without one
   // A fisherfolk account always starts a cycle for THEMSELVES: their own record (the only one the
   // fisherfolk API returns to them) is fixed here, and the backend forces it again on save.
@@ -65,14 +69,17 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
         setSelectedFf(mine)
       })
       .catch(() => showToast('Failed to load your fisherfolk record.', 'error'))
-  }, [isFisherfolk, prefilledFf, showToast])
+  }, [isFisherfolk, prefilledFf, showToast, setSelectedFf])
   const fixedFf = prefilledFf || ownFf
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Ownership of the site (Tenant / Lease / Owner, with the owner's details for the first two), saved with the cycle.
-  const [owner, setOwner] = useState({ ...EMPTY_OWNERSHIP })
+  const [owner, setOwner] = useDraftField(draft, 'owner', { ...EMPTY_OWNERSHIP })
+  // A restored draft keeps its own pond location and organization: the defaults below are not applied over them the first time.
+  const keepLocation = useRef(draft.restored)
+  const keepOrganization = useRef(draft.restored)
   const [speciesList, setSpeciesList] = useState([])
   const [isLoadingSpecies, setIsLoadingSpecies] = useState(true)
-  const [form, setForm] = useState({
+  const [form, setForm] = useDraftField(draft, 'form', {
     organization: '',
     cycle_name: 'Stocking Phase',
     cycle_name_other: '',
@@ -112,6 +119,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   // not among the options, leaves the field empty for manual selection - nothing is guessed.
   useEffect(() => {
     if (barangayOptions.length === 0) return
+    if (keepLocation.current) { keepLocation.current = false; return }
     const registered = selectedFf?.barangay
     setForm(f => ({ ...f, pond_location_barangay: registered && barangayOptions.includes(registered) ? registered : '', pond_location_other_specify: '' }))
   }, [selectedFf?.id, barangayOptions])
@@ -130,7 +138,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   useEffect(() => {
     setOrgOptions([])
-    setForm(f => ({ ...f, organization: '' }))
+    if (keepOrganization.current) keepOrganization.current = false
+    else setForm(f => ({ ...f, organization: '' }))
     if (!selectedFf) { setIsLoadingOrgs(false); return }
     let cancelled = false
     setIsLoadingOrgs(true)
@@ -167,7 +176,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   // Target Harvest Date = stocking date + the selected species' own culture_duration_days
   // (SpeciesOption, from the species API). No duration -> no automatic date, never a fallback.
   // `targetTouched` marks a user-entered date so species/date changes don't overwrite it.
-  const [targetTouched, setTargetTouched] = useState(false)
+  const [targetTouched, setTargetTouched] = useDraftField(draft, 'targetTouched', false)
   const selectedSpecies = speciesList.find(sp => String(sp.id) === String(form.species_option))
   const speciesDays = selectedSpecies && Number(selectedSpecies.culture_duration_days) > 0 ? Number(selectedSpecies.culture_duration_days) : null
   const autoTarget = (species, stockingDate) => {
@@ -192,7 +201,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
 
   // Fishpond / Fishcage: one table row per pond/cage. `units` may hold more entries than
   // are shown (so 5 -> 2 -> 5 keeps what was typed); only the first `unitCount` are shown/sent.
-  const [units, setUnits] = useState([])
+  const [units, setUnits] = useDraftField(draft, 'units', [])
   const unitLabel = UNIT_SYSTEMS[form.culture_system] || null
   const parsedCount = Number(form.unit_count)
   const unitCount = unitLabel && Number.isInteger(parsedCount) && parsedCount >= 1 ? Math.min(parsedCount, MAX_UNITS) : 0
@@ -318,6 +327,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
       }
       if (photoFailed.length) showToast(`Production cycle started, but the PCIC form photo could not be uploaded for ${photoFailed.join(', ')}. Open the cycle and add it again.`, 'error')
       else showToast('Production cycle started.', 'success')
+      draft.clear()
       onSuccess(res.data)
       onClose()
     } catch (err) {
@@ -363,6 +373,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   return (
     <ModalShell title="Start Production Cycle" subtitle="Begin a new aquaculture production cycle" icon={Fish} onClose={onClose} maxWidth="max-w-3xl">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         {fixedFf ? (
           <FormField label="Fisherfolk" required>
             <p className="rounded-xl border border-green-200 bg-[#f0f7f0] px-3 py-2 text-sm font-medium text-slate-800">

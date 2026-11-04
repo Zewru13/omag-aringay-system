@@ -24,6 +24,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { countdownText, daysUntil, fmtShortDate } from '../../utils/forecastDates.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -51,7 +53,9 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
   const { showToast } = useToast()
   const { isFarmer } = useAuth()   // a farmer sees their crop's forecast but cannot edit staff remarks
   const originalNotes = record.notes || ''
-  const [notes,    setNotes]    = useState(originalNotes)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`forecast-remarks:${record.id}`)
+  const [notes,    setNotes]    = useDraftField(draft, 'notes', originalNotes)
   const [isSaving, setIsSaving] = useState(false)
   const hasChanges = notes !== originalNotes
 
@@ -60,6 +64,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
     try {
       await api.patch(`/production/monitoring/${record.id}/`, { notes })
       showToast('Remarks saved.', 'success')
+      draft.clear()
       onUpdated?.()
     } catch {
       showToast('Failed to save remarks.', 'error')
@@ -84,6 +89,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
       }
     >
       <div className="space-y-4">
+        <DraftBanner draft={draft} />
         {/* Two panels side by side */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">

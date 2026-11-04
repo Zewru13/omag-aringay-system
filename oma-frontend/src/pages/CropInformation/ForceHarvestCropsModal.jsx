@@ -13,6 +13,8 @@ import { needsTotalKg, unitPreview } from '../Monitoring/harvestUnits.js'
 import useHarvestUnitWeights from '../Monitoring/useHarvestUnitWeights.js'
 import { parcelLabel } from './parcelRecords.js'
 import { buildRequest, countLine, formProblem, makeRow, rowKg, rowProblem, rowsTotalKg, rowWeight, serverMessage, splitCrops } from './forcedHarvest.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Force Harvest, from a parcel's menu (Crop Records: the crops on that parcel) or a crop's menu (Crop Monitoring: the crops of that crop's
 // farmer, on every parcel): the crops that are not ready yet (more than 7 days before their expected harvest date) are harvested together
@@ -31,11 +33,13 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
   const today = todayISO()
   const [records, setRecords] = useState(null)         // null while loading, false when it failed
   const weights = useHarvestUnitWeights()                // the kg one unit weighs (Settings > Harvest Units)
-  const [date, setDate] = useState(today)
-  const [code, setCode] = useState('')
-  const [detail, setDetail] = useState('')
-  const [remarks, setRemarks] = useState('')
-  const [picked, setPicked] = useState({})             // { [recordId]: row }
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`force-harvest-crops:${parcel ? `p${parcel.id}` : `f${farmer.id}`}`)
+  const [date, setDate] = useDraftField(draft, 'date', today)
+  const [code, setCode] = useDraftField(draft, 'code', '')
+  const [detail, setDetail] = useDraftField(draft, 'detail', '')
+  const [remarks, setRemarks] = useDraftField(draft, 'remarks', '')
+  const [picked, setPicked] = useDraftField(draft, 'picked', {})             // { [recordId]: row }
   const [showErrors, setShowErrors] = useState(false)
   const [step, setStep] = useState('form')            // 'form' | 'review'
   const [error, setError] = useState('')
@@ -61,8 +65,8 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
     if (preselectId === null || preselected.current || !Array.isArray(records)) return
     preselected.current = true
     const hit = offered.find((o) => o.record.id === preselectId)
-    if (hit) setPicked((p) => ({ ...p, [hit.record.id]: makeRow(hit.record) })) // eslint-disable-line react-hooks/set-state-in-effect
-  }, [records, offered, preselectId])
+    if (hit) setPicked((p) => ({ ...p, [hit.record.id]: p[hit.record.id] || makeRow(hit.record) }))
+  }, [records, offered, preselectId, setPicked])
   // A crop that stops being early when the date moves is taken off the selection.
   const rows = Object.values(picked).filter((r) => offeredIds.has(r.id))
   const allTicked = offered.length > 0 && offered.every((o) => picked[o.record.id])
@@ -90,6 +94,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
     try {
       await api.post('/production/forced-harvest/', buildRequest({ date, code, detail, remarks }, rows, weights))
       showToast(`Forced harvest recorded on ${rows.length} crop${rows.length === 1 ? '' : 's'}.`, 'success')
+      draft.clear()
       onDone()
     } catch (err) {
       setError(serverMessage(err.response?.data))
@@ -213,6 +218,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
           </div>
         ) : (
         <div className="space-y-4">
+          <DraftBanner draft={draft} />
           {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
 
           <div className="grid gap-4 md:grid-cols-2">

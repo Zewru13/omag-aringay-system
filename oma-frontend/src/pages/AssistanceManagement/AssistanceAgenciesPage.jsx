@@ -15,6 +15,8 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AssistanceTypeUnitsCard from './AssistanceTypeUnitsCard.jsx'
 import { resetAssistanceAgencies } from './useAssistanceAgencies.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Assistance Settings: the list of source agencies that every assistance form offers in its Source Agency dropdown. Renaming or
 // deleting one never changes assistance that was already recorded (records keep the name they were saved with). New agencies are added in
@@ -28,7 +30,9 @@ const COLUMNS = [
 function AgencyModal({ agency, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { name: agency.name }
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`assistance-agency-edit:${agency?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
@@ -39,6 +43,7 @@ function AgencyModal({ agency, onClose, onSaved }) {
     try {
       await api.patch(`/interventions/agencies/${agency.id}/`, form)
       showToast('Agency updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save the agency.', 'error')
@@ -64,6 +69,7 @@ function AgencyModal({ agency, onClose, onSaved }) {
       )}
     >
       <form id="assistance-agency-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Agency Name" required>
           <input className={baseInputClasses} value={form.name} autoFocus placeholder="e.g. PCIC"
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -79,7 +85,7 @@ export default function AssistanceAgenciesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, 'assistance-agency')
   const [deleting, setDeleting] = useState(null)
 
   // `version` bumps after a save or delete, which loads the list again.

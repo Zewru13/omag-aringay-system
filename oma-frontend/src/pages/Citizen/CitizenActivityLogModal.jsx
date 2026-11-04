@@ -9,6 +9,8 @@ import { labels } from './labels.js'
 import { CITIZEN_GUTTER, CROP_THEME, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
 import { loggableActivities } from '../../utils/activityPicker.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 
 const dateMode = (dateStr) => {
@@ -131,9 +133,11 @@ export default function CitizenActivityLogScreen({
   }, [domain, recordId, log?.id])
 
   const initialDate = log?.date_of_activity || todayISO()
-  const [selectedDateMode, setSelectedDateMode] = useState(dateMode(initialDate))
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`citizen-activity-log:${domain.key}:${recordId}:${log?.id ?? 'new'}`)
+  const [selectedDateMode, setSelectedDateMode] = useDraftField(draft, 'selectedDateMode', dateMode(initialDate))
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useDraftField(draft, 'form', {
     // Fisheries opens on Feed Monitoring rather than the alphabetically-first
     // type ('Disaster Remedy'): the reference gives three activities their own
     // cards, and defaulting to a non-carded one made the screen open with
@@ -322,6 +326,7 @@ export default function CitizenActivityLogScreen({
         await api.post(domain.logsUrl(recordId), payload)
         showToast(labels.activityLog.successNew, 'success')
       }
+      draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
@@ -357,6 +362,7 @@ export default function CitizenActivityLogScreen({
 
   const formEl = (
       <form onSubmit={handleSubmit} className={bare ? 'py-4' : `${CITIZEN_GUTTER} py-4`}>
+        <DraftBanner draft={draft} />
         {blockedByOther && (
           <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
             <p className="text-[13px] text-cz-warn-body">

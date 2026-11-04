@@ -4,6 +4,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 
@@ -12,7 +14,9 @@ const yearOptions = []
 for (let y = 2022; y <= currentYear + 1; y++) yearOptions.push(y.toString())
 
 function LogDamageReportModal({ onClose, onSuccess }) {
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('log-damage-report')
+  const [form, setForm] = useDraftField(draft, 'form', {
     barangay: '',
     calamity_name: '',
     calamity_date: '',
@@ -53,6 +57,7 @@ function LogDamageReportModal({ onClose, onSuccess }) {
       if (form.livestock_head_count_affected !== '') payload.livestock_head_count_affected = parseInt(form.livestock_head_count_affected)
       if (form.estimated_loss_php !== '') payload.estimated_loss_php = parseFloat(form.estimated_loss_php)
       await api.post('/production/damage-reports/', payload)
+      draft.clear()
       onSuccess()
     } catch (err) {
       const data = err.response?.data
@@ -82,6 +87,7 @@ function LogDamageReportModal({ onClose, onSuccess }) {
       }
     >
       <form id="log-damage-report-form" className="space-y-4" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         {error && (
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         )}

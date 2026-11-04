@@ -9,6 +9,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import { availableAgainText } from '../../utils/borrowerGroups.js'
 import { CONDITIONS, DAMAGED_CONDITIONS, apiMessage, loanStatusLabel, outcomeBreakdown, outcomeSummary, unitsSummary, validateOutcome } from '../../utils/equipmentLoans.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // The forms behind an organization's equipment actions: change condition, repair, lend, confirm a return, and the history.
 // Each takes the equipment `line` (or `loan`) and the organization `type` ('farmers' | 'fisherfolk'), posts to the equipment
@@ -22,7 +24,7 @@ const formatDate = (value) => {
   return Number.isNaN(d.getTime()) ? '—' : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
 }
 
-export function ActionForm({ title, subtitle, onClose, onSubmit, submitLabel, children, disabled = false }) {
+export function ActionForm({ title, subtitle, onClose, onSubmit, submitLabel, children, disabled = false, draft = null }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const submit = async (e) => {
@@ -42,6 +44,7 @@ export function ActionForm({ title, subtitle, onClose, onSubmit, submitLabel, ch
       )}
     >
       <form id="equipment-action-form" onSubmit={submit} className="space-y-4">
+        {draft && <DraftBanner draft={draft} />}
         {children}
         {error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">{error}</p>}
       </form>
@@ -61,15 +64,19 @@ const unitsField = (value, onChange, max, label = 'Units') => (
 export function ChangeConditionDialog({ line, type, onClose, onDone }) {
   const { showToast } = useToast()
   const movable = Math.max(0, unitsSummary(line).total - unitsSummary(line).onLoan)
-  const [units, setUnits] = useState('1')
-  const [condition, setCondition] = useState(CONDITIONS.find((c) => c !== line.condition))
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`equipment-condition:${line.id}`)
+  const [units, setUnits] = useDraftField(draft, 'units', '1')
+  const [condition, setCondition] = useDraftField(draft, 'condition', CONDITIONS.find((c) => c !== line.condition))
   return (
     <ActionForm
+      draft={draft}
       title="Change condition" subtitle={`${line.equipment_name} — now ${line.condition}`} onClose={onClose}
       submitLabel="Change condition" disabled={movable < 1}
       onSubmit={async () => {
         await api.post(`/organizations/${type}/equipment/${line.id}/condition/`, { quantity: Number(units), condition })
         showToast('Condition updated.', 'success')
+        draft.clear()
         onDone()
       }}
     >
@@ -93,12 +100,15 @@ export function ChangeConditionDialog({ line, type, onClose, onDone }) {
 export function RepairDialog({ line, type, onClose, onDone }) {
   const { showToast } = useToast()
   const movable = Math.max(0, unitsSummary(line).total - unitsSummary(line).onLoan)
-  const [units, setUnits] = useState('1')
-  const [when, setWhen] = useState(localToday())
-  const [what, setWhat] = useState('')
-  const [cost, setCost] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`equipment-repair:${line.id}`)
+  const [units, setUnits] = useDraftField(draft, 'units', '1')
+  const [when, setWhen] = useDraftField(draft, 'when', localToday())
+  const [what, setWhat] = useDraftField(draft, 'what', '')
+  const [cost, setCost] = useDraftField(draft, 'cost', '')
   return (
     <ActionForm
+      draft={draft}
       title="Repair" subtitle={`${line.equipment_name} — ${line.condition}`} onClose={onClose} submitLabel="Save repair"
       disabled={movable < 1}
       onSubmit={async () => {
@@ -106,6 +116,7 @@ export function RepairDialog({ line, type, onClose, onDone }) {
           quantity: Number(units), repaired_on: when, description: what, cost: cost === '' ? null : cost,
         })
         showToast('Repair saved. The units are Good again.', 'success')
+        draft.clear()
         onDone()
       }}
     >
@@ -136,11 +147,14 @@ export function RepairDialog({ line, type, onClose, onDone }) {
 export function LendDialog({ line, type, members, onClose, onDone }) {
   const { showToast } = useToast()
   const { available } = unitsSummary(line)
-  const [member, setMember] = useState(members[0]?.id ?? '')
-  const [units, setUnits] = useState('1')
-  const [due, setDue] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`equipment-lend:${line.id}`)
+  const [member, setMember] = useDraftField(draft, 'member', members[0]?.id ?? '')
+  const [units, setUnits] = useDraftField(draft, 'units', '1')
+  const [due, setDue] = useDraftField(draft, 'due', '')
   return (
     <ActionForm
+      draft={draft}
       title="Lend equipment" subtitle={`${line.equipment_name} — ${available} available`} onClose={onClose} submitLabel="Lend"
       disabled={available < 1 || members.length === 0}
       onSubmit={async () => {
@@ -148,6 +162,7 @@ export function LendDialog({ line, type, members, onClose, onDone }) {
           member: Number(member), quantity: Number(units), due_date: due || null,
         })
         showToast('Equipment lent.', 'success')
+        draft.clear()
         onDone()
       }}
     >
@@ -182,8 +197,10 @@ const OUTCOMES = [
 
 export function ReturnDialog({ loan, type, onClose, onDone }) {
   const { showToast } = useToast()
-  const [counts, setCounts] = useState({ returned: String(loan.quantity), damaged: '', notReturned: '' })
-  const [damagedCondition, setDamagedCondition] = useState('Broken')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`equipment-return:${loan.id}`)
+  const [counts, setCounts] = useDraftField(draft, 'counts', { returned: String(loan.quantity), damaged: '', notReturned: '' })
+  const [damagedCondition, setDamagedCondition] = useDraftField(draft, 'damagedCondition', 'Broken')
   const check = validateOutcome(counts, loan.quantity)
   const single = loan.quantity === 1
   const pickOne = (key) => setCounts({ returned: key === 'returned' ? '1' : '', damaged: key === 'damaged' ? '1' : '', notReturned: key === 'notReturned' ? '1' : '' })
@@ -191,6 +208,7 @@ export function ReturnDialog({ loan, type, onClose, onDone }) {
   const hasDamaged = Number(counts.damaged) > 0
   return (
     <ActionForm
+      draft={draft}
       title="Mark returned, damaged or not returned" subtitle={`${loan.member_name} — ${loan.equipment_name}, ${loan.quantity} unit(s)`}
       onClose={onClose} submitLabel="Save" disabled={!check.ok}
       onSubmit={async () => {
@@ -198,6 +216,7 @@ export function ReturnDialog({ loan, type, onClose, onDone }) {
         await api.post(`/organizations/${type}/equipment-loans/${loan.id}/return/`, { breakdown: sent })
         const summary = Object.fromEntries(sent.map((part) => [part.condition, part.quantity]))
         showToast(['Recorded: ' + outcomeSummary(summary) + '.', availableAgainText(loan.equipment_name, sent)].filter(Boolean).join(' '), 'success')
+        draft.clear()
         onDone()
       }}
     >
@@ -304,14 +323,18 @@ export function EquipmentHistoryDialog({ line, type, onClose }) {
 // Refuse a member's request, with an optional reason the member sees.
 export function RejectDialog({ loan, type, onClose, onDone }) {
   const { showToast } = useToast()
-  const [reason, setReason] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`equipment-reject:${loan.id}`)
+  const [reason, setReason] = useDraftField(draft, 'reason', '')
   return (
     <ActionForm
+      draft={draft}
       title="Reject request" subtitle={`${loan.member_name} — ${loan.equipment_name}, ${loan.quantity} unit(s)`}
       onClose={onClose} submitLabel="Reject request"
       onSubmit={async () => {
         await api.post(`/organizations/${type}/equipment-loans/${loan.id}/reject/`, { reason: reason.trim() })
         showToast('Request rejected.', 'success')
+        draft.clear()
         onDone()
       }}
     >

@@ -13,6 +13,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetAssistanceChoices } from './useAssistanceChoices.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // One of the lists behind the assistance forms' dropdowns, as a tab of Crop Settings or Fisheries Settings: the types of equipment, the
 // units, and (fisheries) the types of fishing gear. `domain` is crop | fisheries, `kind` equipment | unit | gear. Renaming or deleting a
@@ -25,7 +27,9 @@ const COLUMNS = [
 
 function NameModal({ singular, option, onClose, onSaved }) {
   const { showToast } = useToast()
-  const [name, setName] = useState(option.name)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`assistance-option-edit:${singular}:${option?.id}`)
+  const [name, setName] = useDraftField(draft, 'name', option.name)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -35,6 +39,7 @@ function NameModal({ singular, option, onClose, onSaved }) {
     try {
       await api.patch(`/interventions/options/${option.id}/`, { name })
       showToast(`${singular} updated.`, 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       const data = err?.response?.data
@@ -61,6 +66,7 @@ function NameModal({ singular, option, onClose, onSaved }) {
       )}
     >
       <form id="assistance-option-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label={`${singular} Name`} required>
           <input className={baseInputClasses} value={name} autoFocus onChange={(e) => setName(e.target.value)} />
         </FormField>
@@ -75,7 +81,7 @@ export default function AssistanceOptionsTab({ domain, kind, title, singular, ex
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, `assistance-option:${domain}:${kind}`)
   const [deleting, setDeleting] = useState(null)
   const [version, setVersion] = useState(0)
 

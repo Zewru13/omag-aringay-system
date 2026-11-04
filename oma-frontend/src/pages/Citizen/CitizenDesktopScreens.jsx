@@ -8,6 +8,8 @@ import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 import { DesktopRailCard } from './CitizenDesktopUI.jsx'
 import AssistanceTabs from '../AssistanceManagement/AssistanceTabs.jsx'
 import { emptyAssistanceText, inGroup } from '../AssistanceManagement/assistanceGroups.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // ─── Assistance Received ───────────────────────────────────────────────────────
 // Frames 4 and 8. Reuses the same read-only /interventions/my-*-beneficiary-
@@ -195,7 +197,9 @@ export function DesktopKaramdamanForm({ records, onSaved }) {
   const D = labels.ffNew.desktop
   const { showToast } = useToast()
   const [diseaseTypes, setDiseaseTypes] = useState([])
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('desktop-health-log')
+  const [form, setForm] = useDraftField(draft, 'form', {
     stocking_record: '', disease_type: '', mortality_count: '',
     possible_cause: '', possible_cause_other_specify: '',
     disposal_method: '', disposal_method_other_specify: '',
@@ -254,6 +258,7 @@ export function DesktopKaramdamanForm({ records, onSaved }) {
   return (
     <div className="flex items-start gap-5">
       <form onSubmit={submit} className="min-w-0 flex-1 space-y-4 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-5">
+        <DraftBanner draft={draft} />
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={LABEL}>{D.karamdamanPond} *</label>

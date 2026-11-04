@@ -16,6 +16,8 @@ import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import DisasterHistoryModal from './DisasterHistoryModal.jsx'
 import { FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // DISASTER (fisherfolk accounts): My Logged Disasters + Log Disaster. The account is already the
 // Fisheries/Aquaculture context, so there is no category choice. Log Disaster -> one form: the affected
@@ -31,7 +33,9 @@ const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short
 
 function MarkRecoveredModal({ row, onClose, onDone }) {
   const { showToast } = useToast()
-  const [note, setNote] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`fisherfolk-mark-recovered:${row.id}`)
+  const [note, setNote] = useDraftField(draft, 'note', '')
   const [saving, setSaving] = useState(false)
   const submit = async (e) => {
     e.preventDefault()
@@ -42,6 +46,7 @@ function MarkRecoveredModal({ row, onClose, onDone }) {
       if (row.kind === 'stock') await api.post(`/fisheries/disasters/${row.id}/resolve/`, { recovery_note: note.trim() })
       else await api.patch(`/monitoring/fisherfolk-disasters/${row.id}/`, { status: 'Recovered', recovery_note: note.trim() })
       showToast('Disaster marked as recovered.', 'success')
+      draft.clear()
       onDone()
     } catch (err) {
       showToast(err?.response?.data?.detail || err?.response?.data?.recovery_note?.[0] || 'Failed to mark as recovered.', 'error')
@@ -54,6 +59,7 @@ function MarkRecoveredModal({ row, onClose, onDone }) {
         <Button type="submit" form="ff-mark-recovered" isLoading={saving} disabled={saving}>Mark Recovered</Button>
       </>}>
       <form id="ff-mark-recovered" onSubmit={submit}>
+        <DraftBanner draft={draft} />
         <FormField label="Recovery Note" required>
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note} onChange={e => setNote(e.target.value)}
             placeholder="How did you recover? What was done?" />

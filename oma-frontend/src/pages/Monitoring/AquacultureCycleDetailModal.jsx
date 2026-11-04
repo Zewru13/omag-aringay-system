@@ -21,6 +21,8 @@ import { pcicError, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 import { pcicDocumentsFrom } from '../../utils/pcicDocuments.js'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { ForcedHarvestedStatus } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
@@ -244,8 +246,10 @@ function unitPcicStates(cycle) {
 
 function CycleInfoTab({ cycle, onRefresh }) {
   const { showToast } = useToast()
-  const [editMode, setEditMode] = useState(false)
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`cycle-info:${cycle.id}`)
+  const [editMode, setEditMode] = useDraftField(draft, 'editMode', false)
+  const [form, setForm] = useDraftField(draft, 'form', {
     status: cycle.status,
     actual_harvest_date: cycle.actual_harvest_date || '',
     harvest_volume_kg: cycle.harvest_volume_kg || '',
@@ -254,8 +258,8 @@ function CycleInfoTab({ cycle, onRefresh }) {
   })
   // Ownership and PCIC insurance load from the saved cycle each time the form opens, and are only sent when they were changed,
   // so editing anything else never erases the owner details, the insurance or its document.
-  const [owner, setOwner] = useState(() => ownershipFrom(cycle))
-  const [unitPcic, setUnitPcic] = useState(() => unitPcicStates(cycle))
+  const [owner, setOwner] = useDraftField(draft, 'owner', () => ownershipFrom(cycle))
+  const [unitPcic, setUnitPcic] = useDraftField(draft, 'unitPcic', () => unitPcicStates(cycle))
   const [isSaving, setIsSaving] = useState(false)
   const units = cycle.units || []
   const unitNoun = units[0]?.unit_type === 'cage' ? 'Cage' : 'Pond'
@@ -300,6 +304,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
       }
       if (failed.length) showToast(`Cycle updated, but the PCIC insurance could not be saved for ${failed.join(', ')}. Try again.`, 'error')
       else showToast('Cycle updated.', 'success')
+      draft.clear()
       setEditMode(false)
       onRefresh()
     } catch (err) {
@@ -313,6 +318,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
   if (editMode) {
     return (
       <form onSubmit={handleSave} className="space-y-4">
+        <DraftBanner draft={draft} />
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Status</label>
@@ -373,17 +379,19 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  // What is typed in the form is a draft: still here when the cycle is opened again (see hooks/useDraftForm.js); it opens the form.
+  const draft = useDraftForm(`feeding-log:${cycleId}`)
+  const [showForm, setShowForm] = useState(draft.restored)
   const EMPTY_FEEDING_FORM = { feeding_date: '', feed_type: '', feed_type_other: '', feed_custom: '', quantity_kg: '', notes: '' }
-  const [form, setForm] = useState(EMPTY_FEEDING_FORM)
+  const [form, setForm] = useDraftField(draft, 'form', EMPTY_FEEDING_FORM)
   // false = the Feed Type shown is the system's suggestion; true = the user picked one (never overwritten).
-  const [feedTouched, setFeedTouched] = useState(false)
+  const [feedTouched, setFeedTouched] = useDraftField(draft, 'feedTouched', false)
   const [isSaving, setIsSaving] = useState(false)
   // The cycle's own ponds/cages (its Production Units). When it has any, feed is entered per unit
   // and the total is calculated; cycles without units keep the single Quantity (kg) field.
   const unitLabel = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
   const hasUnits = units.length > 0
-  const [unitQty, setUnitQty] = useState({})
+  const [unitQty, setUnitQty] = useDraftField(draft, 'unitQty', {})
   const unitValue = (u) => { const n = parseFloat(unitQty[u.id]); return n > 0 ? n : 0 }
   const unitsTotal = units.reduce((s, u) => s + unitValue(u), 0)
 
@@ -497,6 +505,7 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
 
       {showForm && (
         <form onSubmit={handleAdd} className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
+          <DraftBanner draft={draft} />
           {/* Table 1 - feed per production unit; the total is always the sum of the unit quantities. */}
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white" data-testid="feeding-units-table">
             <table className="w-full text-sm">
@@ -648,7 +657,9 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  // What is typed in the form is a draft: still here when the cycle is opened again (see hooks/useDraftForm.js); it opens the form.
+  const draft = useDraftForm(`health-log:${cycleId}`)
+  const [showForm, setShowForm] = useState(draft.restored)
   // The cycle's own ponds/cages (its existing Production Units) - the affected one must be chosen
   // when the cycle has any. Nothing is typed: options come straight from the units.
   const hasUnits = units.length > 0
@@ -664,12 +675,12 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
     treatment_applied_other: '',
     notes: '',
   }
-  const [form, setForm] = useState(EMPTY_HEALTH_FORM)
+  const [form, setForm] = useDraftField(draft, 'form', EMPTY_HEALTH_FORM)
   const [isSaving, setIsSaving] = useState(false)
   // Cycles with ponds/cages: every selected unit has its OWN observation, mortality count and treatment
   // ({unitId: entry}); nothing typed for one unit applies to another. Errors are per unit too.
   const EMPTY_UNIT_ENTRY = { observation: '', observation_other: '', mortality_count: '', treatment_applied: '' }
-  const [unitEntries, setUnitEntries] = useState({})
+  const [unitEntries, setUnitEntries] = useDraftField(draft, 'unitEntries', {})
   const [unitErrors, setUnitErrors] = useState({})
   const entryFor = (id) => unitEntries[id] || EMPTY_UNIT_ENTRY
   const setEntry = (id, patch) => {
@@ -884,6 +895,7 @@ function HealthLogTab({ cycleId, units = [], onChanged }) {
 
       {showForm && (
         <form onSubmit={handleAdd} className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-3">
+          <DraftBanner draft={draft} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Date *</label>

@@ -22,6 +22,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
@@ -181,7 +183,9 @@ function EditCatchModal({ record, onClose, onSaved }) {
     hours_at_sea: record.hours_at_sea != null ? String(record.hours_at_sea) : '',
     remarks: record.remarks || '',
   }
-  const [form, setForm] = useState(originalData)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-catch:${record.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -203,6 +207,7 @@ function EditCatchModal({ record, onClose, onSaved }) {
         hours_at_sea: form.hours_at_sea !== '' ? parseFloat(form.hours_at_sea) : null,
         remarks: form.remarks,
       })
+      draft.clear()
       showToast('Catch log updated.', 'success')
       onSaved()
     } catch (err) {
@@ -249,6 +254,7 @@ function EditCatchModal({ record, onClose, onSaved }) {
         }
       >
         <form id="edit-catch-log-form" onSubmit={handleSubmit} className="space-y-4">
+          <DraftBanner draft={draft} />
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Trip Date" required>
               <input type="date" className={baseInputClasses} value={form.trip_date}

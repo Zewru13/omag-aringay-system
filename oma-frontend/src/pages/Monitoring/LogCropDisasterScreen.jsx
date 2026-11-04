@@ -20,6 +20,8 @@ import {
   sortParcels, summaryLine,
 } from './disasterTargets.js'
 import { MAX_CROPS, areaProblem, buildRequest, dateProblem, isWholeArea, withArea, withTotal } from './multiCropDisaster.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Log Disaster (Crop Disaster page, staff): a full-page form for ONE disaster event over many parcels. It takes the place of the disaster
 // list inside the page, so the sidebar and the top bar stay in view. Fill the event once (type, date,
@@ -123,11 +125,13 @@ function ParcelRows({ parcel, selection, open, showErrors, onToggleOpen, onSelec
 export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const { showToast } = useToast()
   const today = todayISO()
-  const [disasterType, setDisasterType] = useState('')
-  const [other, setOther] = useState('')
-  const [date, setDate] = useState(today)
-  const [damage, setDamage] = useState('')
-  const [loss, setLoss] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('log-crop-disaster')
+  const [disasterType, setDisasterType] = useDraftField(draft, 'disasterType', '')
+  const [other, setOther] = useDraftField(draft, 'other', '')
+  const [date, setDate] = useDraftField(draft, 'date', today)
+  const [damage, setDamage] = useDraftField(draft, 'damage', '')
+  const [loss, setLoss] = useDraftField(draft, 'loss', '')
   const photosState = usePhotoList()
   const [targets, setTargets] = useState(null)             // null while loading, false when it failed
   const [reload, setReload] = useState(0)
@@ -138,7 +142,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const [saved, setSaved] = useState(null)                 // the ids of the reports just saved: their report is shown instead of the form
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState([])                 // keys of the parcels shown open
-  const [selection, setSelection] = useState({})
+  const [selection, setSelection] = useDraftField(draft, 'selection', {})
   const [showConfirm, setShowConfirm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
@@ -200,6 +204,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
       }
       const { data: created } = await api.post('/production/disasters/multi/', payload)
       showToast(`Disaster recorded on ${cropCount} crop${cropCount === 1 ? '' : 's'} of ${stats.farmers} farmer${stats.farmers === 1 ? '' : 's'}.`, 'success')
+      draft.clear()
       onSuccess?.()
       setSaved((Array.isArray(created) ? created : []).map((r) => r.id))
     } catch (err) {
@@ -228,6 +233,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
               <p className="text-[12px] text-[#7A8E7A] max-sm:line-clamp-1">One disaster event: tick the parcels and crops that were affected</p>
             </div>
           </header>
+
+          <DraftBanner draft={draft} />
 
           <div>
             <div className="space-y-5">

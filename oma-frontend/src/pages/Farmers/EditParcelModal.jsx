@@ -14,13 +14,17 @@ import {
   editPayload, editProblem, editServerErrors, isTenure, parcelSkipsSchedule, parcelToForm, toggleClassification,
 } from './parcelRows.js'
 import useParcelClassifications from './useParcelClassifications.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Edit Parcel (farmer profile > a parcel's Edit button): change the details of one parcel that already exists. Its crops and
 // machinery are not edited here. The server refuses an area or cropping schedule that no longer holds the crops declared on the
 // parcel or the plantings growing on it, and says why under the field.
 function EditParcelModal({ parcel, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [form, setForm] = useState(() => parcelToForm(parcel))
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-parcel:${parcel.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', () => parcelToForm(parcel))
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const classifications = useParcelClassifications()
@@ -43,6 +47,7 @@ function EditParcelModal({ parcel, onClose, onSuccess }) {
     try {
       await api.patch(`/farmers/parcels/${parcel.id}/`, editPayload(form, parcel))
       showToast('Farm parcel updated successfully.', 'success')
+      draft.clear()
       onSuccess?.()
       onClose()
     } catch (error) {
@@ -68,6 +73,7 @@ function EditParcelModal({ parcel, onClose, onSuccess }) {
       )}
     >
       <form id="edit-parcel-form" onSubmit={submit} className="space-y-4" noValidate>
+        <DraftBanner draft={draft} />
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
 
         <div>

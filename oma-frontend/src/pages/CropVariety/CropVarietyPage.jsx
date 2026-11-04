@@ -13,6 +13,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const PAGE_SIZE = 10
 
@@ -54,7 +56,9 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
     fruiting_start_day:   variety.fruiting_start_day   ?? '',
     maturity_start_day:   variety.maturity_start_day   ?? '',
   }
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-variety-edit:${variety?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState('')
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
@@ -91,6 +95,7 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
       }
       await api.patch(`/production/varieties/${variety.id}/`, payload)
       showToast('Variety updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       const nameErr = err?.response?.data?.name?.[0]
@@ -121,6 +126,7 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
       }
     >
       <form id="crop-variety-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Variety Name" required error={nameError}>
           <input
             className={baseInputClasses}
@@ -190,7 +196,7 @@ export default function CropVarietyPage({ asTab = false }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [editVariety,  setEditVariety]  = useState(null)
-  const add = useAddRow({ name: '', crop_type: '', days_to_harvest: '' })
+  const add = useAddRow({ name: '', crop_type: '', days_to_harvest: '' }, 'crop-variety')
   const [deletingVariety, setDeletingVariety] = useState(null)
   const [page,         setPage]         = useState(1)
 

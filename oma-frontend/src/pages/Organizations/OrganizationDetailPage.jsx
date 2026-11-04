@@ -33,6 +33,8 @@ import { FARMERS_EQUIPMENT, FISHERFOLK_EQUIPMENT } from "./registrationEquipment
 import {
   ChangeConditionDialog, EquipmentHistoryDialog, LendDialog, RepairDialog,
 } from "./EquipmentActionDialogs.jsx";
+import DraftBanner from "../../components/UI/DraftBanner.jsx";
+import useDraftForm, { useDraftField } from "../../hooks/useDraftForm.js";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -84,10 +86,12 @@ const localToday = () => {
 
 function AddMemberModal({ type, organizationId, organizationName, own = false, held = new Set(), onClose, onSuccess }) {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(null);
-  const [position, setPosition] = useState("Member");
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`org-add-member:${type}:${organizationId}`);
+  const [selected, setSelected] = useDraftField(draft, 'selected', null);
+  const [position, setPosition] = useDraftField(draft, 'position', "Member");
   // An organization adds members as of today (the same default its older portal used); staff enter the date.
-  const [dateJoined, setDateJoined] = useState(own ? localToday() : "");
+  const [dateJoined, setDateJoined] = useDraftField(draft, 'dateJoined', own ? localToday() : "");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Set when the server refuses the add until staff choose whether this
@@ -126,6 +130,7 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, h
         date_joined: dateJoined,
         ...(isMain === undefined ? {} : { is_main: isMain }),
       });
+      draft.clear();
       onSuccess();
       onClose();
     } catch (err) {
@@ -209,6 +214,7 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, h
       }
     >
       <form id="add-member-form" className="space-y-5" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         {/* Search */}
         <div>
           <label className={labelCls}>
@@ -412,8 +418,10 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
   // position cannot be picked: one position per person, one person per position.
   const taken = heldPositions(existingOfficers, members);
   const holders = holdersByPerson(existingOfficers, members, type);
-  const [position, setPosition] = useState(firstFreeOfficerPosition(taken));
-  const [selected, setSelected] = useState(null);
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`org-assign-officer:${type}:${organizationId}`);
+  const [position, setPosition] = useDraftField(draft, 'position', firstFreeOfficerPosition(taken));
+  const [selected, setSelected] = useDraftField(draft, 'selected', null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -440,6 +448,7 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
         position,
         [memberKey]: selected.id,
       });
+      draft.clear();
       onSuccess();
       onClose();
     } catch (err) {
@@ -472,6 +481,7 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
       }
     >
       <form id="assign-officer-form" className="space-y-5" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         <div>
           <label className={labelCls}>Position</label>
           <select
@@ -534,8 +544,10 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
 // backend enforces the same rule regardless.
 
 function EndTermModal({ type, officer, onClose, onSuccess }) {
-  const [reason, setReason] = useState("");
-  const [reasonOther, setReasonOther] = useState("");
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`org-end-term:${officer.id}`);
+  const [reason, setReason] = useDraftField(draft, 'reason', "");
+  const [reasonOther, setReasonOther] = useDraftField(draft, 'reasonOther', "");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -550,6 +562,7 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
     setIsSubmitting(true);
     try {
       await api.post(`/organizations/${type}/officers/${officer.id}/end-term/`, body);
+      draft.clear();
       onSuccess();
       onClose();
     } catch (err) {
@@ -581,6 +594,7 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
       }
     >
       <form id="end-term-form" className="space-y-5" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         <p className="text-[13px] text-[#4A5E4A]">
           End {officer.name}'s term as {officer.position}? This does not remove their organization
           membership — the position becomes vacant and can be assigned to someone new. Their term
@@ -686,7 +700,9 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   const knownEquipment = type === "farmers" ? FARMERS_EQUIPMENT : FISHERFOLK_EQUIPMENT;
   const equipmentChoices = useEquipmentOptions(type === "farmers" ? "crop" : "fisheries", knownEquipment);
 
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`org-add-equipment:${type}:${organizationId}`);
+  const [form, setForm] = useDraftField(draft, 'form', {
     equipment_name: "",
     equipment_name_other: "",
     quantity: 1,
@@ -725,6 +741,7 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
         `/organizations/${type}/${organizationId}/equipment/`,
         payload,
       );
+      draft.clear();
       onSuccess();
       onClose();
     } catch (err) {
@@ -750,6 +767,7 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
       }
     >
       <form id="add-equipment-form" className="space-y-4" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         {/* Equipment Name */}
         <div>
           <label className={labelCls}>Equipment Name</label>

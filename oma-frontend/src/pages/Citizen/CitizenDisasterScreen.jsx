@@ -13,6 +13,8 @@ import FarmerDisasterList from './FarmerDisasterList.jsx'
 import FarmerDisasterReportForm from './FarmerDisasterReportForm.jsx'
 import { isWholeArea } from '../../utils/disasterRules.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Same control geometry as CitizenActivityLogModal — hairline border, 8px
 // radius, 13px/12px padding, 15px value text. Deliberately not imported
@@ -94,8 +96,10 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
   const [reloadKey, setReloadKey] = useState(0)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedDateMode, setSelectedDateMode] = useState('today')
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`citizen-disaster-screen:${domain.key}:${recordId}`)
+  const [selectedDateMode, setSelectedDateMode] = useDraftField(draft, 'selectedDateMode', 'today')
+  const [form, setForm] = useDraftField(draft, 'form', {
     disaster_type: domain.disasterTypeChoices[0],
     disaster_type_other_specify: '',
     date_of_occurrence: todayISO(),
@@ -210,6 +214,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
       }
       await api.post(domain.disastersUrl(recordId), payload)
       showToast(labels.disaster.submitSuccess, 'success')
+      draft.clear()
       photosState.clear()
       setJustReported(true)
       setMode('list')
@@ -287,6 +292,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
   if (mode === 'create') {
     const formBody = (
         <form onSubmit={handleSubmit} className="px-[14px] py-4">
+          <DraftBanner draft={draft} />
           {blockedByOther && (
             <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
               <p className="text-[13px] text-cz-warn-body">

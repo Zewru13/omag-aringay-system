@@ -3,9 +3,11 @@ import { AlertTriangle, Search, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { FormLabel, baseInputClasses } from '../../components/UI/FormField.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import {
   AQUACULTURE_EQUIPMENT_GROUPS, FISHERFOLK_DISASTER_TYPES, equipmentPayload, saveErrorMessage,
@@ -239,14 +241,16 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
   const { isFisherfolk } = useAuth()
   const damagePhotos = useDamagePhotos()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [mode, setMode] = useState(LINKED)
-  const [selectedIds, setSelectedIds] = useState(initialStockIds)
-  // stockId -> {state: 'loading' | 'ok' | 'error', units}: each selected stock's own ponds/cages.
-  const [unitsByStock, setUnitsByStock] = useState(() => Object.fromEntries(initialStockIds.map(id => [id, { state: 'loading', units: [] }])))
-  const [losses, setLosses] = useState({})               // rowKey -> {lost, total}
+  // What is typed is a draft (one per fisherfolk and starting stock): still here when the page is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`fisherfolk-stock-disaster:${fisherfolk?.id ?? 'self'}:${initialStockIds.join(',')}`)
+  const [mode, setMode] = useDraftField(draft, 'mode', LINKED)
+  const [selectedIds, setSelectedIds] = useDraftField(draft, 'selectedIds', initialStockIds)
+  // stockId -> {state: 'loading' | 'ok' | 'error', units}: each selected stock's own ponds/cages (those of a restored draft load again).
+  const [unitsByStock, setUnitsByStock] = useState(() => Object.fromEntries(selectedIds.map(id => [id, { state: 'loading', units: [] }])))
+  const [losses, setLosses] = useDraftField(draft, 'losses', {})               // rowKey -> {lost, total}
   const [touched, setTouched] = useState(new Set())
   const [submitted, setSubmitted] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useDraftField(draft, 'form', {
     date_of_occurrence: todayLocal(),
     disaster_type: 'Typhoon',
     disaster_type_other_specify: '',
@@ -266,7 +270,7 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
       .then(r => setUnitsByStock(prev => (prev[id] ? { ...prev, [id]: { state: 'ok', units: r.data.units || [] } } : prev)))
       .catch(() => setUnitsByStock(prev => (prev[id] ? { ...prev, [id]: { state: 'error', units: [] } } : prev)))
   }
-  useEffect(() => { initialStockIds.forEach(loadUnits) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { selectedIds.forEach(loadUnits) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleStock = (id) => {
     if (selectedIds.includes(id)) {
@@ -370,6 +374,7 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
       const r = await api.post(url, payload)
       showToast(isFisherfolk ? 'Disaster logged and submitted to Admin successfully.'
         : `Disaster logged for ${fisherfolk?.full_name || 'the fisherfolk'}.`, 'success')
+      draft.clear()
       onSaved(r.data)
     } catch (err) {
       // Never a false success; the form keeps everything entered so the user can fix it and retry.
@@ -395,6 +400,7 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
       </>}
     >
       <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <DraftBanner draft={draft} />
         {/* Row 1: the affected stock on the left, the equipment damaged beside it. From lg up the equipment list is
             laid out inside the right cell (absolute) so it is exactly as tall as the stock side, with no gap under it. */}
         <div className="grid gap-4 lg:grid-cols-2">

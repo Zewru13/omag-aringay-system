@@ -9,6 +9,8 @@ import {
   CitizenBody, CitizenEmptyState, CitizenScreen, CitizenSubHeader, FISH_THEME,
 } from './citizenUI.jsx'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // ─── Log ng Kalusugan ─────────────────────────────────────────────────────
 // The new fisheries reference (frames 7, 9-12, 15) gives fish health its own
@@ -79,10 +81,12 @@ function ChoiceCard({ selected, onClick, disabled, title, subtitle, icon: Icon }
 export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBar }) {
   const { showToast } = useToast()
 
-  const [step, setStep] = useState('pond')
-  const [record, setRecord] = useState(null)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('citizen-health-log')
+  const [step, setStep] = useDraftField(draft, 'step', 'pond')
+  const [record, setRecord] = useDraftField(draft, 'record', null)
   const [diseaseTypes, setDiseaseTypes] = useState([])
-  const [disease, setDisease] = useState(null)
+  const [disease, setDisease] = useDraftField(draft, 'disease', null)
   const [guide, setGuide] = useState(null)
   const [saving, setSaving] = useState(false)
   const [savedPondName, setSavedPondName] = useState('')
@@ -101,7 +105,7 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
     return () => { cancelled = true }
   }, [record?.id])
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useDraftField(draft, 'form', {
     date_of_activity: todayISO(),
     affected_portion: '',
     mortality_count: '',
@@ -179,6 +183,7 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
       await api.post(`/fisheries/stocking/${record.id}/logs/`, payload)
       setSavedPondName(pondName(record))
       setStep('done')
+      draft.clear()
       onSaved?.()
     } catch (err) {
       const detail = err?.response?.data
@@ -210,7 +215,10 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
         subtitle={H.subtitle}
         onBack={step === 'pond' || step === 'done' ? onBack : () => setStep(step === 'form' ? 'illness' : 'pond')}
       />
-      <CitizenBody>{children}</CitizenBody>
+      <CitizenBody>
+        {step !== 'done' && <DraftBanner draft={draft} />}
+        {children}
+      </CitizenBody>
       {tabBar}
     </CitizenScreen>
   )

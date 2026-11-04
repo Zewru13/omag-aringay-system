@@ -52,6 +52,8 @@ import {
   DEFAULT_GROUP, GROUP_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
 } from "./parcelRecords.js";
+import DraftBanner from "../../components/UI/DraftBanner.jsx";
+import useDraftForm, { useDraftField } from "../../hooks/useDraftForm.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -108,8 +110,10 @@ const filterSelectCls =
 
 function AddRemarkModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast();
-  const [customStatus, setCustomStatus] = useState("");
-  const [content, setContent] = useState("");
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-remark:${record.id}`);
+  const [customStatus, setCustomStatus] = useDraftField(draft, 'customStatus', "");
+  const [content, setContent] = useDraftField(draft, 'content', "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +136,7 @@ function AddRemarkModal({ record, onClose, onSuccess }) {
         custom_status: customStatus.trim(),
         content: content.trim(),
       });
+      draft.clear();
       showToast("Remark added.", "success");
       onSuccess();
     } catch {
@@ -171,6 +176,7 @@ function AddRemarkModal({ record, onClose, onSuccess }) {
         }
       >
         <form id="add-remark-form" onSubmit={handleSubmit} className="space-y-4">
+          <DraftBanner draft={draft} />
           <FormField label="Custom Status">
             <input
               className={baseInputClasses}
@@ -411,9 +417,11 @@ function EditCropModal({ record, onClose, onSaved }) {
     planting_material: record.planting_material || "Seed",
     quantity_of_trees: record.quantity_of_trees ? String(record.quantity_of_trees) : "",
   };
-  const [form, setForm] = useState(originalData);
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-crop:${record.id}`);
+  const [form, setForm] = useDraftField(draft, 'form', originalData);
   const unitWeights = useHarvestUnitWeights();   // the units of Harvest Unit Settings
-  const [pcic, setPcic] = useState(() => pcicStateFrom(record));
+  const [pcic, setPcic] = useDraftField(draft, 'pcic', () => pcicStateFrom(record));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
@@ -521,6 +529,7 @@ function EditCropModal({ record, onClose, onSaved }) {
       } catch {
         showToast("The record was saved, but the PCIC form photo could not be uploaded. Try again.", "error");
       }
+      draft.clear();
       showToast("Crop record updated successfully.", "success");
       onSaved();
     } catch (err) {
@@ -561,6 +570,7 @@ function EditCropModal({ record, onClose, onSaved }) {
       }
     >
       <form id="edit-crop-record-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         {/* Farmer: shown, never changed */}
         <div>
           <label className={editLabelCls}>Farmer</label>

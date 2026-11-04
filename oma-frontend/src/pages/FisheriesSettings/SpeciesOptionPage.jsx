@@ -12,6 +12,8 @@ import { newestFirst } from '../../utils/listOrder.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const PAGE_SIZE = 10
 
@@ -247,7 +249,9 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
     juvenile_start_day:         species.juvenile_start_day   ?? '',
     adult_start_day:            species.adult_start_day      ?? '',
   }
-  const [form,         setForm]         = useState(originalForm)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`species-edit:${species?.id}`)
+  const [form,         setForm]         = useDraftField(draft, 'form', originalForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
   const [nameError,    setNameError]    = useState('')
@@ -293,6 +297,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
     try {
       await api.patch(`/fisheries/species/${species.id}/`, pendingPayload)
       showToast('Species updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       const nameErr = err?.response?.data?.species_name?.[0]
@@ -328,6 +333,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
         }
       >
         <form id="species-option-form" onSubmit={handleSubmit} className="space-y-3">
+          <DraftBanner draft={draft} />
           <FormField label="Species Name" required error={nameError}>
             <input
               className={baseInputClasses}
@@ -442,7 +448,7 @@ export default function SpeciesOptionPage({ asTab = false }) {
   const [error,         setError]         = useState('')
   const [search,        setSearch]        = useState('')
   const [editSpecies,   setEditSpecies]   = useState(null)
-  const add = useAddRow({ species_name: '', category: '', culture_environment: 'Freshwater', culture_duration_days: '', default_survival_rate_pct: '', default_avg_body_weight_kg: '' })
+  const add = useAddRow({ species_name: '', category: '', culture_environment: 'Freshwater', culture_duration_days: '', default_survival_rate_pct: '', default_avg_body_weight_kg: '' }, 'species')
   const [deletingSpec,  setDeletingSpec]  = useState(null)
   // No default sort key — see CropOptionPage.jsx's identical fix. Until
   // staff click a column header, the table shows the backend's own order

@@ -14,6 +14,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const GROWTH_STAGE_OPTIONS = ['Fry', 'Fingerling', 'Juvenile', 'Adult']
 
@@ -26,9 +28,11 @@ const COLUMNS = [
 // Edit Feed Type. New feed types are added in the table itself (the Add button under it).
 function FeedTypeModal({ feedType, onClose, onSaved }) {
   const { showToast } = useToast()
-  const [name,        setName]        = useState(feedType.name || '')
-  const [description, setDescription] = useState(feedType.description || '')
-  const [growthStage, setGrowthStage] = useState(feedType.growth_stage || '')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`feed-type-edit:${feedType?.id}`)
+  const [name,        setName]        = useDraftField(draft, 'name', feedType.name || '')
+  const [description, setDescription] = useDraftField(draft, 'description', feedType.description || '')
+  const [growthStage, setGrowthStage] = useDraftField(draft, 'growthStage', feedType.growth_stage || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -39,6 +43,7 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
       const payload = { name, description, growth_stage: growthStage }
       await api.patch(`/fisheries/feed-types/${feedType.id}/`, payload)
       showToast('Feed type updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -62,6 +67,7 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
       }
     >
       <form id="feed-type-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </FormField>
@@ -88,7 +94,7 @@ export default function FeedTypePage({ asTab = false }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState('')
   const [editing,   setEditing]   = useState(null)
-  const add = useAddRow({ name: '', growth_stage: '' })
+  const add = useAddRow({ name: '', growth_stage: '' }, 'feed-type')
   const [deleting,  setDeleting]  = useState(null)
 
   const fetchAll = useCallback(async () => {

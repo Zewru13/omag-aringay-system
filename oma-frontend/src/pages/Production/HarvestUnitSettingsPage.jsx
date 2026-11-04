@@ -16,6 +16,8 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetHarvestUnitWeights } from '../Monitoring/useHarvestUnitWeights.js'
 import { cropsText, groupRequest, groupWeights } from './unitWeightGroups.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Harvest Unit Settings: how many kg one harvest unit weighs. A harvest is typed in the unit it was counted in (20 sacks) and saved in
 // kg using these weights. A unit weight can be set for several crops at once (one row here, one entry per crop underneath). A weight for a
@@ -36,7 +38,9 @@ const fmtKg = (value) => (value === null || value === undefined || value === '' 
 function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { unit: weight.unit, crop_types: weight.crop_ids, kg_per_unit: weight.kg_per_unit === null || weight.kg_per_unit === undefined ? '' : String(Number(weight.kg_per_unit)), note: weight.note || '' }
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`harvest-unit-weight-edit:${weight?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
@@ -49,6 +53,7 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
     try {
       await api.put('/production/harvest-unit-weights/group/', { ids: weight.ids, ...groupRequest(form) })
       showToast('Unit weight updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       const data = err?.response?.data || {}
@@ -76,6 +81,7 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
       )}
     >
       <form id="harvest-unit-weight-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <DraftBanner draft={draft} />
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
         <FormField label="Unit" required error={errors.unit}>
           <input className={baseInputClasses} list="harvest-unit-names" value={form.unit} autoFocus placeholder="e.g. Sack" onChange={(e) => set('unit', e.target.value)} />
@@ -105,7 +111,7 @@ export default function HarvestUnitSettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
-  const add = useAddRow({ unit: '', crop_types: [], kg_per_unit: '', note: '' })
+  const add = useAddRow({ unit: '', crop_types: [], kg_per_unit: '', note: '' }, 'harvest-unit')
   const [deleting, setDeleting] = useState(null)
   const [version, setVersion] = useState(0)
 

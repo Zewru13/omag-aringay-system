@@ -13,6 +13,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Fingerling sources (Fisheries Settings): where fingerlings come from (BFAR, a private hatchery, own production, ...). This is the
 // list Start Production Cycle offers. A stocking keeps the NAME it was saved with, so renaming or deleting a source here never
@@ -26,7 +28,9 @@ const COLUMNS = [
 function SourceModal({ source, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalName = source.name
-  const [name, setName] = useState(originalName)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`fingerling-source-edit:${source?.id}`)
+  const [name, setName] = useDraftField(draft, 'name', originalName)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = name.trim() !== originalName
 
@@ -37,6 +41,7 @@ function SourceModal({ source, onClose, onSaved }) {
     try {
       await api.patch(`/fisheries/fingerling-sources/${source.id}/`, { name })
       showToast('Fingerling source updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -62,6 +67,7 @@ function SourceModal({ source, onClose, onSaved }) {
       }
     >
       <form id="fingerling-source-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Fingerling Source" required>
           <input
             className={baseInputClasses}
@@ -83,7 +89,7 @@ export default function FingerlingSourcePage({ asTab = false }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState('')
   const [editing,   setEditing]   = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, 'fingerling-source')
   const [deleting,  setDeleting]  = useState(null)
 
   const fetchAll = useCallback(async () => {

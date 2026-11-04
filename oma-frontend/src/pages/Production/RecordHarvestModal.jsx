@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Tractor } from "lucide-react"
 import api from "../../api/axiosInstance.js"
 import ModalShell from "../../components/UI/ModalShell.jsx"
@@ -7,6 +7,8 @@ import { baseInputClasses } from "../../components/UI/FormField.jsx"
 import { harvestAreaHint, harvestAreaProblem } from "../Monitoring/harvestArea.js"
 import { needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from "../Monitoring/harvestUnits.js"
 import useHarvestUnitWeights from "../Monitoring/useHarvestUnitWeights.js"
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = "block text-xs font-medium text-slate-600"
 
@@ -24,24 +26,31 @@ const UNIT_OPTIONS = [
 function RecordHarvestModal({ onClose, onSuccess }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [farmers, setFarmers] = useState([])
-  const [selectedFarmer, setSelectedFarmer] = useState(null)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('record-harvest')
+  const [selectedFarmer, setSelectedFarmer] = useDraftField(draft, 'selectedFarmer', null)
   const [parcels, setParcels] = useState([])
-  const [selectedParcel, setSelectedParcel] = useState(null)
+  const [selectedParcel, setSelectedParcel] = useDraftField(draft, 'selectedParcel', null)
   const [isSearching, setIsSearching] = useState(false)
   const [isLoadingParcels, setIsLoadingParcels] = useState(false)
 
-  const [season, setSeason] = useState("Dry")
-  const [year, setYear] = useState(new Date().getFullYear().toString())
-  const [cropName, setCropName] = useState("")
-  const [harvestStartDate, setHarvestStartDate] = useState("")
-  const [areaHarvested, setAreaHarvested] = useState("")
-  const [quantity, setQuantity] = useState("")
-  const [totalKg, setTotalKg] = useState("")
+  const [season, setSeason] = useDraftField(draft, 'season', "Dry")
+  const [year, setYear] = useDraftField(draft, 'year', new Date().getFullYear().toString())
+  const [cropName, setCropName] = useDraftField(draft, 'cropName', "")
+  const [harvestStartDate, setHarvestStartDate] = useDraftField(draft, 'harvestStartDate', "")
+  const [areaHarvested, setAreaHarvested] = useDraftField(draft, 'areaHarvested', "")
+  const [quantity, setQuantity] = useDraftField(draft, 'quantity', "")
+  const [totalKg, setTotalKg] = useDraftField(draft, 'totalKg', "")
   // The kg one unit weighs (Settings > Harvest Units); this form has no crop record, so only the units for every crop apply.
   const weights = useHarvestUnitWeights()
-  const [unitOfMeasure, setUnitOfMeasure] = useState("kg")
+  const [unitOfMeasure, setUnitOfMeasure] = useDraftField(draft, 'unitOfMeasure', "kg")
   const [errorMessage, setErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // A farmer restored from the draft: bring their parcels back too.
+  useEffect(() => {
+    if (!selectedFarmer) return
+    api.get(`/farmers/${selectedFarmer.id}/parcels/`).then((response) => setParcels(response.data || [])).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = async (query) => {
     setSearchQuery(query)
@@ -101,6 +110,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
         area_harvested_hectares: parseFloat(areaHarvested),
         ...quantityPayload({ quantity, unit: unitOfMeasure, weight, totalKg }),
       })
+      draft.clear()
       onSuccess()
       onClose()
     } catch (error) {
@@ -140,6 +150,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
       }
     >
       <form id="record-harvest-form" className="space-y-4" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         <div>
           <label className={labelCls}>Select Farmer</label>
           <input

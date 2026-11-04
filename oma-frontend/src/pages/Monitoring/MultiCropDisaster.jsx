@@ -14,6 +14,8 @@ import { todayISO } from '../../utils/localDate.js'
 import {
   MAX_CROPS, allTotal, areaProblem, buildRequest, dateProblem, filterCrops, isWholeArea, selectionSummary, toRows, withAllTotal, withArea, withTotal,
 } from './multiCropDisaster.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Log Disaster on a farmer's crops: tick the crops that were hit (step 2), then fill ONE form for the whole event (step 3):
 // the type, date, description and photos are shared; each crop has its own area affected and Total Loss tick.
@@ -87,12 +89,14 @@ export function ChooseCropsModal({ title = 'Log Disaster', subtitle, crops, bloc
 // Step 3. crops = the chosen crop records (id, label, crop_type_name, area_planted_ha, date_planted).
 export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess, inline = false }) {
   const { showToast } = useToast()
-  const [disasterType, setDisasterType] = useState('')
-  const [other, setOther] = useState('')
-  const [date, setDate] = useState(todayISO())
-  const [damage, setDamage] = useState('')
-  const [loss, setLoss] = useState('')
-  const [rows, setRows] = useState(() => toRows(crops))
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`multi-crop-disaster:${crops.map((c) => c.id).join(',')}`)
+  const [disasterType, setDisasterType] = useDraftField(draft, 'disasterType', '')
+  const [other, setOther] = useDraftField(draft, 'other', '')
+  const [date, setDate] = useDraftField(draft, 'date', todayISO())
+  const [damage, setDamage] = useDraftField(draft, 'damage', '')
+  const [loss, setLoss] = useDraftField(draft, 'loss', '')
+  const [rows, setRows] = useDraftField(draft, 'rows', () => toRows(crops))
   const photosState = usePhotoList()
   const [showConfirm, setShowConfirm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -130,6 +134,7 @@ export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess, inli
       }
       await api.post('/production/disasters/multi/', payload)
       showToast(`Disaster recorded on ${rows.length} crop${rows.length === 1 ? '' : 's'}.`, 'success')
+      draft.clear()
       onSuccess?.()
       onClose()
     } catch (err) {
@@ -163,6 +168,7 @@ export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess, inli
         )}
       >
         <div className="space-y-3">
+          <DraftBanner draft={draft} />
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Disaster Type *</label>
             <ComboboxWithOther options={DISASTER_TYPES} value={disasterType} otherValue={other}

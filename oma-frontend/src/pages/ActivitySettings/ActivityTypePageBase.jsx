@@ -13,6 +13,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const PAGE_SIZE = 10
 
@@ -25,7 +27,9 @@ const COLUMNS = [
 function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { name: activityType.name }
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`activity-type-edit:${endpoint}:${activityType?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState('')
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
@@ -42,6 +46,7 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
     try {
       await api.patch(`${endpoint}${activityType.id}/`, form)
       showToast('Activity type updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       const nameErr = err?.response?.data?.name?.[0]
@@ -68,6 +73,7 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
       }
     >
       <form id="activity-type-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Activity Type Name" required error={nameError}>
           <input
             className={baseInputClasses}
@@ -88,7 +94,7 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [editType,     setEditType]     = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, `activity-type:${endpoint}`)
   const [deletingType, setDeletingType] = useState(null)
   const [page,         setPage]         = useState(1)
 

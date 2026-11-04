@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { Plus, Search, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -7,6 +7,7 @@ import { canPickMore, lendBody, lendProblem, lendSummary, maxUnitsFor, unitsLeft
 import { todayISO } from '../../utils/localDate.js'
 import { unitsSummary } from '../../utils/equipmentLoans.js'
 import { ActionForm } from './EquipmentActionDialogs.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // "Lend equipment" on the Borrowed tab: the organization reports that members borrowed equipment, for the members who have no account to
 // request it themselves. Each section is one kind of equipment with the members who borrowed it (each with their own number of units); add
@@ -27,9 +28,12 @@ export default function LendEquipmentForm({ type, organizationId, lines, members
   const { showToast } = useToast()
   const today = todayISO()
   const lendable = useMemo(() => lines.filter((l) => l.condition === 'Good' && unitsSummary(l).available > 0), [lines])
-  const nextKey = useRef(2)
-  const [kinds, setKinds] = useState(() => [{ key: 1, lineId: lendable[0] ? String(lendable[0].id) : '', picked: {}, search: '' }])
-  const [borrowedOn, setBorrowedOn] = useState(today)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`lend-equipment:${type}:${organizationId}`)
+  const [kinds, setKinds] = useDraftField(draft, 'kinds', () => [{ key: 1, lineId: lendable[0] ? String(lendable[0].id) : '', picked: {}, search: '' }])
+  // New kinds continue after the ones a restored draft already has.
+  const nextKey = useRef(Math.max(1, ...kinds.map((k) => k.key)) + 1)
+  const [borrowedOn, setBorrowedOn] = useDraftField(draft, 'borrowedOn', today)
 
   const lineOf = (kind) => lendable.find((l) => String(l.id) === kind.lineId)
   const usedElsewhere = (kind) => new Set(kinds.filter((k) => k.key !== kind.key).map((k) => k.lineId))
@@ -54,12 +58,14 @@ export default function LendEquipmentForm({ type, organizationId, lines, members
 
   return (
     <ActionForm
+      draft={draft}
       title="Lend equipment" subtitle="Record who borrowed what, for members who cannot request it themselves" onClose={onClose}
       submitLabel={anyPicked ? `Record ${forCheck.reduce((n, k) => n + k.picked.length, 0)} borrowed item${forCheck.reduce((n, k) => n + k.picked.length, 0) === 1 ? '' : 's'}` : 'Record borrowed'}
       disabled={lendable.length === 0 || members.length === 0 || Boolean(problem)}
       onSubmit={async () => {
         await api.post(`/organizations/${type}/${organizationId}/equipment-lend/`, lendBody(forCheck, { borrowedOn }))
         showToast(lendSummary(forCheck), 'success')
+        draft.clear()
         onDone()
       }}
     >

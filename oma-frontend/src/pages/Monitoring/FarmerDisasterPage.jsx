@@ -16,6 +16,8 @@ import { ChooseCropsModal, MultiCropDisasterModal } from './MultiCropDisaster.js
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import DisasterHistoryModal from './DisasterHistoryModal.jsx'
 import { FARMER_LOG, downloadLog, printLog } from './disasterReportDocument.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // DISASTER (farmer accounts): My Logged Disasters + Log Disaster, the farmer counterpart of
 // FisherfolkDisasterPage. Own logs come from GET /production/disaster-logs/ (the backend limits it to this
@@ -32,7 +34,9 @@ const cropLabel = (c) => `${c.crop_type_name || 'Crop'}${c.season ? ` · ${c.sea
 
 function MarkRecoveredModal({ row, onClose, onDone }) {
   const { showToast } = useToast()
-  const [note, setNote] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`farmer-mark-recovered:${row.id}`)
+  const [note, setNote] = useDraftField(draft, 'note', '')
   const [saving, setSaving] = useState(false)
   const submit = async (e) => {
     e.preventDefault()
@@ -40,6 +44,7 @@ function MarkRecoveredModal({ row, onClose, onDone }) {
     try {
       await api.post(`/production/disasters/${row.id}/resolve/`, note.trim() ? { recovery_note: note.trim() } : {})
       showToast('Disaster marked as recovered.', 'success')
+      draft.clear()
       onDone()
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to mark as recovered.', 'error')
@@ -52,6 +57,7 @@ function MarkRecoveredModal({ row, onClose, onDone }) {
         <Button type="submit" form="farmer-mark-recovered" isLoading={saving} disabled={saving}>Mark Recovered</Button>
       </>}>
       <form id="farmer-mark-recovered" onSubmit={submit}>
+        <DraftBanner draft={draft} />
         <FormField label="Recovery Note">
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note} onChange={e => setNote(e.target.value)}
             placeholder="How did the crop recover? What was done?" />
