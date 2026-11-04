@@ -110,7 +110,7 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Open Crop Monitoring. It opens on the crops that are Planted. Search, then open Filters: group by, crop, status, PCIC, season, year and the date planted. Grouped by crop, a row shows how many farmers grow it, the records, the area planted and how many are near harvest; grouped by farmer, a row shows the RSBSA No., Barangay and Contact No. as well. Print Report and Download Report follow the filters.',
       'The statuses are: Planted; Near Harvest (within 7 days of the expected date: Due Harvest while still ahead, Ready for Harvest from the harvest date, Overdue after 7 days); Harvested; and Total Loss.',
-      'The PCIC Insured round check of a crop is green when it has insurance and an empty circle when it has none. The three-dot menu has Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster.',
+      'The PCIC Insured round check of a crop is green when it has insurance and an empty circle when it has none; View form beside it opens the uploaded PCIC form in a window inside the system. The three-dot menu has Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster.',
       'Record Activity logs one activity (the activity, the date, the plant condition and recommendations). Get Suggestions shows what is recommended; Activity History lists the activities already logged.',
       'Record Harvest opens once half of the crop\'s growing time has passed; before that it is grayed out (hold the pointer on it to see why). The window names the crop. Enter the harvested date, the area harvested, the unit of measure and the quantity. A harvest more than 7 days after the expected date asks for a reason.',
       'Report Disaster reports damage on one crop: the type, the date, the area affected, the damage and the loss, and photos. Tick Total loss if the crop is completely destroyed: it moves to Total Loss.',
@@ -123,7 +123,7 @@ const STAFF_GUIDES = (focal) => [
     intro: 'Fisheries Management has Aquaculture Monitoring (production cycles of ponds and cages) and Capture Monitoring (fishing trips and catch).',
     screens: ['admin-aquaculture', 'admin-aquaculture-filters', 'admin-aquaculture-menu', 'admin-start-cycle', 'admin-cycle-details', 'admin-capture', 'admin-capture-log', 'admin-capture-timeline'],
     steps: [
-      'Open Aquaculture Monitoring. Search, open Filters (pond or cage name, status, species, season, year, Stocked From / To), print or download the list. Click a row to open its ponds or cages: each one has its own PCIC Insured round check, green when that pond or cage is insured.',
+      'Open Aquaculture Monitoring. Search, open Filters (pond or cage name, status, species, season, year, Stocked From / To), print or download the list. Click a row to open its ponds or cages: each one has its own PCIC Insured round check, green when that pond or cage is insured. View form beside it opens the uploaded PCIC form in a window inside the system (page by page, with zoom); Close brings you back. The estimated and actual harvest of each pond or cage are in that row too. A small red alert icon beside a cycle\'s status means a disaster is still active on it; a green check means it recovered.',
       'Start Production Cycle opens the form: the fisherfolk, organization, culture phase, species, culture system, water source, fingerling source, pond location, ownership, stocking date, target harvest date and the number of ponds. Each pond or cage then gets its size, fingerlings and PCIC insurance.',
       'The harvest button of a row is grayed out until at least half of the expected time has passed. The three-dot menu has View Details, Edit, Cycle & Logs and Force Harvest.',
       'In Cycle & Logs, Cycle Info shows the ponds, the Feeding Log records the feed given and the Health Log records disease and treatment.',
@@ -333,8 +333,8 @@ const FISHERFOLK_GUIDES = [
     intro: 'Aquaculture Monitoring lists your production cycles and stocks.',
     screens: ['fisherfolk-stocks', 'fisherfolk-start-cycle'],
     steps: [
-      'Open Aquaculture Monitoring. Each row is a production cycle: its species, culture type, date stocked, expected and actual harvest, pond location and status.',
-      'Click a row to open its ponds or cages: the unit, fingerlings, dimensions, area, estimated and actual harvest and the date harvested.',
+      'Open Aquaculture Monitoring. Each row is a production cycle: its species, culture type, date stocked, expected harvest, pond location and status. A small red alert icon beside the status means a disaster is still active on the cycle; a green check means it recovered.',
+      'Click a row to open its ponds or cages: the unit, its PCIC Insured round check (View form opens the uploaded form inside the system), fingerlings, dimensions, area, estimated and actual harvest and the date harvested.',
       'Press Start Production Cycle to begin a new cycle: choose the culture phase, species, culture system, water and fingerling source, pond location, ownership, the stocking and target harvest dates and the number of ponds, then give each pond its size, fingerlings and PCIC insurance.',
       'The harvest button is grayed out until half of the expected time has passed. The three dots open the menu: view details, edit, cycle & logs (the Feeding Log and the Health Log) and force harvest.',
     ],

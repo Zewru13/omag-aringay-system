@@ -1620,7 +1620,7 @@ class StockingProductionUnitsView(APIView):
         rec = get_object_or_404(scope_to_fisherfolk(StockingRecord.objects.all(), request.user), pk=pk)
         if not rec.production_cycle_id:
             return Response({'stocking_record': rec.id, 'production_cycle': None, 'units': []})
-        units = list(AquacultureProductionUnit.objects.filter(production_cycle_id=rec.production_cycle_id).order_by('unit_type', 'unit_number'))
+        units = list(AquacultureProductionUnit.objects.filter(production_cycle_id=rec.production_cycle_id).prefetch_related('pcic_extra_photos').order_by('unit_type', 'unit_number'))
         harvests = rec.harvests.prefetch_related('production_units', 'unit_harvests')
         unit_kg, unit_dates, combined_units = {}, {}, set()
         forced_by_unit = {}   # unit id -> the emergency Force Harvest record that harvested it
@@ -1674,6 +1674,7 @@ class StockingProductionUnitsView(APIView):
                 'status': status,
                 'force_harvest_reasons': st.get('reasons', []),
                 'has_pcic_insurance': bool(u.has_pcic_insurance),
+                'pcic_form_photos': photo_list(u, request),   # signed links to the unit's PCIC form photos (the in-app viewer opens them)
             })
         return Response({'stocking_record': rec.id, 'production_cycle': rec.production_cycle_id, 'units': out})
 
@@ -2464,7 +2465,7 @@ class FisheriesYieldAnalysisSummaryView(APIView):
         })
 
 
-from core.pcic import PcicFormPhotoMixin  # noqa: E402
+from core.pcic import PcicFormPhotoMixin, photo_list  # noqa: E402
 
 
 class PondPcicFormView(PcicFormPhotoMixin, PondDetailView):

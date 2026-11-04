@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ExternalLink, Fish, Plus, Trash2 } from 'lucide-react'
+import { Fish, Plus, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import OwnershipFields from '../../components/UI/OwnershipFields.jsx'
 import PcicCheck from '../../components/UI/PcicCheck.jsx'
+import PcicFormButton from '../../components/UI/PcicFormButton.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -17,6 +18,7 @@ import { cycleProgress } from '../../utils/cycleActivity.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import { ownershipChanged, ownershipFrom, ownershipPayload, ownershipProblem, ownershipRows } from '../../utils/ownership.js'
 import { pcicError, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
+import { pcicDocumentsFrom } from '../../utils/pcicDocuments.js'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { ForcedHarvestedStatus } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
 
@@ -193,7 +195,7 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
                 <tbody className="divide-y divide-slate-100">
                   {cycle.units.map(u => {
                     const hasDims = u.length_m != null && u.width_m != null
-                    const form = resolveMediaUrl(u.pcic_form_photo)
+                    const forms = pcicDocumentsFrom({ photos: u.pcic_form_photos, url: u.pcic_form_photo }, resolveMediaUrl)
                     return (
                       <tr key={u.id}>
                         <td className="py-2 pr-3 font-medium text-slate-800">
@@ -209,8 +211,8 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
                         <td className="py-2">
                           <span className="inline-flex items-center gap-2">
                             <PcicCheck insured={u.has_pcic_insurance} />
-                            {u.has_pcic_insurance && (form
-                              ? <a href={form} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-[#1B4D2E] underline">View form <ExternalLink size={12} aria-hidden="true" /></a>
+                            {u.has_pcic_insurance && (forms.length
+                              ? <PcicFormButton documents={forms} className="text-xs">View form</PcicFormButton>
                               : <span className="text-xs text-slate-400">No form on file</span>)}
                           </span>
                         </td>

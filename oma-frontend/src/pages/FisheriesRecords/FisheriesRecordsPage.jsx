@@ -35,7 +35,7 @@ import {
 import PondSelector from './PondSelector.jsx'
 import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPanel.jsx'
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
-import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
+import { computeHarvestPreview, detectSeason, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
@@ -65,8 +65,6 @@ const COLUMNS = [
   { key: 'cycle_cell',          label: 'CYCLE' },
   { key: 'date_stocked_fmt',    label: 'DATE STOCKED' },
   { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
-  { key: 'est_harvest_kg_fmt',  label: 'EST. HARVEST (KG)' },
-  { key: 'actual_harvest_kg_fmt', label: 'ACTUAL HARVEST (KG)' },
   { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
   { key: 'status_cell',         label: 'STATUS' },
@@ -781,8 +779,6 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
     ['Date Stocked', row.date_stocked_fmt],
     ['Expected Harvest', row.expected_harvest_fmt],
     ['Pond Location', row.pond_location],
-    ['Est. Harvest (kg)', row.est_harvest_kg_fmt],
-    ['Actual Harvest (kg)', row.actual_harvest_kg_fmt],
   ]
   const btn = 'flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 text-[13px] font-medium transition-colors'
   return (
@@ -1058,7 +1054,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           ? <ChevronDown size={15} className="shrink-0 text-[#1B4D2E]" aria-hidden="true" />
           : <ChevronRight size={15} className="shrink-0 text-[#7A8E7A]" aria-hidden="true" />}
         <span className="font-medium">{rec.species_name}</span>
-        <DisasterIndicator disastersCount={rec.disaster_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
         {lockStatuses[rec.id] && (
           <span
             className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
@@ -1084,11 +1079,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       </span>
     ) : fmtShort(rec.date_stocked),
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
-    // Estimated (forecast) only - the actual harvested weight has its own column.
-    est_harvest_kg_fmt:   rec.estimated_harvest_kg
-      ? Number(rec.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : '—',
-    actual_harvest_kg_fmt: fmtActualHarvestKg(rec),
     assoc_name:   rec.organization_name || '—',
     pond_location: rec.pond_location_barangay || '—',
     status_cell: (
@@ -1106,6 +1096,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         ) : (
           <StatusPill tone={STATUS_TONES[cycleStatusText(rec)] || 'slate'}>{cycleStatusText(rec)}</StatusPill>
         )}
+        {/* The disaster notice of the cycle, right beside its status badge: shown only when a disaster was reported on it (a red alert while one
+            is active, a green check once recovered); its hover text says which. */}
+        <DisasterIndicator disastersCount={rec.disaster_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
       </span>
     ),
     actions_cell: (

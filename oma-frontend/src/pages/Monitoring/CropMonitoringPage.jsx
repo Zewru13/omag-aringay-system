@@ -21,7 +21,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
-import PcicCheck from '../../components/UI/PcicCheck.jsx'
+import PcicCell from '../../components/UI/PcicCell.jsx'
 import { PCIC_FILTER_OPTIONS } from '../../utils/pcic.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
@@ -2215,7 +2215,7 @@ export default function CropMonitoringPage() {
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,
     logs_cell: rec.log_count ?? 0,
-    pcic_cell: <PcicCheck insured={rec.has_pcic_insurance} />,
+    pcic_cell: <PcicCell insured={rec.has_pcic_insurance} photos={rec.pcic_form_photos} url={rec.pcic_form_photo} />,
     // Most rows offer 3 (View Logs, Record Harvest, Report Disaster) -> ⋮.
     // Once Harvested/Total Loss, Record Harvest drops out, leaving 2 (View
     // Logs, Report Disaster) — RowActions' own action-count rule still

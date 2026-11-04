@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import PcicCheck from '../../components/UI/PcicCheck.jsx'
+import PcicCell from '../../components/UI/PcicCell.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ListPrintButton from '../../components/ListPrintButton.jsx'
 import { buildPersonHistorySpec } from '../AssistanceManagement/assistanceHistoryReport.js'
@@ -302,7 +302,7 @@ function FisherfolkDetailPage() {
     area_fmt: p.area_hectares != null ? Number(p.area_hectares).toFixed(4) : '—',
     water_source: p.water_source || '—',
     history_fmt: `${p.stocking_record_count} record${p.stocking_record_count === 1 ? '' : 's'}`,
-    pcic_cell: <PcicCheck insured={p.has_pcic_insurance} />,
+    pcic_cell: <PcicCell insured={p.has_pcic_insurance} photos={p.pcic_form_photos} url={p.pcic_form_photo} />,
     status_pill: <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>,
     actions_cell: (isAdmin || isEvaluator) ? (
       <div className="flex justify-end">

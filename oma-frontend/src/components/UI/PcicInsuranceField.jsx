@@ -5,6 +5,7 @@ import { MAX_PCIC_PHOTOS, checkPcicFile, pcicPhotoCount } from '../../utils/pcic
 import Button from './Button.jsx'
 import ModalShell from './ModalShell.jsx'
 import { PcicRoundIcon } from './PcicCheck.jsx'
+import PcicDocumentViewer from './PcicDocumentViewer.jsx'
 
 // "Has PCIC insurance" round check button for a crop, pond, planting or stocking record (the same round icon as the tables' PCIC INSURED cell). Pressing it opens a window asking for photos of the PCIC
 // insurance form (up to 5: its pages; kept with the record as documentation); cancelling that window without a photo leaves the box
@@ -17,6 +18,7 @@ function PcicPhotoDialog({ value, subject, error, onSave, onCancel }) {
   const [files, setFiles] = useState(value.files || [])
   const [removed, setRemoved] = useState(value.removed || [])
   const [fileError, setFileError] = useState('')
+  const [viewing, setViewing] = useState(null)   // index of the photo open in the in-app viewer
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
   const saved = (value.photos || []).filter((p) => !removed.includes(p.id))
@@ -34,11 +36,17 @@ function PcicPhotoDialog({ value, subject, error, onSave, onCancel }) {
     setFiles((f) => [...f, ...chosen.slice(0, Math.max(0, room))])
   }
 
-  const tile = (key, src, label, onRemove) => (
+  // Every photo of the form, saved ones first, then the ones just chosen: the viewer pages through them.
+  const documents = [
+    ...saved.map((p) => ({ id: `s${p.id}`, url: resolveMediaUrl(p.url) })),
+    ...files.map((f, i) => ({ id: `n${f.name}${i}`, url: previews[i], name: f.name, type: f.type })),
+  ]
+
+  const tile = (key, src, label, onRemove, position) => (
     <li key={key} className="relative">
-      <a href={src} target="_blank" rel="noreferrer" className="block h-24 w-full overflow-hidden rounded-lg border border-[#E2E8E2] bg-white">
+      <button type="button" onClick={() => setViewing(position)} title={`View ${label}`} className="block h-24 w-full overflow-hidden rounded-lg border border-[#E2E8E2] bg-white">
         <img src={src} alt={label} className="h-full w-full object-cover" />
-      </a>
+      </button>
       <button type="button" aria-label={`Remove ${label}`} onClick={onRemove}
         className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-[#C8D5C8] bg-white text-rose-600 shadow-sm hover:bg-rose-50">
         <X size={13} aria-hidden="true" />
@@ -64,8 +72,8 @@ function PcicPhotoDialog({ value, subject, error, onSave, onCancel }) {
         <p className="text-[13px] text-[#4A5E4A]">Upload photos of the PCIC insurance form, one for each page, up to {MAX_PCIC_PHOTOS}. They are kept with the record as documentation.</p>
         {count > 0 && (
           <ul className="grid grid-cols-3 gap-3" aria-label="Photos of the PCIC form">
-            {saved.map((p, i) => tile(`s${p.id}`, resolveMediaUrl(p.url), `photo ${i + 1}`, () => setRemoved((r) => [...r, p.id])))}
-            {files.map((f, i) => tile(`n${f.name}${i}`, previews[i], `photo ${saved.length + i + 1}`, () => setFiles((all) => all.filter((_, k) => k !== i))))}
+            {saved.map((p, i) => tile(`s${p.id}`, resolveMediaUrl(p.url), `photo ${i + 1}`, () => setRemoved((r) => [...r, p.id]), i))}
+            {files.map((f, i) => tile(`n${f.name}${i}`, previews[i], `photo ${saved.length + i + 1}`, () => setFiles((all) => all.filter((_, k) => k !== i)), saved.length + i))}
           </ul>
         )}
         <button type="button" disabled={full} onClick={() => inputRef.current?.click()}
@@ -76,6 +84,7 @@ function PcicPhotoDialog({ value, subject, error, onSave, onCancel }) {
         {(fileError || error) && <p className="text-[12px] font-medium text-rose-600">{fileError || error}</p>}
         <p className="text-[11px] text-[#7A8E7A]">{count} of {MAX_PCIC_PHOTOS} photos. JPG, PNG or WEBP, up to 5 MB each.</p>
       </div>
+    {viewing !== null && <PcicDocumentViewer documents={documents} startIndex={viewing} onClose={() => setViewing(null)} />}
     </ModalShell>
   )
 }

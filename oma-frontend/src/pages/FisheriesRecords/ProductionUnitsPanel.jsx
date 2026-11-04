@@ -1,4 +1,4 @@
-import PcicCheck from '../../components/UI/PcicCheck.jsx'
+import PcicCell from '../../components/UI/PcicCell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
 import { fmtLong } from './stockingHelpers.js'
@@ -86,7 +86,7 @@ function StateMessage({ state, onRetry, compact }) {
 function unitFields({ speciesName, forecast, estimatedHarvestDate, pcic }) {
   return [
     { label: 'Production Unit', align: 'text-left', cell: u => <UnitName unit={u} />, card: false, strong: true },
-    pcic && { label: 'PCIC Insured', align: 'text-left', cell: u => <PcicCheck insured={u.has_pcic_insurance} /> },
+    pcic && { label: 'PCIC Insured', align: 'text-left', cell: u => <PcicCell insured={u.has_pcic_insurance} photos={u.pcic_form_photos} /> },
     { label: 'Species', align: 'text-left', cell: () => speciesName || '—' },
     { label: forecast ? 'Fingerlings Count' : 'Fingerlings', align: 'text-right', cell: u => fmtCount(u.fingerling_count) },
     { label: 'Dimensions', align: 'text-left', cell: fmtDims },

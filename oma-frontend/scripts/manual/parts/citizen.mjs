@@ -96,10 +96,9 @@ export const CITIZEN = [
     callouts: [
       { find: SIDEBAR, label: 'Menu', desc: 'Home, Aquaculture Monitoring, Forecasting, Disaster and Assistance.' },
       { find: { text: 'Start Production Cycle', tag: 'button' }, label: 'Start Production Cycle', desc: 'Starts a new production cycle (next picture).' },
-      { find: COLS, label: 'Columns', desc: 'Ownership, species, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status and Actions.' },
+      { find: COLS, label: 'Columns', desc: 'Ownership, species, culture type (pond or cage), cycle number, date stocked, expected harvest, organization, pond location, status (a small red alert icon beside it means a disaster is still active on the cycle, a green check means it recovered) and Actions.' },
       { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Harvest / Actions', desc: 'The harvest button is grayed out until at least half of the expected time has passed. The three dots open the menu of the cycle: view and edit it, see its logs, or force a harvest.' },
-      { find: { text: 'ponds', tag: 'span, p, div', up: 1 }, label: 'Ponds of the cycle', desc: 'Click a row to open its ponds or cages: the unit, species, fingerlings, dimensions, area, estimated and actual harvest, the date harvested and the status.' },
-      { find: { text: 'Cycle & Logs', tag: 'button' }, label: 'Cycle & Logs', desc: 'Opens the cycle with its Feeding Log and Health Log, where you record the feed given and any disease and treatment.' },
+      { find: { text: 'ponds', tag: 'span, p, div', up: 1 }, label: 'Ponds of the cycle', desc: 'Click a row to open its ponds or cages: the unit, its PCIC Insured round check (View form opens the uploaded form inside the system), species, fingerlings, dimensions, area, estimated and actual harvest, the date harvested and the status.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
   FI({ id: 'fisherfolk-start-cycle', file: 'fisherfolk/start-cycle.png', url: '/fisheries-monitoring', js: click('Start Production Cycle'), after: 2500, height: 1500, title: 'Start Production Cycle (Fisherfolk)', purpose: 'Starts a new production cycle for your ponds or cages.',
