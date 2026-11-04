@@ -20,7 +20,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator, IsStaffOrFarmer, IsStaffOrFisherfolk, farmer_scope
-from core.utils import accumulate_yield_group, new_yield_group, possible_factors_text
+from core.utils import accumulate_yield_group, filter_date_range, new_yield_group, possible_factors_text
+from production.forecast_filters import filter_forecast_status
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, Pond, TripSpeciesEntry
 from interventions.models import (
@@ -2192,6 +2193,9 @@ class FarmerCropHistoryReport(APIView):
             qs = qs.filter(season=season)
         if year:
             qs = qs.filter(year=year)
+        # The Forecasting filters the grouped-by-farmer view shares with the Forecast and Yield Analysis lists.
+        qs = filter_date_range(qs, 'date_planted', request.query_params, 'planted_from', 'planted_to')
+        qs = filter_forecast_status(qs, request.query_params.get('forecast_status'))
 
         records = list(qs)
 

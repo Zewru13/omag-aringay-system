@@ -627,6 +627,12 @@ class StockingHistoryView(generics.ListAPIView):
             qs = qs.filter(year=params['year'])
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        # Forecasting's filters: the DISPLAYED status (Stocked / Near Harvest / Late / Harvested..., comma separated, as on the Forecast list)
+        # and a Date Stocked range (?stocked_from= / ?stocked_to=, both ends included).
+        statuses = [s.strip() for s in (params.get('status') or '').split(',') if s.strip()]
+        if statuses:
+            qs = qs.filter(stocking_display_status_q(statuses))
+        qs = filter_date_range(qs, 'date_stocked', params, 'stocked_from', 'stocked_to')
         if params.get('search'):
             qs = filter_people_search(
                 qs, params.get('search'),
@@ -2196,6 +2202,8 @@ def _fisheries_yield_analysis_queryset(request):
         qs = qs.filter(year=year)
     if fisherfolk:
         qs = qs.filter(fisherfolk_id=fisherfolk)
+    # Date stocked: ?stocked_from= and ?stocked_to= (YYYY-MM-DD, both ends included), as on the Forecast list.
+    qs = filter_date_range(qs, 'date_stocked', request.query_params, 'stocked_from', 'stocked_to')
     return qs.order_by('-date_stocked')
 
 

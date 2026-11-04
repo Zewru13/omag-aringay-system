@@ -136,10 +136,10 @@ const STAFF_GUIDES = (focal) => [
     intro: 'Forecasting looks ahead at the harvest expected from the planted crops and the production cycles, and looks back at how the actual harvest compared.',
     screens: ['admin-crop-forecast', 'admin-forecast-details', 'admin-yield-analysis', 'admin-fisheries-forecast'],
     steps: [
-      'Open Forecasting > Crop Forecasting. Forecast lists each planted crop with the area, the estimated yield (area times the crop\'s yield per hectare) and the expected harvest date. All crops / By farmer chooses how it is grouped; a farmer row shows the RSBSA No., Barangay and Contact No. with the records, harvested and average variance.',
+      'Open Forecasting > Crop Forecasting. Forecast lists each planted crop with the area, the estimated yield (area times the crop\'s yield per hectare) and the expected harvest date. The filter row has the crop (All crops), the barangay, Group by, Status (Planted, Near Harvest or Overdue) and a Date Planted From and To. Group by farmer lists the crops under each farmer; a farmer row shows the RSBSA No., Barangay and Contact No. with the records, harvested and average variance.',
       'View opens the forecast details of a crop, where you can write remarks and notes and press Save remarks.',
-      'Yield analysis compares the estimate with the actual harvest. Analysis lists each harvested crop; By farmer, By barangay and By crop type add the figures up. The variance shows how far the actual is above or below the estimate, with the activities and the possible factors (such as disasters). Preview PDF and Download Excel give the analysis as a file.',
-      'Fisheries Forecasting does the same for production cycles: by stocking, by fisherfolk (a row shows the RSBSA No., Barangay and Contact No.), by barangay and by species.',
+      'Yield analysis compares the estimate with the actual harvest. It lists each harvested crop and adds the figures up at the top. The filter row has the crop, barangay, season, Group by farmer and a Date Planted From and To. The variance shows how far the actual is above or below the estimate, with the activities and the possible factors (such as disasters). Preview PDF and Download Excel give the analysis as a file.',
+      'Fisheries Forecasting does the same for production cycles. Its filters are the species, the barangay, Group by fisherfolk (a row shows the RSBSA No., Barangay and Contact No.), Status (Stocked, Near Harvest, Late or Harvested) and a Date Stocked From and To.',
     ],
   },
   {

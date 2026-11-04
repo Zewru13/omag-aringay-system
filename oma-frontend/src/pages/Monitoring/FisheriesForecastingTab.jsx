@@ -1,14 +1,14 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import {
   BarChart2, ChevronDown, ChevronRight, Download, FileText,
-  Info, Search, TrendingUp, User,
+  Info, TrendingUp, User,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import BARANGAYS from '../../constants/barangays.js'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PillTabs from '../../components/UI/PillTabs.jsx'
-import ViewToggle from '../../components/UI/ViewToggle.jsx'
+import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
@@ -25,6 +25,7 @@ import useExpandableProductionUnits from '../FisheriesRecords/useExpandableProdu
 import AquacultureCycleDetailModal from './AquacultureCycleDetailModal.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { dateRangeParams } from '../../utils/dateRange.js'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { fmtShortDate } from '../../utils/forecastDates.js'
 import { factorsSummary } from '../../utils/fisheriesYieldLogs.js'
@@ -161,70 +162,6 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
 }
 
 const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]'
-
-function FisherfolkFilterInput({ selected, onSelect }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [showDrop, setShowDrop] = useState(false)
-  const debounceRef = useRef(null)
-  const wrapperRef = useRef(null)
-
-  const doSearch = useCallback(async (q) => {
-    if (!q.trim()) { setResults([]); return }
-    try {
-      const r = await api.get('/fisheries/fisherfolk/', { params: { search: q } })
-      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
-      setResults(list.slice(0, 8))
-    } catch { setResults([]) }
-  }, [])
-
-  const handleChange = (e) => {
-    const v = e.target.value
-    setQuery(v)
-    setShowDrop(true)
-    if (!v.trim()) onSelect(null)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => doSearch(v), 300)
-  }
-
-  useEffect(() => {
-    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const displayValue = selected ? selected.full_name : query
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
-        <input
-          className={`${baseInputClasses} pl-7`}
-          placeholder="All Fisherfolk"
-          value={displayValue}
-          onChange={handleChange}
-          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
-        />
-      </div>
-      {showDrop && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
-          {results.map((ff) => (
-            <button
-              key={ff.id}
-              type="button"
-              onMouseDown={() => { onSelect(ff); setQuery(''); setShowDrop(false) }}
-              className="flex flex-col w-full px-3 py-2 text-left hover:bg-[#F5F7F5] transition-colors"
-            >
-              <span className="text-xs font-semibold text-[#1A2B1A]">{ff.full_name}</span>
-              <span className="text-[11px] text-[#7A8E7A]">{ff.barangay}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── Signature Modal (mirrors ReportsPage.jsx / crop ForecastingPage.jsx) ────────
 
@@ -711,26 +648,14 @@ function HarvestTimingDetailsModal({ record, onClose }) {
   )
 }
 
-// ── Aggregate Panel (barangay/species toggle + cycle-trend note) ────────────────
+// ── Aggregate Panel (summary tiles, barangay bars + cycle-trend note) ────────────────
 
-// showGroupToggle: the By Barangay / By Species switch (hidden for fisherfolk accounts, which keep the
-// default grouping in a view-only analysis).
-function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLoading, showGroupToggle = true }) {
+function AggregatePanel({ groups, overall, cycleTrend, isLoading }) {
   const maxAbsVariance = Math.max(10, ...groups.map(g => Math.abs(g.avg_variance_pct ?? 0)))
 
   return (
     <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
-        {showGroupToggle && (
-        <ViewToggle
-          ariaLabel="Group the summary by"
-          options={[{ id: 'barangay', label: 'By barangay' }, { id: 'species', label: 'By species' }]}
-          value={groupBy}
-          onChange={setGroupBy}
-        />
-        )}
-      </div>
+      <p className="mb-4 text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
 
       <div className="grid grid-cols-2 gap-3 mb-4 md:grid-cols-4">
         <div className="bg-[#EBF5EE] rounded-xl p-3">
@@ -870,6 +795,9 @@ export default function ForecastingTab({ asTab = false }) {
   const [fcGroupedLoading, setFcGroupedLoading] = useState(false)
   const [fcSpeciesFilter,  setFcSpeciesFilter]  = useState('')
   const [fcBarangayFilter, setFcBarangayFilter] = useState('')
+  const [fcStatusFilter,   setFcStatusFilter]   = useState('')   // '' | Stocked | Near Harvest | Late | Harvested, as the Status pill reads
+  const [fcStockedFrom,    setFcStockedFrom]    = useState('')
+  const [fcStockedTo,      setFcStockedTo]      = useState('')
 
   const fetchForecastRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setFcLoading(true); setFcError('')
@@ -878,9 +806,10 @@ export default function ForecastingTab({ asTab = false }) {
       // Near Harvest, Harvested; Total Loss excluded). Without an explicit status the endpoint drops
       // Harvested records, so a cycle closed by its final harvest vanished from Forecasting.
       // Search is applied server-side so it spans every page.
-      const params = { page: pageNum, status: 'Stocked,Near Harvest,Harvested' }
+      const params = { page: pageNum, status: fcStatusFilter || 'Stocked,Near Harvest,Harvested' }
       if (fcBarangayFilter) params.barangay = fcBarangayFilter
       if (fcSpeciesFilter)  params.species  = fcSpeciesFilter
+      Object.assign(params, dateRangeParams(fcStockedFrom, fcStockedTo, 'stocked_from', 'stocked_to'))
       if (fcSearchDebounced.trim()) params.search = fcSearchDebounced.trim()
       const r = await api.get('/fisheries/stocking/', { params })
       if (isCancelled()) return
@@ -892,13 +821,13 @@ export default function ForecastingTab({ asTab = false }) {
       if (!isCancelled()) setFcLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
+  }, [fcBarangayFilter, fcSpeciesFilter, fcStatusFilter, fcStockedFrom, fcStockedTo, fcSearchDebounced])
 
   useEffect(() => {
     const t = setTimeout(() => setFcSearchDebounced(fcSearch), 300)
     return () => clearTimeout(t)
   }, [fcSearch])
-  useEffect(() => { setFcPage(1) }, [fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
+  useEffect(() => { setFcPage(1) }, [fcBarangayFilter, fcSpeciesFilter, fcStatusFilter, fcStockedFrom, fcStockedTo, fcSearchDebounced])
   useEffect(() => {
     let cancelled = false
     fetchForecastRecords(fcPage, () => cancelled)
@@ -917,6 +846,8 @@ export default function ForecastingTab({ asTab = false }) {
     const params = {}
     if (fcBarangayFilter) params.barangay = fcBarangayFilter
     if (fcSpeciesFilter)  params.species  = fcSpeciesFilter
+    if (fcStatusFilter)   params.status   = fcStatusFilter
+    Object.assign(params, dateRangeParams(fcStockedFrom, fcStockedTo, 'stocked_from', 'stocked_to'))
     if (fcSearchDebounced.trim()) params.search = fcSearchDebounced.trim()   // same server-side search as the flat list
     api.get('/fisheries/stocking/history/', { params })
       .then(r => {
@@ -948,7 +879,7 @@ export default function ForecastingTab({ asTab = false }) {
       .finally(() => { if (!cancelled) setFcGroupedLoading(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fcView, fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
+  }, [fcView, fcBarangayFilter, fcSpeciesFilter, fcStatusFilter, fcStockedFrom, fcStockedTo, fcSearchDebounced])
 
   // Both views are searched server-side (name, RSBSA, species, barangay), so they always agree.
   const fcFiltered = fcRecords
@@ -1057,15 +988,13 @@ export default function ForecastingTab({ asTab = false }) {
   const [groups, setGroups] = useState([])
   const [overall, setOverall] = useState({})
   const [cycleTrend, setCycleTrend] = useState(null)
-  const [groupBy, setGroupBy] = useState('barangay')
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isDownloading, setIsDownloading] = useState(false)
   const [showSig, setShowSig] = useState(false)
   const [sigPurpose, setSigPurpose] = useState('pdf')
   const [expanded, setExpanded] = useState(() => new Set())
-  const [filters, setFilters] = useState({ species: '', barangay: '', year: '' })
-  const [fisherfolkFilter, setFisherfolkFilter] = useState(null)
+  const [filters, setFilters] = useState({ species: '', barangay: '', stocked_from: '', stocked_to: '' })
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState('analysis') // 'analysis' | 'grouped'
   const [grouped, setGrouped] = useState([])
@@ -1082,8 +1011,7 @@ export default function ForecastingTab({ asTab = false }) {
     const p = { ...extra }
     if (filters.species)  p.species  = filters.species
     if (filters.barangay) p.barangay = filters.barangay
-    if (filters.year)     p.year     = filters.year
-    if (fisherfolkFilter) p.fisherfolk = fisherfolkFilter.id
+    Object.assign(p, dateRangeParams(filters.stocked_from, filters.stocked_to, 'stocked_from', 'stocked_to'))
     return p
   }
 
@@ -1091,7 +1019,7 @@ export default function ForecastingTab({ asTab = false }) {
   // filters or the search change (without an effect: the page number is remembered together with what it was for).
   const YIELD_PAGE_SIZE = 25
   const yieldSearch = useDebouncedValue(search.trim())
-  const yieldPageKey = JSON.stringify([[filters, fisherfolkFilter?.id], yieldSearch])
+  const yieldPageKey = JSON.stringify([filters, yieldSearch])
   const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
   const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
   const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
@@ -1105,12 +1033,12 @@ export default function ForecastingTab({ asTab = false }) {
       .catch(() => showToast('Failed to load yield analysis.', 'error'))
       .finally(() => setIsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yieldOpened, filters.species, filters.barangay, filters.year, fisherfolkFilter, yieldPage, yieldSearch])
+  }, [yieldOpened, filters.species, filters.barangay, filters.stocked_from, filters.stocked_to, yieldPage, yieldSearch])
 
   useEffect(() => {
     if (!yieldOpened) return
     setIsLoadingSummary(true)
-    api.get('/fisheries/yield-analysis/summary/', { params: buildParams({ group_by: groupBy }) })
+    api.get('/fisheries/yield-analysis/summary/', { params: buildParams({ group_by: 'barangay' }) })
       .then(r => {
         setGroups(r.data.groups || [])
         setOverall(r.data.overall || {})
@@ -1119,7 +1047,7 @@ export default function ForecastingTab({ asTab = false }) {
       .catch(() => showToast('Failed to load aggregate summary.', 'error'))
       .finally(() => setIsLoadingSummary(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yieldOpened, filters.species, filters.barangay, filters.year, fisherfolkFilter, groupBy])
+  }, [yieldOpened, filters.species, filters.barangay, filters.stocked_from, filters.stocked_to])
 
   // Grouped-by-fisherfolk view — reuses StockingRecordSerializer via the
   // unpaginated /fisheries/stocking/history/ endpoint (all statuses), computing
@@ -1156,7 +1084,7 @@ export default function ForecastingTab({ asTab = false }) {
       .catch(() => showToast('Failed to load grouped view.', 'error'))
       .finally(() => setIsLoadingGrouped(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, filters.species, filters.barangay, filters.year, fisherfolkFilter])
+  }, [viewMode, filters.species, filters.barangay, filters.stocked_from, filters.stocked_to])
 
   const toggleExpand = (id) => {
     setExpanded(prev => {
@@ -1169,7 +1097,7 @@ export default function ForecastingTab({ asTab = false }) {
 
 
   const buildUrl = (fmt) => {
-    const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
+    const p = new URLSearchParams({ ...buildParams({ group_by: 'barangay' }), format: fmt })
     return `/reports/fisheries-yield-analysis/?${p}`
   }
 
@@ -1199,7 +1127,7 @@ export default function ForecastingTab({ asTab = false }) {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by species, fisherfolk, or barangay..."
-          activeCount={[filters.species, filters.barangay, filters.year, fisherfolkFilter?.id].filter(Boolean).length}
+          activeCount={[filters.species, filters.barangay, viewMode === 'grouped', filters.stocked_from || filters.stocked_to].filter(Boolean).length}
           actions={viewMode === 'analysis' ? (
             <YAActionButtons
               onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
@@ -1216,8 +1144,17 @@ export default function ForecastingTab({ asTab = false }) {
             <option value="">All barangays</option>
             {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
-          <input type="number" placeholder="Year" aria-label="Year" className={`${filterSelectCls} w-24`} value={filters.year} onChange={e => set('year', e.target.value)} />
-          <div className="w-56"><FisherfolkFilterInput selected={fisherfolkFilter} onSelect={setFisherfolkFilter} /></div>
+          <select className={filterSelectCls} value={viewMode} onChange={e => setViewMode(e.target.value)} aria-label="Group by">
+            <option value="analysis">Group by: none</option>
+            <option value="grouped">Group by fisherfolk</option>
+          </select>
+          <DateRangeFields
+            label="Date Stocked"
+            from={filters.stocked_from}
+            to={filters.stocked_to}
+            onFromChange={v => set('stocked_from', v)}
+            onToChange={v => set('stocked_to', v)}
+          />
         </FilterPanel>
       ) : (
         <div className="flex justify-end gap-2">
@@ -1227,15 +1164,6 @@ export default function ForecastingTab({ asTab = false }) {
             isDownloading={isDownloading}
           />
         </div>
-      )}
-
-      {!isFisherfolk && (
-        <ViewToggle
-          ariaLabel="Show the yield analysis as"
-          options={[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By fisherfolk' }]}
-          value={viewMode}
-          onChange={setViewMode}
-        />
       )}
 
       {viewMode === 'analysis' && <DisclaimerBanner />}
@@ -1249,8 +1177,7 @@ export default function ForecastingTab({ asTab = false }) {
           dateLabel="Date Stocked"
         />
       ) : (<>
-      <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} cycleTrend={cycleTrend} isLoading={isLoadingSummary}
-        showGroupToggle={!isFisherfolk} />
+      <AggregatePanel groups={groups} overall={overall} cycleTrend={cycleTrend} isLoading={isLoadingSummary} />
 
       {/* Per-stocking table */}
       <div>
@@ -1371,7 +1298,7 @@ export default function ForecastingTab({ asTab = false }) {
         search={fcSearch}
         onSearchChange={setFcSearch}
         searchPlaceholder="Search by fisherfolk, species, or barangay..."
-        activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter)].filter(Boolean).length}
+        activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter), fcView === 'grouped', Boolean(fcStatusFilter), Boolean(fcStockedFrom || fcStockedTo)].filter(Boolean).length}
       >
         <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)} aria-label="Species">
           <option value="">All Species</option>
@@ -1381,20 +1308,22 @@ export default function ForecastingTab({ asTab = false }) {
           <option value="">All barangays</option>
           {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
+        <select className={filterSelectCls} value={fcView} onChange={e => setFcView(e.target.value)} aria-label="Group by">
+          <option value="flat">Group by: none</option>
+          <option value="grouped">Group by fisherfolk</option>
+        </select>
+        <select className={filterSelectCls} value={fcStatusFilter} onChange={e => setFcStatusFilter(e.target.value)} aria-label="Status">
+          <option value="">All statuses</option>
+          <option value="Stocked">Stocked</option>
+          <option value="Near Harvest">Near Harvest</option>
+          <option value="Late">Late</option>
+          <option value="Harvested">Harvested</option>
+        </select>
+        <DateRangeFields label="Date Stocked" from={fcStockedFrom} to={fcStockedTo} onFromChange={setFcStockedFrom} onToChange={setFcStockedTo} />
       </FilterPanel>
       )}
 
       {fcError && <ErrorMessage message={fcError} />}
-
-      {/* How the stockings are shown (staff only, see above) */}
-      {!isFisherfolk && (
-        <ViewToggle
-          ariaLabel="Show stockings as"
-          options={[{ id: 'flat', label: 'All stockings' }, { id: 'grouped', label: 'By fisherfolk' }]}
-          value={fcView}
-          onChange={setFcView}
-        />
-      )}
 
       {fcView === 'flat' ? (
         <>

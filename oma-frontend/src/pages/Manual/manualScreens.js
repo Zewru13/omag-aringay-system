@@ -2426,12 +2426,12 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens the filter row: crop, barangay, status, season and year."
+    "desc": "Opens the filter row: crop, barangay, group by, status and the date planted."
    },
    {
     "n": 4,
-    "label": "All crops / By farmer",
-    "desc": "All crops lists each crop. By farmer groups them under each farmer: a row shows the farmer's RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance."
+    "label": "Group by",
+    "desc": "Group by: none lists each crop. Group by farmer groups them under each farmer: a row shows the farmer's RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance."
    },
    {
     "n": 5,
@@ -2511,7 +2511,7 @@ export default {
    {
     "n": 6,
     "label": "Views",
-    "desc": "Analysis lists each harvested crop. By farmer, By barangay and By crop type add up the same figures under each heading."
+    "desc": "Group by: none lists each harvested crop. Group by farmer adds up the same figures under each farmer. Date Planted From and To keep only the crops planted in that period."
    },
    {
     "n": 7,
@@ -2531,7 +2531,7 @@ export default {
    {
     "n": 1,
     "label": "Forecast / Yield analysis",
-    "desc": "Forecast looks ahead at the cycles; Yield analysis compares the estimate with the actual harvest, by fisherfolk, barangay or species."
+    "desc": "Forecast looks ahead at the cycles; Yield analysis compares the estimate with the actual harvest."
    },
    {
     "n": 2,
@@ -2545,8 +2545,8 @@ export default {
    },
    {
     "n": 4,
-    "label": "All stockings / By fisherfolk",
-    "desc": "All stockings lists each cycle; By fisherfolk groups them under each fisherfolk: a row shows their RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance."
+    "label": "Group by",
+    "desc": "Group by: none lists each cycle; Group by fisherfolk groups them under each fisherfolk: a row shows their RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance. Status and Date Stocked From and To narrow the list."
    },
    {
     "n": 5,
