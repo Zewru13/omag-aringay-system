@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 
-const { PCIC_FILTER_OPTIONS, EMPTY_PCIC, pcicStateFrom, pcicPayload, pcicError, checkPcicFile, pcicFormUrl, uploadPcicForm } =
+const { PCIC_FILTER_OPTIONS, EMPTY_PCIC, pcicLabel, pcicStateFrom, pcicPayload, pcicError, checkPcicFile, pcicFormUrl, uploadPcicForm } =
   await import(new URL('../src/utils/pcic.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 const file = (type = 'image/png', size = 1000, name = 'pcic.png') => ({ type, size, name })
+
+// the round check icon says in words what it shows (screen readers and the hover title)
+eq([pcicLabel(true), pcicLabel(false), pcicLabel(undefined), pcicLabel(null)], ['PCIC insured', 'Not PCIC insured', 'Not PCIC insured', 'Not PCIC insured'], 'round check wording')
 
 // the PCIC filter of the crop tables: everything, insured, not insured
 eq(PCIC_FILTER_OPTIONS, [{ value: '', label: 'All PCIC' }, { value: 'insured', label: 'PCIC insured' }, { value: 'not_insured', label: 'Not PCIC insured' }], 'filter choices')

@@ -17,6 +17,8 @@ export function pcicStateFrom(record) {
 }
 
 export const pcicPayload = (state) => ({ has_pcic_insurance: !!state?.insured })
+// What the round check icon says in words (screen readers and the hover title).
+export const pcicLabel = (insured) => (insured ? 'PCIC insured' : 'Not PCIC insured')
 
 // How many photos the record will have once the form is saved.
 export const pcicPhotoCount = (state) => (state?.photos || []).filter((p) => !(state.removed || []).includes(p.id)).length + (state?.files || []).length

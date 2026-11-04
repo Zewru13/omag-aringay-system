@@ -50,7 +50,7 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['the distribute windows', 'Distribute Farmer Assistance'],
     ['printing after distributing', 'Print Report: it prints the Assistance Distribution Report'],
     ['the distributions table', 'Each row is one distribution'],
-    ['PCIC photo', 'ticks Insured'.replace('ticks', 'tick')],
+    ['PCIC photo', 'press the round Insured button'],
     ['drafts', 'Discard draft'],
     ['the report signers', 'Signatories block'],
     ['the Report type box', 'Report type box'],

@@ -1,3 +1,4 @@
+import PcicCheck from '../../components/UI/PcicCheck.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
 import { fmtLong } from './stockingHelpers.js'
@@ -9,6 +10,8 @@ import { fmtLong } from './stockingHelpers.js'
 // forecast: Fisheries Forecasting's variant - adds an Estimated Harvest Date column (`estimatedHarvestDate`,
 // the record's own backend expected_harvest_date: the units share the record's stocking date and species, so
 // no per-unit date is computed) and labels the harvest date "Actual Harvest Date".
+// pcic: Fisheries Monitoring's variant - adds a PCIC Insured column, the round check of each pond / cage (PCIC insurance is kept per pond / cage;
+// the insurance itself is changed in the cycle's Edit form).
 // headerAction: optional element shown at the top-right of the panel (Fisheries Monitoring passes its
 // "View Cycle Details & Logs" button; Fisheries Forecasting passes none).
 
@@ -80,9 +83,10 @@ function StateMessage({ state, onRetry, compact }) {
 }
 
 // Column definitions shared by the table and the cards; `forecast` adds the estimated date column.
-function unitFields({ speciesName, forecast, estimatedHarvestDate }) {
+function unitFields({ speciesName, forecast, estimatedHarvestDate, pcic }) {
   return [
     { label: 'Production Unit', align: 'text-left', cell: u => <UnitName unit={u} />, card: false, strong: true },
+    pcic && { label: 'PCIC Insured', align: 'text-left', cell: u => <PcicCheck insured={u.has_pcic_insurance} /> },
     { label: 'Species', align: 'text-left', cell: () => speciesName || '—' },
     { label: forecast ? 'Fingerlings Count' : 'Fingerlings', align: 'text-right', cell: u => fmtCount(u.fingerling_count) },
     { label: 'Dimensions', align: 'text-left', cell: fmtDims },
@@ -106,9 +110,9 @@ function PanelHeader({ units, headerAction }) {
 }
 
 // Desktop: a nested table inside the expanded row (its own horizontal scroll on narrow screens).
-export function ProductionUnitsTable({ state, speciesName, onRetry, forecast = false, estimatedHarvestDate, headerAction }) {
+export function ProductionUnitsTable({ state, speciesName, onRetry, forecast = false, estimatedHarvestDate, headerAction, pcic = false }) {
   const units = state?.status === 'ok' ? state.units : null
-  const fields = unitFields({ speciesName, forecast, estimatedHarvestDate })
+  const fields = unitFields({ speciesName, forecast, estimatedHarvestDate, pcic })
   return (
     <div className="border-l-4 border-[#1B4D2E] bg-[#F5F8F5] px-4 py-3" data-testid="production-units-panel">
       <PanelHeader units={units} headerAction={headerAction} />
@@ -143,9 +147,9 @@ export function ProductionUnitsTable({ state, speciesName, onRetry, forecast = f
 }
 
 // Phones: one compact card per pond/cage instead of the wide nested table.
-export function ProductionUnitsCards({ state, speciesName, onRetry, forecast = false, estimatedHarvestDate, headerAction }) {
+export function ProductionUnitsCards({ state, speciesName, onRetry, forecast = false, estimatedHarvestDate, headerAction, pcic = false }) {
   const units = state?.status === 'ok' ? state.units : null
-  const fields = unitFields({ speciesName, forecast, estimatedHarvestDate }).filter(f => f.card !== false)
+  const fields = unitFields({ speciesName, forecast, estimatedHarvestDate, pcic }).filter(f => f.card !== false)
   return (
     <div className="space-y-2" data-testid="production-units-cards">
       <PanelHeader units={units} headerAction={headerAction} />

@@ -791,7 +791,7 @@ export default {
    {
     "n": 9,
     "label": "Ponds table",
-    "desc": "Each pond with its barangay, area, water source, stocking history and the PCIC Insured tick. The Actions menu of a pond edits or removes it."
+    "desc": "Each pond with its barangay, area, water source, stocking history and the PCIC Insured round check. The Actions menu of a pond edits or removes it."
    }
   ]
  },
@@ -1451,7 +1451,7 @@ export default {
    {
     "n": 2,
     "label": "PCIC",
-    "desc": "Tick Insured if the crop has PCIC insurance. A window asks for a photo of the insurance form (JPG, PNG or WEBP, up to 5 MB); without it the crop cannot be saved as insured. Cancel the window and the box unticks."
+    "desc": "Press the round Insured button if the crop has PCIC insurance. A window asks for photos of the insurance form (one for each page, up to 5; JPG, PNG or WEBP, up to 5 MB each); without at least one the crop cannot be saved as insured. Cancel the window and the button goes back to an empty circle."
    },
    {
     "n": 3,
@@ -1545,8 +1545,8 @@ export default {
    },
    {
     "n": 6,
-    "label": "PCIC Insured tick",
-    "desc": "Ticked when the crop has PCIC insurance. Tick it to add insurance (photos of the form are asked for)."
+    "label": "PCIC Insured check",
+    "desc": "A round check: green with a white check when the crop has PCIC insurance, an empty circle when it has none. The insurance is changed in the crop's Edit form (photos of the form are asked for)."
    },
    {
     "n": 7,
@@ -2106,15 +2106,20 @@ export default {
    {
     "n": 6,
     "label": "Columns",
-    "desc": "Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status, PCIC Insured (one tick for each pond or cage of the cycle, so you see which ones are insured) and Actions."
+    "desc": "Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status and Actions."
    },
    {
     "n": 7,
+    "label": "PCIC Insured",
+    "desc": "Click a row to open its ponds or cages. Each pond or cage has its own round check: green with a white check when it is insured, an empty circle when it is not. The insurance is changed in the cycle's Edit form."
+   },
+   {
+    "n": 8,
     "label": "Harvest / Actions",
     "desc": "The harvest button of a row is grayed out until at least half of the expected time has passed. The three dots next to it open the menu of the cycle."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Page bar",
     "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
@@ -2256,7 +2261,7 @@ export default {
    {
     "n": 1,
     "label": "Cycle Info",
-    "desc": "The cycle's details and its ponds: pond, size, fingerlings and PCIC Insured."
+    "desc": "The cycle's details and its ponds: pond, size, fingerlings and the PCIC Insured round check."
    },
    {
     "n": 2,
@@ -2276,7 +2281,7 @@ export default {
    {
     "n": 5,
     "label": "Ponds table",
-    "desc": "Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured tick."
+    "desc": "Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured round check."
    }
   ]
  },

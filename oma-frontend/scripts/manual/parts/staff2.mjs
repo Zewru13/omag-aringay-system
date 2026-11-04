@@ -53,7 +53,7 @@ export const STAFF2 = [
       { find: { text: 'Stocking Records', tag: 'h2', closest: H }, label: 'Stocking Records', desc: 'Each production cycle: species, culture type, date stocked, expected harvest, estimated and actual harvest (kg), pond barangay and status.' },
       { find: { text: 'Bulk Add Ponds', tag: 'button' }, label: 'Bulk Add Ponds', desc: 'Adds several ponds or cages at once.' },
       { find: { text: 'Add Pond', tag: 'button', exact: true }, label: 'Add Pond', desc: 'Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance (with up to 5 photos of the insurance form).' },
-      { find: { text: 'Ponds', tag: 'h2', exact: true, closest: H }, label: 'Ponds table', desc: 'Each pond with its barangay, area, water source, stocking history and the PCIC Insured tick. The Actions menu of a pond edits or removes it.' },
+      { find: { text: 'Ponds', tag: 'h2', exact: true, closest: H }, label: 'Ponds table', desc: 'Each pond with its barangay, area, water source, stocking history and the PCIC Insured round check. The Actions menu of a pond edits or removes it.' },
     ] }),
 
   // ───────────────────────────── Organizations ─────────────────────────────

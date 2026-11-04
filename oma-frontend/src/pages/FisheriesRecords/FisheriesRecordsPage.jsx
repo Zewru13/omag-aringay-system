@@ -37,7 +37,6 @@ import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPan
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
-import PcicUnitsCell from './PcicUnitsCell.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
 import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
@@ -71,7 +70,6 @@ const COLUMNS = [
   { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
   { key: 'status_cell',         label: 'STATUS' },
-  { key: 'pcic_cell',           label: 'PCIC INSURED' },
   { key: 'actions_cell',        label: 'ACTIONS' },
 ]
 
@@ -819,7 +817,7 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
             ))}
           </dl>
           <div className="border-t border-[#F0F4F0] pt-3">
-            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits} />
+            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits} pcic />
           </div>
           <div className="grid grid-cols-2 gap-2 border-t border-[#F0F4F0] pt-3 min-[420px]:flex">
             <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
@@ -1110,7 +1108,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         )}
       </span>
     ),
-    pcic_cell: <PcicUnitsCell units={rec.pcic_units} recordInsured={rec.has_pcic_insurance} />,
     actions_cell: (
       <StockingRowActions
         rec={rec}
@@ -1275,7 +1272,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                       {isExpanded && (
                         <tr className="border-b border-[#E2E8E2]">
                           <td colSpan={columns.length} className="p-0">
-                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)} />
+                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)} pcic />
                           </td>
                         </tr>
                       )}
