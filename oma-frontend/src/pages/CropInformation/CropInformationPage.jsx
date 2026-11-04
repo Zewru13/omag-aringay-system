@@ -38,7 +38,7 @@ import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from "../../components/UI/ModalShell.jsx";
 import PaginationBar from "../../components/UI/PaginationBar.jsx";
-import PcicCheck from "../../components/UI/PcicCheck.jsx";
+import PcicCell from "../../components/UI/PcicCell.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
@@ -1014,7 +1014,7 @@ function cropCells(rec) {
     planted: fmtShort(rec.date_planted),
     harvest: fmtShort(rec.expected_harvest_date),
     area: rec.area_planted_ha ? Number(rec.area_planted_ha).toFixed(2) : "—",
-    pcic: <PcicCheck insured={rec.has_pcic_insurance} />,
+    pcic: <PcicCell insured={rec.has_pcic_insurance} photos={rec.pcic_form_photos} url={rec.pcic_form_photo} />,
     status: (
       <span className="flex items-center gap-1.5">
         <StatusPill tone={STATUS_TONES[status] || "slate"}>{status}</StatusPill>

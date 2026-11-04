@@ -88,7 +88,7 @@ export const STAFF3 = [
       { ...FILTERS_ROW, desc: 'Opens the filter row (next picture): group by, crop, status, PCIC, season, year and the date planted.' },
       PRINT_ROW, DOWNLOAD_ROW,
       { find: COLS, label: 'Columns', desc: 'Crop, variety, farmer, organization, barangay, date planted, expected harvest, Logs (how many activities were recorded), PCIC insured, status and Actions.' },
-      { find: { css: 'tbody tr:first-child [role=img]' }, label: 'PCIC Insured check', desc: 'A round check: green with a white check when the crop has PCIC insurance, an empty circle when it has none. The insurance is changed in the crop\'s Edit form (photos of the form are asked for).' },
+      { find: { css: 'tbody tr:first-child [role=img]' }, label: 'PCIC Insured check', desc: 'A round check: green with a white check when the crop has PCIC insurance, an empty circle when it has none. View form opens the uploaded PCIC form in a window inside the system (a PDF or photo, with zoom) and Close brings you back. The insurance is changed in the crop\'s Edit form (photos of the form are asked for).' },
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'The three dots of a crop: Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture).' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
