@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
@@ -10,9 +10,9 @@ import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { detectSeason } from '../FisheriesRecords/stockingHelpers.js'
-import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
-import OwnershipFields from '../../components/UI/OwnershipFields.jsx'
-import { EMPTY_OWNERSHIP, ownershipPayload, ownershipProblem } from '../../utils/ownership.js'
+import { EMPTY_PCIC, cyclePcicPayload, pcicError, uploadPcicForm } from '../../utils/pcic.js'
+import { EMPTY_OWNERSHIP, OWNERSHIP_OPTIONS, chooseOwnership, needsOwnerDetails, ownershipPayload, ownershipProblem } from '../../utils/ownership.js'
+import { CycleField, CycleRow, CycleRows, CycleSection } from './CycleFormTable.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
@@ -30,7 +30,7 @@ const CULTURE_PHASE_OPTIONS = [
 // Culture systems that are described by individual units (ponds / cages).
 const UNIT_SYSTEMS = { Fishpond: 'Pond', Fishcage: 'Cage' }
 const MAX_UNITS = 50
-const EMPTY_UNIT = { length_m: '', width_m: '', fingerling_count: '', pcic: { ...EMPTY_PCIC } }
+const EMPTY_UNIT = { length_m: '', width_m: '', fingerling_count: '' }
 const unitArea = (u) => {
   const l = parseFloat(u.length_m)
   const w = parseFloat(u.width_m)
@@ -74,6 +74,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Ownership of the site (Tenant / Lease / Owner, with the owner's details for the first two), saved with the cycle.
   const [owner, setOwner] = useDraftField(draft, 'owner', { ...EMPTY_OWNERSHIP })
+  // PCIC insurance is recorded once for the whole cycle (the checkbox and its document), not for each pond/cage.
+  const [pcic, setPcic] = useDraftField(draft, 'pcic', () => ({ ...EMPTY_PCIC }))
   // A restored draft keeps its own pond location and organization: the defaults below are not applied over them the first time.
   const keepLocation = useRef(draft.restored)
   const keepOrganization = useRef(draft.restored)
@@ -264,9 +266,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
       if (!(parseFloat(u.width_m) > 0)) return `${unitLabel} ${i + 1}: width must be greater than 0.`
       if (u.area < 0.01) return `${unitLabel} ${i + 1}: length x width must be at least 0.01 sq.m.`
       if (u.actual === '' || !Number.isInteger(count) || count < 1) return `${unitLabel} ${i + 1}: actual fingerlings must be a positive whole number.`
-      const pcicProblem = pcicError(u.pcic)
-      if (pcicProblem) return `${unitLabel} ${i + 1}: ${pcicProblem[0].toLowerCase()}${pcicProblem.slice(1)}`
-    }    return null
+    }
+    return null
   }
 
   const handleSubmit = async (e) => {
@@ -286,6 +287,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     if (!form.fingerling_source) { showToast('Select a fingerling source.', 'error'); return }
     const ownerProblem = ownershipProblem(owner)
     if (ownerProblem) { showToast(ownerProblem, 'error'); return }
+    const pcicProblem = pcicError(pcic)
+    if (pcicProblem) { showToast(pcicProblem, 'error'); return }
     setIsSubmitting(true)
     try {
       const normalizedCycleName = form.cycle_name === 'Other'
@@ -308,24 +311,23 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
         fingerling_source: form.fingerling_source,
         ...(unitLabel
           // Area and totals are derived server-side from length x width and the actual counts.
-          ? { units: shownUnits.map(u => ({ length_m: parseFloat(u.length_m), width_m: parseFloat(u.width_m), fingerling_count: parseInt(u.actual), ...pcicPayload(u.pcic) })) }
+          ? { units: shownUnits.map(u => ({ length_m: parseFloat(u.length_m), width_m: parseFloat(u.width_m), fingerling_count: parseInt(u.actual) })) }
           : {
               stocking_count: form.stocking_count ? parseInt(form.stocking_count) : null,
               area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : null,
             }),
         target_harvest_date: form.target_harvest_date || null,
         ...ownershipPayload(owner),
+        ...cyclePcicPayload(pcic),
       })
-      // The cycle exists now; a failed photo upload must not read as a failed cycle. Each pond/cage's photo goes to that pond/cage.
-      const photoFailed = []
-      for (let i = 0; i < shownUnits.length; i += 1) {
-        try {
-          await uploadPcicForm(api, 'unit', res.data.units?.[i]?.id, shownUnits[i].pcic)
-        } catch {
-          photoFailed.push(`${unitLabel} ${i + 1}`)
-        }
+      // The cycle exists now; a failed document upload must not read as a failed cycle. The one document belongs to the cycle (its stocking record).
+      let documentFailed = false
+      try {
+        await uploadPcicForm(api, 'stocking', res.data.stocking_record_id, pcic)
+      } catch {
+        documentFailed = true
       }
-      if (photoFailed.length) showToast(`Production cycle started, but the PCIC form photo could not be uploaded for ${photoFailed.join(', ')}. Open the cycle and add it again.`, 'error')
+      if (documentFailed) showToast('Production cycle started, but the PCIC document could not be uploaded. Edit the cycle to add it again.', 'error')
       else showToast('Production cycle started.', 'success')
       draft.clear()
       onSuccess(res.data)
@@ -371,263 +373,328 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   }
 
   return (
-    <ModalShell title="Start Production Cycle" subtitle="Begin a new aquaculture production cycle" icon={Fish} onClose={onClose} maxWidth="max-w-3xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell title="Start Production Cycle" subtitle="Begin a new aquaculture production cycle" icon={Fish} onClose={onClose} maxWidth="max-w-4xl">
+      <form onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        {fixedFf ? (
-          <FormField label="Fisherfolk" required>
-            <p className="rounded-xl border border-green-200 bg-[#f0f7f0] px-3 py-2 text-sm font-medium text-slate-800">
-              {fixedFf.full_name} <span className="ml-2 text-xs text-slate-400">{fixedFf.barangay}</span>
-            </p>
-          </FormField>
-        ) : isFisherfolk ? (
-          <FormField label="Fisherfolk" required error={ffError}>
-            <p className="text-sm text-slate-500">Loading your fisherfolk record…</p>
-          </FormField>
-        ) : (
-          <FormField label="Fisherfolk" required error={ffError}>
-            <SearchBar value={ffSearch} onChange={handleFfSearch} placeholder="Search fisherfolk by name or registration number…" />
-            {ffResults.length > 0 && (
-              <ul className="mt-1 max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-                {ffResults.map(ff => (
-                  <li key={ff.id}>
-                    <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]" onClick={() => { setSelectedFf(ff); setFfSearch(ff.full_name); setFfResults([]); setFfError('') }}>
-                      <span className="font-medium">{ff.full_name}</span>
-                      <span className="ml-2 text-slate-400">{ff.barangay}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {selectedFf && <p className="mt-1 text-xs text-[#1E4620]">Selected: {selectedFf.full_name}</p>}
-          </FormField>
-        )}
 
-        <FormField label="Organization">
-          <select
-            className={baseInputClasses}
-            value={form.organization}
-            disabled={!selectedFf || isLoadingOrgs || orgOptions.length === 0}
-            onChange={e => set('organization', e.target.value)}
-          >
-            <option value="">
-              {!selectedFf ? 'Select Fisherfolk first'
-                : isLoadingOrgs ? 'Loading organizations…'
-                : orgOptions.length === 0 ? 'No registered organizations'
-                : 'Select Organization'}
-            </option>
-            {orgOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-        </FormField>
+        <CycleSection title="Fisherfolk Information">
+          <CycleRows label="Fisherfolk information">
+            <CycleRow>
+              <CycleField label="Fisherfolk" required wide error={fixedFf ? '' : ffError}>
+                {fixedFf ? (
+                  <p className="rounded-xl border border-green-200 bg-[#f0f7f0] px-3 py-2 text-sm font-medium text-slate-800">
+                    {fixedFf.full_name} <span className="ml-2 text-xs text-slate-400">{fixedFf.barangay}</span>
+                  </p>
+                ) : isFisherfolk ? (
+                  <p className="text-sm text-slate-500">Loading your fisherfolk record…</p>
+                ) : (
+                  <>
+                    <SearchBar value={ffSearch} onChange={handleFfSearch} placeholder="Search fisherfolk by name or registration number…" />
+                    {ffResults.length > 0 && (
+                      <ul className="mt-1 max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                        {ffResults.map(ff => (
+                          <li key={ff.id}>
+                            <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]" onClick={() => { setSelectedFf(ff); setFfSearch(ff.full_name); setFfResults([]); setFfError('') }}>
+                              <span className="font-medium">{ff.full_name}</span>
+                              <span className="ml-2 text-slate-400">{ff.barangay}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {selectedFf && <p className="mt-1 text-xs text-[#1E4620]">Selected: {selectedFf.full_name}</p>}
+                  </>
+                )}
+              </CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Organization" wide>
+                <select
+                  className={baseInputClasses}
+                  value={form.organization}
+                  disabled={!selectedFf || isLoadingOrgs || orgOptions.length === 0}
+                  onChange={e => set('organization', e.target.value)}
+                  aria-label="Organization"
+                >
+                  <option value="">
+                    {!selectedFf ? 'Select Fisherfolk first'
+                      : isLoadingOrgs ? 'Loading organizations…'
+                      : orgOptions.length === 0 ? 'No registered organizations'
+                      : 'Select Organization'}
+                  </option>
+                  {orgOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </CycleField>
+            </CycleRow>
+          </CycleRows>
+        </CycleSection>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Culture Phase" required>
-            <select
-              className={baseInputClasses}
-              required
-              value={form.cycle_name}
-              onChange={e => {
-                const value = e.target.value
-                set('cycle_name', value)
-                if (value !== 'Other') set('cycle_name_other', '')
-              }}
-            >
-              <option value="">Select Culture Phase</option>
-              {CULTURE_PHASE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-            </select>
-            {form.cycle_name === 'Other' && (
-              <input
-                className={`${baseInputClasses} mt-2`}
-                required
-                value={form.cycle_name_other}
-                onChange={e => set('cycle_name_other', e.target.value)}
-                placeholder="Specify Culture Phase"
-              />
-            )}
-          </FormField>
-          <FormField label="Species Farmed" required>
-            <select
-              className={baseInputClasses}
-              required
-              value={form.species_option}
-              onChange={e => handleSpeciesChange(e.target.value)}
-            >
-              <option value="">{isLoadingSpecies ? 'Loading species…' : 'Select Species'}</option>
-              {speciesList
-                .filter(sp => !hideOyster || (sp.species_name || '').trim().toLowerCase() !== 'oyster')
-                .map(sp => <option key={sp.id} value={sp.id}>{sp.species_name}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Culture System" required>
-            <select className={baseInputClasses} required value={form.culture_system} onChange={e => handleCultureSystemChange(e.target.value)}>
-              {CULTURE_SYSTEMS.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Water Source" required>
-            <select
-              className={baseInputClasses} required
-              value={form.water_source}
-              onChange={e => { set('water_source', e.target.value); if (e.target.value !== 'Other') set('water_source_other_specify', '') }}
-            >
-              <option value="" disabled>Select Water Source</option>
-              {waterSourceOptions.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            {form.water_source === 'Other' && (
-              <input
-                className={`${baseInputClasses} mt-2`} required
-                value={form.water_source_other_specify}
-                onChange={e => set('water_source_other_specify', e.target.value)}
-                placeholder="Specify Water Source"
-              />
-            )}
-          </FormField>
-          <FormField label="Fingerling Source" required>
-            <select className={baseInputClasses} required value={form.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
-              <option value="" disabled>Select Fingerling Source</option>
-              {sourceOptions.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Pond Location" required>
-            <select
-              className={baseInputClasses} required
-              value={form.pond_location_barangay}
-              onChange={e => { set('pond_location_barangay', e.target.value); if (e.target.value !== 'Other') set('pond_location_other_specify', '') }}
-            >
-              <option value="" disabled>Select Barangay</option>
-              {barangayOptions.map(b => <option key={b} value={b}>{b}</option>)}
-              <option value="Other">Other</option>
-            </select>
-            {form.pond_location_barangay === 'Other' && (
-              <input
-                className={`${baseInputClasses} mt-2`} required maxLength={100}
-                value={form.pond_location_other_specify}
-                onChange={e => set('pond_location_other_specify', e.target.value)}
-                placeholder="Enter pond location" aria-label="Specify Pond Location"
-              />
-            )}
-          </FormField>
-          <OwnershipFields value={owner} onChange={setOwner} />
-          <FormField label="Stocking Date" required>
-            <input type="date" className={baseInputClasses} required value={form.stocking_date} onChange={e => handleStockingDateChange(e.target.value)} />
-          </FormField>
-          <FormField label="Season" required>
-            <input
-              type="text" readOnly tabIndex={-1} required data-testid="detected-season"
-              className={`${baseInputClasses} cursor-not-allowed bg-slate-50 text-slate-700`}
-              value={form.stocking_date ? `${detectSeason(form.stocking_date)} Season` : ''}
-              placeholder="Detected from Stocking Date"
-            />
-          </FormField>
-          <FormField label="Target Harvest Date" required>
-            <input
-              type="date" className={baseInputClasses} required min={form.stocking_date || undefined}
-              value={form.target_harvest_date} onChange={e => handleTargetChange(e.target.value)}
-            />
-            {form.species_option && (
-              <p className="mt-1 text-xs text-slate-500">
-                {speciesDays
-                  ? (targetTouched
-                    ? <>Custom date. <button type="button" className="font-medium text-[#1E4620] underline" onClick={resumeAutoTarget}>Use automatic estimate</button> ({speciesDays} days after stocking)</>
-                    : `Automatically estimated from species (${speciesDays} days) and stocking date. You may adjust this date.`)
-                  : 'No estimated harvest period is configured for this species. Enter a target date if known.'}
-              </p>
-            )}
-          </FormField>
-          {unitLabel ? (
-            <FormField label={`Number of ${unitLabel}s`} required>
-              <input
-                type="number" className={baseInputClasses} required min="1" max={MAX_UNITS} step="1"
-                value={form.unit_count} onChange={e => setUnitCount(e.target.value)}
-              />
-            </FormField>
-          ) : (
-            <>
-              <FormField label="Stocking Count (pieces)" required>
-                <input type="number" className={baseInputClasses} required min="1" value={form.stocking_count} onChange={e => set('stocking_count', e.target.value)} />
-              </FormField>
-              <FormField label="Area (sq.m.)">
-                <DecimalInput decimals={2} className={baseInputClasses} value={form.area_sqm} onChange={v => set('area_sqm', v)} />
-              </FormField>
-            </>
-          )}
-        </div>
+        <CycleSection title="Culture Details">
+          <CycleRows label="Culture details">
+            <CycleRow>
+              <CycleField label="Culture Phase" required>
+                <select
+                  className={baseInputClasses}
+                  required
+                  value={form.cycle_name}
+                  aria-label="Culture Phase"
+                  onChange={e => {
+                    const value = e.target.value
+                    set('cycle_name', value)
+                    if (value !== 'Other') set('cycle_name_other', '')
+                  }}
+                >
+                  <option value="">Select Culture Phase</option>
+                  {CULTURE_PHASE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                {form.cycle_name === 'Other' && (
+                  <input
+                    className={`${baseInputClasses} mt-2`}
+                    required
+                    value={form.cycle_name_other}
+                    onChange={e => set('cycle_name_other', e.target.value)}
+                    placeholder="Specify Culture Phase"
+                    aria-label="Specify Culture Phase"
+                  />
+                )}
+              </CycleField>
+              <CycleField label="Species Farmed" required>
+                <select
+                  className={baseInputClasses}
+                  required
+                  value={form.species_option}
+                  aria-label="Species Farmed"
+                  onChange={e => handleSpeciesChange(e.target.value)}
+                >
+                  <option value="">{isLoadingSpecies ? 'Loading species…' : 'Select Species'}</option>
+                  {speciesList
+                    .filter(sp => !hideOyster || (sp.species_name || '').trim().toLowerCase() !== 'oyster')
+                    .map(sp => <option key={sp.id} value={sp.id}>{sp.species_name}</option>)}
+                </select>
+              </CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Culture System" required>
+                <select className={baseInputClasses} required value={form.culture_system} aria-label="Culture System" onChange={e => handleCultureSystemChange(e.target.value)}>
+                  {CULTURE_SYSTEMS.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </CycleField>
+              <CycleField label="Water Source" required>
+                <select
+                  className={baseInputClasses} required
+                  value={form.water_source}
+                  aria-label="Water Source"
+                  onChange={e => { set('water_source', e.target.value); if (e.target.value !== 'Other') set('water_source_other_specify', '') }}
+                >
+                  <option value="" disabled>Select Water Source</option>
+                  {waterSourceOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                {form.water_source === 'Other' && (
+                  <input
+                    className={`${baseInputClasses} mt-2`} required
+                    value={form.water_source_other_specify}
+                    onChange={e => set('water_source_other_specify', e.target.value)}
+                    placeholder="Specify Water Source"
+                    aria-label="Specify Water Source"
+                  />
+                )}
+              </CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Fingerling Source" required>
+                <select className={baseInputClasses} required value={form.fingerling_source} aria-label="Fingerling Source" onChange={e => set('fingerling_source', e.target.value)}>
+                  <option value="" disabled>Select Fingerling Source</option>
+                  {sourceOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </CycleField>
+              <CycleField label="Pond Location" required>
+                <select
+                  className={baseInputClasses} required
+                  value={form.pond_location_barangay}
+                  aria-label="Pond Location"
+                  onChange={e => { set('pond_location_barangay', e.target.value); if (e.target.value !== 'Other') set('pond_location_other_specify', '') }}
+                >
+                  <option value="" disabled>Select Barangay</option>
+                  {barangayOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                  <option value="Other">Other</option>
+                </select>
+                {form.pond_location_barangay === 'Other' && (
+                  <input
+                    className={`${baseInputClasses} mt-2`} required maxLength={100}
+                    value={form.pond_location_other_specify}
+                    onChange={e => set('pond_location_other_specify', e.target.value)}
+                    placeholder="Enter pond location" aria-label="Specify Pond Location"
+                  />
+                )}
+              </CycleField>
+            </CycleRow>
+          </CycleRows>
+        </CycleSection>
 
-        {unitLabel && unitCount > 0 && (
-          <div className="space-y-3 rounded-xl border border-green-200 bg-[#f0f7f0] p-4">
-            <p className="text-sm font-semibold text-[#1E4620]">{unitLabel} Details</p>
-            {/* One table for all ponds/cages: one row per unit, numbered by its unit number (1..N). */}
-            {/* A table from sm up; on a phone each pond/cage is its own card with labelled fields. */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent">
-              <table className="w-full min-w-[680px] text-sm max-sm:block max-sm:min-w-0" data-testid="unit-table">
-                <thead className="max-sm:hidden">
-                  <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2">{unitLabel} No.</th>
-                    <th className="px-3 py-2">Length (m) <span className="text-red-500">*</span></th>
-                    <th className="px-3 py-2">Width (m) <span className="text-red-500">*</span></th>
-                    <th className="px-3 py-2">Area (m²)</th>
-                    <th className="px-3 py-2">Number of Fingerlings <span className="text-red-500">*</span></th>
-                    <th className="px-3 py-2">PCIC Insured</th>
-                  </tr>
-                </thead>
-                <tbody className="max-sm:block">
-                  {shownUnits.map((u, i) => (
-                    <tr key={i} className="border-t border-slate-100 max-sm:mb-2 max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:bg-white max-sm:p-3">
-                      <td className="px-3 py-2 font-medium text-slate-800 max-sm:col-span-2 max-sm:p-0">{unitLabel} {i + 1}</td>
-                      <td data-label="Length (m) *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
-                        <input
-                          type="number" className={baseInputClasses} required min="0.01" step="0.01" aria-label={`${unitLabel} ${i + 1} length (m)`}
-                          value={u.length_m} onChange={e => setUnitField(i, 'length_m', e.target.value)}
-                        />
-                      </td>
-                      <td data-label="Width (m) *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
-                        <input
-                          type="number" className={baseInputClasses} required min="0.01" step="0.01" aria-label={`${unitLabel} ${i + 1} width (m)`}
-                          value={u.width_m} onChange={e => setUnitField(i, 'width_m', e.target.value)}
-                        />
-                      </td>
-                      <td data-label="Area (m²)" className="px-3 py-2 font-medium text-slate-800 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="unit-area">{u.area > 0 ? u.area.toFixed(2) : '—'}</td>
-                      <td data-label="Number of fingerlings *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)] max-sm:col-span-2">
-                        <input
-                          type="number" className={baseInputClasses} required min="1" step="1" aria-label={`${unitLabel} ${i + 1} number of fingerlings`}
-                          value={u.actual} onChange={e => setUnitField(i, 'fingerling_count', e.target.value)}
-                        />
-                      </td>
-                      <td data-label="PCIC insured" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:col-span-2 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
-                        <PcicInsuranceField compact value={u.pcic} onChange={(next) => setUnitField(i, 'pcic', next)} subject={unitLabel.toLowerCase()} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="max-sm:block">
-                  <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800 max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:p-3" data-testid="unit-total-row">
-                    <td className="px-3 py-2 max-sm:col-span-2 max-sm:p-0">TOTAL</td>
-                    <td className="px-3 py-2 max-sm:hidden">—</td>
-                    <td className="px-3 py-2 max-sm:hidden">—</td>
-                    <td data-label="Total area (m²)" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-area">{totalArea.toFixed(2)}</td>
-                    <td data-label="Total fingerlings" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-fingerlings">{fmtInt(totalFingerlings)}</td>
-                    <td className="px-3 py-2 max-sm:hidden">—</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <div className="flex flex-wrap gap-x-8 gap-y-1 border-t border-green-200 pt-2 text-sm text-slate-800">
-              <span data-testid="estimated-biomass">
-                Estimated Harvest Biomass:{' '}
-                <strong className="text-[#1E4620]">
-                  {isEstimating ? '…' : biomass?.estimated_harvest_kg != null
-                    ? `${Number(biomass.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
-                    : totalFingerlings < 1 ? '—' : estimateFailed ? 'Unavailable' : 'Not configured'}
-                </strong>
-              </span>
-              {!isEstimating && biomass?.estimated_harvest_kg != null && (
-                <span className="basis-full text-xs text-slate-500">
-                  Forecast: {fmtInt(totalFingerlings)} fingerlings × {Number(biomass.survival_rate_pct)}% survival × {Number(biomass.avg_body_weight_kg)} kg average weight (species settings).
-                </span>
+        <CycleSection title="Stocking Information">
+          <CycleRows label="Stocking information">
+            <CycleRow>
+              <CycleField label="Stocking Date" required>
+                <input type="date" className={baseInputClasses} required value={form.stocking_date} aria-label="Stocking Date" onChange={e => handleStockingDateChange(e.target.value)} />
+              </CycleField>
+              <CycleField label="Season" required>
+                <input
+                  type="text" readOnly tabIndex={-1} required data-testid="detected-season" aria-label="Season"
+                  className={`${baseInputClasses} cursor-not-allowed bg-slate-50 text-slate-700`}
+                  value={form.stocking_date ? `${detectSeason(form.stocking_date)} Season` : ''}
+                  placeholder="Detected from Stocking Date"
+                />
+              </CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField
+                label="Target Harvest Date" required wide
+                hint={form.species_option && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {speciesDays
+                      ? (targetTouched
+                        ? <>Custom date. <button type="button" className="font-medium text-[#1E4620] underline" onClick={resumeAutoTarget}>Use automatic estimate</button> ({speciesDays} days after stocking)</>
+                        : `Automatically estimated from species (${speciesDays} days) and stocking date. You may adjust this date.`)
+                      : 'No estimated harvest period is configured for this species. Enter a target date if known.'}
+                  </p>
+                )}
+              >
+                <input
+                  type="date" className={`${baseInputClasses} md:max-w-[16rem]`} required min={form.stocking_date || undefined} aria-label="Target Harvest Date"
+                  value={form.target_harvest_date} onChange={e => handleTargetChange(e.target.value)}
+                />
+              </CycleField>
+            </CycleRow>
+            {!unitLabel && (
+              <CycleRow>
+                <CycleField label="Stocking Count (pieces)" required>
+                  <input type="number" className={baseInputClasses} required min="1" value={form.stocking_count} aria-label="Stocking Count (pieces)" onChange={e => set('stocking_count', e.target.value)} />
+                </CycleField>
+                <CycleField label="Area (sq.m.)">
+                  <DecimalInput decimals={2} className={baseInputClasses} value={form.area_sqm} aria-label="Area (sq.m.)" onChange={v => set('area_sqm', v)} />
+                </CycleField>
+              </CycleRow>
+            )}
+          </CycleRows>
+        </CycleSection>
+
+        <CycleSection title="Ownership">
+          <CycleRows label="Ownership">
+            <CycleRow>
+              <CycleField label="Ownership" required wide={!needsOwnerDetails(owner.ownership)}>
+                <select className={baseInputClasses} required value={owner.ownership} aria-label="Ownership" onChange={(e) => setOwner(chooseOwnership(owner, e.target.value))}>
+                  <option value="" disabled>Select Ownership</option>
+                  {OWNERSHIP_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </CycleField>
+              {needsOwnerDetails(owner.ownership) && (
+                <CycleField label="Owner Name" required>
+                  <input type="text" className={baseInputClasses} required maxLength={150} value={owner.ownerName} aria-label="Owner Name"
+                    onChange={(e) => setOwner({ ...owner, ownerName: e.target.value })} placeholder="Full name of the owner" />
+                </CycleField>
               )}
+            </CycleRow>
+            {needsOwnerDetails(owner.ownership) && (
+              <CycleRow>
+                <CycleField label="RSBSA / FishR No. of Owner" required wide>
+                  <input type="text" className={`${baseInputClasses} md:max-w-[24rem]`} required maxLength={50} inputMode="text" value={owner.ownerNo} aria-label="RSBSA / FishR No. of Owner"
+                    onChange={(e) => setOwner({ ...owner, ownerNo: e.target.value })} placeholder="Registration number of the owner" />
+                </CycleField>
+              </CycleRow>
+            )}
+          </CycleRows>
+        </CycleSection>
+
+        <CycleSection title="Pond/Cage Details">
+          <CycleRows label="Pond or cage details">
+            <CycleRow>
+              {unitLabel ? (
+                <CycleField label={`Number of ${unitLabel}s`} required>
+                  <input
+                    type="number" className={baseInputClasses} required min="1" max={MAX_UNITS} step="1" aria-label={`Number of ${unitLabel}s`}
+                    value={form.unit_count} onChange={e => setUnitCount(e.target.value)}
+                  />
+                </CycleField>
+              ) : <CycleField label="Ponds / cages" wide><span className="text-sm text-slate-500">Not used for this culture system.</span></CycleField>}
+              {/* PCIC insurance is recorded once for the whole cycle, beside the number of ponds/cages: the box and the document to upload. */}
+              <CycleField label="PCIC Insured">
+                <PcicInsuranceField compact value={pcic} onChange={setPcic} subject="production cycle" uploadLabel="Upload document" />
+              </CycleField>
+            </CycleRow>
+          </CycleRows>
+
+          {unitLabel && unitCount > 0 && (
+            <div className="space-y-3 border-t border-[#E2E8E2] p-3">
+              {/* One table for all ponds/cages: one row per unit, numbered by its unit number (1..N). */}
+              {/* A table from sm up; on a phone each pond/cage is its own card with labelled fields. */}
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent">
+                <table className="w-full min-w-[560px] text-sm max-sm:block max-sm:min-w-0" data-testid="unit-table">
+                  <thead className="max-sm:hidden">
+                    <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-3 py-2">{unitLabel} No.</th>
+                      <th className="px-3 py-2">Length (m) <span className="text-red-500">*</span></th>
+                      <th className="px-3 py-2">Width (m) <span className="text-red-500">*</span></th>
+                      <th className="px-3 py-2">Area (m²)</th>
+                      <th className="px-3 py-2">Number of Fingerlings <span className="text-red-500">*</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="max-sm:block">
+                    {shownUnits.map((u, i) => (
+                      <tr key={i} className="border-t border-slate-100 max-sm:mb-2 max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:bg-white max-sm:p-3">
+                        <td className="px-3 py-2 font-medium text-slate-800 max-sm:col-span-2 max-sm:p-0">{unitLabel} {i + 1}</td>
+                        <td data-label="Length (m) *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
+                          <input
+                            type="number" className={baseInputClasses} required min="0.01" step="0.01" aria-label={`${unitLabel} ${i + 1} length (m)`}
+                            value={u.length_m} onChange={e => setUnitField(i, 'length_m', e.target.value)}
+                          />
+                        </td>
+                        <td data-label="Width (m) *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
+                          <input
+                            type="number" className={baseInputClasses} required min="0.01" step="0.01" aria-label={`${unitLabel} ${i + 1} width (m)`}
+                            value={u.width_m} onChange={e => setUnitField(i, 'width_m', e.target.value)}
+                          />
+                        </td>
+                        <td data-label="Area (m²)" className="px-3 py-2 font-medium text-slate-800 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="unit-area">{u.area > 0 ? u.area.toFixed(2) : '—'}</td>
+                        <td data-label="Number of fingerlings *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)] max-sm:col-span-2">
+                          <input
+                            type="number" className={baseInputClasses} required min="1" step="1" aria-label={`${unitLabel} ${i + 1} number of fingerlings`}
+                            value={u.actual} onChange={e => setUnitField(i, 'fingerling_count', e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="max-sm:block">
+                    <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800 max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:p-3" data-testid="unit-total-row">
+                      <td className="px-3 py-2 max-sm:col-span-2 max-sm:p-0">TOTAL</td>
+                      <td className="px-3 py-2 max-sm:hidden">—</td>
+                      <td className="px-3 py-2 max-sm:hidden">—</td>
+                      <td data-label="Total area (m²)" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-area">{totalArea.toFixed(2)}</td>
+                      <td data-label="Total fingerlings" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-fingerlings">{fmtInt(totalFingerlings)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="flex flex-wrap gap-x-8 gap-y-1 text-sm text-slate-800">
+                <span data-testid="estimated-biomass">
+                  Estimated Harvest Biomass:{' '}
+                  <strong className="text-[#1E4620]">
+                    {isEstimating ? '…' : biomass?.estimated_harvest_kg != null
+                      ? `${Number(biomass.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
+                      : totalFingerlings < 1 ? '—' : estimateFailed ? 'Unavailable' : 'Not configured'}
+                  </strong>
+                </span>
+                {!isEstimating && biomass?.estimated_harvest_kg != null && (
+                  <span className="basis-full text-xs text-slate-500">
+                    Forecast: {fmtInt(totalFingerlings)} fingerlings × {Number(biomass.survival_rate_pct)}% survival × {Number(biomass.avg_body_weight_kg)} kg average weight (species settings).
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
+          )}
+        </CycleSection>
+
+        <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" isLoading={isSubmitting}>Start Cycle</Button>
         </div>

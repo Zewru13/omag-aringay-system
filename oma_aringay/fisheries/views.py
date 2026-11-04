@@ -1622,6 +1622,9 @@ class StockingProductionUnitsView(APIView):
         if not rec.production_cycle_id:
             return Response({'stocking_record': rec.id, 'production_cycle': None, 'units': []})
         units = list(AquacultureProductionUnit.objects.filter(production_cycle_id=rec.production_cycle_id).prefetch_related('pcic_extra_photos').order_by('unit_type', 'unit_number'))
+        # PCIC is recorded once per cycle (Start Production Cycle): its one document is on the stocking record. An insured pond/cage with no
+        # document of its own shows that one.
+        cycle_form = photo_list(rec, request) if rec.has_pcic_insurance else []
         harvests = rec.harvests.prefetch_related('production_units', 'unit_harvests')
         unit_kg, unit_dates, combined_units = {}, {}, set()
         forced_by_unit = {}   # unit id -> the emergency Force Harvest record that harvested it
@@ -1675,7 +1678,8 @@ class StockingProductionUnitsView(APIView):
                 'status': status,
                 'force_harvest_reasons': st.get('reasons', []),
                 'has_pcic_insurance': bool(u.has_pcic_insurance),
-                'pcic_form_photos': photo_list(u, request),   # signed links to the unit's PCIC form photos (the in-app viewer opens them)
+                # signed links to the unit's PCIC form photos (the in-app viewer opens them): its own, else the cycle's
+                'pcic_form_photos': (photo_list(u, request) or cycle_form) if u.has_pcic_insurance else photo_list(u, request),
             })
         return Response({'stocking_record': rec.id, 'production_cycle': rec.production_cycle_id, 'units': out})
 
