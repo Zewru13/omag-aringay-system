@@ -1673,6 +1673,7 @@ class StockingProductionUnitsView(APIView):
                 'harvest_dates': [str(d) for d in dates],
                 'status': status,
                 'force_harvest_reasons': st.get('reasons', []),
+                'has_pcic_insurance': bool(u.has_pcic_insurance),
             })
         return Response({'stocking_record': rec.id, 'production_cycle': rec.production_cycle_id, 'units': out})
 

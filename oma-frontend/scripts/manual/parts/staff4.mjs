@@ -12,13 +12,14 @@ const ASSIST_TABS = [
 
 export const STAFF4 = [
   // ───────────────────────────── Aquaculture Monitoring ─────────────────────────────
-  A({ id: 'admin-aquaculture', file: 'admin/aquaculture.png', url: '/fisheries-monitoring?tab=stocking', width: 2000, title: 'Fisheries Management > Aquaculture Monitoring', purpose: 'Follows every production cycle of ponds and cages, from stocking to harvest.',
+  A({ id: 'admin-aquaculture', file: 'admin/aquaculture.png', url: '/fisheries-monitoring?tab=stocking', width: 2000, js: "document.querySelector('tbody tr').click()", after: 2500, title: 'Fisheries Management > Aquaculture Monitoring', purpose: 'Follows every production cycle of ponds and cages, from stocking to harvest.',
     callouts: [
       { find: { text: 'Start Production Cycle', tag: 'button' }, label: 'Start Production Cycle', desc: 'Opens the form that starts a new production cycle for a fisherfolk (next picture but one).' },
       SEARCH_ROW('a cycle by fisherfolk name, RSBSA number, species or barangay'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: pond or cage name, status, species, season, year and the Stocked From / To dates.' },
       PRINT_ROW, DOWNLOAD_ROW,
-      { find: COLS, label: 'Columns', desc: 'Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status, PCIC Insured (one tick for each pond or cage of the cycle, so you see which ones are insured) and Actions.' },
+      { find: COLS, label: 'Columns', desc: 'Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, estimated and actual harvest (kg), organization, pond location, status and Actions.' },
+      { find: { text: 'PCIC INSURED', tag: 'th' }, label: 'PCIC Insured', desc: 'Click a row to open its ponds or cages. Each pond or cage has its own round check: green with a white check when it is insured, an empty circle when it is not. The insurance is changed in the cycle\'s Edit form.' },
       { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Harvest / Actions', desc: 'The harvest button of a row is grayed out until at least half of the expected time has passed. The three dots next to it open the menu of the cycle.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
@@ -52,11 +53,11 @@ export const STAFF4 = [
     ] }),
   A({ id: 'admin-cycle-details', file: 'admin/cycle-details.png', url: '/fisheries-monitoring?tab=stocking', js: lastRowMenu('Cycle & Logs'), after: 3500, height: 1000, title: 'Cycle details and logs', purpose: 'One cycle, with its feeding and health logs.',
     callouts: [
-      { find: { text: 'Cycle Info', tag: 'button' }, label: 'Cycle Info', desc: 'The cycle\'s details and its ponds: pond, size, fingerlings and PCIC Insured.' },
+      { find: { text: 'Cycle Info', tag: 'button' }, label: 'Cycle Info', desc: 'The cycle\'s details and its ponds: pond, size, fingerlings and the PCIC Insured round check.' },
       { find: { text: 'Feeding Log', tag: 'button' }, label: 'Feeding Log', desc: 'The feed given: the date, the feed type (from Fisheries Settings) and the amount. Add a log from here.' },
       { find: { text: 'Health Log', tag: 'button' }, label: 'Health Log', desc: 'Disease and treatment records of the cycle: the date, the disease (from Fisheries Settings) and what was done.' },
       { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle\'s details.' },
-      { find: { css: 'thead', last: true }, label: 'Ponds table', desc: 'Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured tick.' },
+      { find: { css: 'thead', last: true }, label: 'Ponds table', desc: 'Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured round check.' },
     ] }),
 
   // ───────────────────────────── Capture Monitoring ─────────────────────────────

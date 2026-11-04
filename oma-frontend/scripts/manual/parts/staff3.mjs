@@ -66,7 +66,7 @@ export const STAFF3 = [
   A({ id: 'admin-add-crops-right', file: 'admin/add-crops-right.png', url: '/crop-records', js: `${parcelMenu('Add crops')}; ${wait(2500)}; document.querySelector('header button').click(); ${wait(800)}; document.querySelectorAll('div').forEach(d=>{ if(d.scrollWidth>d.clientWidth+40 && d.querySelector('table')) d.scrollLeft=99999 })`, after: 1500, title: 'Add Crops to Parcel table (2 of 2)', purpose: 'The last columns of the same table, scrolled to the right.',
     callouts: [
       { find: { text: 'QTY OF SEEDS', tag: 'th' }, label: 'Qty of Seeds (kg)', desc: 'Optional. How many seeds were used, in kg (Edit Crop later allows other units). A tree crop shows Qty of Trees instead; a crop that can be either has a small arrow on this heading to choose.' },
-      { find: { text: 'PCIC', tag: 'th' }, label: 'PCIC', desc: 'Tick Insured if the crop has PCIC insurance. A window asks for photos of the insurance form (one for each page, up to 5; JPG, PNG or WEBP, up to 5 MB each); without at least one the crop cannot be saved as insured. Cancel the window and the box unticks.' },
+      { find: { text: 'PCIC', tag: 'th' }, label: 'PCIC', desc: 'Press the round Insured button if the crop has PCIC insurance. A window asks for photos of the insurance form (one for each page, up to 5; JPG, PNG or WEBP, up to 5 MB each); without at least one the crop cannot be saved as insured. Cancel the window and the button goes back to an empty circle.' },
       { find: { text: 'FARM PARCEL', tag: 'th' }, label: 'Farm Parcel', desc: 'Required. The parcel the crop is planted on. Opened from a parcel\'s menu, it is already chosen.' },
     ] }),
   A({ id: 'admin-edit-parcel', file: 'admin/edit-parcel.png', url: '/farmers/6', js: "const b=[...document.querySelectorAll('table button')].find(x=>x.textContent.trim()==='Edit'); b&&b.click()", after: 2500, height: 1000, title: 'Edit Farm Parcel window', purpose: 'Changes a parcel\'s details.',
@@ -88,7 +88,7 @@ export const STAFF3 = [
       { ...FILTERS_ROW, desc: 'Opens the filter row (next picture): group by, crop, status, PCIC, season, year and the date planted.' },
       PRINT_ROW, DOWNLOAD_ROW,
       { find: COLS, label: 'Columns', desc: 'Crop, variety, farmer, organization, barangay, date planted, expected harvest, Logs (how many activities were recorded), PCIC insured, status and Actions.' },
-      { find: { css: 'tbody tr:first-child input[type=checkbox]' }, label: 'PCIC Insured tick', desc: 'Ticked when the crop has PCIC insurance. Tick it to add insurance (photos of the form are asked for).' },
+      { find: { css: 'tbody tr:first-child [role=img]' }, label: 'PCIC Insured check', desc: 'A round check: green with a white check when the crop has PCIC insurance, an empty circle when it has none. The insurance is changed in the crop\'s Edit form (photos of the form are asked for).' },
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'The three dots of a crop: Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture).' },
       { ...PAGER_ROW, find: PAGER },
     ] }),

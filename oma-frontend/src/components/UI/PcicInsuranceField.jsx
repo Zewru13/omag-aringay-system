@@ -4,12 +4,13 @@ import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { MAX_PCIC_PHOTOS, checkPcicFile, pcicPhotoCount } from '../../utils/pcic.js'
 import Button from './Button.jsx'
 import ModalShell from './ModalShell.jsx'
+import { PcicRoundIcon } from './PcicCheck.jsx'
 
-// "Has PCIC insurance" box for a crop, pond, planting or stocking record. Ticking it opens a window asking for photos of the PCIC
+// "Has PCIC insurance" round check button for a crop, pond, planting or stocking record (the same round icon as the tables' PCIC INSURED cell). Pressing it opens a window asking for photos of the PCIC
 // insurance form (up to 5: its pages; kept with the record as documentation); cancelling that window without a photo leaves the box
 // unticked. `value` is the form's pcic state (utils/pcic.js): { insured, files, photos, removed }; `onChange` receives the next state.
 // Saving and uploading are the form's job.
-//   compact  the box alone (for a table column): the photos show as a small "N photos" note under it instead of a bordered panel.
+//   compact  the button alone (for a table column): the photos show as a small "N photos" note under it instead of a bordered panel.
 
 function PcicPhotoDialog({ value, subject, error, onSave, onCancel }) {
   const inputRef = useRef(null)
@@ -79,6 +80,23 @@ function PcicPhotoDialog({ value, subject, error, onSave, onCancel }) {
   )
 }
 
+// The round check button: a filled green circle with a check when insured, an empty ring when not. It is a checkbox for assistive technology.
+function RoundToggle({ checked, disabled, onChange, className = '', children }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`flex min-h-[44px] items-center gap-2.5 rounded-lg text-left text-[13px] font-medium text-[#1A2B1A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B4D2E] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+    >
+      <PcicRoundIcon checked={checked} size={22} />
+      {children}
+    </button>
+  )
+}
+
 export default function PcicInsuranceField({ value, onChange, disabled = false, subject = 'record', error = '', compact = false }) {
   const [asking, setAsking] = useState(false)
   const count = pcicPhotoCount(value)
@@ -123,10 +141,9 @@ export default function PcicInsuranceField({ value, onChange, disabled = false, 
   if (compact) {
     return (
       <div className="space-y-1">
-        <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-[13px] font-medium text-[#1A2B1A]">
-          <input type="checkbox" className="h-5 w-5 flex-none accent-[#1B4D2E]" checked={value.insured} disabled={disabled} onChange={(e) => toggle(e.target.checked)} />
+        <RoundToggle checked={value.insured} disabled={disabled} onChange={toggle}>
           <span className="flex items-center gap-1"><ShieldCheck size={14} className="flex-none text-[#1B4D2E]" aria-hidden="true" /> Insured</span>
-        </label>
+        </RoundToggle>
         {photoNote}
         {error && !asking && <p className="text-[11px] font-medium text-rose-600">{error}</p>}
         {dialog}
@@ -136,19 +153,12 @@ export default function PcicInsuranceField({ value, onChange, disabled = false, 
 
   return (
     <div className="rounded-xl border border-[#E2E8E2] bg-[#F8FAF8] p-3">
-      <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-[13px] font-medium text-[#1A2B1A]">
-        <input
-          type="checkbox"
-          className="h-5 w-5 flex-none accent-[#1B4D2E]"
-          checked={value.insured}
-          disabled={disabled}
-          onChange={(e) => toggle(e.target.checked)}
-        />
+      <RoundToggle checked={value.insured} disabled={disabled} onChange={toggle} className="w-full">
         <span className="flex min-w-0 items-center gap-1.5">
           <ShieldCheck size={15} className="flex-none text-[#1B4D2E]" aria-hidden="true" />
           This {subject} has PCIC insurance
         </span>
-      </label>
+      </RoundToggle>
       {value.insured && <div className="ml-8 mt-1">{photoNote}</div>}
       {error && !asking && <p className="mt-2 text-[12px] font-medium text-rose-600">{error}</p>}
       {dialog}
