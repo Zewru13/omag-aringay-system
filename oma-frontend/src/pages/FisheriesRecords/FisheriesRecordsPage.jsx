@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Trash2, Unlock, Wheat, Zap } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, ClipboardList, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Trash2, Unlock, Wheat, Zap } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -26,6 +26,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { ownershipLabel } from '../../utils/ownership.js'
 import AquacultureCycleDetailModal, { CycleInfoSummary } from '../Monitoring/AquacultureCycleDetailModal.jsx'
 import LogActivityModal from '../Monitoring/LogActivityModal.jsx'
+import CycleActivityLogsModal from '../Monitoring/CycleActivityLogsModal.jsx'
 import LogActivityButton from './LogActivityButton.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
@@ -561,8 +562,6 @@ function StockingDetailModal({ record, onClose, staffView = false }) {
     return () => { cancelled = true }
   }, [wantsCycle, record.production_cycle])
   const cycleLoading = wantsCycle && !cycle && !cycleFailed
-  const landStatusDisplay =
-    record.land_status === 'Other' ? `Other — ${record.land_status_other_specify || ''}` : record.land_status || '—'
   const waterSourceDisplay =
     record.water_source === 'Other' ? `Other — ${record.water_source_other_specify || ''}` : record.water_source || '—'
   const fingerlingSourceDisplay =
@@ -570,14 +569,12 @@ function StockingDetailModal({ record, onClose, staffView = false }) {
   const culturePhaseDisplay =
     record.culture_phase === 'Other' ? `Other — ${record.culture_phase_other_specify || ''}` : record.culture_phase || '—'
   const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
-  const fmtPhp = (v) => (v == null ? '—' : `₱${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
 
   const rows = [
     ['Species', record.species_name || '—'],
     ['Category', record.category_name || '—'],
     ['Fisherfolk', record.fisherfolk_name || '—'],
     ['Pond Location', record.pond_location_barangay || '—'],
-    ['Land Status', landStatusDisplay],
     ['Culture Type', record.culture_type || '—'],
     ['Culture Phase', culturePhaseDisplay],
     ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
@@ -585,9 +582,6 @@ function StockingDetailModal({ record, onClose, staffView = false }) {
     ['PCIC Insurance', <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} photos={record.pcic_form_photos} none="No" />],
     ['Area (ha)', record.area_hectares ? Number(record.area_hectares).toFixed(4) : '—'],
     ['Number of Fingerlings', record.number_of_fingerlings ?? '—'],
-    ['Survival Rate (%)', record.survival_rate_pct ?? '—'],
-    ['Avg Body Weight (kg)', record.avg_body_weight_kg ?? '—'],
-    ['Seed/Fingerling Cost', fmtPhp(record.seed_cost_php)],
     ['Water Source', waterSourceDisplay],
     ['Number of Units', record.number_of_units ?? '—'],
     ['Unit Dimensions', record.unit_dimensions || '—'],
@@ -613,11 +607,7 @@ function StockingDetailModal({ record, onClose, staffView = false }) {
     : <StatusPill tone={STATUS_TONES[cycleStatusText(record)] || 'slate'}>{cycleStatusText(record)}</StatusPill>
   const restRows = [
     ['Category', record.category_name || '—'],
-    ['Land Status', landStatusDisplay],
     ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
-    ['Survival Rate (%)', record.survival_rate_pct ?? '—'],
-    ['Avg Body Weight (kg)', record.avg_body_weight_kg ?? '—'],
-    ['Seed/Fingerling Cost', fmtPhp(record.seed_cost_php)],
     ['Water Source', waterSourceDisplay],
     ['Avg Fingerling Size', record.avg_fingerling_size || '—'],
     rows.find(r => r[0] === 'Total Harvested (kg)'),
@@ -701,7 +691,7 @@ function harvestGateInfo(rec) {
 // menu; disasters through Disaster. Evaluator accounts keep the full menu.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName, simplified = false,
-  onViewDetails, onEdit, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
+  onViewDetails, onEdit, onActivityLogs, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -711,6 +701,8 @@ function StockingRowActions({
   const actions = [
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
+    // The Feeding Logs and Health Logs saved for this production cycle (every role that sees the row; the logs keep their own access rules).
+    rec.production_cycle && { key: 'activity-logs', label: 'Activity Logs', icon: ClipboardList, onClick: onActivityLogs, group: 'crud' },
     // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
     // harvest) and the Health Log Force Harvest are unchanged.
     canForceHarvest(rec) && { key: 'force-harvest', label: 'Force Harvest', icon: Zap, onClick: onForceHarvest, tone: 'rose', group: 'lifecycle' },
@@ -891,6 +883,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [harvestRec,   setHarvestRec]   = useState(null)
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [viewingCycle,   setViewingCycle]   = useState(null)
+  const [activityLogsRec, setActivityLogsRec] = useState(null)   // the record whose ⋮ > Activity Logs window is open
   const [logging,         setLogging]        = useState(null)   // Log Activity: { kind: 'feeding' | 'health', cycle, subtitle }
   const [forceRec,       setForceRec]       = useState(null)   // the record whose ⋮ > Force Harvest form is open
   // ?forced=<id> (an emergency Force Harvest notification): open that saved Force Harvest's details.
@@ -1131,6 +1124,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         lockedByName={lockStatuses[rec.id]?.locked_by?.name}
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
+        onActivityLogs={() => setActivityLogsRec(rec)}
         onForceHarvest={() => setForceRec(rec)}
         onViewLogs={() => setViewLogsRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
@@ -1368,6 +1362,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           onSuccess={() => { setShowStartCycle(false); setPage(1); fetchRecords(1) }}
         />
       )}
+
+      {activityLogsRec && <CycleActivityLogsModal record={activityLogsRec} onClose={() => setActivityLogsRec(null)} />}
 
       {logging && (
         <LogActivityModal

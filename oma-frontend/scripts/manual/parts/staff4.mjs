@@ -36,6 +36,7 @@ export const STAFF4 = [
     callouts: [
       { find: { text: 'View Details', tag: 'button' }, label: 'View Details', desc: 'Shows the cycle\'s details: fisherfolk, species, dates, ponds, fingerlings, estimated and actual harvest.' },
       { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle (dates, ownership, the number of fingerlings, PCIC insurance of each pond or cage).' },
+      { find: { text: 'Activity Logs', tag: 'button' }, label: 'Activity Logs', desc: 'Lists every Feeding Log and Health Log saved for the cycle: the date, the activity, the pond or cage and the details. Filter it with All, Feeding Log or Health Log.' },
       { find: { text: 'Force Harvest', tag: 'button' }, label: 'Force Harvest', desc: 'Harvests the cycle before it is ready, for a reason such as an upcoming typhoon.' },
     ] }),
   A({ id: 'admin-start-cycle', file: 'admin/start-cycle.png', url: '/fisheries-monitoring?tab=stocking', js: click('Start Production Cycle'), after: 2500, height: 1500, title: 'Start Production Cycle form', purpose: 'Starts a new production cycle for a fisherfolk.',

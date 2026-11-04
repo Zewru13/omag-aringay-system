@@ -27,7 +27,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { fmtShortDate } from '../../utils/forecastDates.js'
-import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
+import { factorsSummary } from '../../utils/fisheriesYieldLogs.js'
+import YieldCycleActivity from './YieldCycleActivity.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
@@ -1272,10 +1273,11 @@ export default function ForecastingTab({ asTab = false }) {
               estimated={rec.estimated_kg != null ? `${rec.estimated_kg.toLocaleString()} kg` : 'N/A'}
               actual={`${rec.actual_total_kg.toLocaleString()} kg`}
               activities={`${rec.activities_completed_count}/${rec.activities_total_count}`}
-              factors={possibleFactorsText(rec, 'fisheries')}
+              factors={factorsSummary(rec)}
               expanded={expanded.has(rec.id)}
               onToggle={() => toggleExpand(rec.id)}
             >
+              <YieldCycleActivity rec={rec} />
               <ActivityBreakdown items={rec.activity_breakdown} emptyText="No activity schedule defined for this species." disclaimer={YIELD_DISCLAIMER} />
             </PhoneYieldCard>
           ))}
@@ -1318,11 +1320,12 @@ export default function ForecastingTab({ asTab = false }) {
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.actual_total_kg.toLocaleString()}</td>
                     <td className="px-3 py-[11px] whitespace-nowrap"><VarianceBadge pct={rec.variance_pct} /></td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activities_completed_count}/{rec.activities_total_count}</td>
-                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs"><span className="line-clamp-2" title={possibleFactorsText(rec, 'fisheries')}>{possibleFactorsText(rec, 'fisheries')}</span></td>
+                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs"><span className="line-clamp-3" title={factorsSummary(rec)}>{factorsSummary(rec)}</span></td>
                   </tr>
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
                       <td colSpan={10} className="px-6 py-4">
+                        <div className="mb-4"><YieldCycleActivity rec={rec} /></div>
                         <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity completion breakdown</p>
                         {rec.activity_breakdown.length === 0 ? (
                           <p className="text-[12px] text-[#7A8E7A]">No activity schedule defined for this species.</p>
