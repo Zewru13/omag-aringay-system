@@ -36,7 +36,6 @@ export const STAFF4 = [
     callouts: [
       { find: { text: 'View Details', tag: 'button' }, label: 'View Details', desc: 'Shows the cycle\'s details: fisherfolk, species, dates, ponds, fingerlings, estimated and actual harvest.' },
       { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle (dates, ownership, the number of fingerlings, PCIC insurance of each pond or cage).' },
-      { find: { text: 'Cycle & Logs', tag: 'button' }, label: 'Cycle & Logs', desc: 'Opens the cycle with its Feeding Log and Health Log, where the daily work is recorded.' },
       { find: { text: 'Force Harvest', tag: 'button' }, label: 'Force Harvest', desc: 'Harvests the cycle before it is ready, for a reason such as an upcoming typhoon.' },
     ] }),
   A({ id: 'admin-start-cycle', file: 'admin/start-cycle.png', url: '/fisheries-monitoring?tab=stocking', js: click('Start Production Cycle'), after: 2500, height: 1500, title: 'Start Production Cycle form', purpose: 'Starts a new production cycle for a fisherfolk.',
@@ -51,13 +50,13 @@ export const STAFF4 = [
       { find: { text: 'Number of Ponds', tag: 'label', up: 1 }, label: 'Number of Ponds', desc: 'Required. How many ponds or cages are in this cycle. A line for each opens below, to give its size, fingerlings and whether it has PCIC insurance.' },
       { find: { text: 'Start Cycle', tag: 'button' }, label: 'Start Cycle', desc: 'Saves the production cycle with its ponds.' },
     ] }),
-  A({ id: 'admin-cycle-details', file: 'admin/cycle-details.png', url: '/fisheries-monitoring?tab=stocking', js: lastRowMenu('Cycle & Logs'), after: 3500, height: 1000, title: 'Cycle details and logs', purpose: 'One cycle, with its feeding and health logs.',
+  A({ id: 'admin-cycle-details', file: 'admin/cycle-details.png', url: '/fisheries-monitoring?tab=stocking', js: `document.querySelector('tbody tr').click(); ${wait(2500)}; ${clickIncl('Log Activity')}; ${wait(600)}; const o=[...document.querySelectorAll('[role=menuitem]')].find(x=>/Feeding Log/.test(x.textContent)); if(o) o.click()`, after: 2500, height: 1000, title: 'Log Activity: Feeding Log', purpose: 'The Feeding Log of one cycle, with a row for each pond or cage.',
     callouts: [
-      { find: { text: 'Cycle Info', tag: 'button' }, label: 'Cycle Info', desc: 'The cycle\'s details and its ponds: pond, size, fingerlings and the PCIC Insured round check.' },
-      { find: { text: 'Feeding Log', tag: 'button' }, label: 'Feeding Log', desc: 'The feed given: the date, the feed type (from Fisheries Settings) and the amount. Add a log from here.' },
-      { find: { text: 'Health Log', tag: 'button' }, label: 'Health Log', desc: 'Disease and treatment records of the cycle: the date, the disease (from Fisheries Settings) and what was done.' },
-      { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle\'s details.' },
-      { find: { css: 'thead', last: true }, label: 'Ponds table', desc: 'Each pond or cage of the cycle with its size, the fingerlings stocked and the PCIC Insured round check; View form opens the uploaded PCIC form inside the system.' },
+      { find: { text: 'Date', tag: 'th' }, label: 'Date', desc: 'Required. The day of the feeding; it starts as today and can be changed.' },
+      { find: { text: 'Feed Type', tag: 'th' }, label: 'Feed Type', desc: 'Required. The system suggests a feed type from how far along the culture is; choose another if that is not what was used.' },
+      { find: { text: 'Notes', tag: 'th' }, label: 'Notes', desc: 'Optional. Anything worth remembering about this feeding.' },
+      { find: { text: 'Feed Quantity', tag: 'th' }, label: 'Feed Quantity (kg)', desc: 'Required for at least one pond or cage: the feed given to each one, in kg. The total adds up below.' },
+      { find: { text: 'Save', tag: 'button', exact: true }, label: 'Save', desc: 'Adds the feeding log to the cycle and its ponds or cages. A Health Log is entered the same way from Log Activity, with a row to tick for each pond or cage.' },
     ] }),
 
   // ───────────────────────────── Capture Monitoring ─────────────────────────────

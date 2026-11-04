@@ -22,7 +22,8 @@ const GAP = 4 // px between trigger and menu — matches the old mt-1/mb-1 (0.25
 // once it's mounted (via the menuNode ref-callback below triggering a second,
 // synchronous layout-effect pass), not an estimate — both passes run before
 // the browser paints, so a wrong first guess never visibly flashes.
-function ActionsMenu({ title = 'Actions', menuWidthClassName = 'w-40', buttonClassName, children }) {
+// `trigger`: a labelled button face (icon + text) instead of the ⋮ icon; give it a `buttonClassName` of its own.
+function ActionsMenu({ title = 'Actions', menuWidthClassName = 'w-40', buttonClassName, trigger = null, children }) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState(null)
   const [menuNode, setMenuNode] = useState(null)
@@ -111,8 +112,10 @@ function ActionsMenu({ title = 'Actions', menuWidthClassName = 'w-40', buttonCla
         onClick={toggleOpen}
         className={buttonClassName || 'flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors'}
         title={title}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
-        <MoreVertical size={14} />
+        {trigger || <MoreVertical size={14} />}
       </button>
       {open && style && createPortal(
         <div

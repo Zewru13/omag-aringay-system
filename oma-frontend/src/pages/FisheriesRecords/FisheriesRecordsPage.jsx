@@ -25,6 +25,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ownershipLabel } from '../../utils/ownership.js'
 import AquacultureCycleDetailModal, { CycleInfoSummary } from '../Monitoring/AquacultureCycleDetailModal.jsx'
+import LogActivityModal from '../Monitoring/LogActivityModal.jsx'
+import LogActivityButton from './LogActivityButton.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import {
@@ -693,13 +695,13 @@ function harvestGateInfo(rec) {
   return harvestGateStatus(rec.date_stocked, rec.expected_harvest_date)
 }
 
-// The row itself expands the cycle's ponds/cages, so View Cycle (Cycle Info, Feeding Logs, Health Logs) is
-// offered to every role here. simplified (Admin and fisherfolk accounts): View Logs / Record Harvest / Report
+// The row itself expands the cycle's ponds/cages, and the Feeding Log / Health Log are entered from the Log Activity button there (no longer in this
+// menu, nor is Print Report: that is the button above the table). simplified (Admin and fisherfolk accounts): View Logs / Record Harvest / Report
 // Disaster are not repeated in the menu - harvest stays reachable through the fishing-net button beside the
 // menu; disasters through Disaster. Evaluator accounts keep the full menu.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName, simplified = false,
-  onViewDetails, onEdit, onViewCycle, onPrint, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
+  onViewDetails, onEdit, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -709,8 +711,6 @@ function StockingRowActions({
   const actions = [
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
-    { key: 'cycle', label: 'Cycle & Logs', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
-    { key: 'print', label: 'Print Report', icon: Printer, onClick: onPrint, group: 'crud' },
     // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
     // harvest) and the Health Log Force Harvest are unchanged.
     canForceHarvest(rec) && { key: 'force-harvest', label: 'Force Harvest', icon: Zap, onClick: onForceHarvest, tone: 'rose', group: 'lifecycle' },
@@ -770,7 +770,7 @@ function StockingRowActions({
 // Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card expands its
 // ponds/cages as compact cards (same as the table row); the buttons are full-height touch targets for the
 // same actions the row menu offers (Cycle details, View Details, Edit, Record Harvest with the same gate).
-function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onOpenCycle, onViewDetails, onEdit, onPrint, onRecordHarvest, onForceHarvest }) {
+function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onLogActivity, onOpenCycle, onViewDetails, onEdit, onPrint, onRecordHarvest, onForceHarvest }) {
   const canEdit = row.status !== 'Harvested'
   const canHarvest = row.status !== 'Total Loss' && row.status !== 'Harvested'
   const harvestGate = harvestGateInfo(row)
@@ -819,7 +819,8 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
             ))}
           </dl>
           <div className="border-t border-[#F0F4F0] pt-3">
-            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits} pcic />
+            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits} pcic
+              headerAction={unitsState?.status === 'ok' && unitsState.hasCycle ? <LogActivityButton onChoose={onLogActivity} /> : null} />
           </div>
           <div className="grid grid-cols-2 gap-2 border-t border-[#F0F4F0] pt-3 min-[420px]:flex">
             <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
@@ -890,6 +891,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [harvestRec,   setHarvestRec]   = useState(null)
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [viewingCycle,   setViewingCycle]   = useState(null)
+  const [logging,         setLogging]        = useState(null)   // Log Activity: { kind: 'feeding' | 'health', cycle, subtitle }
   const [forceRec,       setForceRec]       = useState(null)   // the record whose ⋮ > Force Harvest form is open
   // ?forced=<id> (an emergency Force Harvest notification): open that saved Force Harvest's details.
   const linkedForcedId = searchParams.get('forced')
@@ -915,6 +917,19 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     try {
       const r = await api.get(`/monitoring/aquaculture-cycles/${rec.production_cycle}/`)
       setViewingCycle(r.data)
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to load production cycle.', 'error')
+    }
+  }
+
+  // Log Activity (the button of an expanded cycle): the Feeding Log or Health Log of that production cycle, in its own window. The cycle is read
+  // the way View Cycle reads it, so the form has the cycle's ponds/cages (the log is saved to the cycle's fisherfolk, cycle and those ponds/cages).
+  const startLogActivity = async (rec, kind) => {
+    if (!rec.production_cycle) { showToast('No Production Cycle linked', 'error'); return }
+    try {
+      const r = await api.get(`/monitoring/aquaculture-cycles/${rec.production_cycle}/`)
+      const who = rec.fisherfolk_name || r.data.fisherfolk_name || ''
+      setLogging({ kind, cycle: r.data, subtitle: [who, r.data.cycle_name].filter(Boolean).join(' · ') })
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to load production cycle.', 'error')
     }
@@ -1116,8 +1131,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         lockedByName={lockStatuses[rec.id]?.locked_by?.name}
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
-        onViewCycle={() => handleViewCycle(rec)}
-        onPrint={() => printCycle(rec)}
         onForceHarvest={() => setForceRec(rec)}
         onViewLogs={() => setViewLogsRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
@@ -1207,6 +1220,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 unitsState={unitsState(row.id)}
                 onToggle={() => toggleExpanded(row._rec)}
                 onRetryUnits={() => retryUnits(row.id)}
+                onLogActivity={(kind) => startLogActivity(row._rec, kind)}
                 onOpenCycle={() => handleViewCycle(row._rec)}
                 onViewDetails={() => setViewingRec(row._rec)}
                 onEdit={() => setEditingRec(row._rec)}
@@ -1255,8 +1269,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 rows.map(row => {
                   const isExpanded = expandedId === row.id
                   return (
-                    // The whole row expands/collapses this stock's ponds/cages underneath it; the full Production
-                    // Cycle (Cycle Info, Feeding Logs, Health Logs) is "Cycle & Logs" in the row menu.
+                    // The whole row expands/collapses this stock's ponds/cages underneath it; the Feeding / Health logs are
+                    // entered from the Log Activity button of the expanded row.
                     // The badges and buttons inside the row keep their own actions.
                     <Fragment key={row.id}>
                       <tr className={`cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${isExpanded ? 'bg-[#F5F8F5]' : ''}`}
@@ -1271,7 +1285,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                       {isExpanded && (
                         <tr className="border-b border-[#E2E8E2]">
                           <td colSpan={columns.length} className="p-0">
-                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)} pcic />
+                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)} pcic
+                              headerAction={unitsState(row.id)?.status === 'ok' && unitsState(row.id).hasCycle ? <LogActivityButton onChoose={(kind) => startLogActivity(row._rec, kind)} /> : null} />
                           </td>
                         </tr>
                       )}
@@ -1351,6 +1366,18 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         <StartProductionCycleModal
           onClose={() => setShowStartCycle(false)}
           onSuccess={() => { setShowStartCycle(false); setPage(1); fetchRecords(1) }}
+        />
+      )}
+
+      {logging && (
+        <LogActivityModal
+          kind={logging.kind}
+          cycle={logging.cycle}
+          subtitle={logging.subtitle}
+          onClose={() => setLogging(null)}
+          // A saved Health Log can start Force Harvest: reloading the rows also reloads the open row's ponds/cages, so the status and the
+          // fishing-net button follow it without a page reload.
+          onSaved={() => { setLogging(null); fetchRecords(page) }}
         />
       )}
 
