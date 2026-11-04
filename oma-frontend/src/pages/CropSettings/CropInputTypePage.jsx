@@ -14,6 +14,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Mirrors FisheriesSettings/FeedTypePage.jsx exactly, crop fields substituted.
 const GROWTH_STAGE_OPTIONS = ['Vegetative', 'Flowering', 'Fruiting', 'Maturity']
@@ -29,10 +31,12 @@ const COLUMNS = [
 // Edit Input Type. New input types are added in the table itself (the Add button under it).
 function CropInputTypeModal({ inputType, onClose, onSaved }) {
   const { showToast } = useToast()
-  const [name,        setName]        = useState(inputType.name || '')
-  const [description, setDescription] = useState(inputType.description || '')
-  const [category,    setCategory]    = useState(inputType.input_type || '')
-  const [growthStage, setGrowthStage] = useState(inputType.growth_stage || '')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-input-type-edit:${inputType?.id}`)
+  const [name,        setName]        = useDraftField(draft, 'name', inputType.name || '')
+  const [description, setDescription] = useDraftField(draft, 'description', inputType.description || '')
+  const [category,    setCategory]    = useDraftField(draft, 'category', inputType.input_type || '')
+  const [growthStage, setGrowthStage] = useDraftField(draft, 'growthStage', inputType.growth_stage || '')
   const isActive = inputType.is_active ?? true   // the Active tick box is gone: a saved input type keeps its value
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -45,6 +49,7 @@ function CropInputTypeModal({ inputType, onClose, onSaved }) {
       const payload = { name, description, is_active: isActive, input_type: category, growth_stage: growthStage }
       await api.patch(`/production/input-types/${inputType.id}/`, payload)
       showToast('Input type updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -68,6 +73,7 @@ function CropInputTypeModal({ inputType, onClose, onSaved }) {
       }
     >
       <form id="crop-input-type-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </FormField>
@@ -100,7 +106,7 @@ export default function CropInputTypePage({ asTab = false }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState('')
   const [editing,   setEditing]   = useState(null)
-  const add = useAddRow({ name: '', input_type: '', growth_stage: '' })
+  const add = useAddRow({ name: '', input_type: '', growth_stage: '' }, 'crop-input-type')
   const [deleting,  setDeleting]  = useState(null)
 
   const fetchAll = useCallback(async () => {

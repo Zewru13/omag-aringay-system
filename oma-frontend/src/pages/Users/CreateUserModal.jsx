@@ -9,6 +9,8 @@ import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { isPhoneComplete } from '../../utils/inputGuards.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -196,7 +198,7 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel, setFo
 
 // ── Step 3: Review ────────────────────────────────────────────────────────────
 
-function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) {
+function StepReview({ role, formData, onBack, onCancel, onSuccess, onCreated, setFooter }) {
   const { showToast } = useToast()
   // Display label only — the raw `role` value (ADMIN/EVALUATOR) is what's
   // actually submitted below; this just keeps the Review step and confirm
@@ -243,6 +245,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) 
         contact_number: formData.contact_number,
         role,
       })
+      onCreated()   // the account exists: the typed details are no longer a draft
       if (r.data.email_sent) {
         // Verification email delivered — never show the password in the UI.
         showToast(`Verification email sent to ${formData.email}.`, 'success')
@@ -412,9 +415,11 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) 
 
 export default function CreateUserModal({ onClose, onSuccess }) {
   const { user: currentUser, logout } = useAuth()
-  const [step,     setStep]     = useState(1)
-  const [role,     setRole]     = useState('')
-  const [formData, setFormData] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('create-user')
+  const [step,     setStep]     = useDraftField(draft, 'step', 1)
+  const [role,     setRole]     = useDraftField(draft, 'role', '')
+  const [formData, setFormData] = useDraftField(draft, 'formData', {
     lastName: '', firstName: '', suffix: '', email: '', contact_number: '',
   })
   const [footer, setFooter] = useState(null)
@@ -439,6 +444,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
       maxWidth="max-w-md"
       footer={footer}
     >
+      <DraftBanner draft={draft} />
       {step === 1 && (
         <StepRole selectedRole={role} onSelect={setRole} onNext={() => setStep(2)} onCancel={onClose} setFooter={setFooter} />
       )}
@@ -460,6 +466,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
           onBack={() => setStep(2)}
           onCancel={onClose}
           onSuccess={handleSuccess}
+          onCreated={draft.clear}
           setFooter={setFooter}
         />
       )}

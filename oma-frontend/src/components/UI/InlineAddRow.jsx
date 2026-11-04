@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Check, Plus, X } from 'lucide-react'
 import Button from './Button.jsx'
 import { baseInputClasses } from './FormField.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { DraftScope, browserStorage } from '../../utils/draftScope.js'
+import { draftKey, restoreRow, rowForDraft } from '../../utils/drafts.js'
 
 // The "Add row" of the admin settings tables (Seed Sources first, now every settings table): the Add button (named after what is added, e.g. Add Variety) sits under the table;
 // pressing it adds one more row at the top of the table with its boxes empty, and Save / Cancel in that row's last cell. Enter saves,
@@ -9,10 +12,22 @@ import { baseInputClasses } from './FormField.jsx'
 // (made of DraftInput / DraftSelect cells and DraftActions) after its own rows, and puts AddRowFooter under the table.
 
 // The draft of the new row: null while there is no new row, else the typed values. `blank` is what a new row starts as.
-export function useAddRow(blank = {}) {
-  const [draft, setDraft] = useState(null)
+// `draftName` (which table) keeps a new row that has something typed in it in this browser: leaving the page and coming back finds
+// the row open with its text, until it is saved or cancelled (see utils/drafts.js and hooks/useDraftForm.js).
+export function useAddRow(blank = {}, draftName = null) {
+  const { user } = useAuth()
+  const [scope] = useState(() => (draftName ? new DraftScope({ storage: browserStorage(), key: draftKey(user?.id, `add-row:${draftName}`) }) : null))
+  const [blankRow] = useState(blank)
+  const [draft, setDraft] = useState(() => (scope ? restoreRow(scope.saved, blank) : null))
   const [isSaving, setIsSaving] = useState(false)
   const isOpen = draft !== null
+
+  useEffect(() => {
+    if (!scope) return
+    scope.register('row', rowForDraft(draft, blankRow), null, () => {})
+    scope.schedule()
+  }, [scope, draft, blankRow])
+  useEffect(() => (scope ? () => scope.leave() : undefined), [scope])
 
   // The table also draws a phone layout, so the new row's boxes exist twice: focus the first one that is on screen.
   useEffect(() => {

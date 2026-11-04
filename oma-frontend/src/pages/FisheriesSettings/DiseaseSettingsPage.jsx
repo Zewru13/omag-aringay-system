@@ -12,12 +12,16 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Edit Disease Type. New disease types are added in the list itself (the Add button under it).
 function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
   const { showToast } = useToast()
-  const [name,        setName]        = useState(diseaseType.name || '')
-  const [description, setDescription] = useState(diseaseType.description || '')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`disease-type-edit:${diseaseType?.id}`)
+  const [name,        setName]        = useDraftField(draft, 'name', diseaseType.name || '')
+  const [description, setDescription] = useDraftField(draft, 'description', diseaseType.description || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -28,6 +32,7 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
       const payload = { name, description }
       await api.patch(`/fisheries/disease-types/${diseaseType.id}/`, payload)
       showToast('Disease type updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -50,6 +55,7 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
       }
     >
       <form id="disease-type-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </FormField>
@@ -64,8 +70,10 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
 function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
   const { showToast } = useToast()
   const isEdit = Boolean(guide)
-  const [recommendedTreatment, setRecommendedTreatment] = useState(guide?.recommended_treatment || '')
-  const [notes, setNotes] = useState(guide?.notes || '')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`disease-response-guide:${diseaseType?.id}`)
+  const [recommendedTreatment, setRecommendedTreatment] = useDraftField(draft, 'recommendedTreatment', guide?.recommended_treatment || '')
+  const [notes, setNotes] = useDraftField(draft, 'notes', guide?.notes || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -76,6 +84,7 @@ function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
       if (isEdit) await api.patch(`/fisheries/disease-response-guides/${guide.id}/`, payload)
       else await api.post('/fisheries/disease-response-guides/', payload)
       showToast('Response guide saved.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch {
       showToast('Failed to save response guide.', 'error')
@@ -99,6 +108,7 @@ function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
       }
     >
       <form id="disease-response-guide-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Recommended Treatment (optional)">
           <textarea rows={4} className={`${baseInputClasses} resize-none`} value={recommendedTreatment}
             onChange={e => setRecommendedTreatment(e.target.value)}
@@ -120,7 +130,7 @@ export default function DiseaseSettingsPage({ asTab = false }) {
   const [error,         setError]       = useState('')
   const [expanded,      setExpanded]    = useState(new Set())
   const [editingType,   setEditingType]   = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, 'disease-type')
   const [deletingType,  setDeletingType]  = useState(null)
   const [guideModalFor, setGuideModalFor] = useState(null)
 

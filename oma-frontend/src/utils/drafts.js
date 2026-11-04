@@ -6,9 +6,10 @@ const PREFIX = 'omag.draft.'
 
 export const draftKey = (userId, name) => `${PREFIX}${userId ?? 'anon'}.${name}`
 
-// What is stored: JSON, where a chosen file (which cannot be kept) becomes null.
+// What is stored: JSON, where a chosen file (which cannot be kept) becomes null, or is left out of a list of files.
+const isFile = (v) => typeof File !== 'undefined' && v instanceof File
 export function encodeDraft(value) {
-  return JSON.stringify(value, (_key, v) => (typeof File !== 'undefined' && v instanceof File ? null : v))
+  return JSON.stringify(value, (_key, v) => (Array.isArray(v) ? v.filter((item) => !isFile(item)) : isFile(v) ? null : v))
 }
 
 export function saveDraft(storage, key, value) {
@@ -30,6 +31,40 @@ export function clearDraft(storage, key) {
 
 // A draft only counts when it differs from the blank form (as it would be stored).
 export const isDirty = (value, blank) => encodeDraft(value) !== encodeDraft(blank)
+
+// A form made of several separate fields keeps its draft as one object { field: value } (hooks/useDraftForm.js). A field takes its saved value
+// back only when that is the same kind of value as the field starts with (text for text, a list for a list), so a form that changed since
+// the draft was kept never gets something it cannot use. A saved null (a chosen file, which cannot be kept) never replaces a starting value.
+const kindOf = (v) => (Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v)
+
+export function restoreField(saved, field, initial) {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved) || !(field in saved)) return initial
+  const value = saved[field]
+  if (value === null || value === undefined) return initial
+  return kindOf(initial) === 'null' || kindOf(value) === kindOf(initial) ? value : initial
+}
+
+// registry: Map of field name -> { value, initial }.
+export function fieldValues(registry) {
+  const values = {}
+  registry.forEach((entry, field) => { values[field] = entry.value })
+  return values
+}
+
+export function isFieldDraft(registry) {
+  const initials = {}
+  registry.forEach((entry, field) => { initials[field] = entry.initial })
+  return registry.size > 0 && isDirty(fieldValues(registry), initials)
+}
+
+// The new row of a settings table (components/UI/InlineAddRow.jsx) is kept only once something is typed in it: an empty new row is not a draft.
+export const rowForDraft = (row, blank) => (row === null || row === undefined || !isDirty(row, blank) ? null : row)
+
+// The saved new row, with every box the row needs; null when nothing usable was saved.
+export function restoreRow(saved, blank) {
+  const row = restoreField(saved, 'row', null)
+  return row && typeof row === 'object' && !Array.isArray(row) ? { ...blank, ...row } : null
+}
 
 // The names of one person's drafts.
 export function listDrafts(storage, userId) {

@@ -14,6 +14,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetParcelClassifications } from './useParcelClassifications.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Classification Settings: the list of "check all that apply" classifications every farm parcel form offers. Adding one offers it
 // straight away; renaming or deleting never changes parcels that already have it (a parcel keeps the name it was saved with). New ones are
@@ -27,7 +29,9 @@ const COLUMNS = [
 function ClassificationModal({ classification, onClose, onSaved }) {
   const { showToast } = useToast()
   const original = { name: classification.name }
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`parcel-classification-edit:${classification?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
@@ -38,6 +42,7 @@ function ClassificationModal({ classification, onClose, onSaved }) {
     try {
       await api.patch(`/farmers/parcel-classifications/${classification.id}/`, form)
       showToast('Classification updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save the classification.', 'error')
@@ -63,6 +68,7 @@ function ClassificationModal({ classification, onClose, onSaved }) {
       )}
     >
       <form id="parcel-classification-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Classification Name" required>
           <input className={baseInputClasses} value={form.name} autoFocus placeholder="e.g. Irrigated by NIA"
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -78,7 +84,7 @@ export default function ClassificationSettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, 'farmer-classification')
   const [deleting, setDeleting] = useState(null)
 
   // `version` bumps after a save or delete, which loads the list again.

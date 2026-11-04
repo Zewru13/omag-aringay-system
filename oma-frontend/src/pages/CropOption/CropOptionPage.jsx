@@ -14,6 +14,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PLANTING_TYPES, plantingTypeLabel } from '../CropInformation/cropEntry.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const PAGE_SIZE = 10
 
@@ -352,7 +354,9 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
     fruiting_start_day:   crop.fruiting_start_day   ?? '',
     maturity_start_day:   crop.maturity_start_day   ?? '',
   }
-  const [form, setForm] = useState(originalForm)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-type-edit:${crop?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', originalForm)
   const [isSubmitting,   setIsSubmitting]   = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
   const [nameError,      setNameError]      = useState('')
@@ -400,6 +404,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
     try {
       await api.patch(`/production/crop-types/${crop.id}/`, pendingPayload)
       showToast('Crop type updated.', 'success')
+      draft.clear()
       onSaved()
       onClose()
     } catch (err) {
@@ -433,6 +438,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
         }
       >
         <form id="crop-option-form" onSubmit={handleSubmit} className="space-y-3">
+          <DraftBanner draft={draft} />
           <FormField label="Crop Name" required error={nameError}>
             <input
               className={baseInputClasses}
@@ -555,7 +561,7 @@ export default function CropOptionPage({ asTab = false }) {
   const [error,         setError]         = useState('')
   const [search,        setSearch]        = useState('')
   const [editCrop,      setEditCrop]      = useState(null)
-  const add = useAddRow({ name: '', category: '', subcategory: '', days_to_harvest: '', planting_type: 'Seed', yield_per_ha_kg: '' })
+  const add = useAddRow({ name: '', category: '', subcategory: '', days_to_harvest: '', planting_type: 'Seed', yield_per_ha_kg: '' }, 'crop-type')
   // No default sort key — until staff click a column header, the table
   // shows the backend's own order (newest-first, matching every other list
   // in this app). Defaulting this to 'name' used to force alphabetical

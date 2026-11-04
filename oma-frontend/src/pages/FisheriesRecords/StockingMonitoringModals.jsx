@@ -19,6 +19,8 @@ import useRecordLock from '../../hooks/useRecordLock.js'
 import usePhotoList from '../../hooks/usePhotoList.js'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -371,7 +373,9 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const [disasters,         setDisasters]         = useState([])
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin } = useAuth()
-  const [showForm,          setShowForm]          = useState(false)
+  // What is typed in the log form is a draft: still here when the logs are opened again (see hooks/useDraftForm.js); it opens the form.
+  const draft = useDraftForm(`stocking-activity-log:${record.id}`)
+  const [showForm,          setShowForm]          = useState(draft.restored)
   const [showHistory,       setShowHistory]       = useState(false)   // the past activity stays closed until asked for
   const recordLock = useRecordLock('stocking', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
@@ -386,35 +390,35 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const isTotalLoss  = record.status === 'Total Loss'
 
   // Form state
-  const [activityType,     setActivityType]     = useState('')
-  const [activityTypeOtherSpecify, setActivityTypeOtherSpecify] = useState('')
-  const [activityDate,     setActivityDate]     = useState(todayISO())
-  const [waterCondition,   setWaterCondition]   = useState('')
-  const [feedType,         setFeedType]         = useState('')
-  const [feedQuantityKg,   setFeedQuantityKg]   = useState('')
-  const [feedBrand,        setFeedBrand]        = useState('')
-  const [observedIssue,    setObservedIssue]    = useState('')
-  const [severity,         setSeverity]         = useState('')
-  const [mortalityCount,   setMortalityCount]   = useState('')
-  const [possibleCause,    setPossibleCause]    = useState('')
-  const [possibleCauseOtherSpecify, setPossibleCauseOtherSpecify] = useState('')
-  const [disposalMethod,   setDisposalMethod]   = useState('')
-  const [disposalMethodOtherSpecify, setDisposalMethodOtherSpecify] = useState('')
-  const [areaAffected,     setAreaAffected]     = useState('')
+  const [activityType,     setActivityType]     = useDraftField(draft, 'activityType', '')
+  const [activityTypeOtherSpecify, setActivityTypeOtherSpecify] = useDraftField(draft, 'activityTypeOtherSpecify', '')
+  const [activityDate,     setActivityDate]     = useDraftField(draft, 'activityDate', todayISO())
+  const [waterCondition,   setWaterCondition]   = useDraftField(draft, 'waterCondition', '')
+  const [feedType,         setFeedType]         = useDraftField(draft, 'feedType', '')
+  const [feedQuantityKg,   setFeedQuantityKg]   = useDraftField(draft, 'feedQuantityKg', '')
+  const [feedBrand,        setFeedBrand]        = useDraftField(draft, 'feedBrand', '')
+  const [observedIssue,    setObservedIssue]    = useDraftField(draft, 'observedIssue', '')
+  const [severity,         setSeverity]         = useDraftField(draft, 'severity', '')
+  const [mortalityCount,   setMortalityCount]   = useDraftField(draft, 'mortalityCount', '')
+  const [possibleCause,    setPossibleCause]    = useDraftField(draft, 'possibleCause', '')
+  const [possibleCauseOtherSpecify, setPossibleCauseOtherSpecify] = useDraftField(draft, 'possibleCauseOtherSpecify', '')
+  const [disposalMethod,   setDisposalMethod]   = useDraftField(draft, 'disposalMethod', '')
+  const [disposalMethodOtherSpecify, setDisposalMethodOtherSpecify] = useDraftField(draft, 'disposalMethodOtherSpecify', '')
+  const [areaAffected,     setAreaAffected]     = useDraftField(draft, 'areaAffected', '')
   const [areaAffectedError, setAreaAffectedError] = useState('')
-  const [treatmentApplied, setTreatmentApplied] = useState('')
-  const [outcome,          setOutcome]          = useState('')
-  const [recommendations,  setRecommendations]  = useState('')
+  const [treatmentApplied, setTreatmentApplied] = useDraftField(draft, 'treatmentApplied', '')
+  const [outcome,          setOutcome]          = useDraftField(draft, 'outcome', '')
+  const [recommendations,  setRecommendations]  = useDraftField(draft, 'recommendations', '')
   // Batch C — diseaseTypeName drives the ComboboxWithOther trigger (a name
   // string, or the 'Other' sentinel) since disease_type is an FK and
   // ComboboxWithOther works with option strings; diseaseTypeOtherSpecify is
   // its free-text companion. The actual FK id is resolved from diseaseTypes
   // by name at submit time (see handleSubmitClick's payload below).
-  const [diseaseTypeName,  setDiseaseTypeName]  = useState('')
-  const [diseaseTypeOtherSpecify, setDiseaseTypeOtherSpecify] = useState('')
-  const [vetConsulted,     setVetConsulted]     = useState('')
+  const [diseaseTypeName,  setDiseaseTypeName]  = useDraftField(draft, 'diseaseTypeName', '')
+  const [diseaseTypeOtherSpecify, setDiseaseTypeOtherSpecify] = useDraftField(draft, 'diseaseTypeOtherSpecify', '')
+  const [vetConsulted,     setVetConsulted]     = useDraftField(draft, 'vetConsulted', '')
 
-  const [remedyDisasterId, setRemedyDisasterId] = useState('')
+  const [remedyDisasterId, setRemedyDisasterId] = useDraftField(draft, 'remedyDisasterId', '')
 
   // Batch 4 — Feed Type / Disease Type reference data, and the
   // DiseaseResponseGuide suggestion (if any) for the selected disease.
@@ -692,6 +696,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
         {/* Inline form — hidden for harvested stock */}
         {showForm && !isHarvested && (
           <div className="mb-4 space-y-3">
+            <DraftBanner draft={draft} />
             {recordLock.lockedByOther && (
               <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
                 <Lock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1157,13 +1162,15 @@ const DISASTER_TYPE_OPTIONS = [
 
 export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [disasterType,      setDisasterType]      = useState('')
-  const [disasterTypeOtherSpecify, setDisasterTypeOtherSpecify] = useState('')
-  const [dateOfOccurrence,  setDateOfOccurrence]  = useState(todayISO())
-  const [areaAffectedHa,    setAreaAffectedHa]    = useState('')
-  const [estimatedDamage,   setEstimatedDamage]   = useState('')
-  const [productionLoss,    setProductionLoss]    = useState('')
-  const [isTotalLoss,       setIsTotalLoss]       = useState(false)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`stocking-disaster:${record.id}`)
+  const [disasterType,      setDisasterType]      = useDraftField(draft, 'disasterType', '')
+  const [disasterTypeOtherSpecify, setDisasterTypeOtherSpecify] = useDraftField(draft, 'disasterTypeOtherSpecify', '')
+  const [dateOfOccurrence,  setDateOfOccurrence]  = useDraftField(draft, 'dateOfOccurrence', todayISO())
+  const [areaAffectedHa,    setAreaAffectedHa]    = useDraftField(draft, 'areaAffectedHa', '')
+  const [estimatedDamage,   setEstimatedDamage]   = useDraftField(draft, 'estimatedDamage', '')
+  const [productionLoss,    setProductionLoss]    = useDraftField(draft, 'productionLoss', '')
+  const [isTotalLoss,       setIsTotalLoss]       = useDraftField(draft, 'isTotalLoss', false)
   const photosState = usePhotoList()
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
@@ -1222,6 +1229,7 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
         photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(`/fisheries/stocking/${record.id}/disasters/`, payload)
+      draft.clear()
       showToast('Disaster report recorded.', 'success')
       onSuccess()
       onClose()
@@ -1242,6 +1250,7 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
         maxWidth="max-w-md"
       >
         <div className="space-y-3">
+          <DraftBanner draft={draft} />
           <GrowthProgressBar
             startLabel="Stocked"
             startDate={record.date_stocked}
@@ -1620,22 +1629,24 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   const unitSelect = !unitMode && harvestUnits.length > 0
   const availableUnits = harvestUnits.filter(u => !u.harvested && !u.force_harvest)
   const unitWord = (harvestUnits[0]?.label || 'Pond').split(' ')[0]
-  const [selectedUnitIds, setSelectedUnitIds] = useState([])
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`stocking-harvest:${record.id}`)
+  const [selectedUnitIds, setSelectedUnitIds] = useDraftField(draft, 'selectedUnitIds', [])
   const selectedUnits = availableUnits.filter(u => selectedUnitIds.includes(u.id))
   // The backend closes the cycle only once every unit is harvested; this mirrors it for the UI text.
   const willBeFinal = !unitSelect || (availableUnits.length > 0 && selectedUnits.length === availableUnits.length)
-  const [harvestDate,       setHarvestDate]       = useState(todayISO())
-  const [quantityKg,        setQuantityKg]        = useState('')
-  const [areaOrUnits,       setAreaOrUnits]       = useState(unitMode ? forceUnitNames : '')
-  const [notes,             setNotes]             = useState('')
-  const [earlyLateReason,   setEarlyLateReason]   = useState('')   // the chosen option
-  const [earlyLateOther,    setEarlyLateOther]    = useState('')   // "Other" -> the user's own reason
+  const [harvestDate,       setHarvestDate]       = useDraftField(draft, 'harvestDate', todayISO())
+  const [quantityKg,        setQuantityKg]        = useDraftField(draft, 'quantityKg', '')
+  const [areaOrUnits,       setAreaOrUnits]       = useDraftField(draft, 'areaOrUnits', unitMode ? forceUnitNames : '')
+  const [notes,             setNotes]             = useDraftField(draft, 'notes', '')
+  const [earlyLateReason,   setEarlyLateReason]   = useDraftField(draft, 'earlyLateReason', '')   // the chosen option
+  const [earlyLateOther,    setEarlyLateOther]    = useDraftField(draft, 'earlyLateOther', '')   // "Other" -> the user's own reason
   const [reasonOtherError,  setReasonOtherError]  = useState('')
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [quantityError,     setQuantityError]     = useState('')
   // Force Harvest: each affected pond/cage has its own Actual Harvest (kg) - {unitId: value / error}.
-  const [unitKg,            setUnitKg]            = useState({})
+  const [unitKg,            setUnitKg]            = useDraftField(draft, 'unitKg', {})
   const [unitKgErrors,      setUnitKgErrors]      = useState({})
   const [resolvableDisasters, setResolvableDisasters] = useState([])
   const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
@@ -1857,6 +1868,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               early_late_reason:       reasonRequired ? finalReason : '',
               notes,
             })
+      draft.clear()
       showToast('Harvest recorded successfully!', 'success')
       onSuccess()
       onClose()
@@ -1892,6 +1904,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
         footer={unitMode ? actionButtons : undefined}
       >
         <div className="space-y-3">
+          <DraftBanner draft={draft} />
           {record.force_harvest && !unitMode && (
             <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5" data-testid="force-harvest-warning">
               <p className="text-sm font-bold text-rose-700">⚠ FORCE HARVEST</p>

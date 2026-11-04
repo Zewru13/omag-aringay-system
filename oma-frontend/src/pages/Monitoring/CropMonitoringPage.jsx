@@ -52,6 +52,8 @@ import {
   LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestGate, harvestOpensOn,
   harvestTiming, reasonProblem,
 } from './harvestReport.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -443,13 +445,15 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const [disasters,         setDisasters]         = useState([])
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin, isFarmer } = useAuth()
-  const [showForm,          setShowForm]          = useState(Boolean(initialForm))
+  // What is typed in the log form is a draft: still here when the logs are opened again (see hooks/useDraftForm.js); it opens the form.
+  const draft = useDraftForm(`crop-activity-log:${record.id}`)
+  const [showForm,          setShowForm]          = useState(Boolean(initialForm) || draft.restored)
   const [showHistory,       setShowHistory]       = useState(false)   // the past activity stays closed until asked for
   const recordLock = useRecordLock('crop', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
-  const [editingLogId,      setEditingLogId]      = useState(null)   // farmer: the activity log being edited
+  const [editingLogId,      setEditingLogId]      = useDraftField(draft, 'editingLogId', null)   // farmer: the activity log being edited
   const [pendingSuggestion, setPendingSuggestion] = useState(null)
   const [pendingDisasterReport, setPendingDisasterReport] = useState(null)
   const [pendingDisasterRule, setPendingDisasterRule] = useState(null)
@@ -462,22 +466,22 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const isTotalLoss = record.status === 'Total Loss'
 
   // Form state
-  const [activityType,    setActivityType]    = useState('')
-  const [activityTypeOtherSpecify, setActivityTypeOtherSpecify] = useState('')
-  const [activityDate,    setActivityDate]    = useState(todayISO())
-  const [plantCondition,  setPlantCondition]  = useState('')
-  const [fertilizerType,  setFertilizerType]  = useState('')
-  const [quantityApplied, setQuantityApplied] = useState('')
-  const [quantityUnit,    setQuantityUnit]    = useState('kg')
-  const [pestDiseaseName, setPestDiseaseName] = useState('')
-  const [areaAffected,    setAreaAffected]    = useState('')
+  const [activityType,    setActivityType]    = useDraftField(draft, 'activityType', '')
+  const [activityTypeOtherSpecify, setActivityTypeOtherSpecify] = useDraftField(draft, 'activityTypeOtherSpecify', '')
+  const [activityDate,    setActivityDate]    = useDraftField(draft, 'activityDate', todayISO())
+  const [plantCondition,  setPlantCondition]  = useDraftField(draft, 'plantCondition', '')
+  const [fertilizerType,  setFertilizerType]  = useDraftField(draft, 'fertilizerType', '')
+  const [quantityApplied, setQuantityApplied] = useDraftField(draft, 'quantityApplied', '')
+  const [quantityUnit,    setQuantityUnit]    = useDraftField(draft, 'quantityUnit', 'kg')
+  const [pestDiseaseName, setPestDiseaseName] = useDraftField(draft, 'pestDiseaseName', '')
+  const [areaAffected,    setAreaAffected]    = useDraftField(draft, 'areaAffected', '')
   const [areaAffectedError, setAreaAffectedError] = useState('')
-  const [severity,        setSeverity]        = useState('')
-  const [notes,           setNotes]           = useState('')
+  const [severity,        setSeverity]        = useDraftField(draft, 'severity', '')
+  const [notes,           setNotes]           = useDraftField(draft, 'notes', '')
 
-  const [remedyDisasterId, setRemedyDisasterId] = useState('')
+  const [remedyDisasterId, setRemedyDisasterId] = useDraftField(draft, 'remedyDisasterId', '')
   // The crop recovered because of the remedy: tick it on the form (saved together with the log) or use the button on a saved remedy.
-  const [recoveredAfterRemedy, setRecoveredAfterRemedy] = useState(false)
+  const [recoveredAfterRemedy, setRecoveredAfterRemedy] = useDraftField(draft, 'recoveredAfterRemedy', false)
   const [recoverTarget, setRecoverTarget] = useState(null)   // { disaster, note } while the recovery dialog is open
   const [isRecovering, setIsRecovering] = useState(false)
 
@@ -664,6 +668,7 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
           showToast(err?.response?.data?.detail || 'The remedy was saved, but the disaster could not be marked as recovered.', 'error')
         }
       }
+      draft.clear()
       resetForm(); setShowForm(false)
       await fetchLogs(); onLogAdded()
     } catch (err) {
@@ -786,6 +791,7 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
         {/* Inline form — hidden for harvested crops */}
         {showForm && !isHarvested && (
           <div className="mb-4 space-y-3">
+            <DraftBanner draft={draft} />
             {recordLock.lockedByOther && (
               <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
                 <Lock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1219,7 +1225,11 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
 
 function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [form,         setForm]         = useState(null)
+  // What is changed is a draft: still here when the form is opened again (see hooks/useDraftForm.js). Only the changes are kept, over the saved harvest.
+  const draft = useDraftForm(`edit-harvest:${harvestId}`)
+  const [loaded,       setLoaded]       = useState(null)
+  const [edits,        setEdits]        = useDraftField(draft, 'edits', {})
+  const form = loaded ? { ...loaded, ...edits } : null
   const [isLoading,    setIsLoading]    = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   // The units this harvest's crop allows (Crop Options); the standard codes when the harvest has no crop record.
@@ -1245,7 +1255,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
             })
             .catch(() => {})
         }
-        setForm({
+        setLoaded({
           harvest_start_date:      d.harvest_start_date || '',
           harvest_end_date:        d.harvest_end_date || '',
           area_harvested_hectares: d.area_harvested_hectares ? String(d.area_harvested_hectares) : '',
@@ -1261,7 +1271,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
       .finally(() => setIsLoading(false))
   }, [harvestId])
 
-  const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }))
+  const handleChange = (field, value) => setEdits(e => ({ ...e, [field]: value }))
   const editWeight = !form || weights === null ? undefined : weightFor(weights, form.unit_of_measure, cropTypeId)
 
   const handleSubmit = async () => {
@@ -1287,6 +1297,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
         remarks:                 form.remarks,
       })
       showToast('Harvest record updated.', 'success')
+      draft.clear()
       onSuccess()
     } catch (err) {
       showToast(extractErrorMessage(err, 'Failed to update harvest record.'), 'error')
@@ -1312,6 +1323,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
         <p className="py-6 text-center text-sm text-slate-400">Loading…</p>
       ) : (
         <div className="space-y-3">
+          <DraftBanner draft={draft} />
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Harvested Date *</label>
             <input type="date" className={baseInputClasses} value={form.harvest_start_date}
@@ -1377,13 +1389,15 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
 
 export function DisasterReportModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [disasterType,      setDisasterType]      = useState('')
-  const [disasterTypeOtherSpecify, setDisasterTypeOtherSpecify] = useState('')
-  const [dateOfOccurrence,  setDateOfOccurrence]  = useState(todayISO())
-  const [areaAffectedHa,    setAreaAffectedHa]    = useState('')
-  const [estimatedDamage,   setEstimatedDamage]   = useState('')
-  const [productionLoss,    setProductionLoss]    = useState('')
-  const [isTotalLoss,       setIsTotalLoss]       = useState(false)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-disaster:${record.id}`)
+  const [disasterType,      setDisasterType]      = useDraftField(draft, 'disasterType', '')
+  const [disasterTypeOtherSpecify, setDisasterTypeOtherSpecify] = useDraftField(draft, 'disasterTypeOtherSpecify', '')
+  const [dateOfOccurrence,  setDateOfOccurrence]  = useDraftField(draft, 'dateOfOccurrence', todayISO())
+  const [areaAffectedHa,    setAreaAffectedHa]    = useDraftField(draft, 'areaAffectedHa', '')
+  const [estimatedDamage,   setEstimatedDamage]   = useDraftField(draft, 'estimatedDamage', '')
+  const [productionLoss,    setProductionLoss]    = useDraftField(draft, 'productionLoss', '')
+  const [isTotalLoss,       setIsTotalLoss]       = useDraftField(draft, 'isTotalLoss', false)
   const photosState = usePhotoList()
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
@@ -1442,6 +1456,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
         photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(`/production/monitoring/${record.id}/disasters/`, payload)
+      draft.clear()
       showToast('Disaster report recorded.', 'success')
       onSuccess()
       onClose()
@@ -1474,6 +1489,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
         }
       >
         <div className="space-y-3">
+          <DraftBanner draft={draft} />
           <GrowthProgressBar
             startLabel="Planted"
             startDate={record.date_planted}
@@ -1575,15 +1591,17 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
 
 function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [harvestStartDate,  setHarvestStartDate]  = useState(todayISO())
-  const [areaHarvested,     setAreaHarvested]     = useState(record.area_planted_ha ? String(record.area_planted_ha) : '')
-  const [unitOfMeasure,     setUnitOfMeasure]     = useState(
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-harvest:${record.id}`)
+  const [harvestStartDate,  setHarvestStartDate]  = useDraftField(draft, 'harvestStartDate', todayISO())
+  const [areaHarvested,     setAreaHarvested]     = useDraftField(draft, 'areaHarvested', record.area_planted_ha ? String(record.area_planted_ha) : '')
+  const [unitOfMeasure,     setUnitOfMeasure]     = useDraftField(draft, 'unitOfMeasure', 
     (record.crop_allowed_units && record.crop_allowed_units.length > 0) ? record.crop_allowed_units[0] : 'kg'
   )
-  const [quantityHarvested, setQuantityHarvested] = useState('')
-  const [harvestNotes,      setHarvestNotes]      = useState('')
-  const [reasonChoice,      setReasonChoice]      = useState('')
-  const [reasonDetail,      setReasonDetail]      = useState('')
+  const [quantityHarvested, setQuantityHarvested] = useDraftField(draft, 'quantityHarvested', '')
+  const [harvestNotes,      setHarvestNotes]      = useDraftField(draft, 'harvestNotes', '')
+  const [reasonChoice,      setReasonChoice]      = useDraftField(draft, 'reasonChoice', '')
+  const [reasonDetail,      setReasonDetail]      = useDraftField(draft, 'reasonDetail', '')
   const [saved,             setSaved]             = useState(null)   // { harvest, reason } once the harvest is recorded
   const [isPrinting,        setIsPrinting]        = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
@@ -1592,7 +1610,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const [quantityError,     setQuantityError]     = useState('')
   // The kg one unit weighs (Settings > Harvest Units); a unit with no standard weight asks for the total kg instead.
   const weights = useHarvestUnitWeights()
-  const [totalKg,           setTotalKg]           = useState('')
+  const [totalKg,           setTotalKg]           = useDraftField(draft, 'totalKg', '')
   const [totalKgError,      setTotalKgError]      = useState('')
   const [resolvableDisasters, setResolvableDisasters] = useState([])
   const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
@@ -1692,6 +1710,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
       })
 
       showToast('Harvest recorded successfully!', 'success')
+      draft.clear()
       setSaved({ harvest: res.data, reason: reasonRequired ? reasonText : '', recordedOn: localToday() })
       onSuccess()   // refreshes the list behind this window; the window stays open for Print report
     } catch (err) {
@@ -1775,6 +1794,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         }
       >
         <div className="space-y-3">
+          <DraftBanner draft={draft} />
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="harvest-crop-card">
             <dt className="text-slate-500">Crop</dt><dd className="font-semibold text-slate-800">{cropName}</dd>
             {record.variety_used && (<><dt className="text-slate-500">Variety</dt><dd className="font-medium text-slate-700">{record.variety_used}</dd></>)}

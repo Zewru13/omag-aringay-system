@@ -12,6 +12,8 @@ import usePhotoList from '../../hooks/usePhotoList.js'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import { isWholeArea } from '../../utils/disasterRules.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Farmer disaster report form, rebuilt to UPDATED FARMER CITIZEN UI.docx.
 // Rendered by CitizenDisasterScreen when it is given variant="farmer"; that
@@ -37,7 +39,9 @@ export default function FarmerDisasterReportForm({
   const S = labels.ffNew.sakuna
   const isCrop = domain.key === 'crop'
 
-  const [form, setForm] = useState(() => ({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`citizen-disaster:${domain.key}:${recordId}`)
+  const [form, setForm] = useDraftField(draft, 'form', () => ({
     disaster_type: domain.disasterTypeChoices[0],
     disaster_type_other_specify: '',
     date_of_occurrence: todayISO(),
@@ -47,7 +51,7 @@ export default function FarmerDisasterReportForm({
     severity: '',
     is_total_loss: false,
   }))
-  const [dateMode, setDateMode] = useState('today')
+  const [dateMode, setDateMode] = useDraftField(draft, 'dateMode', 'today')
   const [areaError, setAreaError] = useState('')
   const [severityError, setSeverityError] = useState('')
   const photosState = usePhotoList()
@@ -107,6 +111,7 @@ export default function FarmerDisasterReportForm({
       }
       await api.post(domain.disastersUrl(recordId), payload)
       showToast(labels.disaster.submitSuccess, 'success')
+      draft.clear()
       onReported()
     } catch (err) {
       const data = err?.response?.data
@@ -125,6 +130,7 @@ export default function FarmerDisasterReportForm({
 
   const card = (
     <form onSubmit={handleSubmit} className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-[14px]">
+      <DraftBanner draft={draft} />
       {blockedByOther && (
         <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
           <p className="text-[13px] text-cz-warn-body">

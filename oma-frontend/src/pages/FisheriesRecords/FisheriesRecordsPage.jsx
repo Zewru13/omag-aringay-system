@@ -41,6 +41,8 @@ import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
 import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
 import { FORCED_UNIT_STATUS, canForceHarvest, cycleStatusText } from './emergencyForceHarvest.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
@@ -121,7 +123,9 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     seed_cost_php:          record.seed_cost_php != null ? String(record.seed_cost_php) : '',
     season:                 record.season || '',
   }
-  const [form, setForm]           = useState(originalData)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-stocking:${record.id}`)
+  const [form, setForm]           = useDraftField(draft, 'form', originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError]         = useState('')
 
@@ -200,6 +204,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         season:                 form.season,
       })
       showToast('Stocking record updated.', 'success')
+      draft.clear()
       onSaved()
     } catch {
       setError('Failed to update stocking record.')
@@ -229,6 +234,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
       )}
     >
       <form id="edit-stocking-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         {/* Species info — read-only */}
         <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">Species (Read-Only)</p>

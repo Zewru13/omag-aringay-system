@@ -7,12 +7,16 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import MachineryEditor from './MachineryEditor.jsx'
 import { machineryLabel, machineryPayload, machineryProblem, makeMachineryRow } from './parcelRows.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // The farmer profile's machinery: what the farmer has or uses, whoever owns it. Staff add lines in a window (one or many at once) and
 // remove a line from the table. `machinery` is the profile's own list; `onChanged` reads the profile again.
 function AddMachineryModal({ farmerId, onClose, onSaved }) {
   const { showToast } = useToast()
-  const [lines, setLines] = useState([makeMachineryRow(1)])
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`add-machinery:${farmerId}`)
+  const [lines, setLines] = useDraftField(draft, 'lines', [makeMachineryRow(1)])
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -30,6 +34,7 @@ function AddMachineryModal({ farmerId, onClose, onSaved }) {
         await api.post(`/farmers/${farmerId}/machinery/`, machineryPayload(line))
         saved += 1
       }
+      draft.clear()
       showToast(`${saved} machinery line${saved === 1 ? '' : 's'} added.`, 'success')
       onSaved()
       onClose()
@@ -58,6 +63,7 @@ function AddMachineryModal({ farmerId, onClose, onSaved }) {
       )}
     >
       <div className="space-y-3">
+        <DraftBanner draft={draft} />
         <MachineryEditor machinery={lines} onChange={setLines} />
         {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">{error}</p>}
       </div>

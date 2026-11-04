@@ -41,6 +41,8 @@ import {
   isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
 } from './assistanceFieldHelpers.js'
 import { todayISO } from '../../utils/localDate.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // interventions.models.DistributionStatus — the scheduled distribution +
 // confirmation lifecycle. Records created the old way (today/past-dated)
@@ -123,7 +125,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     seed_type: record.seed_type || '',
     fertilizer_type: record.fertilizer_type || '',
   }
-  const [form, setForm] = useState(originalData)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-assistance-edit:${record.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -153,6 +157,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         ...buildTypeConditionalPayload(form.assistance_type, form),
       })
       showToast('Assistance record updated.', 'success')
+      draft.clear()
       onSaved()
     } catch (err) {
       setError(extractErrorMessage(err, 'Failed to update record.'))
@@ -197,6 +202,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         }
       >
         <form id="edit-assistance-form" onSubmit={handleSubmit} className="space-y-4">
+          <DraftBanner draft={draft} />
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Assistance Type" required>
               <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => setAssistanceType(e.target.value)}>
@@ -269,7 +275,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
 function MarkResolvedModal({ record, onClose, onResolved }) {
   const { showToast } = useToast()
-  const [notes, setNotes] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-assistance-resolve:${record.id}`)
+  const [notes, setNotes] = useDraftField(draft, 'notes', '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -280,6 +288,7 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
     try {
       await api.post(`/interventions/beneficiaries/${record.id}/mark-resolved/`, { follow_up_notes: notes.trim() })
       showToast('Case marked resolved.', 'success')
+      draft.clear()
       onResolved()
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to mark this case resolved.')
@@ -303,6 +312,7 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
       }
     >
       <form id="mark-resolved-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
           <p className="font-semibold">Reason recipient gave: </p>
           <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
@@ -327,7 +337,9 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
 function ConfirmReceivedModal({ record, onClose, onDone }) {
   const { showToast } = useToast()
   const photosState = usePhotoList()
-  const [note, setNote] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-assistance-received:${record.id}`)
+  const [note, setNote] = useDraftField(draft, 'note', '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const handleSubmit = async (e) => {
@@ -339,6 +351,7 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
       if (note.trim()) body.append('confirmation_note', note.trim())
       await api.post(`/interventions/beneficiaries/${record.id}/confirm-received/`, body)
       showToast('Confirmed as received.', 'success')
+      draft.clear()
       setDone(true)
     } catch (err) {
       const d = err?.response?.data
@@ -357,6 +370,7 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
         <Button type="submit" form="farmer-confirm-received" isLoading={isSubmitting}>Confirm</Button>
       </>}>
       <form id="farmer-confirm-received" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <PhotoListField photosState={photosState} title="Proof Photos (optional)" hint="Up to 10 photos." altPrefix="Proof photo" />
         <FormField label="Note (optional)">
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note}
@@ -369,7 +383,9 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
 
 function ReportNotReceivedModal({ record, onClose, onDone }) {
   const { showToast } = useToast()
-  const [reason, setReason] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-assistance-not-received:${record.id}`)
+  const [reason, setReason] = useDraftField(draft, 'reason', '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -378,6 +394,7 @@ function ReportNotReceivedModal({ record, onClose, onDone }) {
     try {
       await api.post(`/interventions/beneficiaries/${record.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
       showToast('Reported as not received.', 'success')
+      draft.clear()
       onDone()
     } catch (err) {
       showToast(extractErrorMessage(err, 'Failed to report.'), 'error')
@@ -390,6 +407,7 @@ function ReportNotReceivedModal({ record, onClose, onDone }) {
         <Button type="submit" form="farmer-report-not-received" isLoading={isSubmitting}>Submit</Button>
       </>}>
       <form id="farmer-report-not-received" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Reason" required>
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={reason}
             onChange={(e) => setReason(e.target.value)} placeholder="Why was this assistance not received?" />

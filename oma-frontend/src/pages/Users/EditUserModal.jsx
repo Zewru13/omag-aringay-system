@@ -8,6 +8,8 @@ import EmailInput from '../../components/UI/EmailInput.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { tidyPhone } from '../../utils/inputGuards.js'
 import { describeRole } from './userRoleHelpers.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -50,13 +52,15 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
     is_active:      user.is_active,
   }
 
-  const [email,        setEmail]        = useState(originalData.email)
-  const [fullName,     setFullName]     = useState(originalData.full_name)
-  const [suffix,       setSuffix]       = useState(originalData.suffix)
-  const [contact,      setContact]      = useState(originalData.contact_number)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-user:${user.id}`)
+  const [email,        setEmail]        = useDraftField(draft, 'email', originalData.email)
+  const [fullName,     setFullName]     = useDraftField(draft, 'fullName', originalData.full_name)
+  const [suffix,       setSuffix]       = useDraftField(draft, 'suffix', originalData.suffix)
+  const [contact,      setContact]      = useDraftField(draft, 'contact', originalData.contact_number)
   const [contactError, setContactError] = useState('')
-  const [role,         setRole]         = useState(originalData.role)
-  const [isActive,     setIsActive]     = useState(originalData.is_active)
+  const [role,         setRole]         = useDraftField(draft, 'role', originalData.role)
+  const [isActive,     setIsActive]     = useDraftField(draft, 'isActive', originalData.is_active)
   const [error,        setError]        = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
@@ -88,6 +92,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
         ...(isCitizen ? {} : { role }),
         is_active:      isActive,
       })
+      draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
@@ -120,6 +125,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
         }
       >
         <div className="space-y-4">
+          <DraftBanner draft={draft} />
           {/* Email */}
           <div>
             <label className={labelCls}>Email Address</label>

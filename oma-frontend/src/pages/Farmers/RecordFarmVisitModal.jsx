@@ -6,6 +6,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { localToday } from '../../utils/inputGuards.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Record (or edit) a farm visit on a farmer's profile. Staff only; the visit date cannot be in the future, the next
 // visit is a plan and cannot come before the visit (the backend enforces the same).
@@ -14,7 +16,9 @@ const DATE_BOX = `${baseInputClasses} min-w-0 max-w-full`
 export default function RecordFarmVisitModal({ farmerId, visit = null, onClose, onSaved }) {
   const { showToast } = useToast()
   const isEdit = Boolean(visit)
-  const [form, setForm] = useState({
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`farm-visit:${farmerId}:${visit?.id ?? 'new'}`)
+  const [form, setForm] = useDraftField(draft, 'form', {
     visit_date: visit?.visit_date || localToday(),
     next_visit_date: visit?.next_visit_date || '',
     purpose: visit?.purpose || '',
@@ -52,6 +56,7 @@ export default function RecordFarmVisitModal({ farmerId, visit = null, onClose, 
       if (isEdit) await api.patch(`/monitoring/farm-visits/${visit.id}/`, payload)
       else await api.post('/monitoring/farm-visits/', { ...payload, farmer: farmerId })
       showToast(isEdit ? 'Farm visit updated.' : 'Farm visit recorded.', 'success')
+      draft.clear()
       onSaved()
       onClose()
     } catch (err) {
@@ -86,6 +91,7 @@ export default function RecordFarmVisitModal({ farmerId, visit = null, onClose, 
       )}
     >
       <form id="farm-visit-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <DraftBanner draft={draft} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3 [&>*]:min-w-0">
           <FormField label="Visit Date" required error={errors.visit_date}>
             <input type="date" className={DATE_BOX} value={form.visit_date} max={localToday()}

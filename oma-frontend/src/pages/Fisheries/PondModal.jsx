@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Waves } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -8,6 +9,7 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 
 // Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly.
@@ -18,12 +20,14 @@ const WATER_SOURCE_OPTIONS = ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other
 // row action, not here.
 function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
   const isEdit = Boolean(pond)
-  const [form, setForm] = useState({
+  // What is typed is a draft (one per pond being edited, one for a new pond): still here when the window is opened again.
+  const draft = useDraftForm(`pond:${fisherfolkId}:${pond?.id ?? 'new'}`)
+  const [form, setForm] = useDraftField(draft, 'form', () => ({
     name: pond?.name || '',
     barangay: pond?.barangay || '',
     area_hectares: pond?.area_hectares != null ? String(pond.area_hectares) : '',
     water_source: pond?.water_source || '',
-  })
+  }))
   const { showToast } = useToast()
   const [pcic, setPcic] = useState(() => pcicStateFrom(pond))
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -53,6 +57,7 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
       } catch {
         showToast('The pond was saved, but the PCIC form photo could not be uploaded. Edit the pond to try again.', 'error')
       }
+      draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
@@ -83,6 +88,7 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
       }
     >
       <form id="pond-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Pond Name (optional)">
           <input
             type="text"

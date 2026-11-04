@@ -245,7 +245,7 @@ export const SECTIONS = [
       },
       {
         q: 'I forgot to save a form and went to another page. Is it lost?',
-        a: 'No. The long forms (Add Farm Parcels, Add Crop Records, registering a farmer, fisherfolk or organization, adding ponds, and the Distribute assistance windows) keep what you typed in this browser. Open the form again and it is back, with a note and a Discard draft button to start over. A draft is cleared when you save it, discard it or sign out. A chosen photo is not kept, so choose it again.',
+        a: 'No. Every form that you type into (registering, adding, editing, logging a catch, feeding or health entry, starting a production cycle, reporting a disaster, distributing assistance, the settings forms and the rest) keeps what you typed in this browser. Open the form again and it is back, with a yellow note and a Discard draft button to start over; a new row in a settings table comes back open with its text. A draft is cleared when you save it, discard it or sign out. A chosen photo is not kept, so choose it again. Sign-in and password boxes, search boxes and file imports are never kept.',
       },
       {
         q: 'What can a Focal Person do compared with an Admin?',

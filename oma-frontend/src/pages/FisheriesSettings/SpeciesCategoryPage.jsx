@@ -13,6 +13,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const COLUMNS = [
   { key: 'name',    label: 'CATEGORY NAME' },
@@ -23,7 +25,9 @@ const COLUMNS = [
 function CategoryModal({ category, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalName = category.name
-  const [name,         setName]         = useState(originalName)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`species-category-edit:${category?.id}`)
+  const [name,         setName]         = useDraftField(draft, 'name', originalName)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = name !== originalName
 
@@ -34,6 +38,7 @@ function CategoryModal({ category, onClose, onSaved }) {
     try {
       await api.patch(`/fisheries/species-categories/${category.id}/`, { name })
       showToast('Category updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -59,6 +64,7 @@ function CategoryModal({ category, onClose, onSaved }) {
       }
     >
       <form id="species-category-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Category Name *">
           <input
             className={baseInputClasses}
@@ -79,7 +85,7 @@ export default function SpeciesCategoryPage({ asTab = false }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [editCat,      setEditCat]      = useState(null)
-  const add = useAddRow({ name: '' })
+  const add = useAddRow({ name: '' }, 'species-category')
   const [deletingCat,  setDeletingCat]  = useState(null)
 
   const fetchAll = useCallback(async () => {

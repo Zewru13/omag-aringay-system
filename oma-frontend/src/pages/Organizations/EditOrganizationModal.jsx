@@ -14,6 +14,8 @@ import { agencyLabel, agencyOptionsFor } from './agencyOptions.js'
 import { contactFullName } from './organizationContact.js'
 import MembersEditor from './MembersEditor.jsx'
 import { memberLinesProblem, memberOutcome, memberPayload, memberRefusal } from './registrationMembers.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -41,13 +43,15 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     contact_number:       tidyPhone(organization.contact_number || ''),   // an older number with dashes opens in the plain format
   }
 
-  const [form, setForm] = useState(originalForm)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-organization:${type}:${organization.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', originalForm)
 
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [members, setMembers] = useState([])   // registered people to add to this organization, saved with the update
+  const [members, setMembers] = useDraftField(draft, 'members', [])   // registered people to add to this organization, saved with the update
   const [showConfirm,  setShowConfirm]  = useState(false)
 
   const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm) || members.length > 0
@@ -136,6 +140,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
       const outcome = memberOutcome(members.length, failures)
       if (outcome.kind !== 'none') showToast(outcome.text, outcome.kind === 'ok' ? 'success' : 'error')
       showToast(`${typeLabel} updated successfully.`, 'success')
+      draft.clear()
       onSuccess()
     } catch (err) {
       const data = err.response?.data
@@ -163,6 +168,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
         }
       >
         <form id="edit-organization-form" className="space-y-4" onSubmit={handleSubmitClick}>
+          <DraftBanner draft={draft} />
           {/* Organization Name */}
           <div>
             <label className={labelCls}>

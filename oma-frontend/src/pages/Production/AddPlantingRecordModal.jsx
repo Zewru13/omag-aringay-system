@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -6,6 +6,8 @@ import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 
@@ -28,11 +30,13 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [farmers, setFarmers] = useState([])
   const [isSearching, setIsSearching] = useState(false)
-  const [selectedFarmer, setSelectedFarmer] = useState(null)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('add-planting-record')
+  const [selectedFarmer, setSelectedFarmer] = useDraftField(draft, 'selectedFarmer', null)
   const [parcels, setParcels] = useState([])
   const [isLoadingParcels, setIsLoadingParcels] = useState(false)
-  const [selectedParcel, setSelectedParcel] = useState('')
-  const [form, setForm] = useState({
+  const [selectedParcel, setSelectedParcel] = useDraftField(draft, 'selectedParcel', '')
+  const [form, setForm] = useDraftField(draft, 'form', {
     season: 'Dry',
     year: currentYear.toString(),
     crop_name: CROP_OPTIONS[0],
@@ -45,6 +49,11 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
     remarks: '',
   })
   const [error, setError] = useState('')
+  // A farmer restored from the draft: bring their parcels back too.
+  useEffect(() => {
+    if (!selectedFarmer) return
+    api.get(`/farmers/${selectedFarmer.id}/`).then((res) => setParcels(res.data.farm_parcels || [])).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const update = (field, value) => setForm((p) => ({ ...p, [field]: value }))
@@ -106,6 +115,7 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
         quantity_of_seeds_kg: form.quantity_of_seeds_kg ? parseFloat(form.quantity_of_seeds_kg) : null,
         remarks: form.remarks,
       })
+      draft.clear()
       onSuccess()
     } catch (err) {
       const data = err.response?.data
@@ -137,6 +147,7 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
       }
     >
       <form id="add-planting-record-form" className="space-y-4" onSubmit={handleSubmit}>
+        <DraftBanner draft={draft} />
         {error && (
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         )}

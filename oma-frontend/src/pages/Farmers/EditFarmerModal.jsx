@@ -9,6 +9,8 @@ import { guardPhilsys as formatPhilsys, tidyPhone } from '../../utils/inputGuard
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
@@ -74,7 +76,9 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     icc_ip_name: farmer.icc_ip_name || '',
   }
 
-  const [form, setForm] = useState(original)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`edit-farmer:${farmer.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', original)
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [philsysError, setPhilsysError] = useState('')
@@ -141,6 +145,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
       const payload = { ...form, is_senior_citizen: isSenior }
       await api.patch(`/farmers/${farmer.id}/`, payload)
       showToast('Farmer profile updated successfully.', 'success')
+      draft.clear()
       onSuccess()
       onClose()
     } catch (error) {
@@ -174,6 +179,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
       }
     >
       <form id="edit-farmer-form" onSubmit={handleSubmit} className="space-y-5">
+        <DraftBanner draft={draft} />
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <FormLabel>Prefix</FormLabel>

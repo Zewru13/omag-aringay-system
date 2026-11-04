@@ -8,6 +8,8 @@ import {
   buildPayload, errorMessage, estimateText, flattenCycles, fmtKg, groupByCycle, manilaToday, reviewRows, totalKg, validateForm,
 } from './emergencyForceHarvest.js'
 import { fmtLong } from './stockingHelpers.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Force Harvest (Aquaculture Monitoring ⋮ menu): record an emergency harvest of several production cycles and ponds / cages of ONE
 // fisherfolk in one go, for one of six fixed reasons. Separate from the Health Log Force Harvest, which is not touched.
@@ -28,10 +30,14 @@ function FieldError({ children }) {
 export default function ForceHarvestModal({ stockingRecord, onClose, onRecorded }) {
   const [load, setLoad] = useState({ status: 'loading', data: null })
   const [step, setStep] = useState('form')
-  const [reason, setReason] = useState('')
-  const [date, setDate] = useState(() => manilaToday())          // the application's local date (Asia/Manila), editable
-  const [selected, setSelected] = useState(() => new Set())
-  const [actual, setActual] = useState({})
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`force-harvest:${stockingRecord.id}`)
+  const [reason, setReason] = useDraftField(draft, 'reason', '')
+  const [date, setDate] = useDraftField(draft, 'date', () => manilaToday())          // the application's local date (Asia/Manila), editable
+  // The ticked ponds/cages are kept as a list (a draft cannot hold a Set).
+  const [selectedKeys, setSelectedKeys] = useDraftField(draft, 'selected', [])
+  const selected = useMemo(() => new Set(selectedKeys), [selectedKeys])
+  const [actual, setActual] = useDraftField(draft, 'actual', {})
   const [showErrors, setShowErrors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -61,16 +67,16 @@ export default function ForceHarvestModal({ stockingRecord, onClose, onRecorded 
   const review = reviewRows({ rows, selected, actual })
   const reasonText = data?.reasons?.find((r) => r.value === reason)?.label || ''
 
-  const toggle = (key) => setSelected((prev) => {
+  const toggle = (key) => setSelectedKeys((prev) => {
     const next = new Set(prev)
     if (next.has(key)) next.delete(key); else next.add(key)
-    return next
+    return [...next]
   })
-  const toggleCycle = (group) => setSelected((prev) => {
+  const toggleCycle = (group) => setSelectedKeys((prev) => {
     const next = new Set(prev)
     const all = group.rows.every((r) => next.has(r.key))
     group.rows.forEach((r) => (all ? next.delete(r.key) : next.add(r.key)))
-    return next
+    return [...next]
   })
 
   const goReview = () => {
@@ -84,6 +90,7 @@ export default function ForceHarvestModal({ stockingRecord, onClose, onRecorded 
     setSubmitting(true); setSubmitError('')
     try {
       const response = await api.post('/fisheries/force-harvest/', buildPayload(form))
+      draft.clear()
       onRecorded?.(response.data.harvests || [])
     } catch (err) {
       setSubmitError(errorMessage(err))          // nothing was saved; everything the user typed stays
@@ -118,6 +125,7 @@ export default function ForceHarvestModal({ stockingRecord, onClose, onRecorded 
       footer={footer}
     >
       <div className="space-y-4" data-testid="force-harvest-modal">
+        <DraftBanner draft={draft} />
         {submitError && (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700" role="alert" data-testid="force-harvest-error">
             {submitError}

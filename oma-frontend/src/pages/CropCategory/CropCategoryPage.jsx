@@ -13,6 +13,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const CAT_COLUMNS = [
   { key: 'name',    label: 'CATEGORY NAME' },
@@ -29,7 +31,9 @@ const SUBCAT_COLUMNS = [
 function CategoryModal({ category, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalName = category.name
-  const [name,         setName]         = useState(originalName)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-category-edit:${category?.id}`)
+  const [name,         setName]         = useDraftField(draft, 'name', originalName)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = name !== originalName
 
@@ -40,6 +44,7 @@ function CategoryModal({ category, onClose, onSaved }) {
     try {
       await api.patch(`/production/crop-categories/${category.id}/`, { name })
       showToast('Category updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -65,6 +70,7 @@ function CategoryModal({ category, onClose, onSaved }) {
       }
     >
       <form id="crop-category-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Category Name *">
           <input
             className={baseInputClasses}
@@ -82,7 +88,9 @@ function CategoryModal({ category, onClose, onSaved }) {
 function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalForm = { name: subcategory.name, category: subcategory.category }
-  const [form, setForm] = useState(originalForm)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`crop-subcategory-edit:${subcategory?.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', originalForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm)
 
@@ -96,6 +104,7 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
     try {
       await api.patch(`/production/crop-subcategories/${subcategory.id}/`, form)
       showToast('Subcategory updated.', 'success')
+      draft.clear()
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to save.', 'error')
@@ -121,6 +130,7 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
       }
     >
       <form id="crop-subcategory-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Parent Category" required>
           <select className={baseInputClasses} value={form.category} onChange={e => set('category', e.target.value)}>
             <option value="">— Select —</option>
@@ -148,8 +158,8 @@ export default function CropCategoryPage({ asTab = false }) {
   const [isLoading,     setIsLoading]     = useState(true)
   const [error,         setError]         = useState('')
   const [editCat,       setEditCat]       = useState(null)
-  const addCat = useAddRow({ name: '' })
-  const addSubcat = useAddRow({ name: '', category: '' })
+  const addCat = useAddRow({ name: '' }, 'crop-category')
+  const addSubcat = useAddRow({ name: '', category: '' }, 'crop-subcategory')
   const [editSubcat,    setEditSubcat]    = useState(null)
   const [deletingCat,   setDeletingCat]   = useState(null)
   const [deletingSubcat,setDeletingSubcat]= useState(null)

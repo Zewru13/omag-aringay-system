@@ -10,6 +10,7 @@ import { filterOptions } from '../../utils/orgListFilter.js'
 import { todayISO } from '../../utils/localDate.js'
 import { ActionForm } from '../Organizations/EquipmentActionDialogs.jsx'
 import OrgCompactList from '../Organizations/OrgCompactList.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // A farmer or fisherfolk account: the Good equipment of the organizations the person belongs to (ask to borrow it)
 // and the person's own loans (cancel a request, say "I returned it"). The organization decides and confirms.
@@ -25,11 +26,14 @@ const formatDate = (value) => {
 
 function RequestDialog({ item, onClose, onDone }) {
   const { showToast } = useToast()
-  const [units, setUnits] = useState('1')
-  const [due, setDue] = useState('')
-  const [note, setNote] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`request-equipment:${item.lines?.[0]?.id ?? item.name}`)
+  const [units, setUnits] = useDraftField(draft, 'units', '1')
+  const [due, setDue] = useDraftField(draft, 'due', '')
+  const [note, setNote] = useDraftField(draft, 'note', '')
   return (
     <ActionForm
+      draft={draft}
       title="Request to borrow" subtitle={`${item.name} — ${item.available} available`} onClose={onClose} submitLabel="Send request"
       onSubmit={async () => {
         // The same equipment can be recorded in several batches; the request is split over them, one request per batch.
@@ -41,6 +45,7 @@ function RequestDialog({ item, onClose, onDone }) {
           })
         }
         showToast('Request sent. The organization will decide.', 'success')
+        draft.clear()
         onDone()
       }}
     >

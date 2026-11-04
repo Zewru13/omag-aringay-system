@@ -39,6 +39,8 @@ import {
   isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
 } from './assistanceFieldHelpers.js'
 import { todayISO } from '../../utils/localDate.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // interventions.models.DistributionStatus — see CropAssistancePage.jsx's
 // identical comment; same lifecycle, fisherfolk domain.
@@ -127,7 +129,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     equipment_type: record.equipment_type || '',
     item_type: record.item_type || '',
   }
-  const [form, setForm] = useState(originalData)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`fisheries-assistance-edit:${record.id}`)
+  const [form, setForm] = useDraftField(draft, 'form', originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -156,6 +160,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer: false }),
       })
       showToast('Assistance record updated.', 'success')
+      draft.clear()
       onSaved()
     } catch (err) {
       setError(extractErrorMessage(err, 'Failed to update assistance record.'))
@@ -200,6 +205,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         }
       >
         <form id="edit-fisheries-assistance-form" onSubmit={handleSubmit} className="space-y-4">
+          <DraftBanner draft={draft} />
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Date Given" required>
               <input type="date" className={baseInputClasses} value={form.date_received}
@@ -265,7 +271,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
 function MarkResolvedModal({ record, onClose, onResolved }) {
   const { showToast } = useToast()
-  const [notes, setNotes] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`fisheries-assistance-resolve:${record.id}`)
+  const [notes, setNotes] = useDraftField(draft, 'notes', '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -276,6 +284,7 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
     try {
       await api.post(`/interventions/fisherfolk-beneficiaries/${record.id}/mark-resolved/`, { follow_up_notes: notes.trim() })
       showToast('Case marked resolved.', 'success')
+      draft.clear()
       onResolved()
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to mark this case resolved.')
@@ -299,6 +308,7 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
       }
     >
       <form id="mark-resolved-fisherfolk-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
           <p className="font-semibold">Reason recipient gave: </p>
           <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
@@ -328,7 +338,9 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
 // checks the record is theirs). A reason is required, as on that endpoint.
 function ReportNotReceivedModal({ record, onClose, onDone }) {
   const { showToast } = useToast()
-  const [reason, setReason] = useState('')
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`fisheries-assistance-not-received:${record.id}`)
+  const [reason, setReason] = useDraftField(draft, 'reason', '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -337,6 +349,7 @@ function ReportNotReceivedModal({ record, onClose, onDone }) {
     try {
       await api.post(`/interventions/fisherfolk-beneficiaries/${record.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
       showToast('Reported as not received.', 'success')
+      draft.clear()
       onDone()
     } catch (err) {
       showToast(extractErrorMessage(err, 'Failed to report.'), 'error')
@@ -349,6 +362,7 @@ function ReportNotReceivedModal({ record, onClose, onDone }) {
         <Button type="submit" form="ff-report-not-received" isLoading={isSubmitting}>Submit</Button>
       </>}>
       <form id="ff-report-not-received" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Reason" required>
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={reason}
             onChange={(e) => setReason(e.target.value)} placeholder="Why was this assistance not received?" />

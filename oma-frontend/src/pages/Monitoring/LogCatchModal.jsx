@@ -2,10 +2,12 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const FISHING_GROUND_OPTIONS = [
   'Beach',
@@ -75,12 +77,14 @@ const emptySpeciesRow = () => ({
 
 function LogCatchModal({ onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [ffSearch, setFfSearch] = useState('')
+  // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm('log-catch')
+  const [ffSearch, setFfSearch] = useDraftField(draft, 'ffSearch', '')
   const [ffResults, setFfResults] = useState([])
-  const [selectedFf, setSelectedFf] = useState(null)
+  const [selectedFf, setSelectedFf] = useDraftField(draft, 'selectedFf', null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useDraftField(draft, 'form', {
     trip_date: '',
     return_date: '',
     fishing_ground: '',
@@ -89,7 +93,7 @@ function LogCatchModal({ onClose, onSuccess }) {
     gear_used_other: '',
     remarks: '',
   })
-  const [speciesRows, setSpeciesRows] = useState([emptySpeciesRow()])
+  const [speciesRows, setSpeciesRows] = useDraftField(draft, 'speciesRows', () => [emptySpeciesRow()])
 
   useEffect(() => {
     let mounted = true
@@ -158,7 +162,7 @@ function LogCatchModal({ onClose, onSuccess }) {
 
   const updateSpeciesRow = useCallback((index, field, value) => {
     setSpeciesRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)))
-  }, [])
+  }, [setSpeciesRows])
 
   const addSpeciesRow = () => setSpeciesRows((rows) => [...rows, emptySpeciesRow()])
 
@@ -223,6 +227,7 @@ function LogCatchModal({ onClose, onSuccess }) {
       )
 
       showToast('Catch log saved.', 'success')
+      draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
@@ -246,6 +251,7 @@ function LogCatchModal({ onClose, onSuccess }) {
       }
     >
       <form id="log-catch-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <FormField label="Fisherfolk (Capture / Inland Fishery)" required>
           <SearchBar
             value={ffSearch}

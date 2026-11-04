@@ -28,6 +28,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { fmtShortDate } from '../../utils/forecastDates.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -58,7 +60,9 @@ function DisclaimerBanner() {
 function StockingForecastDetailModal({ record, onClose, onUpdated }) {
   const { showToast } = useToast()
   const originalNotes = record.notes || ''
-  const [notes,    setNotes]    = useState(originalNotes)
+  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
+  const draft = useDraftForm(`stocking-forecast-remarks:${record.id}`)
+  const [notes,    setNotes]    = useDraftField(draft, 'notes', originalNotes)
   const [isSaving, setIsSaving] = useState(false)
   const hasChanges = notes !== originalNotes
 
@@ -67,6 +71,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
     try {
       await api.patch(`/fisheries/stocking/${record.id}/`, { notes })
       showToast('Remarks saved.', 'success')
+      draft.clear()
       onUpdated?.()
     } catch {
       showToast('Failed to save remarks.', 'error')
@@ -82,6 +87,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
       maxWidth="max-w-md"
     >
       <div className="space-y-4">
+        <DraftBanner draft={draft} />
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
             <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><BarChart2 size={12} />Basic Information</p>
