@@ -6,6 +6,8 @@
 
 const CELL = 'px-3 py-2 align-top max-md:block max-md:px-0 max-md:py-1.5 max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]'
 
+const CELL_PLAIN = 'px-3 py-2 align-top max-md:block max-md:px-0 max-md:py-1'
+
 export function LogTable({ label, testId, children }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white" data-testid={testId}>
@@ -36,6 +38,9 @@ export function LogRow({ children, tone = '', className = '', ...props }) {
   )
 }
 
+// No `label`: the cell shows no column name on a phone (a key/value table, where the key cell already says what the value is).
 export function LogCell({ label, children, className = '' }) {
-  return <td data-label={label} className={`${CELL} ${className}`}>{children}</td>
+  return label
+    ? <td data-label={label} className={`${CELL} ${className}`}>{children}</td>
+    : <td className={`${CELL_PLAIN} ${className}`}>{children}</td>
 }

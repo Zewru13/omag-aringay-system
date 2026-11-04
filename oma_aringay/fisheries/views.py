@@ -35,6 +35,7 @@ from monitoring.models import AquacultureProductionUnit
 from . import disaster_reports
 from .eligibility import NO_PONDS_MESSAGE, fisherfolk_has_ponds
 from .notifications import queue_force_harvest
+from .yield_cycle_logs import cycle_activity
 from .models import (
     EMERGENCY_FORCE_HARVEST_REASON_LABELS,
     HARVEST_TIMING_LABELS,
@@ -2166,8 +2167,9 @@ FISHERIES_YIELD_ANALYSIS_DISCLAIMER = (
 def _fisheries_yield_analysis_queryset(request):
     qs = StockingRecord.objects.filter(
         status__in=[StockingRecord.Status.HARVESTED, StockingRecord.Status.TOTAL_LOSS],
-    ).select_related('fisherfolk', 'species', 'species__category').prefetch_related(
-        'logs', 'harvests',
+    ).select_related('fisherfolk', 'species', 'species__category', 'production_cycle').prefetch_related(
+        'logs', 'harvests', 'production_cycle__units',
+        'production_cycle__feeding_logs__unit_quantities__production_unit', 'production_cycle__health_logs__production_unit',
     )
     if request.user.role == 'CITIZEN':
         # Batch 11: same own-record-only scoping as production's
@@ -2302,6 +2304,8 @@ def _analyze_stocking(rec, context=None, light=False):
         'activities_total_count': total,
         'missed_high_priority': missed_high,
         'activity_breakdown': breakdown,
+        # The cycle's saved Feeding / Health Logs (not in the light aggregate pass): see fisheries.yield_cycle_logs.
+        **({} if light else {'cycle_activity': cycle_activity(rec)}),
     }
 
 
