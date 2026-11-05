@@ -263,7 +263,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where do I keep the names that sign the reports?',
-        a: 'Admin > Signatories. Press Add Signatory and give the name, the position that is printed under it, the signing role (Prepared by, Checked by, Noted by or Approved by) and the order. A person who signs in two roles is added twice. Turn off Active to stop offering a name without deleting it. The Reports pages offer these names in their Signatories block.',
+        a: 'Admin > Signatories. Press Add Signatory under the table, type the name and the position that is printed under it in the new row, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then press Save. A person who signs in two roles is added twice. Turn off Active to stop offering a name without deleting it. The Reports pages offer these names in their Signatories block.',
         roles: ADMIN,
       },
       {

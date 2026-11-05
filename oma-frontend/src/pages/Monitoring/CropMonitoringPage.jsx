@@ -45,7 +45,8 @@ import ParcelViewModal from './ParcelViewModal.jsx'
 import EditParcelModal from '../Farmers/EditParcelModal.jsx'
 import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, cropDisplayStatus, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
-import { harvestAmountText, harvestKg, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
+import { actualHarvestFacts } from './cropActualHarvest.js'
+import { harvestAmountText, harvestKg, harvestUnitOptions, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
 import useHarvestUnitWeights from './useHarvestUnitWeights.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
@@ -1260,7 +1261,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
               <select className={baseInputClasses} value={form.unit_of_measure}
                 onChange={e => handleChange('unit_of_measure', e.target.value)}>
                 {/* The crop's own units, always including the unit already saved on this harvest. */}
-                {[...new Set([...(cropUnits || STANDARD_HARVEST_UNITS), form.unit_of_measure])].map(u => <option key={u} value={u}>{u}</option>)}
+                {[...new Set([...harvestUnitOptions(cropUnits || STANDARD_HARVEST_UNITS), form.unit_of_measure])].map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
           </div>
@@ -1510,9 +1511,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const draft = useDraftForm(`crop-harvest:${record.id}`)
   const [harvestStartDate,  setHarvestStartDate]  = useDraftField(draft, 'harvestStartDate', todayISO())
   const [areaHarvested,     setAreaHarvested]     = useDraftField(draft, 'areaHarvested', record.area_planted_ha ? String(record.area_planted_ha) : '')
-  const [unitOfMeasure,     setUnitOfMeasure]     = useDraftField(draft, 'unitOfMeasure', 
-    (record.crop_allowed_units && record.crop_allowed_units.length > 0) ? record.crop_allowed_units[0] : 'kg'
-  )
+  const [unitOfMeasure,     setUnitOfMeasure]     = useDraftField(draft, 'unitOfMeasure', 'kg')   // every crop starts on kg
   const [quantityHarvested, setQuantityHarvested] = useDraftField(draft, 'quantityHarvested', '')
   const [harvestNotes,      setHarvestNotes]      = useDraftField(draft, 'harvestNotes', '')
   const [reasonChoice,      setReasonChoice]      = useDraftField(draft, 'reasonChoice', '')
@@ -1556,9 +1555,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const visibleResolvableDisasters = resolvableDisasters.filter(d => !dismissedDisasterIds.has(d.disaster_id))
 
   const cropName     = record.crop_type_name || 'this crop'
-  const unitOptions  = (record.crop_allowed_units && record.crop_allowed_units.length > 0)
-    ? record.crop_allowed_units
-    : ['kg']
+  const unitOptions  = harvestUnitOptions(record.crop_allowed_units)
 
   const expectedHarvestDate = record.expected_harvest_date || null
   const daysFromNowToExpected = expectedHarvestDate
@@ -1957,6 +1954,7 @@ const COLUMNS = [
   { key: 'location_col',    label: 'BARANGAY' },
   { key: 'date_planted',    label: 'DATE PLANTED' },
   { key: 'expected_harvest_cell', label: 'EXPECTED HARVEST' },
+  { key: 'actual_harvest_cell',   label: 'ACTUAL HARVEST' },
   { key: 'logs_cell',       label: 'LOGS', center: true },
   { key: 'pcic_cell',       label: 'PCIC INSURED', center: true },
   { key: 'status_cell',     label: 'STATUS' },
@@ -2131,6 +2129,20 @@ export default function CropMonitoringPage() {
       </span>
     ) : (rec.date_planted || '—'),
     expected_harvest_cell: rec.expected_harvest_date || '—',
+    // What was harvested (kg) with how it compares with the estimate (+/- %) and the date, as in the fisheries tables; '—' until something is harvested.
+    actual_harvest_cell: (() => {
+      const actual = actualHarvestFacts(rec)
+      if (!actual) return '—'
+      return (
+        <span className="flex flex-col gap-0.5 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5">
+            {actual.kgText && <span className="font-medium text-[#1A2B1A]">{actual.kgText}</span>}
+            {actual.label && <StatusPill tone={actual.tone || 'slate'}>{actual.label}</StatusPill>}
+          </span>
+          {actual.date && <span className="text-[11px] text-[#7A8E7A]">{actual.date}</span>}
+        </span>
+      )
+    })(),
     location_col: (rec.farm_location_barangay || rec.farmer_barangay)
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,

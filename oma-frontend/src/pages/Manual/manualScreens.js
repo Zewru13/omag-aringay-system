@@ -1541,7 +1541,7 @@ export default {
    {
     "n": 5,
     "label": "Columns",
-    "desc": "Crop, variety, farmer, organization, barangay, date planted, expected harvest, Logs (how many activities were recorded), PCIC insured, status and Actions."
+    "desc": "Crop, variety, farmer, organization, barangay, date planted, expected harvest, actual harvest (kg harvested and how it compares with the estimate), Logs (how many activities were recorded), PCIC insured, status and Actions."
    },
    {
     "n": 6,
@@ -1563,7 +1563,7 @@ export default {
  "admin-crop-filters": {
   "audience": "admin",
   "title": "Crop Monitoring filters",
-  "purpose": "Narrow the crops; the reports follow the filters.",
+  "purpose": "Narrow the crops.",
   "image": "/manual/admin/crop-filters.png",
   "width": 1280,
   "height": 800,
@@ -1771,7 +1771,7 @@ export default {
    {
     "n": 4,
     "label": "Unit of Measure",
-    "desc": "Required. The unit the harvest was counted in (cavan, kg, metric ton and the units set in Harvest Unit Settings)."
+    "desc": "Required. Starts on kg for every crop. The unit the harvest was counted in (cavan, kg, metric ton and the units set in Harvest Unit Settings)."
    },
    {
     "n": 5,
@@ -5192,7 +5192,7 @@ export default {
    {
     "n": 1,
     "label": "Add Signatory",
-    "desc": "Adds a name: the name, the position printed under it, the signing role (Prepared by, Checked by, Noted by or Approved by), the order and whether it is Active. A person who signs in two roles is added twice."
+    "desc": "Adds a row at the top of the table: type the name and the position printed under it, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then Save. A person who signs in two roles is added twice."
    },
    {
     "n": 2,
