@@ -47,7 +47,7 @@ export const PHONE = [
     callouts: [
       SEARCH,
       { find: { text: 'Filters', tag: 'button', exact: true }, label: 'Filters', desc: 'Opens the filter row. Print Report and Download Report are in the row above.' },
-      { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'A parcel card', desc: 'Tap a parcel to open the crops planted on it. Each crop has its own menu with Record Activity, Crop Details, Record Harvest and Report Disaster.' },
+      { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'A parcel card', desc: 'Tap a parcel to open the crops planted on it. Each crop has its own menu with Log Activity, Crop Details, Record Harvest and Report Disaster.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
   FA({ id: 'farmer-p-disaster', phone: true, file: 'farmer/phone-disaster.png', url: '/disaster', wait: 5000, title: 'Disaster on a phone (Farmer)', purpose: 'Report a disaster from the field.',

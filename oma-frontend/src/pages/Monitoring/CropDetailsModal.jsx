@@ -11,7 +11,7 @@ import { todayISO } from '../../utils/localDate.js'
 import { activityLine, detailActions, disasterLine, harvestRows, pestLine, summaryRows } from './cropDetails.js'
 
 // "View Crop Details": a read-only page about one crop record — what it is, its history (activities, pest and disease reports,
-// disasters, harvest) and remarks. It records nothing; the buttons in the footer open the forms that do (Record Activity,
+// disasters, harvest) and remarks. It records nothing; the buttons in the footer open the forms that do (Log Activity,
 // Record Harvest, Report Disaster) and close this window.
 
 const STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }

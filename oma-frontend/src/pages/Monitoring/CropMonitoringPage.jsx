@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, ClipboardList, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat, Zap,
+  AlertTriangle, Bug, CheckCircle2, ChevronDown, ClipboardList, Eye, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat, Zap,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import useIsPhone from '../../hooks/useIsPhone.js'
@@ -40,6 +41,8 @@ import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.
 import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import CropDetailsModal from './CropDetailsModal.jsx'
+import { LogCell, LogHead, LogRow, LogTable, LogTh } from './LogFormTable.jsx'
+import { fertilizerDefault, joinFertilizer, splitFertilizer, stepForActivity, suggestedStep, suggestionNote } from './cropLogDefaults.js'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import ParcelViewModal from './ParcelViewModal.jsx'
 import EditParcelModal from '../Farmers/EditParcelModal.jsx'
@@ -128,19 +131,20 @@ const DISASTER_ACTIVITY_MAP = {
   'Other':         'Other',
 }
 
-// ── Suggestions Modal ─────────────────────────────────────────────────────────
+// ── Disaster Responses Modal ──────────────────────────────────────────────────
+// The recommended responses to the crop's active disasters (and "Mark as Recovered"). The schedule of ordinary activities is no longer
+// listed here: the Log Activity form opens already filled in from it.
 
-function SuggestionsModal({ record, onClose, onApply }) {
+function DisasterResponsesModal({ record, onClose, onApply }) {
   const { showToast } = useToast()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [earlyConfirm, setEarlyConfirm] = useState(null)
   const [dismissedDisasters, setDismissedDisasters] = useState(new Set())
   const [recovering, setRecovering] = useState(null)
   const [manualNotes, setManualNotes] = useState({})
   const [showManualRecover, setShowManualRecover] = useState({})
 
-  const fetchSuggestions = useCallback(() => {
+  const fetchResponses = useCallback(() => {
     if (!record) return
     setLoading(true)
     api.get(`/production/monitoring/${record.id}/suggestions/`)
@@ -149,25 +153,16 @@ function SuggestionsModal({ record, onClose, onApply }) {
       .finally(() => setLoading(false))
   }, [record])
 
-  useEffect(() => { fetchSuggestions() }, [fetchSuggestions])
+  useEffect(() => { fetchResponses() }, [fetchResponses])
 
   if (!record) return null
-
-  const handleLogClick = (s) => {
-    if (s.status === 'upcoming') {
-      setEarlyConfirm(s)
-    } else {
-      onApply(s)
-      onClose()
-    }
-  }
 
   const handleMarkRecovered = async (disasterId, note) => {
     setRecovering(disasterId)
     try {
       await api.post(`/production/disasters/${disasterId}/resolve/`, note ? { recovery_note: note } : {})
       showToast('Disaster marked as recovered.', 'success')
-      fetchSuggestions()
+      fetchResponses()
     } catch (err) {
       const msg = err?.response?.data?.detail || 'Failed to mark disaster as recovered.'
       showToast(msg, 'error')
@@ -180,24 +175,10 @@ function SuggestionsModal({ record, onClose, onApply }) {
     setDismissedDisasters(prev => { const next = new Set(prev); next.add(disasterId); return next })
   }
 
-  const groups = {
-    overdue: { label: 'Overdue', color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200', badge: 'bg-rose-100 text-rose-700' },
-    due_now: { label: 'Due Now', color: 'text-[#1B4D2E]', bg: 'bg-[#EBF5EE]', border: 'border-[#C8E6D0]', badge: 'bg-[#1B4D2E] text-white' },
-    upcoming: { label: 'Upcoming', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700' },
-    done: { label: 'Done', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200', badge: 'bg-slate-200 text-slate-600' },
-  }
-
-  const groupOrder = ['overdue', 'due_now', 'upcoming', 'done']
-
-  const suggestions   = data?.suggestions || []
   const disasterRules = data?.disaster_response || []
-  const daysElapsed   = data?.days_elapsed ?? 0
-  const totalDays     = data?.total_days ?? 0
-  const progressPct   = totalDays > 0 ? Math.min(100, Math.round((daysElapsed / totalDays) * 100)) : 0
-  const isEstimated   = data?.date_planted_is_estimated ?? false
 
   return (
-    <ModalShell title={`Activity Suggestions — ${record.crop_type_name}`} onClose={onClose} maxWidth="max-w-lg">
+    <ModalShell title={`Disaster Responses — ${record.crop_type_name}`} onClose={onClose} maxWidth="max-w-lg">
       <div className={loading ? 'pointer-events-none opacity-50' : ''}>
       {loading ? (
         <div className="flex justify-center py-10">
@@ -205,256 +186,160 @@ function SuggestionsModal({ record, onClose, onApply }) {
         </div>
       ) : (
         <div className="space-y-5">
-          {isEstimated ? (
-            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <HelpCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800">
-                <strong>Estimated planting date.</strong> This record's planting date was imported from a
-                registry record-creation date, not a confirmed field date, so day-based activity
-                suggestions can't be calculated reliably. A staff member needs to confirm or correct the
-                real planting date first.
-              </p>
-            </div>
-          ) : (
-            <>
-          {/* Progress bar */}
-          <div className="bg-slate-50 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-700">Growing Progress</span>
-              <span className="text-sm font-semibold text-[#1B4D2E]">Day {daysElapsed} of {totalDays} days</span>
-            </div>
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#1B4D2E] rounded-full transition-all"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Grouped schedule suggestions */}
-          {groupOrder.map(key => {
-            const group = groups[key]
-            const items = suggestions.filter(s => s.status === key)
-            if (items.length === 0) return null
-            const isDoneGroup = key === 'done'
-            return (
-              <div key={key}>
-                <h4 className={`text-xs font-semibold uppercase tracking-wide mb-2 ${group.color}`}>
-                  {group.label} ({items.length})
-                </h4>
-                <div className="space-y-2">
-                  {items.map(s => (
-                    <div
-                      key={s.occurrence_key || s.id}
-                      className={`rounded-xl border p-4 ${group.bg} ${group.border} ${isDoneGroup ? 'cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-sm font-medium text-slate-900">{s.activity_name}</span>
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${group.badge}`}>
-                              Day {s.day_after_planting}
-                            </span>
-                            <span className="text-xs text-slate-500 uppercase">{s.priority}</span>
-                          </div>
-                          {s.recommendation && (
-                            <p className="text-xs text-slate-600 leading-relaxed">{s.recommendation}</p>
-                          )}
-                          {isDoneGroup && s.done_date && (
-                            <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
-                              <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                              Done on {fmtDate(s.done_date)}
-                            </div>
-                          )}
-                        </div>
-                        {!isDoneGroup && (
-                          <button
-                            onClick={() => handleLogClick(s)}
-                            className="shrink-0 text-xs font-medium bg-[#1B4D2E] text-white px-3 py-1.5 rounded-lg hover:bg-[#235E38] transition"
-                          >
-                            {s.status === 'upcoming' ? 'Log Early' : 'Log'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-            </>
-          )}
-
-          {/* Disaster response — grouped by active disaster (independent of
-              date_planted, so still shown even when the planting date is
-              only an estimate). */}
-          {disasterRules.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide mb-2 text-rose-700">
-                Disaster Response ({disasterRules.length})
-              </h4>
-              <div className="space-y-3">
-                {disasterRules.map((disaster) => {
-                  if (disaster.can_recover !== false && disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
-                    return (
-                      <div key={disaster.disaster_id} className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-2">
-                        <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-emerald-800">
-                              All recommended responses for this {disaster.disaster_type} have been completed.
-                            </p>
-                            <p className="text-xs text-emerald-600 mt-0.5">
-                              If the crop has recovered, mark this disaster as recovered. You can leave it active if you're still monitoring recovery.
-                            </p>
-                            <div className="flex gap-2 mt-2.5">
-                              <button
-                                onClick={() => handleMarkRecovered(disaster.disaster_id)}
-                                disabled={recovering === disaster.disaster_id}
-                                className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
-                              >
-                                Mark as Recovered
-                              </button>
-                              <button
-                                onClick={() => dismissPrompt(disaster.disaster_id)}
-                                className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
-                              >
-                                Not Yet — Keep Monitoring
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-                  if (disaster.can_recover !== false && disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
-                    return (
-                      <div key={disaster.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
-                        <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
-                        All responses for {disaster.disaster_type} completed — still monitoring recovery.
-                      </div>
-                    )
-                  }
+          {disasterRules.length > 0 ? (
+            <div className="space-y-3">
+              {disasterRules.map((disaster) => {
+                if (disaster.can_recover !== false && disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
                   return (
-                    <div key={disaster.disaster_id} className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                        <span className="text-sm font-semibold text-rose-800">{disaster.disaster_type}</span>
-                        <span className="text-xs text-rose-400">{fmtDate(disaster.date_of_occurrence)}</span>
-                      </div>
-                      <div className="space-y-2">
-                        {disaster.rules.map((rule, ri) => (
-                          <div
-                            key={ri}
-                            className={`rounded-lg border p-3 ${rule.is_done ? 'border-slate-100 bg-slate-50 cursor-not-allowed' : 'border-rose-100 bg-white'}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <span className={`text-sm font-medium ${rule.is_done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{rule.title}</span>
-                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">{rule.priority}</span>
-                                  {rule.is_done && (
-                                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-[#1B4D2E]">Done</span>
-                                  )}
-                                </div>
-                                {rule.action && (
-                                  <p className={`text-xs leading-relaxed ${rule.is_done ? 'text-slate-400' : 'text-slate-600'}`}>{rule.action}</p>
-                                )}
-                              </div>
-                              {!rule.is_done && (
-                                <button
-                                  onClick={() => { onApply({ activity_name: rule.activity_name || rule.title, recommendation: rule.recommendation || rule.action, status: 'disaster_rule', disaster_report_id: disaster.disaster_id, disaster_rule_id: rule.rule_id }); onClose() }}
-                                  className="shrink-0 text-xs font-medium bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 transition"
-                                >
-                                  Log
-                                </button>
-                              )}
-                            </div>
+                    <div key={disaster.disaster_id} className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-2">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-emerald-800">
+                            All recommended responses for this {disaster.disaster_type} have been completed.
+                          </p>
+                          <p className="text-xs text-emerald-600 mt-0.5">
+                            If the crop has recovered, mark this disaster as recovered. You can leave it active if you're still monitoring recovery.
+                          </p>
+                          <div className="flex gap-2 mt-2.5">
+                            <button
+                              onClick={() => handleMarkRecovered(disaster.disaster_id)}
+                              disabled={recovering === disaster.disaster_id}
+                              className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
+                            >
+                              Mark as Recovered
+                            </button>
+                            <button
+                              onClick={() => dismissPrompt(disaster.disaster_id)}
+                              className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
+                            >
+                              Not Yet — Keep Monitoring
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-rose-100">
-                        {disaster.is_total_loss || disaster.can_recover === false ? (
-                          <p className="text-xs text-slate-500 italic">{disaster.is_total_loss ? 'Total Loss — this record is terminal and cannot be marked as recovered.' : (disaster.recovery_block_reason || 'This disaster cannot be marked as recovered.')}</p>
-                        ) : !showManualRecover[disaster.disaster_id] ? (
-                          <button
-                            onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: true }))}
-                            className="text-xs font-medium text-slate-600 hover:text-slate-800 underline"
-                          >
-                            Mark as Recovered anyway
-                          </button>
-                        ) : (
-                          <div className="space-y-2">
-                            <textarea
-                              value={manualNotes[disaster.disaster_id] || ''}
-                              onChange={(e) => setManualNotes(prev => ({ ...prev, [disaster.disaster_id]: e.target.value }))}
-                              placeholder="Explain how/why it recovered without completing all recommended responses (required)…"
-                              rows={2}
-                              className={`${baseInputClasses} text-xs`}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleMarkRecovered(disaster.disaster_id, manualNotes[disaster.disaster_id])}
-                                disabled={recovering === disaster.disaster_id || !(manualNotes[disaster.disaster_id] || '').trim()}
-                                className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
-                              >
-                                {recovering === disaster.disaster_id ? 'Marking…' : 'Confirm Recovery'}
-                              </button>
-                              <button
-                                onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: false }))}
-                                className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   )
-                })}
-              </div>
+                }
+                if (disaster.can_recover !== false && disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
+                  return (
+                    <div key={disaster.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                      All responses for {disaster.disaster_type} completed — still monitoring recovery.
+                    </div>
+                  )
+                }
+                return (
+                  <div key={disaster.disaster_id} className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                      <span className="text-sm font-semibold text-rose-800">{disaster.disaster_type}</span>
+                      <span className="text-xs text-rose-400">{fmtDate(disaster.date_of_occurrence)}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {disaster.rules.map((rule, ri) => (
+                        <div
+                          key={ri}
+                          className={`rounded-lg border p-3 ${rule.is_done ? 'border-slate-100 bg-slate-50 cursor-not-allowed' : 'border-rose-100 bg-white'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className={`text-sm font-medium ${rule.is_done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{rule.title}</span>
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">{rule.priority}</span>
+                                {rule.is_done && (
+                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-[#1B4D2E]">Done</span>
+                                )}
+                              </div>
+                              {rule.action && (
+                                <p className={`text-xs leading-relaxed ${rule.is_done ? 'text-slate-400' : 'text-slate-600'}`}>{rule.action}</p>
+                              )}
+                            </div>
+                            {!rule.is_done && (
+                              <button
+                                onClick={() => { onApply({ activity_name: rule.activity_name || rule.title, recommendation: rule.recommendation || rule.action, disaster_report_id: disaster.disaster_id, disaster_rule_id: rule.rule_id }); onClose() }}
+                                className="shrink-0 text-xs font-medium bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 transition"
+                              >
+                                Log
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-rose-100">
+                      {disaster.is_total_loss || disaster.can_recover === false ? (
+                        <p className="text-xs text-slate-500 italic">{disaster.is_total_loss ? 'Total Loss — this record is terminal and cannot be marked as recovered.' : (disaster.recovery_block_reason || 'This disaster cannot be marked as recovered.')}</p>
+                      ) : !showManualRecover[disaster.disaster_id] ? (
+                        <button
+                          onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: true }))}
+                          className="text-xs font-medium text-slate-600 hover:text-slate-800 underline"
+                        >
+                          Mark as Recovered anyway
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <textarea
+                            value={manualNotes[disaster.disaster_id] || ''}
+                            onChange={(e) => setManualNotes(prev => ({ ...prev, [disaster.disaster_id]: e.target.value }))}
+                            placeholder="Explain how/why it recovered without completing all recommended responses (required)…"
+                            rows={2}
+                            className={`${baseInputClasses} text-xs`}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleMarkRecovered(disaster.disaster_id, manualNotes[disaster.disaster_id])}
+                              disabled={recovering === disaster.disaster_id || !(manualNotes[disaster.disaster_id] || '').trim()}
+                              className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
+                            >
+                              {recovering === disaster.disaster_id ? 'Marking…' : 'Confirm Recovery'}
+                            </button>
+                            <button
+                              onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: false }))}
+                              className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          )}
-
-          {!isEstimated && suggestions.length === 0 && disasterRules.length === 0 && (
-            <p className="text-center text-sm text-slate-400 py-8">No activity stages defined for this crop type.</p>
+          ) : (
+            <p className="text-center text-sm text-slate-400 py-8">This crop has no active disaster.</p>
           )}
         </div>
       )}
       </div>
-
-      {earlyConfirm && (
-        <ConfirmDialog variant="primary"
-          title="Log Activity Early?"
-          message={`"${earlyConfirm.activity_name}" is scheduled for Day ${earlyConfirm.day_after_planting}. It's ${Math.abs(earlyConfirm.days_diff)} day${Math.abs(earlyConfirm.days_diff) !== 1 ? 's' : ''} away. Log it now anyway?`}
-          confirmLabel="Yes, Log Early"
-          onConfirm={() => { setEarlyConfirm(null); onApply(earlyConfirm); onClose() }}
-          onCancel={() => setEarlyConfirm(null)}
-        />
-      )}
     </ModalShell>
   )
 }
 
-// ── View Logs Modal ───────────────────────────────────────────────────────────
+// ── Log Activity window ───────────────────────────────────────────────────────
+// A floating form laid out as a table (like Fisheries Monitoring's Log Activity), opened from a crop's menu. It opens already filled in from
+// the crop's schedule - the activity that is due (or the earliest overdue one), its advice as the Recommendations and, for a fertilizer
+// application, the Type of Fertilizer - and everything can be changed. See cropLogDefaults.js. The crop's Activity History is below it.
 
-function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
+function ViewLogsModal({ record, onClose, onLogAdded }) {
   const { showToast } = useToast()
   const [logs,              setLogs]              = useState([])
   const [disasters,         setDisasters]         = useState([])
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin, isFarmer } = useAuth()
-  // What is typed in the log form is a draft: still here when the logs are opened again (see hooks/useDraftForm.js); it opens the form.
+  // What is typed in the form is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`crop-activity-log:${record.id}`)
-  const [showForm,          setShowForm]          = useState(Boolean(initialForm) || draft.restored)
   const [showHistory,       setShowHistory]       = useState(false)   // the past activity stays closed until asked for
-  const recordLock = useRecordLock('crop', record.id, showForm)
-  const [showSuggest,       setShowSuggest]       = useState(false)
-  const [showConfirm,       setShowConfirm]       = useState(false)
+
+  const isHarvested = record.status === 'Harvested'
+  const isTotalLoss = record.status === 'Total Loss'
+  const canLog = !isHarvested && !isTotalLoss
+  const recordLock = useRecordLock('crop', record.id, canLog)
+  const [showDisasters,     setShowDisasters]     = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [editingLogId,      setEditingLogId]      = useDraftField(draft, 'editingLogId', null)   // farmer: the activity log being edited
-  const [pendingSuggestion, setPendingSuggestion] = useState(null)
   const [pendingDisasterReport, setPendingDisasterReport] = useState(null)
   const [pendingDisasterRule, setPendingDisasterRule] = useState(null)
   const [expandedDisasters, setExpandedDisasters] = useState(new Set())
@@ -462,15 +347,14 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const [harvestDeleteConfirm, setHarvestDeleteConfirm] = useState(false)
   const [isDeletingHarvest, setIsDeletingHarvest] = useState(false)
 
-  const isHarvested = record.status === 'Harvested'
-  const isTotalLoss = record.status === 'Total Loss'
-
-  // Form state
+  // Form state. The activity, the recommendations and the fertilizer start as the schedule's answer and become the person's own the moment
+  // they touch them (the same idea as the feed type of a Feeding Log); until then they follow the schedule.
   const [activityType,    setActivityType]    = useDraftField(draft, 'activityType', '')
   const [activityTypeOtherSpecify, setActivityTypeOtherSpecify] = useDraftField(draft, 'activityTypeOtherSpecify', '')
   const [activityDate,    setActivityDate]    = useDraftField(draft, 'activityDate', todayISO())
   const [plantCondition,  setPlantCondition]  = useDraftField(draft, 'plantCondition', '')
-  const [fertilizerType,  setFertilizerType]  = useDraftField(draft, 'fertilizerType', '')
+  const [fertilizerValue, setFertilizerValue] = useDraftField(draft, 'fertilizerValue', '')
+  const [fertilizerOther, setFertilizerOther] = useDraftField(draft, 'fertilizerOther', '')
   const [quantityApplied, setQuantityApplied] = useDraftField(draft, 'quantityApplied', '')
   const [quantityUnit,    setQuantityUnit]    = useDraftField(draft, 'quantityUnit', 'kg')
   const [pestDiseaseName, setPestDiseaseName] = useDraftField(draft, 'pestDiseaseName', '')
@@ -478,6 +362,9 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const [areaAffectedError, setAreaAffectedError] = useState('')
   const [severity,        setSeverity]        = useDraftField(draft, 'severity', '')
   const [notes,           setNotes]           = useDraftField(draft, 'notes', '')
+  const [activityTouched,   setActivityTouched]   = useDraftField(draft, 'activityTouched', false)
+  const [notesTouched,      setNotesTouched]      = useDraftField(draft, 'notesTouched', false)
+  const [fertilizerTouched, setFertilizerTouched] = useDraftField(draft, 'fertilizerTouched', false)
 
   const [remedyDisasterId, setRemedyDisasterId] = useDraftField(draft, 'remedyDisasterId', '')
   // The crop recovered because of the remedy: tick it on the form (saved together with the log) or use the button on a saved remedy.
@@ -485,9 +372,25 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const [recoverTarget, setRecoverTarget] = useState(null)   // { disaster, note } while the recovery dialog is open
   const [isRecovering, setIsRecovering] = useState(false)
 
-  const showFertilizerFields = activityType === 'Fertilizer Application'
-  const showPestFields = activityType === 'Pest Control' || activityType === 'Disease Control'
-  const showRemedyFields = activityType === 'Disaster Remedy'
+  // The schedule, the activities and the fertilizers the form offers.
+  const [activityStages, setActivityStages] = useState([])
+  const [activityTypeOptions, setActivityTypeOptions] = useState([])
+  // The server's schedule for this crop (each step due / overdue / upcoming / done); the picker and the defaults follow it.
+  const [scheduleSteps, setScheduleSteps] = useState([])
+  // The Fertilizer entries of Crop Settings > Input Types (the Assistance forms use the same list).
+  const [fertilizerNames, setFertilizerNames] = useState([])
+
+  const suggested = useMemo(() => suggestedStep(scheduleSteps), [scheduleSteps])
+  const chosenStep = activityTouched ? stepForActivity(activityType, scheduleSteps) : suggested
+  const activityShown = activityTouched ? activityType : (suggested?.activity_name || '')
+  const notesShown = notesTouched ? notes : (chosenStep?.recommendation || '')
+  const fertilizerShown = fertilizerTouched
+    ? { value: fertilizerValue, other: fertilizerOther }
+    : splitFertilizer(fertilizerDefault(activityShown, record, fertilizerNames), fertilizerNames)
+
+  const showFertilizerFields = activityShown === 'Fertilizer Application'
+  const showPestFields = activityShown === 'Pest Control' || activityShown === 'Disease Control'
+  const showRemedyFields = activityShown === 'Disaster Remedy'
   const activeDisasters = disasters.filter(d => d.status === 'Active')
   const plantedArea = record.area_planted_ha ? Number(record.area_planted_ha) : null
 
@@ -505,13 +408,7 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
     'Soil Preparation & Leveling', 'Seed Bed Preparation',
     'Seed Planting', 'Land Preparation', 'Planting',
   ]
-  const isPrePlanting = PRE_PLANTING_ACTIVITIES.includes(activityType)
-
-  // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
-  const [activityStages, setActivityStages] = useState([])
-  const [activityTypeOptions, setActivityTypeOptions] = useState([])
-  // The server's schedule for this crop (each step due / overdue / upcoming / done); the picker follows it.
-  const [scheduleSteps, setScheduleSteps] = useState([])
+  const isPrePlanting = PRE_PLANTING_ACTIVITIES.includes(activityShown)
 
   useEffect(() => {
     if (!record.crop_type) return
@@ -529,6 +426,15 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
       .catch(() => setActivityTypeOptions([]))
   }, [])
 
+  useEffect(() => {
+    api.get('/production/input-types/')
+      .then(r => {
+        const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setFertilizerNames(all.filter(t => t.input_type === 'Fertilizer' && t.is_active).map(t => t.name))
+      })
+      .catch(() => setFertilizerNames([]))
+  }, [])
+
   // "Suggested now" = scheduled steps due or overdue and not yet done, earliest first; "Other" = unscheduled
   // activities and steps that are only upcoming; an activity whose steps are all done is left out (see
   // utils/activityPicker.js). The log being edited keeps its own activity selectable.
@@ -541,9 +447,9 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
 
   // Land-prep-style activities may be logged before date_planted; everything else may not.
   const selectedStageAllowsPrePlanting = useMemo(() => {
-    const stage = activityStages.find(s => s.stage_name === activityType)
+    const stage = activityStages.find(s => s.stage_name === activityShown)
     return !!stage?.allows_pre_planting
-  }, [activityStages, activityType])
+  }, [activityStages, activityShown])
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
@@ -570,17 +476,21 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
       .sort((a, b) => new Date(b._sortDate || 0) - new Date(a._sortDate || 0))
   }, [logs, disasters])
 
+  // Back to the schedule's answer: the activity, the recommendations and the fertilizer follow it again.
+  const backToSuggested = () => {
+    setActivityType(''); setActivityTypeOtherSpecify(''); setNotes(''); setFertilizerValue(''); setFertilizerOther('')
+    setActivityTouched(false); setNotesTouched(false); setFertilizerTouched(false)
+    setPendingDisasterReport(null); setPendingDisasterRule(null)
+  }
+
   const resetForm = () => {
-    setActivityType(''); setActivityDate(todayISO()); setPlantCondition('')
-    setFertilizerType(''); setQuantityApplied(''); setQuantityUnit('kg')
-    setActivityTypeOtherSpecify('')
+    setActivityDate(todayISO()); setPlantCondition('')
+    setQuantityApplied(''); setQuantityUnit('kg')
     setRemedyDisasterId('')
     setRecoveredAfterRemedy(false)
-    setPestDiseaseName(''); setAreaAffected(''); setAreaAffectedError(''); setSeverity(''); setNotes('')
-    setPendingSuggestion(null)
-    setPendingDisasterReport(null)
-    setPendingDisasterRule(null)
+    setPestDiseaseName(''); setAreaAffected(''); setAreaAffectedError(''); setSeverity('')
     setEditingLogId(null)
+    backToSuggested()
   }
 
   // A farmer can correct their own entries: load the log back into the form, and save it with a PATCH.
@@ -588,19 +498,19 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
     setEditingLogId(log.id)
     setActivityType(log.activity_type || '')
     setActivityTypeOtherSpecify(log.activity_type === 'Other' ? (log.activity_type_other_specify || '') : '')
+    setActivityTouched(true)
     setActivityDate(log.date_of_activity || todayISO())
     setPlantCondition(log.plant_condition || '')
-    setFertilizerType(log.fertilizer_type || '')
+    const fertilizer = splitFertilizer(log.fertilizer_type, fertilizerNames)
+    setFertilizerValue(fertilizer.value); setFertilizerOther(fertilizer.other); setFertilizerTouched(true)
     setQuantityApplied(log.quantity_applied ?? '')
     setQuantityUnit(log.quantity_unit || 'kg')
     setPestDiseaseName(log.pest_disease_name || '')
     setAreaAffected(log.area_affected_ha ?? '')
     setAreaAffectedError('')
     setSeverity(log.severity || '')
-    setNotes(log.notes || '')
+    setNotes(log.notes || ''); setNotesTouched(true)
     setRemedyDisasterId(log.disaster_report ? String(log.disaster_report) : '')
-    setPendingSuggestion(null)
-    setShowForm(true)
   }
 
   const confirmRecovered = async () => {
@@ -616,36 +526,33 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
     } finally { setIsRecovering(false) }
   }
 
-  const handleSubmitClick = () => {
-    if (!activityType) { showToast('Please select an activity.', 'error'); return }
-    if (activityType === 'Other' && !activityTypeOtherSpecify.trim()) { showToast('Please specify the activity.', 'error'); return }
+  const handleSubmit = async () => {
+    if (!activityShown) { showToast('Please select an activity.', 'error'); return }
+    if (activityShown === 'Other' && !activityTypeOtherSpecify.trim()) { showToast('Please specify the activity.', 'error'); return }
     if (!activityDate) { showToast('Activity date is required.', 'error'); return }
+    if (showFertilizerFields && fertilizerShown.value === 'Other' && !fertilizerShown.other.trim()) { showToast('Please specify the type of fertilizer.', 'error'); return }
     if (showPestFields) {
       const err = validateAreaAffected(areaAffected)
       if (err) { setAreaAffectedError(err); showToast(err, 'error'); return }
     }
     if (showRemedyFields) {
       if (!remedyDisasterId) { showToast('Please select the related disaster.', 'error'); return }
-      if (!notes.trim()) { showToast('Please describe the remedy performed.', 'error'); return }
+      if (!notesShown.trim()) { showToast('Please describe the remedy performed.', 'error'); return }
     }
-    setShowConfirm(true)
-  }
-
-  const handleConfirmed = async () => {
-    setShowConfirm(false); setIsSubmitting(true)
+    setIsSubmitting(true)
     try {
       const payload = {
-        activity_type:     activityType,
-        activity_type_other_specify: activityType === 'Other' ? activityTypeOtherSpecify.trim() : '',
+        activity_type:     activityShown,
+        activity_type_other_specify: activityShown === 'Other' ? activityTypeOtherSpecify.trim() : '',
         date_of_activity:   activityDate,
         plant_condition:   plantCondition,
-        fertilizer_type:   showFertilizerFields ? fertilizerType : '',
+        fertilizer_type:   showFertilizerFields ? joinFertilizer(fertilizerShown) : '',
         quantity_applied:  showFertilizerFields ? (quantityApplied || null) : null,
         quantity_unit:     showFertilizerFields ? quantityUnit : '',
         pest_disease_name: showPestFields ? pestDiseaseName : '',
         area_affected_ha:  showPestFields ? (areaAffected || null) : null,
         severity:          showPestFields ? severity : '',
-        notes,
+        notes:             notesShown,
       }
       if (editingLogId) {
         // Editing keeps the entry's own late/disaster links: only the fields on the form change.
@@ -653,8 +560,8 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
       } else {
         await api.post(`/production/monitoring/${record.id}/logs/`, {
           ...payload,
-          // A late log chosen from the dropdown is tied to the activity's earliest overdue step, like one started from a suggestion.
-          target_day: pendingSuggestion?.occurrence_day ?? overdueStepDay(activityType, scheduleSteps),
+          // A late log is tied to the activity's earliest overdue step (its target day), whether it was suggested or picked.
+          target_day: overdueStepDay(activityShown, scheduleSteps),
           disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
           disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
         })
@@ -662,32 +569,27 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
       showToast(editingLogId ? 'Activity log updated.' : 'Activity log added.', 'success')
       if (!editingLogId && showRemedyFields && recoveredAfterRemedy) {
         try {
-          await api.post(`/production/disasters/${remedyDisasterId}/resolve/`, { recovery_note: notes.trim() })
+          await api.post(`/production/disasters/${remedyDisasterId}/resolve/`, { recovery_note: notesShown.trim() })
           showToast('Disaster marked as recovered.', 'success')
         } catch (err) {
           showToast(err?.response?.data?.detail || 'The remedy was saved, but the disaster could not be marked as recovered.', 'error')
         }
       }
       draft.clear()
-      resetForm(); setShowForm(false)
-      await fetchLogs(); onLogAdded()
+      resetForm()
+      onLogAdded()
+      onClose()
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to save log.', 'error')
     } finally { setIsSubmitting(false) }
   }
 
-  const handleApplySuggestion = (s) => {
-    setActivityType(s.activity_name || '')
-    setNotes(s.recommendation || '')
+  // A recommended response to an active disaster (from the Disaster Responses window): fills the form and links the log to that rule.
+  const handleApplyDisasterRule = (s) => {
+    setActivityType(s.activity_name || ''); setActivityTouched(true)
+    setNotes(s.recommendation || ''); setNotesTouched(true)
     setPendingDisasterReport(s.disaster_report_id || null)
     setPendingDisasterRule(s.disaster_rule_id || null)
-    setShowSuggest(false)
-    setShowForm(true)
-    if (s.status === 'overdue') {
-      setPendingSuggestion({ occurrence_day: s.day_after_planting, status: 'overdue' })
-    } else {
-      setPendingSuggestion(null)
-    }
   }
 
   const handleDeleteHarvest = async () => {
@@ -707,20 +609,23 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const assocLabel = record.organization_name || record.farmer_name || '—'
   const growthInfo = getGrowthStageLabel(record.date_planted)
   const cycle = cycleProgress(record.date_planted, record.expected_harvest_date, localToday())
-  // Disaster Remedy needs a disaster report; Pre-Harvest Inspection and Harvesting open from half way through the season.
+  // Disaster Remedy needs a disaster report; Pre-Harvest Inspection and Harvesting open from half way through the season. The suggested
+  // activity always stays on the list.
   const activityChoices = filterCycleActivities(
     [...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other'),
-    { hasDisaster: activeDisasters.length > 0, halfway: cycle ? cycle.halfway : true, keep: editingLogType },
+    { hasDisaster: activeDisasters.length > 0, halfway: cycle ? cycle.halfway : true, keep: editingLogType || (activityTouched ? '' : (suggested?.activity_name || '')) },
   )
+  const recommendedFertilizer = fertilizerNames.includes(record.recommended_input_type_name) ? record.recommended_input_type_name : ''
+  const lateStep = chosenStep?.status === 'overdue' ? chosenStep : null
 
   return (
     <>
       <ModalShell
-        title={record.crop_type_name?.toUpperCase() ?? 'CROP'}
-        subtitle={`${assocLabel} - Planted: ${record.date_planted || '—'}${cycle ? ` · Day ${cycle.day}${cycle.total ? ` of ${cycle.total}` : ''}` : ''}`}
-        icon={FileText}
+        title="Log Activity"
+        subtitle={`${record.crop_type_name ?? 'Crop'} · ${assocLabel} · Planted: ${record.date_planted || '—'}${cycle ? ` · Day ${cycle.day}${cycle.total ? ` of ${cycle.total}` : ''}` : ''}`}
+        icon={ClipboardList}
         onClose={onClose}
-        maxWidth="max-w-sm"
+        maxWidth="max-w-5xl"
       >
         {/* Post-harvest / total-loss read-only banners */}
         {isHarvested ? (
@@ -758,39 +663,30 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
             )}
           </div>
         ) : isTotalLoss ? (
-          <>
-            <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
-                <Lock className="w-4 h-4 flex-shrink-0" />
-                Total Loss Recorded
-              </div>
-              <p className="mt-1 text-xs text-rose-600">
-                This crop was recorded as a total loss. Activity logs are read-only.
-              </p>
+          <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
+              <Lock className="w-4 h-4 flex-shrink-0" />
+              Total Loss Recorded
             </div>
-            <div className="mb-4 flex items-center justify-end">
-              <button type="button" onClick={() => setShowSuggest(true)}
-                className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">
-                🌿 Get Suggestions
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="mb-4 flex items-center justify-between">
-            <button type="button" onClick={() => { setShowForm(v => !v); if (showForm) resetForm() }}
-              className="text-sm font-medium text-[#1B4D2E] hover:underline">
-              {showForm ? '— Cancel' : '+ Add New Log'}
-            </button>
-            <button type="button" onClick={() => setShowSuggest(true)}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">
-              🌿 Get Suggestions
+            <p className="mt-1 text-xs text-rose-600">
+              This crop was recorded as a total loss. Activity logs are read-only.
+            </p>
+          </div>
+        ) : null}
+
+        {/* The recommended responses to the crop's active disasters (and Mark as Recovered) */}
+        {activeDisasters.length > 0 && !isHarvested && (
+          <div className="mb-3 flex justify-end">
+            <button type="button" onClick={() => setShowDisasters(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700">
+              <AlertTriangle className="h-3.5 w-3.5" /> Disaster responses ({activeDisasters.length})
             </button>
           </div>
         )}
 
-        {/* Inline form — hidden for harvested crops */}
-        {showForm && !isHarvested && (
-          <div className="mb-4 space-y-3">
+        {/* The form: a table, filled in from the schedule */}
+        {canLog && (
+          <div className="mb-4 space-y-3" data-testid="crop-log-form">
             <DraftBanner draft={draft} />
             {recordLock.lockedByOther && (
               <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
@@ -806,194 +702,226 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
             <CycleDayBanner progress={cycle} stage={growthInfo?.stage} />
 
             {/* Late log note */}
-            {pendingSuggestion?.status === 'overdue' && (
+            {lateStep && (
               <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                Late log — this activity was scheduled for Day {pendingSuggestion.occurrence_day} and will be marked as late.
+                Late log — this activity was scheduled for Day {lateStep.day_after_planting} and will be marked as late.
               </div>
             )}
 
-            {/* Activity + Date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Activity *</label>
-                {/* Batch B: was a grouped <select> ("Suggested now" / "Other
-                    activities" optgroups, with a "· due" label suffix on
-                    suggested entries) — ComboboxWithOther takes a flat
-                    option list, so the two groups are flattened into one
-                    ordered list (suggested-first, same as before) and the
-                    "· due" annotation is dropped since it was display-only
-                    and had no separate label/value slot to live in here.
-                    The selectable values and their priority order are
-                    unchanged. */}
-                <ComboboxWithOther
-                  options={activityChoices}
-                  value={activityType}
-                  otherValue={activityTypeOtherSpecify}
-                  onChange={(newType) => {
-                    setActivityType(newType)
-                    if (PRE_PLANTING_ACTIVITIES.includes(newType)) setPlantCondition('')
-                    setPendingSuggestion(null)
-                  }}
-                  onOtherChange={setActivityTypeOtherSpecify}
-                  placeholder="Select Activity"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
-                <LoggedDatePicker
-                  id="crop-log-date"
-                  className={baseInputClasses}
-                  value={activityDate}
-                  max={todayISO()}
-                  min={selectedStageAllowsPrePlanting ? undefined : (record.date_planted || undefined)}
-                  onChange={setActivityDate}
-                  loggedDates={logs.filter(l => l.id !== editingLogId).map(l => l.date_of_activity)}
-                  labels={{ loggedNote: 'This crop already has a log on this date.' }}
-                />
-              </div>
-            </div>
-
-            {/* Fertilizer fields */}
-            {showFertilizerFields && (
-              <div className="bg-[#EBF5EE] border border-[#C8E6D0] rounded-xl p-3">
-                <p className="text-xs font-semibold text-[#1B4D2E] mb-2 flex items-center gap-1">
-                  <Leaf className="w-3.5 h-3.5" /> Fertilizer Details
-                </p>
-                <div className="mb-2">
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">Type of Fertilizer</label>
-                  <input type="text" value={fertilizerType} onChange={e => setFertilizerType(e.target.value)}
-                    placeholder="e.g. 14-14-14 NPK, Urea 46-0-0, Organic" className={baseInputClasses} />
-                  {record.growth_stage && record.recommended_input_type_name && fertilizerType !== record.recommended_input_type_name && (
-                    <p className="mt-1 text-[11px] text-[#1B4D2E]">
-                      {record.growth_stage} stage — recommended: <strong>{record.recommended_input_type_name}</strong>{' '}
-                      <button type="button" className="underline" onClick={() => setFertilizerType(record.recommended_input_type_name)}>Use this</button>
-                    </p>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Quantity Applied</label>
-                    <DecimalInput decimals={2} value={quantityApplied}
-                      onChange={setQuantityApplied} placeholder="e.g. 50" className={baseInputClasses} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Unit</label>
-                    <select value={quantityUnit} onChange={e => setQuantityUnit(e.target.value)} className={baseInputClasses}>
-                      <option value="kg">kg</option>
-                      <option value="bags">bags</option>
-                      <option value="sacks">sacks</option>
-                      <option value="liters">liters</option>
-                      <option value="pieces">pieces</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Pest/Disease fields */}
-            {showPestFields && (
-              <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
-                <p className="text-xs font-semibold text-rose-800 mb-2 flex items-center gap-1">
-                  <Bug className="w-3.5 h-3.5" /> Pest / Disease Details
-                </p>
-                <div className="mb-2">
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">Pest / Disease Name</label>
-                  <input type="text" value={pestDiseaseName} onChange={e => setPestDiseaseName(e.target.value)}
-                    placeholder="e.g. Brown Planthopper, Bacterial Blight" className={baseInputClasses} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha) *</label>
-                    <DecimalInput decimals={4} max={plantedArea} value={areaAffected}
-                      onChange={v => {
-                        setAreaAffected(v)
-                        setAreaAffectedError(validateAreaAffected(v))
-                      }}
-                      placeholder="e.g. 1.50"
-                      className={`${baseInputClasses} ${areaAffectedError ? 'border-rose-400' : ''}`} />
-                    {areaAffectedError ? (
-                      <p className="mt-1 text-[11px] font-medium text-rose-600">{areaAffectedError}</p>
-                    ) : plantedArea != null ? (
-                      <p className="mt-1 text-[11px] text-slate-500">Planted area: {plantedArea} ha</p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Severity</label>
-                    <select value={severity} onChange={e => setSeverity(e.target.value)} className={baseInputClasses}>
-                      <option value="">Select</option>
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Disaster Remedy fields */}
-            {showRemedyFields && (
-              <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
-                <p className="text-xs font-semibold text-rose-800 mb-2 flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Disaster Remedy Details
-                </p>
-                <div className="mb-2">
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">Related Disaster *</label>
-                  <select className={baseInputClasses} value={remedyDisasterId}
-                    onChange={e => setRemedyDisasterId(e.target.value)}>
-                    <option value="">Select disaster</option>
-                    {activeDisasters.map(d => (
-                      <option key={d.id} value={d.id}>
-                        {otherLabel(d.disaster_type, d.disaster_type_other_specify)} — reported {fmtDate(d.date_of_occurrence)}
-                      </option>
-                    ))}
-                  </select>
-                  {activeDisasters.length === 0 && (
-                    <p className="mt-1 text-[11px] text-rose-600">No active disaster reports on this record.</p>
-                  )}
-                </div>
-                <p className="text-[11px] text-rose-500">
-                  This remedy will not automatically satisfy any recommended response rule — describe it in the Notes field below.
-                </p>
-                {!editingLogId && (
-                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs font-medium text-emerald-800">
-                    <input
-                      type="checkbox" className="mt-0.5" checked={recoveredAfterRemedy} disabled={!remedyDisasterId}
-                      onChange={(e) => setRecoveredAfterRemedy(e.target.checked)}
+            {/* 1 - the activity: one row, one labelled column per field. */}
+            <LogTable label="Activity details" testId="crop-log-table">
+              <LogHead>
+                <LogTh required className="md:w-[13.5rem]">Date</LogTh>
+                <LogTh required className="md:w-[20rem]">Activity</LogTh>
+                {!isPrePlanting && <LogTh className="md:w-[11rem]">Plant Condition</LogTh>}
+                <LogTh required={showRemedyFields}>{showRemedyFields ? 'Remedy Performed' : 'Recommendations'}</LogTh>
+              </LogHead>
+              <tbody>
+                <LogRow>
+                  <LogCell label="Date *">
+                    <LoggedDatePicker
+                      id="crop-log-date"
+                      className={baseInputClasses}
+                      value={activityDate}
+                      max={todayISO()}
+                      min={selectedStageAllowsPrePlanting ? undefined : (record.date_planted || undefined)}
+                      onChange={setActivityDate}
+                      loggedDates={logs.filter(l => l.id !== editingLogId).map(l => l.date_of_activity)}
+                      labels={{ loggedNote: 'This crop already has a log on this date.' }}
                     />
-                    <span>The crop has recovered because of this remedy — also mark the disaster as Recovered.</span>
-                  </label>
+                  </LogCell>
+                  <LogCell label="Activity *">
+                    <ComboboxWithOther
+                      options={activityChoices}
+                      value={activityShown}
+                      otherValue={activityTypeOtherSpecify}
+                      onChange={(newType) => {
+                        setActivityTouched(true)
+                        setActivityType(newType)
+                        if (PRE_PLANTING_ACTIVITIES.includes(newType)) setPlantCondition('')
+                      }}
+                      onOtherChange={setActivityTypeOtherSpecify}
+                      placeholder="Select Activity"
+                    />
+                  </LogCell>
+                  {!isPrePlanting && (
+                    <LogCell label="Plant Condition">
+                      <select className={baseInputClasses} value={plantCondition} aria-label="Plant Condition"
+                        onChange={e => setPlantCondition(e.target.value)}>
+                        <option value="">Select condition</option>
+                        <option value="Good">Good</option>
+                        <option value="Fair">Fair</option>
+                        <option value="Poor">Poor</option>
+                      </select>
+                    </LogCell>
+                  )}
+                  <LogCell label={showRemedyFields ? 'Remedy Performed *' : 'Recommendations'}>
+                    <textarea rows={3} className={`${baseInputClasses} resize-none`} aria-label={showRemedyFields ? 'Remedy Performed' : 'Recommendations'}
+                      placeholder={showRemedyFields ? 'Describe the remedy performed' : 'Recommendations (optional)'}
+                      value={notesShown} onChange={e => { setNotesTouched(true); setNotes(e.target.value) }} />
+                  </LogCell>
+                </LogRow>
+              </tbody>
+            </LogTable>
+            {suggested ? (
+              <p className="px-1 text-xs text-[#4A5E4A]" data-testid="crop-log-suggestion">
+                Suggested now: <span className="font-medium">{suggestionNote(suggested)}</span>. You can change the activity, the recommendations and the rest.
+                {activityTouched && activityType !== suggested.activity_name && (
+                  <> <button type="button" className="font-medium text-[#1E4620] underline" data-testid="crop-log-use-suggested" onClick={backToSuggested}>Use Suggested Activity</button></>
+                )}
+              </p>
+            ) : (
+              <p className="px-1 text-xs text-[#4A5E4A]" data-testid="crop-log-suggestion">
+                {record.date_planted_is_estimated
+                  ? "The planting date of this crop is an estimate, so no schedule is suggested - choose the activity."
+                  : 'Nothing is due on the schedule today - choose the activity.'}
+              </p>
+            )}
+
+            {/* 2 - what the chosen activity needs */}
+            {showFertilizerFields && (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1 px-1 text-xs font-semibold text-[#1B4D2E]"><Leaf className="h-3.5 w-3.5" /> Fertilizer Details</p>
+                <LogTable label="Fertilizer details" testId="crop-log-fertilizer-table">
+                  <LogHead>
+                    <LogTh className="md:w-[40%]">Type of Fertilizer</LogTh>
+                    <LogTh>Quantity Applied</LogTh>
+                    <LogTh className="md:w-[9rem]">Unit</LogTh>
+                  </LogHead>
+                  <tbody>
+                    <LogRow>
+                      <LogCell label="Type of Fertilizer">
+                        <ComboboxWithOther
+                          options={fertilizerNames}
+                          value={fertilizerShown.value}
+                          otherValue={fertilizerShown.other}
+                          onChange={(v) => { setFertilizerTouched(true); setFertilizerValue(v); setFertilizerOther(v === 'Other' ? fertilizerShown.other : '') }}
+                          onOtherChange={(v) => { setFertilizerTouched(true); setFertilizerOther(v) }}
+                          placeholder="Select Fertilizer"
+                        />
+                      </LogCell>
+                      <LogCell label="Quantity Applied">
+                        <DecimalInput decimals={2} value={quantityApplied} aria-label="Quantity Applied"
+                          onChange={setQuantityApplied} placeholder="e.g. 50" className={baseInputClasses} />
+                      </LogCell>
+                      <LogCell label="Unit">
+                        <select value={quantityUnit} onChange={e => setQuantityUnit(e.target.value)} className={baseInputClasses} aria-label="Unit">
+                          <option value="kg">kg</option>
+                          <option value="bags">bags</option>
+                          <option value="sacks">sacks</option>
+                          <option value="liters">liters</option>
+                          <option value="pieces">pieces</option>
+                        </select>
+                      </LogCell>
+                    </LogRow>
+                  </tbody>
+                </LogTable>
+                {record.growth_stage && recommendedFertilizer && (
+                  <p className="px-1 text-xs text-[#1B4D2E]" data-testid="crop-log-fertilizer-note">
+                    {record.growth_stage} stage — recommended: <strong>{recommendedFertilizer}</strong>
+                    {joinFertilizer(fertilizerShown) !== recommendedFertilizer && (
+                      <> <button type="button" className="underline" onClick={() => { setFertilizerTouched(true); setFertilizerValue(recommendedFertilizer); setFertilizerOther('') }}>Use this</button></>
+                    )}
+                  </p>
+                )}
+                {fertilizerNames.length === 0 && (
+                  <p className="px-1 text-xs text-[#7A8E7A]">No fertilizers are listed yet (Crop Settings → Input Types) - choose Other and type it.</p>
                 )}
               </div>
             )}
 
-            {/* Plant Condition */}
-            {!isPrePlanting && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Plant Condition</label>
-                <select className={baseInputClasses} value={plantCondition}
-                  onChange={e => setPlantCondition(e.target.value)}>
-                  <option value="">Select condition</option>
-                  <option value="Good">Good</option>
-                  <option value="Fair">Fair</option>
-                  <option value="Poor">Poor</option>
-                </select>
+            {showPestFields && (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1 px-1 text-xs font-semibold text-rose-800"><Bug className="h-3.5 w-3.5" /> Pest / Disease Details</p>
+                <LogTable label="Pest or disease details" testId="crop-log-pest-table">
+                  <LogHead>
+                    <LogTh>Pest / Disease Name</LogTh>
+                    <LogTh required className="md:w-[14rem]">Area Affected (ha)</LogTh>
+                    <LogTh className="md:w-[10rem]">Severity</LogTh>
+                  </LogHead>
+                  <tbody>
+                    <LogRow>
+                      <LogCell label="Pest / Disease Name">
+                        <input type="text" value={pestDiseaseName} onChange={e => setPestDiseaseName(e.target.value)} aria-label="Pest / Disease Name"
+                          placeholder="e.g. Brown Planthopper, Bacterial Blight" className={baseInputClasses} />
+                      </LogCell>
+                      <LogCell label="Area Affected (ha) *">
+                        <DecimalInput decimals={4} max={plantedArea} value={areaAffected} aria-label="Area Affected (ha)"
+                          onChange={v => {
+                            setAreaAffected(v)
+                            setAreaAffectedError(validateAreaAffected(v))
+                          }}
+                          placeholder="e.g. 1.50"
+                          className={`${baseInputClasses} ${areaAffectedError ? 'border-rose-400' : ''}`} />
+                        {areaAffectedError ? (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600">{areaAffectedError}</p>
+                        ) : plantedArea != null ? (
+                          <p className="mt-1 text-[11px] text-slate-500">Planted area: {plantedArea} ha</p>
+                        ) : null}
+                      </LogCell>
+                      <LogCell label="Severity">
+                        <select value={severity} onChange={e => setSeverity(e.target.value)} className={baseInputClasses} aria-label="Severity">
+                          <option value="">Select</option>
+                          <option value="Low">Low</option>
+                          <option value="Medium">Medium</option>
+                          <option value="High">High</option>
+                        </select>
+                      </LogCell>
+                    </LogRow>
+                  </tbody>
+                </LogTable>
               </div>
             )}
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                {showRemedyFields ? 'Remedy Performed *' : 'Recommendations'}
-              </label>
-              <textarea rows={3} className={`${baseInputClasses} resize-none`}
-                placeholder={showRemedyFields ? 'Describe the remedy performed' : 'Recommendations (optional)'}
-                value={notes} onChange={e => setNotes(e.target.value)} />
-            </div>
+            {showRemedyFields && (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1 px-1 text-xs font-semibold text-rose-800"><AlertTriangle className="h-3.5 w-3.5" /> Disaster Remedy Details</p>
+                <LogTable label="Disaster remedy details" testId="crop-log-remedy-table">
+                  <LogHead>
+                    <LogTh required>Related Disaster</LogTh>
+                    {!editingLogId && <LogTh>Recovered</LogTh>}
+                  </LogHead>
+                  <tbody>
+                    <LogRow>
+                      <LogCell label="Related Disaster *">
+                        <select className={baseInputClasses} value={remedyDisasterId} aria-label="Related Disaster"
+                          onChange={e => setRemedyDisasterId(e.target.value)}>
+                          <option value="">Select disaster</option>
+                          {activeDisasters.map(d => (
+                            <option key={d.id} value={d.id}>
+                              {otherLabel(d.disaster_type, d.disaster_type_other_specify)} — reported {fmtDate(d.date_of_occurrence)}
+                            </option>
+                          ))}
+                        </select>
+                        {activeDisasters.length === 0 && (
+                          <p className="mt-1 text-[11px] text-rose-600">No active disaster reports on this record.</p>
+                        )}
+                      </LogCell>
+                      {!editingLogId && (
+                        <LogCell label="Recovered">
+                          <label className="flex cursor-pointer items-start gap-2 text-xs font-medium text-emerald-800">
+                            <input
+                              type="checkbox" className="mt-0.5" checked={recoveredAfterRemedy} disabled={!remedyDisasterId}
+                              onChange={(e) => setRecoveredAfterRemedy(e.target.checked)}
+                            />
+                            <span>The crop has recovered because of this remedy — also mark the disaster as Recovered.</span>
+                          </label>
+                        </LogCell>
+                      )}
+                    </LogRow>
+                  </tbody>
+                </LogTable>
+                <p className="px-1 text-[11px] text-rose-500">
+                  This remedy will not automatically satisfy any recommended response rule — describe it in Remedy Performed above.
+                </p>
+              </div>
+            )}
 
-            <button type="button" disabled={isSubmitting} onClick={handleSubmitClick}
-              className="w-full rounded-xl bg-[#1B4D2E] py-2.5 text-sm font-medium text-white hover:bg-[#235E38] disabled:opacity-60">
-              {isSubmitting ? 'Saving…' : (editingLogId ? 'Save Changes' : 'Add Log')}
-            </button>
+            <div className="flex justify-end gap-2">
+              <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+              <Button type="button" size="sm" isLoading={isSubmitting} onClick={handleSubmit}>{editingLogId ? 'Save Changes' : 'Save'}</Button>
+            </div>
             </>}
           </div>
         )}
@@ -1168,16 +1096,6 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
         ))}
       </ModalShell>
 
-      {showConfirm && (
-        <ConfirmDialog variant="primary"
-          title="Confirm Action"
-          message={editingLogId ? 'Are you sure you want to save your changes to this activity log?' : 'Are you sure you want to add this activity log?'}
-          confirmLabel="Confirm"
-          onConfirm={handleConfirmed}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
-
       {recoverTarget && (
         <ConfirmDialog
           title="Mark this disaster as Recovered?"
@@ -1192,11 +1110,11 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
         />
       )}
 
-      {showSuggest && (
-        <SuggestionsModal
+      {showDisasters && (
+        <DisasterResponsesModal
           record={record}
-          onClose={() => setShowSuggest(false)}
-          onApply={handleApplySuggestion}
+          onClose={() => setShowDisasters(false)}
+          onApply={handleApplyDisasterRule}
         />
       )}
 
@@ -2087,7 +2005,6 @@ export default function CropMonitoringPage() {
   const [detailsRecord,    setDetailsRecord]    = useState(null)   // the read-only crop details window
   const [viewingParcel,    setViewingParcel]    = useState(null)   // a parcel group's View parcel window (the group row)
   const [editingParcel,    setEditingParcel]    = useState(null)   // a parcel group's Edit parcel window (the whole parcel)
-  const [logsStartForm,    setLogsStartForm]    = useState(false)   // open the logs window on the add-activity form
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
   const [forceRecord,      setForceRecord]      = useState(null)   // the crop whose ⋮ > Force Harvest opened the forced harvest window
@@ -2244,7 +2161,7 @@ export default function CropMonitoringPage() {
       <RowActions
         actions={[
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
-            key: 'activity', label: 'Record Activity', icon: ClipboardList, onClick: () => { setLogsStartForm(true); setViewLogsRecord(rec) },
+            key: 'activity', label: 'Log Activity', icon: ClipboardList, onClick: () => setViewLogsRecord(rec),
           },
           { key: 'details', label: 'Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (() => {
@@ -2433,7 +2350,7 @@ export default function CropMonitoringPage() {
           onAction={(action) => {
             const rec = detailsRecord
             setDetailsRecord(null)
-            if (action === 'activity') { setLogsStartForm(true); setViewLogsRecord(rec) }
+            if (action === 'activity') setViewLogsRecord(rec)
             else if (action === 'disaster') setDisasterRecord(rec)
             else if (action === 'harvest') {
               const gate = harvestGateInfo(rec)
@@ -2447,8 +2364,7 @@ export default function CropMonitoringPage() {
       {viewLogsRecord && (
         <ViewLogsModal
           record={viewLogsRecord}
-          initialForm={logsStartForm}
-          onClose={() => { setViewLogsRecord(null); setLogsStartForm(false) }}
+          onClose={() => setViewLogsRecord(null)}
           onLogAdded={refreshAll}
         />
       )}

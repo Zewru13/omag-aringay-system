@@ -249,7 +249,7 @@ function SuggestionsSection({ cropId }) {
     <div className="border-t border-[#F0F4F0] pt-4 mt-4">
       <p className="text-[13px] font-semibold text-[#1A2B1A] mb-1">Activity Suggestions</p>
       <p className="text-[12px] text-[#7A8E7A] mb-3">
-        These appear in the Get Suggestions panel when staff monitors this crop.
+        The Log Activity form opens filled in from these when staff logs an activity on this crop.
       </p>
 
       {isLoading ? (

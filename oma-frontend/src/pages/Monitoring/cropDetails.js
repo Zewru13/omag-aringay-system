@@ -90,7 +90,7 @@ export function harvestRows(harvest) {
 export function detailActions(record) {
   const open = record.status !== 'Harvested' && record.status !== 'Total Loss'
   return [
-    ...(open ? [{ key: 'activity', label: 'Record Activity' }, { key: 'harvest', label: 'Record Harvest' }] : []),
+    ...(open ? [{ key: 'activity', label: 'Log Activity' }, { key: 'harvest', label: 'Record Harvest' }] : []),
     { key: 'disaster', label: 'Report Disaster' },
   ]
 }
