@@ -910,6 +910,131 @@ class MultiStockDisasterReportCreateView(generics.CreateAPIView):
                     record_label=label, detail=report.disaster_type)
 
 
+class MultiFisherfolkDisasterCreateView(APIView):
+    """POST /fisheries/disaster-reports/multi/ - ONE disaster event logged for SEVERAL fisherfolk in a single request by Admin / Evaluator (a
+    typhoon hits a whole barangay). Staff only: a fisherfolk logs their own stocks on /stocks/.
+
+    Body (JSON, or multipart when there are photos - then `fisherfolk_groups` is a JSON string): the event fields shared by everyone
+    (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage, photos) and `fisherfolk_groups`:
+    [{ fisherfolk, stock_losses: [{stocking_record, production_unit, fingerlings_lost, is_total_loss}], volume_lost_kg, equipment_damaged }].
+    A group with stock_losses is logged exactly like /stocks/ (their own stocks only); a group with none is "not linked to a stock" (pond, cage
+    or equipment damage only) and is logged exactly like /monitoring/fisherfolk-disasters/ (the fisherfolk must have a pond or cage on record).
+    It creates one log per fisherfolk, each validated like the single form, with its own copy of the photos and its own notifications, so every
+    log keeps its own recovery, Total Loss and photos. All or nothing: one problem saves nothing. A repeat of the same request moments later
+    (double click, retry) returns the logs already saved instead of making second ones."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    MAX_FISHERFOLK = 100
+    SHARED_FIELDS = ('disaster_type', 'disaster_type_other_specify', 'date_of_occurrence', 'estimated_damage')
+    GROUP_FIELDS = ('volume_lost_kg', 'equipment_damaged')
+
+    def post(self, request):
+        import json
+        from django.core.files.base import ContentFile
+        if not hasattr(request.data, 'items'):
+            raise ValidationError({'detail': 'Send the report as a form or a JSON object.'})
+        groups = request.data.get('fisherfolk_groups')
+        if isinstance(groups, str):
+            try:
+                groups = json.loads(groups)
+            except ValueError:
+                raise ValidationError({'fisherfolk_groups': ['The list of fisherfolk could not be read.']})
+        if not isinstance(groups, list) or not groups:
+            raise ValidationError({'fisherfolk_groups': ['Choose at least one fisherfolk.']})
+        if len(groups) > self.MAX_FISHERFOLK:
+            raise ValidationError({'fisherfolk_groups': [f'At most {self.MAX_FISHERFOLK} fisherfolk can be logged at once.']})
+        try:
+            owner_ids = [int(g['fisherfolk']) for g in groups]
+        except (TypeError, KeyError, ValueError):
+            raise ValidationError({'fisherfolk_groups': ['Each fisherfolk needs its id.']})
+        if len(set(owner_ids)) != len(owner_ids):
+            raise ValidationError({'fisherfolk_groups': ['The same fisherfolk is listed twice.']})
+        owners = {f.id: f for f in Fisherfolk.objects.filter(pk__in=owner_ids)}
+        if len(owners) != len(owner_ids):
+            raise ValidationError({'fisherfolk_groups': ['One of the fisherfolk could not be found.']})
+
+        photos = _validated_damage_photos(request)
+        contents = [(f.name, f.read()) for f in photos]
+        form = _disaster_form_data(request)
+        shared = {k: form[k] for k in self.SHARED_FIELDS if k in form}
+
+        planned = []   # (kind, owner, stock plan or None, serializer)
+        for group in groups:
+            owner = owners[int(group['fisherfolk'])]
+            data = dict(shared)
+            for field in self.GROUP_FIELDS:
+                if group.get(field) not in (None, ''):
+                    data[field] = group[field]
+            raw = group.get('stock_losses')
+            if raw:
+                try:
+                    plan = disaster_reports.plan_stock_losses(owner.id, raw)
+                except ValidationError as exc:
+                    raise ValidationError({'fisherfolk_groups': [f'{owner.full_name}: {_first_message(exc.detail)}']})
+                serializer = FisheriesDisasterReportSerializer(data=data, context={'request': request})
+                serializer.is_valid(raise_exception=True)
+                planned.append(('stocks', owner, plan, serializer))
+            else:
+                if not fisherfolk_has_ponds(owner.id):
+                    raise ValidationError({'fisherfolk_groups': [f'{owner.full_name}: {NO_PONDS_MESSAGE}']})
+                serializer = GeneralDisasterReportSerializer(data={**data, 'fisherfolk': owner.id}, context={'request': request})
+                serializer.is_valid(raise_exception=True)
+                planned.append(('general', owner, None, serializer))
+
+        user = request.user
+        written, reports, created_any = [], [], False
+        try:
+            with transaction.atomic():
+                for kind, owner, plan, serializer in planned:
+                    disaster_reports.lock_owner(owner.id)
+                    if kind == 'stocks':
+                        primary = plan['stocks'][0]
+                        existing = disaster_reports.find_recent_duplicate(
+                            user, owner.id, primary.id, serializer.validated_data, stock_loss_rows=plan['rows'])
+                    else:
+                        existing = disaster_reports.find_recent_duplicate(user, owner.id, None, serializer.validated_data)
+                    if existing is not None:
+                        reports.append(existing)
+                        continue
+                    created_any = True
+                    if kind == 'stocks':
+                        for stock in plan['stocks']:
+                            assert_not_locked_by_other(user, 'stocking', stock.id)
+                        all_closed = set(plan['closes']) == {st.id for st in plan['stocks']}
+                        report = serializer.save(stocking_record=primary, reported_by=user, is_total_loss=all_closed)
+                        disaster_reports.save_stock_losses(report, plan)
+                        label = disaster_reports.affected_stocks_label(report)
+                        notify_staff(actor=user, verb='reported a disaster on', record_type='stocking', record_id=primary.id,
+                                     record_label=label, detail=report.disaster_type)
+                        notify_user(recipient=resolve_owner_user(fisherfolk_id=primary.fisherfolk_id), actor=user, verb='reported a disaster on',
+                                    record_type='stocking', record_id=primary.id, record_label=label, detail=report.disaster_type)
+                    else:
+                        report = serializer.save(reported_by=user)
+                        notify_staff(actor=user, verb='reported a disaster on', record_type='fisherfolk_disaster', record_id=report.fisherfolk_id,
+                                     record_label=_fisherfolk_disaster_label(owner), detail=report.disaster_type)
+                        notify_user(recipient=resolve_owner_user(fisherfolk_id=owner.id), actor=user, verb='reported a disaster on',
+                                    record_type='fisherfolk_disaster', record_id=report.fisherfolk_id,
+                                    record_label=_fisherfolk_disaster_label(owner), detail=report.disaster_type)
+                    for name, blob in contents:
+                        row = FisheriesDisasterReportPhoto.objects.create(disaster_report=report, image=ContentFile(blob, name=name), uploaded_by=user)
+                        written.append(row.image.name)
+                    reports.append(report)
+                rows = FisheriesDisasterReport.objects.filter(pk__in=[r.pk for r in reports]).order_by('id')
+                data = [disaster_reports.report_list_row(r) for r in rows]   # the rows the Fisheries Disaster table lists
+        except Exception:
+            _discard_uploaded_files(written)
+            raise
+        return Response(data, status=drf_status.HTTP_201_CREATED if created_any else drf_status.HTTP_200_OK)
+
+
+def _first_message(detail):
+    """The first human sentence of a DRF error detail (a string, a list, or a dict of those)."""
+    if isinstance(detail, dict):
+        detail = next(iter(detail.values()), '')
+    if isinstance(detail, (list, tuple)):
+        detail = detail[0] if detail else ''
+    return str(detail)
+
+
 class FisheriesDisasterResolveView(APIView):
     """
     Mark a disaster Recovered. Two paths:

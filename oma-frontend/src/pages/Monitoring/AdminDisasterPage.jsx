@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, Eye, Plus, Printer, Users } from 'lucide-react'
+import { Download, Eye, Plus, Printer } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -11,19 +11,16 @@ import { groupDisasterRows } from './disasterGroups.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
-import FormField from '../../components/UI/FormField.jsx'
-import ModalShell from '../../components/UI/ModalShell.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
-import SearchBar from '../../components/UI/SearchBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import LogCropDisasterScreen from './LogCropDisasterScreen.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
-import { FARMER_LOG, FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
+import { FARMER_LOG, FISHERIES_LOG, downloadLog, printLog } from './disasterReportDocument.js'
 import { FISHERFOLK_DISASTER_TYPES } from './fisheriesDisasterConstants.js'
-import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
+import MultiFisherfolkDisasterModal from './MultiFisherfolkDisasterModal.jsx'
 import DisasterPersonReportModal from './DisasterPersonReportModal.jsx'
 import { disasterListParams, disasterReportStem, disasterReportUrl } from '../../utils/disasterReport.js'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -46,7 +43,6 @@ const SUBMISSION_TONES = { SUBMITTED: 'green', DRAFT: 'amber' }
 const STATUS_TONES = { Active: 'amber', Recovered: 'green' }
 
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
-const listOf = (data) => (Array.isArray(data) ? data : (data?.results || []))
 
 function useDebounced(value, ms = 350) {
   const [v, setV] = useState(value)
@@ -95,43 +91,6 @@ function Filters({ search, setSearch, barangay, setBarangay, type, setType, type
   )
 }
 
-// Step 1 of Log Disaster: choose the farmer / fisherfolk (searched from the existing registries).
-function ChoosePersonModal({ title, label, searchUrl, onClose, onChoose }) {
-  const [q, setQ] = useState('')
-  const query = useDebounced(q)
-  const [results, setResults] = useState([])
-  useEffect(() => {
-    let cancelled = false
-    if (!query.trim()) return undefined
-    api.get(searchUrl, { params: { search: query.trim() } })
-      .then(r => { if (!cancelled) setResults(listOf(r.data).slice(0, 15)) })
-      .catch(() => { if (!cancelled) setResults([]) })
-    return () => { cancelled = true }
-  }, [query, searchUrl])
-  const shown = query.trim() ? results : []
-  return (
-    <ModalShell title={title} subtitle={`Step 1 of 3 — choose the ${label.toLowerCase()}`} icon={Users} onClose={onClose} maxWidth="max-w-md"
-      footer={<Button type="button" variant="outline" onClick={onClose}>Cancel</Button>}>
-      <FormField label={label} required>
-        <div className="flex items-center rounded-xl border border-slate-300 bg-white">
-          <SearchBar value={q} onChange={setQ} placeholder={`Search ${label.toLowerCase()} by name…`} />
-        </div>
-      </FormField>
-      <ul className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200" data-testid="person-results">
-        {shown.map(p => (
-          <li key={p.id}>
-            <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]" onClick={() => onChoose(p)}>
-              <span className="font-medium">{p.full_name}</span>
-              <span className="ml-2 text-slate-400">{[p.fisherfolk_type, p.barangay].filter(Boolean).join(' · ')}</span>
-            </button>
-          </li>
-        ))}
-        {!shown.length && <li className="px-4 py-3 text-sm text-slate-400">{query.trim() ? 'No matches.' : 'Type a name to search.'}</li>}
-      </ul>
-    </ModalShell>
-  )
-}
-
 // The menu of a farmer / fisherfolk row: their report on screen, printed, or downloaded (the same PDF as Reports > Disaster).
 function personActions({ kind, group, person, busyKey, act, filters, onView }) {
   if (group.id == null) return []
@@ -162,7 +121,7 @@ function FisheriesDisasterTab({ openLog }) {
   const { rows, count, isLoading, error } = usePagedLogs('/fisheries/disaster-reports/', disasterListParams({ ...filters, page }), version)
   const [busyId, setBusyId] = useState(null)
   const [personReport, setPersonReport] = useState(null)   // the fisherfolk whose report is open
-  const [step, setStep] = useState(null)   // {name:'person'} | {name:'form', person, stocks (null while loading)}
+  const [step, setStep] = useState(null) // {name:'multi'} while the Log Disaster form is open
 
   const setFilter = (fn) => (v) => { fn(v); setPage(1) }
   const act = async (id, fn, failMsg) => {
@@ -170,31 +129,8 @@ function FisheriesDisasterTab({ openLog }) {
     try { await fn() } catch (err) { showToast(err?.message || failMsg, 'error') } finally { setBusyId(null) }
   }
 
-  // The same Log Disaster form a fisherfolk uses, with EVERY active stock of the chosen fisherfolk (all pages)
-  // - never another fisherfolk's; the backend checks that again on save.
-  const choosePerson = async (person) => {
-    setStep({ name: 'form', person, stocks: null })
-    let stocks = []
-    try {
-      const [loaded, eligibility] = await Promise.all([
-        fetchAllStocks({ fisherfolk: person.id, status: 'Stocked,Near Harvest' }),
-        api.get('/monitoring/fisherfolk-disasters/eligibility/', { params: { fisherfolk: person.id } }),
-      ])
-      if (!eligibility.data.can_log_disaster) {
-        // No pond, cage or stock on record: no disaster can be logged for this fisherfolk (the rule their own screen applies).
-        setStep(null)
-        showToast(eligibility.data.message, 'error')
-        return
-      }
-      stocks = loaded
-    } catch {
-      showToast('Could not check this fisherfolk\'s ponds, cages and stocks. Please try again.', 'error')
-      setStep(null)
-      return
-    }
-    setStep(prev => (prev?.name === 'form' && prev.person.id === person.id ? { ...prev, stocks } : prev))
-  }
-  const onLogged = (log) => { setStep(null); setVersion(v => v + 1); if (log?.id) openLog(log.id) }
+  // One fisherfolk logged: open their log, as before. Several: back to the table, which lists every new log.
+  const onLogged = (logs) => { setStep(null); setVersion(v => v + 1); if (logs?.length === 1) openLog(logs[0].id) }
 
   const data = useMemo(() => rows.map(r => ({
     ...r,
@@ -230,7 +166,7 @@ function FisheriesDisasterTab({ openLog }) {
         placeholder="Search fisherfolk, species, disaster or reference no.…"
         actions={(
           <>
-            <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+            <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'multi' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
           </>
         )} />
       {error ? <ErrorMessage message={error} /> : (
@@ -251,14 +187,7 @@ function FisheriesDisasterTab({ openLog }) {
       )}
 
       {personReport && <DisasterPersonReportModal kind="fisheries" person={personReport} filters={filters} onClose={() => setPersonReport(null)} />}
-      {step?.name === 'person' && (
-        <ChoosePersonModal title="Log Fisheries Disaster" label="Fisherfolk" searchUrl="/fisheries/fisherfolk/"
-          onClose={() => setStep(null)} onChoose={choosePerson} />
-      )}
-      {step?.name === 'form' && (
-        <FisherfolkStockDisasterModal stocks={step.stocks} fisherfolk={step.person}
-          onClose={() => setStep(null)} onSaved={onLogged} />
-      )}
+      {step?.name === 'multi' && <MultiFisherfolkDisasterModal onClose={() => setStep(null)} onSaved={onLogged} />}
     </div>
   )
 }

@@ -14,6 +14,7 @@ import {
 } from './fisheriesDisasterConstants.js'
 import { DamagePhotosField, EquipmentChecklist } from './fisheriesDisasterShared.jsx'
 import useDamagePhotos from './useDamagePhotos.js'
+import { HARVESTED, autoFilled, effectiveLost, rowError, rowKey, stockOptionLabel, todayLocal } from './fisheriesStockLosses.js'
 
 // Log Disaster - the ONE Fisheries disaster form, for a fisherfolk's own stocks and for Admin/Evaluator logging
 // on behalf of a chosen fisherfolk (Admin > Disaster > Fisheries Disaster). Either:
@@ -30,17 +31,6 @@ import useDamagePhotos from './useDamagePhotos.js'
 const NOT_LINKED = 'unlinked'
 const LINKED = 'stocks'
 
-const todayLocal = () => {
-  const d = new Date()
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-}
-
-const stockOptionLabel = (s) => [
-  s.species_name || 'Stock',
-  s.production_cycle_name,
-  s.production_cycle_no && `Cycle ${s.production_cycle_no}`,
-].filter(Boolean).join(' · ')
-
 const stockOptionDetail = (s) => [
   s.culture_phase,
   s.date_stocked && `stocked ${fmtLong(s.date_stocked)}`,
@@ -48,27 +38,8 @@ const stockOptionDetail = (s) => [
   s.number_of_units && `${s.number_of_units} ${(s.culture_type || 'unit').toLowerCase()}${s.number_of_units === 1 ? '' : 's'}`,
 ].filter(Boolean).join(' · ')
 
-const rowKey = (stockId, unitId) => `${stockId}:${unitId ?? 'all'}`
-const HARVESTED = new Set(['harvested', 'force_harvested', 'cycle_harvested'])
-
-// Total Loss on a row with a known stocked count: the count is that full stocked count (filled in, read-only).
-const autoFilled = (row, value) => Boolean(value?.total) && row.stocked != null
-
-// The row's Fingerlings Lost as counted in totals and sent: the stocked count while auto-filled.
-const effectiveLost = (row, value) => (autoFilled(row, value) ? String(row.stocked) : String(value?.lost ?? '').trim())
-
-// '' = not recorded. Otherwise a whole number of 0 or more, at most the stocked count when known.
-function rowError(row, value) {
-  if (autoFilled(row, value)) return ''
-  const s = String(value?.lost ?? '').trim()
-  if (!s) return value?.total ? 'Enter the fingerlings lost (no stocked count is recorded for this one).' : ''
-  if (!/^\d+$/.test(s)) return 'Whole number of 0 or more.'
-  if (row.stocked != null && Number(s) > row.stocked) return `Cannot exceed ${row.stocked.toLocaleString()} stocked.`
-  return ''
-}
-
 // `disabled`: shown but not usable (the report is not linked to a stock); choosing "One or more stocks" enables it again.
-function StockPicker({ stocks, selectedIds, onToggle, disabled = false }) {
+export function StockPicker({ stocks, selectedIds, onToggle, disabled = false }) {
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const shown = stocks.filter(s => !q || `${stockOptionLabel(s)} ${stockOptionDetail(s)}`.toLowerCase().includes(q))
@@ -134,7 +105,7 @@ function LostInput({ row, value, name, err, onChange, className = '', placeholde
 }
 
 // One table: a row per selected stock and pond/cage (or one "Whole stock" row for a stock without them).
-function FingerlingsLostTable({ groups, values, onChange, showErrors }) {
+export function FingerlingsLostTable({ groups, values, onChange, showErrors }) {
   const fmt = (n) => Number(n).toLocaleString()
   const overall = groups.reduce((sum, g) => sum + g.total, 0)
   return (

@@ -165,8 +165,8 @@ const STAFF_GUIDES = (focal) => [
       'Open Disaster > Crop Disaster. The table lists the farmers who have disaster logs. Filters has the barangay, type, status, year and the date it occurred (From and To). The disaster report is made in Reports > Disaster.',
       'Click a farmer to open their disasters, then one to see its log with Print Disaster Log and Download Disaster Log. The Actions menu of a farmer gives View Report, Print and Download.',
       'Press Log Disaster to report one disaster on many parcels and crops at once: fill the event once (type, date, damage, loss, photos), tick the parcels and crops that were hit, and tick Total loss where a crop was destroyed. Report Disaster saves one log for each farmer and crop.',
-      'In Disaster > Fisheries Disaster, press Log Disaster. Step 1: search for the fisherfolk and click their name. Step 2: choose the stock or stocks that were hit (or Not linked to a stock), the date and the type, then the volume lost, the equipment damaged, a description and photos.',
-      'Press Log Disaster to save. The log of that fisherfolk opens so you can print or download it. To report another fisherfolk, start again.',
+      'In Disaster > Fisheries Disaster, press Log Disaster to report one disaster for one or many fisherfolk at once. Search by name or registration number and tick every fisherfolk that was hit (a chip appears for each; the x on a chip removes them). Fill in the disaster once: the date, the type, a description and photos. Then, under the heading for each fisherfolk, choose their own stocks that were hit (or Not linked to a stock), the fingerlings lost per pond or cage with Total loss, the equipment damaged and the volume lost.',
+      'Press Log Disaster to save: one disaster log is made for each fisherfolk, all together or not at all, and each fisherfolk is notified. With one fisherfolk their log opens so you can print or download it; with several you find the new logs in the table. A fisherfolk with no pond or cage on record cannot be logged: remove them from the list.',
     ],
   },
   {
