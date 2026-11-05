@@ -2,7 +2,7 @@
 // for one reason (an upcoming typhoon, a drought...). Pure functions - no screen, no network - for which crops are offered, what each row
 // needs, and what is sent (POST /production/forced-harvest/). The server checks everything again.
 import { FORCED_OTHER, FORCED_REASONS, TOLERANCE_DAYS, forcedProblem, harvestTiming } from '../Monitoring/harvestReport.js'
-import { computeKg, needsTotalKg, quantityProblem, totalKgProblem, weightFor } from '../Monitoring/harvestUnits.js'
+import { KG, computeKg, harvestUnitOptions, needsTotalKg, quantityProblem, totalKgProblem, weightFor } from '../Monitoring/harvestUnits.js'
 
 export const STANDARD_UNITS = ['kg', 'bags', 'cavan', 'sacks', 'pieces', 'bundles', 'boxes']
 export const MAX_CROPS = 100   // the most the server takes in one request
@@ -49,10 +49,11 @@ export const cropLabel = (r) => `${r.crop_type_name || 'Crop'}${r.variety_used ?
 // `total` is the total kg, only asked for when the unit has no standard weight (Settings > Harvest Units).
 export function makeRow(record) {
   const planted = num(record.area_planted_ha)
-  const units = record.crop_allowed_units && record.crop_allowed_units.length ? record.crop_allowed_units : STANDARD_UNITS
+  // every crop starts on kg; the crop's own units follow it
+  const units = harvestUnitOptions(record.crop_allowed_units && record.crop_allowed_units.length ? record.crop_allowed_units : STANDARD_UNITS)
   return {
     id: record.id, label: cropLabel(record), cropTypeId: record.crop_type ?? null, plantedHa: planted, area: planted === null ? '' : String(planted),
-    quantity: '', total: '', unit: units[0], units,
+    quantity: '', total: '', unit: KG, units,
   }
 }
 

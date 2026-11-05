@@ -6,6 +6,18 @@ export const KG = 'kg'
 
 const normalize = (unit) => String(unit || KG).trim().replace(/\s+/g, ' ').toLowerCase()
 
+// The units a crop's harvest forms offer: kg first, because every crop starts on kg, then the crop's own units (Crop Settings > Allowed Units
+// of Measure), each once. kg needs no standard weight and the server always accepts it.
+export function harvestUnitOptions(allowed) {
+  const seen = new Set([KG])
+  const rest = []
+  for (const unit of allowed || []) {
+    const key = normalize(unit)
+    if (!seen.has(key)) { seen.add(key); rest.push(unit) }
+  }
+  return [KG, ...rest]
+}
+
 // The kg one `unit` weighs for a crop (a number), or null when it has no standard weight. `weights` is the settings list
 // [{ unit, crop_type, kg_per_unit }]. kg is built in; the crop's own row wins over the row for every crop (even when it is empty).
 export function weightFor(weights, unit, cropTypeId = null) {

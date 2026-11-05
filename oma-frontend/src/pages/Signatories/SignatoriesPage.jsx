@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Pencil, PenLine, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
-import AddButton from '../../components/UI/AddButton.jsx'
 import Button from '../../components/UI/Button.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -19,6 +19,7 @@ import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Admin > Signatories: the officials the Reports pages offer as Prepared / Checked / Noted / Approved by. One row is one person in one
 // signing role (a person who signs in two roles is added twice). A row that is not Active is no longer offered; Order sorts a role's list.
+// A new signatory is typed in a row of the table (the Add Signatory button is under it), like the other settings tables; Edit opens the form.
 
 const COLUMNS = [
   { key: 'name', label: 'NAME' },
@@ -115,7 +116,8 @@ export default function SignatoriesPage() {
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [editing, setEditing] = useState(null)   // null = closed, {} = adding, a row = editing it
+  const [editing, setEditing] = useState(null)   // null = closed, a row = editing it
+  const add = useAddRow({ name: '', position: '', role: 'noted', sort_order: '0' }, 'signatory')
   const [deleting, setDeleting] = useState(null)
   const [version, setVersion] = useState(0)
 
@@ -129,6 +131,24 @@ export default function SignatoriesPage() {
   }, [version])
 
   const refresh = () => setVersion((v) => v + 1)
+
+  const saveDraft = async () => {
+    const d = add.draft
+    const problem = signatoryError(d)
+    if (problem) { showToast(problem, 'error'); return }
+    add.setIsSaving(true)
+    try {
+      await api.post('/reports/signatories/', { name: d.name.trim(), position: d.position.trim(), role: d.role, sort_order: Number(d.sort_order) || 0, is_active: true })
+      showToast('Signatory added.', 'success')
+      add.close()
+      refresh()
+    } catch (err) {
+      const data = err?.response?.data || {}
+      showToast(first(data.name) || first(data.role) || first(data.sort_order) || first(data.detail) || 'Failed to save the signatory.', 'error')
+    } finally {
+      add.setIsSaving(false)
+    }
+  }
 
   const data = rows.map((s) => ({
     id: s.id,
@@ -145,14 +165,34 @@ export default function SignatoriesPage() {
     ),
   }))
 
+  if (add.isOpen) {
+    data.unshift({
+      id: 'new',
+      name: <DraftInput value={add.draft.name} aria-label="New signatory name" placeholder="e.g. Ana R. Cruz" maxLength={150}
+        onChange={(e) => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      position: <DraftInput value={add.draft.position} aria-label="Position" placeholder="e.g. Municipal Agriculturist" maxLength={150}
+        onChange={(e) => add.change({ position: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      role: (
+        <DraftSelect value={add.draft.role} aria-label="Signing role" onChange={(e) => add.change({ role: e.target.value })}>
+          {SIGNATORY_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </DraftSelect>
+      ),
+      sort_order: <DraftInput type="number" min="0" inputMode="numeric" value={add.draft.sort_order} aria-label="Order"
+        onChange={(e) => add.change({ sort_order: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
+      active: <StatusPill tone="green">Active</StatusPill>,
+      actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
+    })
+  }
+
   return (
     <PageLayout title="Manage Signatories" subtitle="The officials the Reports pages offer as Prepared, Checked, Noted and Approved by.">
       <div className="space-y-4">
         {error && <ErrorMessage message={error} />}
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <CardHeader title="Signatories" count={rows.length} action={<AddButton onClick={() => setEditing({})}>Add Signatory</AddButton>} />
+          <CardHeader title="Signatories" count={rows.length} />
           <DataTable bare columns={COLUMNS} data={data} isLoading={isLoading}
             emptyState={<p className="px-4 py-8 text-center text-sm text-slate-500">No signatories yet. The Reports pages offer the names you add here.</p>} />
+          {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Signatory" />}
         </div>
       </div>
 
