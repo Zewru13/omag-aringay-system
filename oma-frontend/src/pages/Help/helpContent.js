@@ -129,7 +129,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do Activity Suggestions work?',
-        a: 'Activity Suggestions are set per crop in Activity Settings. In a crop\'s View Logs, Get Suggestions shows what is recommended: done activities are grayed out with a checkmark, the others are in full color. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
+        a: 'Activity Suggestions are set per crop in Activity Settings. When you open Log Activity on a crop, the form is already filled in from them: the activity that is due now (or the earliest overdue one), its recommendation and, for Fertilizer Application, the Type of Fertilizer from the list in Crop Settings (Input Types). Change anything you like. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
       },
     ],
   },

@@ -1551,7 +1551,7 @@ export default {
    {
     "n": 7,
     "label": "Actions menu",
-    "desc": "The three dots of a crop: Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture)."
+    "desc": "The three dots of a crop: Log Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster (next picture)."
    },
    {
     "n": 8,
@@ -1615,8 +1615,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Record Activity",
-    "desc": "Logs work done on the crop (fertilizing, spraying, irrigation and so on) and shows its history and suggestions."
+    "label": "Log Activity",
+    "desc": "Logs work done on the crop (fertilizing, spraying, irrigation and so on). The form opens already filled in from the schedule."
    },
    {
     "n": 2,
@@ -1675,8 +1675,8 @@ export default {
    },
    {
     "n": 6,
-    "label": "Record Activity",
-    "desc": "Opens the activity window for this crop."
+    "label": "Log Activity",
+    "desc": "Opens the Log Activity window for this crop."
    },
    {
     "n": 7,
@@ -1692,7 +1692,7 @@ export default {
  },
  "admin-record-activity": {
   "audience": "admin",
-  "title": "Record Activity window",
+  "title": "Log Activity window",
   "purpose": "Logs one activity on a crop.",
   "image": "/manual/admin/record-activity.png",
   "width": 1280,
@@ -1705,8 +1705,8 @@ export default {
    },
    {
     "n": 2,
-    "label": "Get Suggestions",
-    "desc": "Shows what is recommended for this crop at this stage (set in Activity Settings). Activities already done are grayed out with a checkmark; the others are in full color and can be logged from there."
+    "label": "Suggested now",
+    "desc": "The form opens on the activity that is due now (or the earliest overdue one), with its recommendations already in the box. Everything can be changed; Use Suggested Activity brings the suggestion back."
    },
    {
     "n": 3,
@@ -3321,12 +3321,12 @@ export default {
    {
     "n": 4,
     "label": "Growth stages (days)",
-    "desc": "Optional. The day each stage starts. The Record Activity window uses them to show the stage the crop is in."
+    "desc": "Optional. The day each stage starts. The Log Activity window uses them to show the stage the crop is in."
    },
    {
     "n": 5,
     "label": "Add Stage",
-    "desc": "Adds a stage with its suggested activity: the activity name, the day number, the priority (High, Medium or Low) and a recommendation text. These are the suggestions Get Suggestions shows."
+    "desc": "Adds a stage with its suggested activity: the activity name, the day number, the priority (High, Medium or Low) and a recommendation text. These are the suggestions the Log Activity form fills in."
    },
    {
     "n": 6,
@@ -3386,7 +3386,7 @@ export default {
    {
     "n": 2,
     "label": "Activity Types",
-    "desc": "The list the Activity box of Record Activity offers. The suggestions per crop are set in Crop Settings."
+    "desc": "The list the Activity box of Log Activity offers. The suggestions per crop are set in Crop Settings."
    },
    {
     "n": 3,
@@ -3795,8 +3795,8 @@ export default {
    },
    {
     "n": 8,
-    "label": "Record Activity",
-    "desc": "Logs what you did on the crop (for example watering, fertilizing or spraying): the activity, the date, the plant condition and notes. Get Suggestions shows what is recommended next."
+    "label": "Log Activity",
+    "desc": "Logs what you did on the crop (for example watering, fertilizing or spraying). The form opens already filled in from the crop's schedule and you can change it."
    },
    {
     "n": 9,
@@ -4770,7 +4770,7 @@ export default {
    {
     "n": 3,
     "label": "A parcel card",
-    "desc": "Tap a parcel to open the crops planted on it. Each crop has its own menu with Record Activity, Crop Details, Record Harvest and Report Disaster."
+    "desc": "Tap a parcel to open the crops planted on it. Each crop has its own menu with Log Activity, Crop Details, Record Harvest and Report Disaster."
    },
    {
     "n": 4,

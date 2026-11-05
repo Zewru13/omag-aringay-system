@@ -110,8 +110,8 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Open Crop Monitoring. It opens on the crops that are Planted. Search, then open Filters: group by, crop, status, PCIC, season, year and the date planted. Grouped by crop, a row shows how many farmers grow it, the records, the area planted and how many are near harvest; grouped by farmer, a row shows the RSBSA No., Barangay and Contact No. as well. Print Report and Download Report follow the filters.',
       'The statuses are: Planted; Near Harvest (within 7 days of the expected date: Due Harvest while still ahead, Ready for Harvest from the harvest date, Overdue after 7 days); Harvested; and Total Loss.',
-      'The PCIC Insured round check of a crop is green when it has insurance and an empty circle when it has none; View form beside it opens the uploaded PCIC form in a window inside the system. The three-dot menu has Record Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster.',
-      'Record Activity logs one activity (the activity, the date, the plant condition and recommendations). Get Suggestions shows what is recommended; Activity History lists the activities already logged.',
+      'The PCIC Insured round check of a crop is green when it has insurance and an empty circle when it has none; View form beside it opens the uploaded PCIC form in a window inside the system. The three-dot menu has Log Activity, Crop Details, Record Harvest, Force Harvest and Report Disaster.',
+      'Log Activity opens a table form to log one activity: the schedule of the crop fills it in: the activity that is due now (or the earliest overdue one), its recommendations and, for Fertilizer Application, the Type of Fertilizer from the list in Crop Settings (Input Types). Change anything you like. Add the date and the plant condition, then press Save. Activity History below the form lists the activities already logged.',
       'Record Harvest opens once half of the crop\'s growing time has passed; before that it is grayed out (hold the pointer on it to see why). The window names the crop. Enter the harvested date, the area harvested, the unit of measure and the quantity. A harvest more than 7 days after the expected date asks for a reason.',
       'Report Disaster reports damage on one crop: the type, the date, the area affected, the damage and the loss, and photos. Tick Total loss if the crop is completely destroyed: it moves to Total Loss.',
       'Force Harvest harvests crops that are not ready, because of something coming (a typhoon, drought and so on): choose the date and the reason, tick the crops, type each one\'s area and its quantity with its unit (the kg shows under the box), then Review Force Harvest, check the totals and confirm.',
@@ -193,7 +193,7 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Crop Settings has tabs for the crops (growth days, Planted As, yield per hectare), the categories, the seed sources, the varieties, the input types and the equipment types (the one list of machinery names behind a farmer\'s Machinery and a farmers organization\'s Equipment; it starts filled with the usual names).',
       'The button under the table is named after what it adds (Add Crop, Add Variety...). A new row opens at the top: fill it and press Save. The newest item is always first. The three dots of a row have Edit and Delete.',
-      'Edit Crop sets the allowed units of measure, the growth stages and the suggested activities (the activity, the day, the priority and the recommendation) that Get Suggestions shows.',
+      'Edit Crop sets the allowed units of measure, the growth stages and the suggested activities (the activity, the day, the priority and the recommendation) that Log Activity fills in.',
       'Fisheries Settings has the species, categories, feed types, diseases, fingerling sources, equipment types and fishing gear. Activity Settings has the crop and fisheries activity types. Assistance Settings has the source agencies.',
       'Classification Settings has the parcel classifications. Harvest Unit Settings says how many kg one harvest unit weighs, so a harvest counted in sacks or cavans is saved in kg; one weight can be set for several crops at once (none chosen means every crop), and a unit added there also appears in the unit lists. Assistance Settings also lists, for each type of assistance, the units its Unit box offers.',
     ],
@@ -249,8 +249,8 @@ const FARMER_GUIDES = [
     steps: [
       'Open Crop Monitoring. Each row is one of your farm parcels. Search by crop or barangay, or open Filters. Print Report and Download Report give your list.',
       'The arrow at the end of a row opens the crops planted on that parcel: the crop, variety, organization, barangay, date planted, expected harvest, how many activities were logged, PCIC insurance and the status.',
-      'The three-dot menu of a crop has Record Activity, Crop Details, Record Harvest and Report Disaster.',
-      'Record Activity logs what you did on the crop (the activity, the date, the plant condition and notes); Get Suggestions shows what is recommended next.',
+      'The three-dot menu of a crop has Log Activity, Crop Details, Record Harvest and Report Disaster.',
+      'Log Activity logs what you did on the crop (the activity, the date, the plant condition and notes). It opens already filled in: the schedule of the crop fills it in: the activity that is due now (or the earliest overdue one), its recommendations and, for Fertilizer Application, the Type of Fertilizer from the list in Crop Settings (Input Types). Change anything you like. Then press Save.',
       'Record Harvest opens once at least half of the crop\'s growing time has passed: enter the date, the area harvested, the unit and the quantity.',
     ],
   },
