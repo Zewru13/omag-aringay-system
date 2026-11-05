@@ -32,7 +32,6 @@ export const TYPE_OPTIONS = {
       { value: 'Capture', label: 'Capture Fishery' },
       { value: 'Mariculture', label: 'Mariculture' },
       { value: 'Inland', label: 'Inland Fishery' },
-      { value: 'Unspecified', label: 'Not Yet Classified' },
     ],
   },
   farmers: {

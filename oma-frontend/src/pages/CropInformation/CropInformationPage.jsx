@@ -28,10 +28,9 @@ import EditParcelModal from "../Farmers/EditParcelModal.jsx";
 import ForceHarvestCropsModal from "./ForceHarvestCropsModal.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
 import DateRangeFields from "../../components/UI/DateRangeFields.jsx";
-import ListPrintButton from "../../components/ListPrintButton.jsx";
 import { dateRangeParams } from "../../utils/dateRange.js";
 import { fetchAllRows } from "../../utils/listReport.js";
-import { parcelRecordsReport, parcelReport, rangeFilter } from "../Monitoring/listReports.js";
+import { parcelReport } from "../Monitoring/listReports.js";
 import { printSpec } from "../Monitoring/disasterReportDocument.js";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
@@ -1350,20 +1349,6 @@ export default function CropInformationPage() {
   // and counts; only the no-parcel group is also filtered by the search.
   const parcelCropProps = { search: "", barangay: "", pcic, planted, version, handlers };
 
-  // Print Report: every parcel the filters match (grouping only changes how they are shown), with how many crops sit on each.
-  const buildReport = async () => {
-    const all = await fetchAllRows(api, "/farmers/parcels/directory/", directoryParams({ search: debouncedSearch, barangay, pcic, planted }));
-    return parcelRecordsReport({
-      parcels: all,
-      filters: [
-        rangeFilter("Date Planted", plantedFrom, plantedTo),
-        ["Barangay", barangay],
-        ["PCIC", PCIC_FILTER_OPTIONS.find((o) => o.value && o.value === pcic)?.label || ""],
-        ["Search", debouncedSearch],
-      ],
-    });
-  };
-
   // The parcels as cards on a phone and as a table otherwise: the plain list and every opened group use this.
   const renderParcels = (rows) =>
     isPhone ? (
@@ -1406,7 +1391,6 @@ export default function CropInformationPage() {
           activeCount={[Boolean(barangay), Boolean(pcic), Boolean(plantedFrom), Boolean(plantedTo), grouped].filter(Boolean).length}
           actions={
             <>
-              <ListPrintButton build={buildReport} />
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
                 Import Farm Parcels
               </Button>

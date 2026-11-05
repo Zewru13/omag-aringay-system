@@ -180,6 +180,10 @@ class Fisherfolk(models.Model):
         )
 
     def save(self, *args, **kwargs):
+        # Every registered fisherfolk is Aquaculture: a blank or "Not Yet Classified" type is saved as Aquaculture. A real type (Capture,
+        # Inland, Mariculture) is kept, so Capture Monitoring and the trips logged there keep working.
+        if self.fisherfolk_type in ('', self.FisherfolkType.UNSPECIFIED):
+            self.fisherfolk_type = self.FisherfolkType.AQUACULTURE
         self.is_senior_citizen = bool(self.birthdate and self.age is not None and self.age >= 60)
         super().save(*args, **kwargs)
 

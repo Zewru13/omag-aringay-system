@@ -50,7 +50,7 @@ const STAFF_GUIDES = (focal) => [
     screens: [focal ? 'focal-farmers' : 'admin-farmers', 'admin-farmers-filters', 'admin-register-farmer', 'admin-farmer-profile'],
     steps: [
       'Open Registration > Farmers. Type in the search box (name, RSBSA number or barangay) and press Filters to narrow the list by gender, barangay, farmer type, senior citizens, ICC/IP members, PWD and the dates registered.',
-      'Print Report and Download Report give the list exactly as filtered, as a printout or a PDF. Import Farmers registers many farmers from a spreadsheet, with a preview first.',
+      'For a printout or a PDF of the list, choose the Registered report in Reports. Import Farmers registers many farmers from a spreadsheet, with a preview first.',
       'Press Register Farmer and fill in the personal information, the contact information and the government information (the RSBSA number is required and must be new). Tick PWD, 4Ps and ICC/IP if they apply; Senior Citizen is automatic from the birthdate.',
       'Optionally choose the farmer\'s organization: click the box and type part of its name, the list narrows as you type, then pick it (or Not a member). Add machinery for each line, or Import machinery from a spreadsheet; the machinery names come from Crop Settings > Equipment Types.',
       'Press Save Farmer to save, or Save Farmer & Add Farm Parcels to save and go straight to the table that records the farmer\'s parcels and crops.',
@@ -61,12 +61,12 @@ const STAFF_GUIDES = (focal) => [
   {
     id: 'register-fisherfolk',
     title: 'Register a fisherfolk',
-    intro: 'Registration > Fisherfolk works like Farmers, with the FishR number, the fisherfolk type and the activities, and a profile with stocking records and ponds.',
+    intro: 'Registration > Fisherfolk works like Farmers, with the FishR number and the activities, and a profile with stocking records and ponds. Every fisherfolk is registered as Aquaculture.',
     screens: ['admin-fisherfolk', 'admin-register-fisherfolk', 'admin-fisherfolk-profile'],
     steps: [
       'Open Registration > Fisherfolk. Search, filter, print or download the list, or import fisherfolk from a spreadsheet, as for farmers.',
       'Press Register Fisherfolk. Fill in the personal, contact and government information (RSBSA number required; FishR number and PhilSys optional).',
-      'Choose the Fisherfolk Type: Aquaculture (ponds and cages, with production cycles) or Capture (fishing trips and catch). Tick the activities they do (Aquaculture, Capture Fishery, Mariculture, Inland Fishery) and optionally choose their organization (click the box and type part of its name to find it).',
+      'There is no type to choose: every fisherfolk is registered as Aquaculture (ponds and cages, with production cycles). Tick the activities they do (Aquaculture, Capture Fishery, Mariculture, Inland Fishery) and optionally choose their organization (click the box and type part of its name to find it).',
       'Click a fisherfolk in the list to open the profile: the assistance history (with Print Report and Download Report), the PDF report, Edit Profile and Regenerate Password.',
       'On the profile, Add Pond adds one pond or cage (name, barangay, area, water source, PCIC insurance with up to 5 photos of the form) and Bulk Add Ponds adds several. The Stocking Records table lists the production cycles.',
     ],
@@ -125,7 +125,7 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Open Aquaculture Monitoring. Search, open Filters (pond or cage name, status, species, season, year, Stocked From / To), print or download the list. The PCIC INSURED column beside Pond Location shows a round check for the whole cycle, green when it is insured (PCIC is recorded once for the cycle). Click a row to open its ponds or cages: each one shows that insurance too. View form beside it opens the uploaded PCIC form in a window inside the system (page by page, with zoom); Close brings you back. The estimated and actual harvest of each pond or cage are in that row too. A small red alert icon beside a cycle\'s status means a disaster is still active on it; a green check means it recovered.',
       'Start Production Cycle opens the form in five tables: Fisherfolk Information, Culture Details, Stocking Information, Ownership and Pond/Cage Details. Beside the number of ponds is PCIC Insured, once for the whole cycle: tick it and upload the photo of the insurance form. Each pond or cage then gets its size and fingerlings.',
-      'The harvest button of a row is grayed out until at least half of the expected time has passed. The three-dot menu has View Details, Edit, Activity Logs and Force Harvest; Print Report above the table prints the list. Activity Logs lists every Feeding Log and Health Log saved for the cycle (date, activity, pond or cage and details), with All, Feeding Log and Health Log buttons to filter it.',
+      'The harvest button of a row is grayed out until at least half of the expected time has passed. The three-dot menu has View Details, Edit, Activity Logs and Force Harvest. Activity Logs lists every Feeding Log and Health Log saved for the cycle (date, activity, pond or cage and details), with All, Feeding Log and Health Log buttons to filter it.',
       'In an opened row, the Log Activity button offers a Feeding Log and a Health Log. Each opens as a table: the Feeding Log has the date, feed type and notes and the feed in kg of each pond or cage (the total adds up); the Health Log has a row for each pond or cage to tick, with its observation, mortality count and treatment. Save adds the log to that cycle and its ponds or cages.',
       'Open Capture Monitoring for fishing trips. The cards show the total catch, the estimated value and the active fisherfolk. Log Catch records a trip: the fisherfolk, the dates, the fishing ground, the gear and a line for each species (volume and value). Historical Timeline shows the catch season by season.',
     ],
@@ -162,7 +162,7 @@ const STAFF_GUIDES = (focal) => [
     intro: 'Disaster > Crop Disaster and Fisheries Disaster keep the disaster logs.',
     screens: ['admin-disaster', 'admin-disaster-filters', 'admin-disaster-detail', 'admin-log-crop-disaster', 'admin-fisheries-disaster', 'admin-log-fisheries-disaster', 'admin-fisheries-disaster-form'],
     steps: [
-      'Open Disaster > Crop Disaster. The table lists the farmers who have disaster logs. Filters has the barangay, type, status, year and the date it occurred (From and To). Print Report and Download Report give the table as a report.',
+      'Open Disaster > Crop Disaster. The table lists the farmers who have disaster logs. Filters has the barangay, type, status, year and the date it occurred (From and To). The disaster report is made in Reports > Disaster.',
       'Click a farmer to open their disasters, then one to see its log with Print Disaster Log and Download Disaster Log. The Actions menu of a farmer gives View Report, Print and Download.',
       'Press Log Disaster to report one disaster on many parcels and crops at once: fill the event once (type, date, damage, loss, photos), tick the parcels and crops that were hit, and tick Total loss where a crop was destroyed. Report Disaster saves one log for each farmer and crop.',
       'In Disaster > Fisheries Disaster, press Log Disaster. Step 1: search for the fisherfolk and click their name. Step 2: choose the stock or stocks that were hit (or Not linked to a stock), the date and the type, then the volume lost, the equipment damaged, a description and photos.',
@@ -181,7 +181,7 @@ const STAFF_GUIDES = (focal) => [
       'In the Signatories block above the buttons, choose Prepared by (your own name to start with), Checked by, Noted by and Approved by from their lists, or leave one on None. Their names print at the foot of the report. The choice is for this printout only; the lists come from Admin > Signatories.',
       'The print-ready preview under the buttons shows the report as it will print, with the letterhead, the tables and the signature lines, and it changes as you change the filters or the signers.',
       'Print Report prints the report and Download Report saves it as a PDF. Both are the report you see in the preview, with the signature lines.',
-      'On the farmers, fisherfolk, organizations, crop and fisheries tables, set the filters first: Print Report and Download Report give exactly the rows the table shows.',
+      'The farmers, fisherfolk, organizations, crop and fisheries lists have no report button of their own: choose their report here and set its filters.',
     ],
   },
   {
@@ -247,7 +247,7 @@ const FARMER_GUIDES = [
     intro: 'Crop Monitoring lists your farm parcels and the crops on them, with their dates and status.',
     screens: ['farmer-crops'],
     steps: [
-      'Open Crop Monitoring. Each row is one of your farm parcels. Search by crop or barangay, or open Filters. Print Report and Download Report give your list.',
+      'Open Crop Monitoring. Each row is one of your farm parcels. Search by crop or barangay, or open Filters.',
       'The arrow at the end of a row opens the crops planted on that parcel: the crop, variety, organization, barangay, date planted, expected harvest, how many activities were logged, PCIC insurance and the status.',
       'The three-dot menu of a crop has Log Activity, Crop Details, Record Harvest and Report Disaster.',
       'Log Activity logs what you did on the crop (the activity, the date, the plant condition and notes). It opens already filled in: the schedule of the crop fills it in: the activity that is due now (or the earliest overdue one), its recommendations and, for Fertilizer Application, the Type of Fertilizer from the list in Crop Settings (Input Types). Change anything you like. Then press Save.',

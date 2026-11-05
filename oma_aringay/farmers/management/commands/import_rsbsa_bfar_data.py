@@ -168,7 +168,7 @@ class Command(BaseCommand):
                         contact_number=contact_number,
                         barangay=barangay,
                         municipality='Aringay',
-                        fisherfolk_type=Fisherfolk.FisherfolkType.UNSPECIFIED,
+                        fisherfolk_type=Fisherfolk.FisherfolkType.AQUACULTURE,
                         is_aquaculture=False,
                         is_capture_fishery=False,
                         is_mariculture=False,

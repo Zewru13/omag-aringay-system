@@ -361,7 +361,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 3,
@@ -393,7 +393,7 @@ export default {
  "admin-farmers-filters": {
   "audience": "admin",
   "title": "Farmer filters",
-  "purpose": "Narrow the list; Print Report and Download Report follow the filters.",
+  "purpose": "Narrow the list.",
   "image": "/manual/admin/farmers-filters.png",
   "width": 1280,
   "height": 800,
@@ -656,7 +656,7 @@ export default {
    {
     "n": 7,
     "label": "Columns",
-    "desc": "FishR number (the fisherfolk registration number), RSBSA number, full name, type (Aquaculture or Capture), the activities they do, barangay, age and date registered."
+    "desc": "FishR number (the fisherfolk registration number), RSBSA number, full name, type (Aquaculture), barangay, age and date registered."
    },
    {
     "n": 8,
@@ -711,12 +711,12 @@ export default {
    {
     "n": 7,
     "label": "Fisherfolk Type",
-    "desc": "Required. Aquaculture (ponds and cages: they get production cycles) or Capture (fishing trips: they get catch logs)."
+    "desc": "Not asked: every fisherfolk is registered as Aquaculture (ponds and cages: they get production cycles)."
    },
    {
     "n": 8,
     "label": "Activities",
-    "desc": "Tick what the fisherfolk does: Aquaculture, Capture Fishery, Mariculture, Inland Fishery. It shows in the Activities column."
+    "desc": "Tick what the fisherfolk does: Aquaculture, Capture Fishery, Mariculture, Inland Fishery."
    },
    {
     "n": 9,
@@ -811,7 +811,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 3,
@@ -1176,7 +1176,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 3,
@@ -1221,7 +1221,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture). Print Report and Download Report follow them."
+    "desc": "Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture)."
    },
    {
     "n": 3,
@@ -1938,7 +1938,7 @@ export default {
  "admin-disaster-filters": {
   "audience": "admin",
   "title": "Crop Disaster filters",
-  "purpose": "Narrow the logs; Print Report and Download Report follow the filters.",
+  "purpose": "Narrow the logs.",
   "image": "/manual/admin/disaster-filters.png",
   "width": 1280,
   "height": 800,
@@ -2128,7 +2128,7 @@ export default {
  "admin-aquaculture-filters": {
   "audience": "admin",
   "title": "Aquaculture Monitoring filters",
-  "purpose": "Narrow the cycles; Print Report and Download Report follow the filters.",
+  "purpose": "Narrow the cycles.",
   "image": "/manual/admin/aquaculture-filters.png",
   "width": 1280,
   "height": 800,
@@ -2496,7 +2496,7 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 4,
@@ -2541,7 +2541,7 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 4,
@@ -2796,7 +2796,7 @@ export default {
    {
     "n": 6,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    }
   ]
  },
@@ -3181,7 +3181,7 @@ export default {
    {
     "n": 4,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 5,
@@ -3766,7 +3766,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row: status, season and the other filters. Print Report and Download Report follow them."
+    "desc": "Opens the filter row: status, season and the other filters."
    },
    {
     "n": 3,
@@ -3836,7 +3836,7 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 4,
@@ -3921,7 +3921,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 3,
@@ -3951,7 +3951,7 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 4,
@@ -4161,7 +4161,7 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    }
   ]
  },
@@ -4296,7 +4296,7 @@ export default {
    {
     "n": 5,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 6,
@@ -4406,7 +4406,7 @@ export default {
    {
     "n": 4,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 5,
@@ -4531,7 +4531,7 @@ export default {
    {
     "n": 6,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 7,
@@ -4765,7 +4765,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row. Print Report and Download Report are in the row above."
+    "desc": "Opens the filter row."
    },
    {
     "n": 3,
@@ -5172,7 +5172,7 @@ export default {
    {
     "n": 3,
     "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown."
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
    },
    {
     "n": 4,

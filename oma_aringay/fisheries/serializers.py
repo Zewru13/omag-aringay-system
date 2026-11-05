@@ -284,7 +284,8 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         # case-insensitive check in validate_rsbsa_number below is the one
         # that answers (as FarmerCreateSerializer's does); the model's format
         # validator is kept explicitly since overriding `validators` replaces it.
-        extra_kwargs = {'rsbsa_number': {'validators': [validate_rsbsa]}}
+        # fisherfolk_type is not asked for: every registered fisherfolk is Aquaculture (see Fisherfolk.save).
+        extra_kwargs = {'rsbsa_number': {'validators': [validate_rsbsa]}, 'fisherfolk_type': {'required': False}}
 
     def validate_birthdate(self, value):
         if value:
@@ -327,6 +328,9 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'rsbsa_number': 'RSBSA number is required.'})
 
         fisherfolk_type = data.get('fisherfolk_type', '')
+        if self.instance is None and fisherfolk_type in ('', 'Unspecified'):
+            # a new registration is Aquaculture, so its culture details are checked and its aquaculture record is made
+            fisherfolk_type = data['fisherfolk_type'] = 'Aquaculture'
         if not data.get('has_vessel', True):
             data['boat_registration_number'] = ''
         if fisherfolk_type in ('Aquaculture', 'Mariculture'):

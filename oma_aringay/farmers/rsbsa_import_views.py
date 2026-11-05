@@ -796,7 +796,7 @@ class RsbsaUpdateImportCommitView(APIView):
             create_kwargs.setdefault('civil_status', Farmer.CivilStatus.UNSPECIFIED)
         else:
             create_kwargs.setdefault('municipality', 'Aringay')
-            create_kwargs.setdefault('fisherfolk_type', Fisherfolk.FisherfolkType.UNSPECIFIED)
+            create_kwargs.setdefault('fisherfolk_type', Fisherfolk.FisherfolkType.AQUACULTURE)
             for flag in ('is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'has_vessel'):
                 create_kwargs.setdefault(flag, False)
 

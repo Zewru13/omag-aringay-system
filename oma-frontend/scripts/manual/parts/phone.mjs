@@ -46,7 +46,7 @@ export const PHONE = [
   FA({ id: 'farmer-p-crops', phone: true, file: 'farmer/phone-crops.png', url: '/crop-monitoring', wait: 5000, title: 'Crop Monitoring on a phone (Farmer)', purpose: 'Your parcels and crops as cards.',
     callouts: [
       SEARCH,
-      { find: { text: 'Filters', tag: 'button', exact: true }, label: 'Filters', desc: 'Opens the filter row. Print Report and Download Report are in the row above.' },
+      { find: { text: 'Filters', tag: 'button', exact: true }, label: 'Filters', desc: 'Opens the filter row.' },
       { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'A parcel card', desc: 'Tap a parcel to open the crops planted on it. Each crop has its own menu with Log Activity, Crop Details, Record Harvest and Report Disaster.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),

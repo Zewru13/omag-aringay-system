@@ -12,10 +12,8 @@ import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
-import ListPrintButton from '../../components/ListPrintButton.jsx'
 import { dateRangeParams } from '../../utils/dateRange.js'
-import { fetchAllRows } from '../../utils/listReport.js'
-import { aquacultureReport, cycleReport, rangeFilter } from '../Monitoring/listReports.js'
+import { cycleReport } from '../Monitoring/listReports.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -1006,26 +1004,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     }
   }, [statusFilter, speciesFilter, seasonFilter, yearFilter, stockedFrom, stockedTo, debouncedSearch, debouncedPond])
 
-  // Print Report: every cycle the filters match (not only this page), with what it was filtered by.
-  const buildReport = async () => {
-    const params = { ...dateRangeParams(stockedFrom, stockedTo, 'stocked_from', 'stocked_to') }
-    params.status = statusFilter === 'All Status' ? 'Stocked,Near Harvest,Harvested' : statusFilter
-    if (debouncedSearch) params.search = debouncedSearch
-    if (debouncedPond) params.pond = debouncedPond
-    if (speciesFilter) params.species = speciesFilter
-    if (seasonFilter) params.season = seasonFilter
-    if (yearFilter) params.year = yearFilter
-    const all = await fetchAllRows(api, '/fisheries/stocking/', params)
-    return aquacultureReport({
-      records: all,
-      filters: [
-        rangeFilter('Date Stocked', stockedFrom, stockedTo), ['Status', statusFilter === 'All Status' ? '' : statusFilter],
-        ['Species', speciesList.find(sp => String(sp.id) === String(speciesFilter))?.species_name || ''],
-        ['Season', seasonFilter ? `${seasonFilter} Season` : ''], ['Year', yearFilter], ['Pond / cage', debouncedPond], ['Search', debouncedSearch],
-      ],
-    })
-  }
-
   // ONE fetch per page view: changing a filter also resets the page to 1 in the same update (changeFilter
   // below), so this single effect runs once with the new filters and page.
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
@@ -1160,7 +1138,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           onSearchChange={setSearch}
           searchPlaceholder="Search by fisherfolk, RSBSA no., species, or barangay..."
           activeCount={[statusFilter !== 'All Status', Boolean(speciesFilter), Boolean(seasonFilter), Boolean(yearFilter), Boolean(stockedFrom), Boolean(stockedTo), Boolean(pondFilter.trim())].filter(Boolean).length}
-          actions={<ListPrintButton build={buildReport} />}
         >
           <input
             type="search"

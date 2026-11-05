@@ -125,7 +125,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I filter, print or download the Crop Disaster and Fisheries Disaster tables?',
-        a: 'Open Filters and use the Occurred From and To dates together with the barangay, disaster type, status and year; either date can be left empty. Print Report and Download Report above the table give the report of the rows the filters match, the same PDF as Reports > Disaster. Each farmer or fisherfolk row has an Actions menu: View Report shows every disaster of that person (within the filters) with Print Report and Download Report inside, and Print and Download give the same PDF straight away. Open the row to see one disaster, with its own Print Disaster Log and Download Disaster Log.',
+        a: 'Open Filters and use the Occurred From and To dates together with the barangay, disaster type, status and year; either date can be left empty. The report of the disasters is made in Reports > Disaster. Each farmer or fisherfolk row has an Actions menu: View Report shows every disaster of that person (within the filters) with Print Report and Download Report inside, and Print and Download give the same PDF straight away. Open the row to see one disaster, with its own Print Disaster Log and Download Disaster Log.',
       },
       {
         q: 'How do Activity Suggestions work?',
@@ -224,7 +224,7 @@ export const SECTIONS = [
       },
       {
         q: 'Can I print or download the crop and fisheries tables?',
-        a: 'Yes. Crop Records, Crop Monitoring, Aquaculture Monitoring and Capture Monitoring each have a Print Report and a Download Report button. Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
+        a: 'Yes, on Capture Monitoring. Crop Records, Crop Monitoring and Aquaculture Monitoring no longer have these two buttons above the table (a parcel or a cycle still prints from its three-dot menu); for the other lists use Reports. On Capture Monitoring, Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
       },
       {
         q: 'How do I filter by date?',
@@ -232,7 +232,7 @@ export const SECTIONS = [
       },
       {
         q: 'Can I print or download the farmer, fisherfolk or organization list?',
-        a: 'Yes. On the Farmers, Fisherfolk and Organizations tables press Print Report to print, or Download Report to save it as a PDF. Both give the Registered report for exactly what the table shows, so set the filters first: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
+        a: 'Yes, in Reports: choose the Registered report, then press Print Report to print or Download Report to save it as a PDF. The Farmers, Fisherfolk and Organizations tables no longer have report buttons of their own, so set the filters in Reports: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
       },
     ],
   },

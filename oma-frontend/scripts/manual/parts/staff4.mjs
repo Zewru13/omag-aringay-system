@@ -23,7 +23,7 @@ export const STAFF4 = [
       { find: { css: 'tbody tr:first-child td:last-child button', nth: 0 }, label: 'Harvest / Actions', desc: 'The harvest button of a row is grayed out until at least half of the expected time has passed. The three dots next to it open the menu of the cycle.' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
-  A({ id: 'admin-aquaculture-filters', file: 'admin/aquaculture-filters.png', url: '/fisheries-monitoring?tab=stocking', js: click('Filters'), after: 1200, title: 'Aquaculture Monitoring filters', purpose: 'Narrow the cycles; Print Report and Download Report follow the filters.',
+  A({ id: 'admin-aquaculture-filters', file: 'admin/aquaculture-filters.png', url: '/fisheries-monitoring?tab=stocking', js: click('Filters'), after: 1200, title: 'Aquaculture Monitoring filters', purpose: 'Narrow the cycles.',
     callouts: [
       { find: { css: 'input[type=search]', nth: 1 }, label: 'Pond or cage name', desc: 'Type part of the pond or cage name.' },
       { find: { css: 'select', nth: 0 }, label: 'Status', desc: 'Stocked, Near Harvest, Late, Harvested, Total Loss or All Status.' },
