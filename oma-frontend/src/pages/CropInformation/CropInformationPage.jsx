@@ -53,6 +53,7 @@ import {
   recordActionKeys,
 } from "./parcelRecords.js";
 import DraftBanner from "../../components/UI/DraftBanner.jsx";
+import { seasonOf } from "../Monitoring/cropRecordForm.js";
 import useDraftForm, { useDraftField } from "../../hooks/useDraftForm.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -406,7 +407,6 @@ function EditCropModal({ record, onClose, onSaved }) {
     area_planted_ha: record.area_planted_ha
       ? String(record.area_planted_ha)
       : "",
-    season: record.season || "",
     variety_used: record.variety_used || "",
     seed_source: record.seed_source || "",
     seed_source_other_specify: record.seed_source_other_specify || "",
@@ -464,12 +464,6 @@ function EditCropModal({ record, onClose, onSaved }) {
     );
   }, [form.area_planted_ha, cropType]);
 
-  const detectSeason = (dateStr) => {
-    if (!dateStr) return form.season;
-    const month = new Date(dateStr).getMonth() + 1;
-    return month >= 6 && month <= 11 ? "Wet" : "Dry";
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFarmer.farmer_id) {
@@ -518,7 +512,6 @@ function EditCropModal({ record, onClose, onSaved }) {
         date_planted: form.date_planted,
         date_planted_is_estimated: false,
         area_planted_ha: form.area_planted_ha || null,
-        season: form.season,
         variety_used: form.variety_used,
         seed_source: form.seed_source,
         seed_source_other_specify: form.seed_source === "Other" ? form.seed_source_other_specify : "",
@@ -663,10 +656,7 @@ function EditCropModal({ record, onClose, onSaved }) {
               className={baseInputClasses}
               value={form.date_planted}
               max={new Date().toISOString().split("T")[0]}
-              onChange={(e) => {
-                set("date_planted", e.target.value);
-                if (!form.season) set("season", detectSeason(e.target.value));
-              }}
+              onChange={(e) => set("date_planted", e.target.value)}
             />
           </div>
           <div>
@@ -726,18 +716,12 @@ function EditCropModal({ record, onClose, onSaved }) {
           </div>
         )}
 
-        {/* Season */}
+        {/* Season: follows the Date Planted */}
         <div>
           <label className={editLabelCls}>Season</label>
-          <select
-            className={baseInputClasses}
-            value={form.season}
-            onChange={(e) => set("season", e.target.value)}
-          >
-            <option value="">Select…</option>
-            <option value="Wet">Wet</option>
-            <option value="Dry">Dry</option>
-          </select>
+          <p className="rounded-lg border border-[#E2E8E2] bg-[#F5F7F5] px-3 py-2 text-[13px] text-[#4A5E4A]" data-testid="season-auto">
+            {seasonOf(form.date_planted) ? `${seasonOf(form.date_planted)} season` : "Chosen from the date planted"}
+          </p>
         </div>
 
         {/* Variety Used */}

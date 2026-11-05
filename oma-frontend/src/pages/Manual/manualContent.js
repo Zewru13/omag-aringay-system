@@ -98,7 +98,7 @@ const STAFF_GUIDES = (focal) => [
       'The arrow at the start of a parcel row shows or hides its crops. Import Farm Parcels adds the parcels of all farmers from one spreadsheet.',
       'Add Farm Parcel opens a table: choose the farmer, then fill one row per parcel (parcel number, barangay, area, land ownership, tax declaration, farm type, cropping schedule). Add Parcel adds another row; under a parcel, Add crop records what is planted on it and Import crops reads its crops from a spreadsheet.',
       'Land Ownership is something you choose (Owner, Tenant or Lessee); a Tenant or Lessee parcel also needs the land owner\'s name. The crops on a parcel together can never be larger than its area (a double or triple cropping parcel may hold two or three times its area).',
-      'The three-dot menu of a parcel has Add crops, Force harvest, Print report and Edit parcel. Add crops opens the crop table for that parcel: the crop type, date planted, area, season, variety, seed source, quantity of seeds (or trees), PCIC insurance (with up to 5 photos of the form) and the parcel.',
+      'The three-dot menu of a parcel has Add crops, Force harvest, Print report and Edit parcel. Add crops opens the crop table for that parcel: the crop type, date planted, area, season (filled in from the date planted: Wet from June to November, Dry from December to May), variety, seed source, quantity of seeds (or trees), PCIC insurance (with up to 5 photos of the form) and the parcel.',
       'Submit Parcel or Submit Record saves everything in the table together, or nothing if one row has a problem. ' + DRAFT_NOTE,
     ],
   },

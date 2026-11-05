@@ -1,7 +1,7 @@
 // The crops read from a crops file (POST /farmers/parcel-crop-records/parse/) as rows of the parcel's crops table, with no screen and no
 // network, so they can be tested on their own. The rows are the same Add Crop rows the person types in, so the same rules check them.
 import { materialFor, withParcelStatus } from '../CropInformation/cropEntry.js'
-import { detectSeason, makeCropRecord } from '../Monitoring/cropRecordForm.js'
+import { makeCropRecord } from '../Monitoring/cropRecordForm.js'
 
 // How the crop is planted: a seed crop as seed, a tree crop as trees; a crop that is both as trees only when the file gave trees and no seeds.
 function plantingMaterial(cropType, imported) {
@@ -20,7 +20,6 @@ export function cropRecordsFromImport(imported, { parcel, cropTypes, varieties, 
       ...makeCropRecord(firstId + i),
       crop_type: String(c.crop_type),
       date_planted: c.date_planted,
-      season: detectSeason(c.date_planted),
       area_planted_ha: c.area_planted_ha,
       variety_used: listed ? listed.name : c.variety_used,   // a listed variety is picked by its own spelling
       variety_used_is_other: !listed,

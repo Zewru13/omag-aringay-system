@@ -56,7 +56,7 @@ export const STAFF3 = [
       { find: { text: 'CROP TYPE', tag: 'th' }, label: 'Crop Type', desc: 'Required. Choose the crop from the list kept in Crop Settings. Its growth days and yield per hectare come from there.' },
       { find: { text: 'DATE PLANTED', tag: 'th' }, label: 'Date Planted', desc: 'Required. The expected harvest date is worked out from it: the date planted plus the crop\'s growth duration.' },
       { find: { text: 'AREA (HA)', tag: 'th' }, label: 'Area (ha)', desc: 'Required. The area planted. The estimated yield is this area times the crop\'s yield per hectare.' },
-      { find: { text: 'SEASON', tag: 'th' }, label: 'Season', desc: 'Optional: Dry Season or Wet Season.' },
+      { find: { text: 'SEASON', tag: 'th' }, label: 'Season', desc: 'Filled in for you from the date planted: Wet (June to November) or Dry (December to May). It cannot be typed.' },
       { find: { text: 'VARIETY', tag: 'th' }, label: 'Variety', desc: 'Required. Pick one from the list or choose Other and type it; a variety can have its own growth duration.' },
       { find: { text: 'SEED SOURCE', tag: 'th' }, label: 'Seed Source', desc: 'Optional. Where the seeds came from (the list is in Crop Settings > Seed Sources).' },
       { find: { text: 'Add Row', tag: 'button', exact: true }, label: 'Add Row', desc: 'Adds another crop line.' },

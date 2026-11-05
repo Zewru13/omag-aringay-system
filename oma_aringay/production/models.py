@@ -10,6 +10,7 @@ from django.dispatch import receiver
 
 from core.constants import BARANGAY_CHOICES
 from core.models import PcicInsurance
+from core.seasons import season_for_date
 from farmers.models import FarmParcel, Farmer
 
 
@@ -433,6 +434,9 @@ class CropMonitoringRecord(PcicInsurance):
         ordering = ['-date_recorded', '-id']
 
     def save(self, *args, **kwargs):
+        if self.date_planted:
+            # Wet / Dry follows the Date Planted (core/seasons.py), whatever a form sent and however the date was changed.
+            self.season = season_for_date(self.date_planted)
         if self.date_planted and self.crop_type_id:
             try:
                 ct = self.crop_type if hasattr(self, '_crop_type_cache') else CropType.objects.get(pk=self.crop_type_id)

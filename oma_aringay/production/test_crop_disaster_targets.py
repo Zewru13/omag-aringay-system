@@ -50,7 +50,8 @@ class CropDisasterTargetsTests(APITestCase):
         self.assertEqual(p['area_hectares'], '5.00')
         self.assertEqual({c['id'] for c in p['crops']}, {self.a1.id, self.a2.id})
         crop = next(c for c in p['crops'] if c['id'] == self.a2.id)
-        self.assertEqual((crop['status'], crop['area_planted_ha'], crop['season'], crop['year']), ('Near Harvest', '1.00', 'Wet', 2026))
+        # planted May 1: Dry season (the season follows the date planted)
+        self.assertEqual((crop['status'], crop['area_planted_ha'], crop['season'], crop['year']), ('Near Harvest', '1.00', 'Dry', 2026))
         self.assertEqual(self.parcels()[f'p{self.p2.id}']['land_ownership'], 'Tenant')
 
     def test_a_crop_with_no_parcel_is_listed_under_its_farmer(self):

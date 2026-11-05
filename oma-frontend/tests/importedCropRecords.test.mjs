@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 
 const { cropRecordsFromImport } = await import(new URL('../src/pages/Farmers/importedCropRecords.js', import.meta.url).href)
+const { seasonOf } = await import(new URL('../src/pages/Monitoring/cropRecordForm.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -21,11 +22,12 @@ const make = (imported, parcel = ownerParcel, firstId = 100) => cropRecordsFromI
 
 // the crop as a row of the crops table
 const [rice] = make([line()])
-eq([rice._id, rice.crop_type, rice.date_planted, rice.season, rice.area_planted_ha, rice.variety_used, rice.variety_used_is_other],
+eq([rice._id, rice.crop_type, rice.date_planted, seasonOf(rice.date_planted), rice.area_planted_ha, rice.variety_used, rice.variety_used_is_other],
   [100, '7', '2026-09-15', 'Wet', '1.5', 'NSIC Rc 222', false], 'a seed crop becomes a table row')
 eq([rice.seed_source, rice.seed_source_other_specify, rice.planting_material, rice.quantity_of_seeds, rice.quantity_of_trees], ['Certified Seed', '', 'Seed', '40', ''], 'seed and quantity')
 eq(make([line(), line({ row: 3 })]).map((r) => r._id), [100, 101], 'each row gets its own id')
-eq(make([line({ date_planted: '2026-02-10' })])[0].season, 'Dry', 'the season follows the planting date')
+eq(seasonOf(make([line({ date_planted: '2026-02-10' })])[0].date_planted), 'Dry', 'the season shown follows the planting date')
+eq('season' in make([line()])[0], false, 'an imported row carries no season of its own')
 
 // how it is planted follows the crop type
 eq(make([line({ crop_type: 8, quantity_of_seeds: '', quantity_of_trees: '12', variety_used: 'Carabao' })])[0].planting_material, 'Tree', 'a tree crop is planted as trees')
