@@ -13,6 +13,7 @@ import { detectSeason } from '../FisheriesRecords/stockingHelpers.js'
 import { EMPTY_PCIC, cyclePcicPayload, pcicError, uploadPcicForm } from '../../utils/pcic.js'
 import { EMPTY_OWNERSHIP, OWNERSHIP_OPTIONS, chooseOwnership, needsOwnerDetails, ownershipPayload, ownershipProblem } from '../../utils/ownership.js'
 import { CycleField, CycleRow, CycleRows, CycleSection } from './CycleFormTable.jsx'
+import { organizationChoice, organizationHint, organizationPlaceholder } from './cycleOrganization.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
@@ -133,14 +134,16 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
       .finally(() => setIsLoadingSpecies(false))
   }, [])
 
-  // Organization options = only the organizations the selected fisherfolk is registered with.
-  // Whenever the fisherfolk changes, the previous selection and options are cleared before the
-  // new list loads, so an organization of a previous fisherfolk can never stay selected.
+  // Organization options = only the organizations the selected fisherfolk is registered with (their active memberships, the records
+  // Add Member creates). Whenever the fisherfolk changes, the previous selection and options are cleared before the new list loads, so an
+  // organization of a previous fisherfolk can never stay selected; then the only organization of the new fisherfolk is filled in by
+  // itself. With none the box stays blank, with several the Admin chooses (see cycleOrganization.js).
   const [orgOptions, setOrgOptions] = useState([])
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   useEffect(() => {
     setOrgOptions([])
-    if (keepOrganization.current) keepOrganization.current = false
+    const restored = keepOrganization.current   // a restored draft keeps the organization it had
+    if (restored) keepOrganization.current = false
     else setForm(f => ({ ...f, organization: '' }))
     if (!selectedFf) { setIsLoadingOrgs(false); return }
     let cancelled = false
@@ -154,7 +157,11 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
           all.push(...(r.data.results || []))
           if (!r.data.next) break
         }
-        if (!cancelled) setOrgOptions(all)
+        if (!cancelled) {
+          setOrgOptions(all)
+          const only = organizationChoice(all)
+          if (!restored && only) setForm(f => (f.organization ? f : { ...f, organization: only }))
+        }
       } catch {
         if (!cancelled) { setOrgOptions([]); showToast('Failed to load organizations.', 'error') }
       } finally {
@@ -417,13 +424,13 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                   aria-label="Organization"
                 >
                   <option value="">
-                    {!selectedFf ? 'Select Fisherfolk first'
-                      : isLoadingOrgs ? 'Loading organizations…'
-                      : orgOptions.length === 0 ? 'No registered organizations'
-                      : 'Select Organization'}
+                    {organizationPlaceholder({ hasFisherfolk: Boolean(selectedFf), loading: isLoadingOrgs, count: orgOptions.length })}
                   </option>
                   {orgOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
+                {!isLoadingOrgs && organizationHint(orgOptions.length) && (
+                  <p className="mt-1 text-xs text-[#4A5E4A]" data-testid="organization-hint">{organizationHint(orgOptions.length)}</p>
+                )}
               </CycleField>
             </CycleRow>
           </CycleRows>

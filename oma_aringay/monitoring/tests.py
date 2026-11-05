@@ -179,6 +179,14 @@ class ProductionCycleOrganizationTests(ProductionCycleBase):
         detail = self.client.get(f"{self.CYCLES}{r.data['id']}/")
         self.assertEqual(detail.data['organization_name'], 'OrgA')
 
+    def test_a_fisherfolk_in_two_organizations_saves_the_one_chosen(self):
+        # ff_a belongs to OrgA and OrgA2: the Start Production Cycle form leaves the choice to the Admin, and the one chosen is what is saved.
+        for chosen, name in ((self.org_a, 'OrgA'), (self.org_a2, 'OrgA2')):
+            r = self.post(organization=chosen.id)
+            self.assertEqual(r.status_code, 201, r.data)
+            self.assertEqual((r.data['organization'], r.data['organization_name']), (chosen.id, name))
+            self.assertEqual(AquacultureProductionCycle.objects.get(pk=r.data['id']).organization_id, chosen.id)
+
     def test_create_without_organization(self):
         for extra in ({}, {'organization': None}):
             r = self.post(**extra)
