@@ -1406,7 +1406,7 @@ export default {
    {
     "n": 8,
     "label": "Season",
-    "desc": "Optional: Dry Season or Wet Season."
+    "desc": "Filled in for you from the date planted: Wet (June to November) or Dry (December to May). It cannot be typed."
    },
    {
     "n": 9,

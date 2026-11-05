@@ -552,6 +552,7 @@ class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerial
             'id', 'pcic_form_photo', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_organization_name',
             'parcel_number', 'organization_name',
             'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units',
+            'season',   # worked out from date_planted when the record is saved (core/seasons.py)
             'expected_harvest_date', 'estimated_yield_kg',
             'yield_variance_kg', 'yield_variance_pct',
             'recorded_by', 'date_recorded',

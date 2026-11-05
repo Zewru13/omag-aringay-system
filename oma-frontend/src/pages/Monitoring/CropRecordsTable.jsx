@@ -14,7 +14,7 @@ import {
   PLANTING_MATERIALS, canChoosePlanting, defaultPlantingMaterial, materialFor,
   quantityHeader, quantityLabel,
 } from '../CropInformation/cropEntry.js'
-import { detectSeason } from './cropRecordForm.js'
+import { seasonOf } from './cropRecordForm.js'
 
 // Fixed pixel width per column, shared by every <th>/<td> in that column so
 // header and body can never drift out of alignment (table-fixed sizes every
@@ -173,10 +173,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
         <td data-label="Date planted *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.datePlanted }}>
           <input type="date" className={`${bulkCellInputClasses} w-full`} value={rec.date_planted}
             max={new Date().toISOString().split('T')[0]}
-            onChange={e => {
-              set('date_planted', e.target.value)
-              set('season', detectSeason(e.target.value))
-            }} />
+            onChange={e => set('date_planted', e.target.value)} />
           {selectedCropType && rec.date_planted && (
             <p className="mt-1.5 truncate text-[11px] text-[#7A8E7A]">
               Harvest ~{(() => {
@@ -195,11 +192,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
           {areaError && <p className="mt-1.5 text-[11px] leading-snug text-rose-600" role="alert">{areaError}</p>}
         </td>
         <td data-label="Season" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.season }}>
-          <select className={`${bulkCellInputClasses} w-full`} value={rec.season}
-            onChange={e => set('season', e.target.value)}>
-            <option value="Wet">Wet</option>
-            <option value="Dry">Dry</option>
-          </select>
+          <span className="block text-[13px] text-[#1A2B1A]" data-testid="season-auto">{seasonOf(rec.date_planted) || '—'}</span>
         </td>
         <td data-label="Variety" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.variety }}>
           <ComboboxWithOther
@@ -327,7 +320,7 @@ export default function CropRecordsTable({
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropType }}>Crop Type <span className="text-white/70">*</span></th>
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.datePlanted }}>Date Planted <span className="text-white/70">*</span></th>
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.area }}>Area (ha) <span className="text-white/70">*</span></th>
-            <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.season }}>Season<OptBadge /></th>
+            <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.season }}>Season <span className="font-normal normal-case text-white/70">(auto)</span></th>
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.variety }}>Variety <span className="text-white/70">*</span></th>
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.seedSource }}>Seed Source<OptBadge /></th>
             <th className={bulkThClasses} style={{ width: COL_WIDTH.qtySeeds }}>

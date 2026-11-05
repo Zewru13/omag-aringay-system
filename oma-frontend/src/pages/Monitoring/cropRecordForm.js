@@ -3,9 +3,11 @@
 import { EMPTY_PCIC, pcicError, pcicPayload } from '../../utils/pcic.js'
 import { areaProblem, materialFor, needsLandOwner, quantityPayload } from '../CropInformation/cropEntry.js'
 
-export function detectSeason(dateStr) {
-  if (!dateStr) return 'Wet'
-  const month = new Date(dateStr).getMonth() + 1
+// Wet (June - November) or Dry (December - May) from a YYYY-MM-DD date; '' while there is no date. The server works it out the same way
+// (core/seasons.py) and ignores any season a form sends, so the season is shown, never typed.
+export function seasonOf(dateStr) {
+  const month = Number(String(dateStr || '').slice(5, 7))
+  if (!month) return ''
   return month >= 6 && month <= 11 ? 'Wet' : 'Dry'
 }
 
@@ -19,7 +21,6 @@ export const makeCropRecord = (n) => ({
   crop_type: '',
   date_planted: '',
   area_planted_ha: '',
-  season: detectSeason(''),
   variety_used: '',
   variety_used_is_other: false,
   seed_source: '',
@@ -65,7 +66,6 @@ export function buildCropRecordPayload(rec, { farmerInfo, barangay, cropTypes })
     land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
     land_owner_name:        needsLandOwner(rec.land_status) ? (rec.land_owner_name || '').trim() : '',
     crop_type:              rec.crop_type || null,
-    season:                 rec.season,
     year,
     date_planted:           rec.date_planted || null,
     area_planted_ha:        rec.area_planted_ha || null,
