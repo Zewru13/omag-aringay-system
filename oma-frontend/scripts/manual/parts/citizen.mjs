@@ -45,7 +45,7 @@ export const CITIZEN = [
   FA({ id: 'farmer-crops', file: 'farmer/crops.png', url: '/crop-monitoring', js: farmerCropMenu, after: 1200, height: 800, title: 'Crop Monitoring (Farmer)', purpose: 'Your farm parcels and the crops on them.',
     callouts: [
       SEARCH_ROW('one of your crops by crop name or barangay'),
-      { ...FILTERS_ROW, desc: 'Opens the filter row: status, season and the other filters. Print Report and Download Report follow them.' },
+      { ...FILTERS_ROW, desc: 'Opens the filter row: status, season and the other filters.' },
       PRINT_ROW, DOWNLOAD_ROW,
       { find: COLS, label: 'Parcel columns', desc: 'Each row is one of your farm parcels: its number, you, the barangay, the area (ha), the ownership (Owner, Lessee or Tenant) and how many records it holds.' },
       { find: { css: 'tbody tr', nth: 0 }, label: 'A parcel row', desc: 'The arrow at the end of the row opens or closes the crops planted on that parcel.' },

@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
-import PrintReportButton from '../../components/PrintReportButton.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFisherfolkModal from './AddFisherfolkModal.jsx'
+import { displayFisherfolkType } from '../../utils/fisherfolkType.js'
 import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
 function calcAge(birthdate) {
@@ -28,20 +28,12 @@ const columns = [
   { key: 'rsbsa_number',            label: 'RSBSA No.' },
   { key: 'full_name',               label: 'Full Name' },
   { key: 'fisherfolk_type',         label: 'Type' },
-  { key: 'activity_badges',         label: 'Activities' },
   { key: 'barangay',                label: 'Barangay' },
   { key: 'age',                     label: 'Age' },
   { key: 'date_registered_disp',    label: 'Date Registered' },
 ]
 
 const mutedBadgeCls = 'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-500'
-
-const ACTIVITY_BADGES = [
-  { key: 'is_aquaculture',     label: 'AQ',  tone: 'bg-emerald-100 text-emerald-700' },
-  { key: 'is_capture_fishery', label: 'CF',  tone: 'bg-blue-100 text-blue-700' },
-  { key: 'is_mariculture',     label: 'MC',  tone: 'bg-cyan-100 text-cyan-700' },
-  { key: 'is_inland_fishery',  label: 'IF',  tone: 'bg-indigo-100 text-indigo-700' },
-]
 
 function normalizeList(data) {
   if (Array.isArray(data)) return data
@@ -143,15 +135,8 @@ function FisherfolkPage({ asTab = false }) {
         : <span className={mutedBadgeCls}>No FishR</span>,
       rsbsa_number: f.rsbsa_number || '—',
       full_name: f.full_name,
-      activity_badges: (
-        <span className="inline-flex flex-wrap gap-1">
-          {ACTIVITY_BADGES.map((b) => f[b.key] ? (
-            <span key={b.key} className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${b.tone}`}>
-              {b.label}
-            </span>
-          ) : null)}
-        </span>
-      ),
+      // every fisherfolk is Aquaculture: a record the server has not classified yet is shown as Aquaculture too
+      fisherfolk_type: displayFisherfolkType(f.fisherfolk_type),
       age: (
         <span className="inline-flex items-center gap-1">
           {ageVal}
@@ -171,7 +156,6 @@ function FisherfolkPage({ asTab = false }) {
 
   const actionBtn = (isAdmin || isEvaluator) ? (
     <div className="flex flex-wrap items-center gap-2">
-      <PrintReportButton kind="fisherfolk" filters={{ search, gender, typeFilter, barangay, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo }} />
       <button
         className="flex items-center gap-1.5 border border-[#D8E2D8] bg-white hover:bg-[#F5F7F5] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
         onClick={() => setShowImport(true)}
@@ -216,7 +200,6 @@ function FisherfolkPage({ asTab = false }) {
           <option value="Capture">Capture Fishery</option>
           <option value="Mariculture">Mariculture</option>
           <option value="Inland">Inland Fishery</option>
-          <option value="Unspecified">Not Yet Classified</option>
         </select>
         <label className="flex items-center gap-2 text-[13px] text-[#4A5E4A] cursor-pointer">
           <input

@@ -14,9 +14,6 @@ import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
-import ListPrintButton from '../../components/ListPrintButton.jsx'
-import { fetchAllRows } from '../../utils/listReport.js'
-import { cropMonitoringReport, rangeFilter } from './listReports.js'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -2093,20 +2090,6 @@ export default function CropMonitoringPage() {
     } catch { /* ignore */ }
   }
 
-  // Print Report: every crop the table's filters match (not only this page), with what it was filtered by.
-  const buildReport = async () => {
-    const all = await fetchAllRows(api, '/production/monitoring/', monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, plantedFrom, plantedTo, search: debouncedSearch }))
-    const cropName = cropTypes.find(c => String(c.id) === String(cropFilter))?.name || ''
-    const pcicLabel = PCIC_FILTER_OPTIONS.find(o => o.value && o.value === pcicFilter)?.label || ''
-    return cropMonitoringReport({
-      records: all,
-      filters: [
-        rangeFilter('Date Planted', plantedFrom, plantedTo), ['Crop', cropName], ['Status', statusFilter === 'all' ? '' : statusFilter],
-        ['Season', seasonFilter ? `${seasonFilter} Season` : ''], ['Year', yearFilter], ['Barangay', barangayFilter], ['PCIC', pcicLabel], ['Search', debouncedSearch],
-      ],
-    })
-  }
-
   const filtered = records   // the server already applied every filter, including the Due / Ready / Overdue split
 
   const buildRow = (rec) => ({
@@ -2203,7 +2186,6 @@ export default function CropMonitoringPage() {
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
           activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), Boolean(pcicFilter), Boolean(plantedFrom), Boolean(plantedTo), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
-          actions={<ListPrintButton build={buildReport} />}
         >
           {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
           {!isFarmer && (

@@ -2,7 +2,7 @@
 import { A, click, FILTERS } from './common.mjs'
 
 export const STAFF1B = [
-  A({ id: 'admin-farmers-filters', file: 'admin/farmers-filters.png', url: '/farmers?tab=registry', js: click('Filters'), after: 1000, title: 'Farmer filters', purpose: 'Narrow the list; Print Report and Download Report follow the filters.',
+  A({ id: 'admin-farmers-filters', file: 'admin/farmers-filters.png', url: '/farmers?tab=registry', js: click('Filters'), after: 1000, title: 'Farmer filters', purpose: 'Narrow the list.',
     callouts: [
       { find: FILTERS, label: 'Filters (open)', desc: 'Press again to close the filter row. A number on the button counts the filters that are switched on.' },
       { find: { css: 'select', nth: 0 }, label: 'Gender', desc: 'All Gender, Male or Female.' },

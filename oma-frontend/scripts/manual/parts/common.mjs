@@ -34,7 +34,7 @@ export const ACCOUNT = { css: 'button[aria-label="Open account menu"]' }
 
 // The same wording for the table footer and the row menu of the list pages
 export const PAGER_ROW = { label: 'Page bar', desc: 'How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time.' }
-export const FILTERS_ROW = { find: FILTERS, label: 'Filters', desc: 'Opens or closes the filter row under the buttons. Each filter narrows the table, and Print Report / Download Report then give only what is shown.' }
+export const FILTERS_ROW = { find: FILTERS, label: 'Filters', desc: 'Opens or closes the filter row under the buttons. Each filter narrows the table.' }
 export const PRINT_ROW = { find: PRINT, label: 'Print Report', desc: 'Opens a print preview of the table as filtered (the filters and search words are applied). Sent to the printer or saved as PDF from the browser.' }
 export const DOWNLOAD_ROW = { find: DOWNLOAD, label: 'Download Report', desc: 'Saves the same report as a PDF file on your computer, with the filters and the search applied.' }
 export const SEARCH_ROW = (what) => ({ find: SEARCH, label: 'Search box', desc: `Type to find ${what}. The table updates as you type.` })

@@ -10,7 +10,7 @@ export const STAFF3 = [
   A({ id: 'admin-crop-records', file: 'admin/crop-records.png', url: '/crop-records', js: "const b=[...document.querySelectorAll('button')].find(x=>/Show the crops on/.test(x.getAttribute('aria-label')||'')&&x.offsetParent); b&&b.click()", after: 1500, title: 'Crop Management > Crop Records', purpose: 'Every farm parcel, with the crops planted on it.',
     callouts: [
       SEARCH_ROW('a parcel by farmer name, RSBSA number or parcel number'),
-      { ...FILTERS_ROW, desc: 'Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture). Print Report and Download Report follow them.' },
+      { ...FILTERS_ROW, desc: 'Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture).' },
       PRINT_ROW, DOWNLOAD_ROW,
       { find: { text: 'Import Farm Parcels', tag: 'button' }, label: 'Import Farm Parcels', desc: 'Adds parcels for all farmers from one spreadsheet. You choose the file, see a preview, and confirm; rows with a problem are listed with the reason.' },
       { find: { text: 'Add Farm Parcel', tag: 'button', exact: true }, label: 'Add Farm Parcel', desc: 'Opens the Add Farm Parcels table: choose a farmer, then one row per parcel, with the crops planted on each.' },
@@ -183,7 +183,7 @@ export const STAFF3 = [
       { find: { css: 'button[aria-label="Actions"], button[title="Actions"], main button[aria-haspopup]', nth: 0 }, label: 'Actions', desc: 'The menu of a farmer: View Report (their disasters, with Print Report and Download Report inside), Print and Download (the same PDF straight away).' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
-  A({ id: 'admin-disaster-filters', file: 'admin/disaster-filters.png', url: '/disaster?tab=farmer', js: click('Filters'), after: 1200, title: 'Crop Disaster filters', purpose: 'Narrow the logs; Print Report and Download Report follow the filters.',
+  A({ id: 'admin-disaster-filters', file: 'admin/disaster-filters.png', url: '/disaster?tab=farmer', js: click('Filters'), after: 1200, title: 'Crop Disaster filters', purpose: 'Narrow the logs.',
     callouts: [
       { find: { css: 'select', nth: 0 }, label: 'Barangay', desc: 'Only the farmers of one barangay.' },
       { find: { css: 'select', nth: 1 }, label: 'Disaster type', desc: 'Typhoon, flood, drought and the other types.' },

@@ -45,6 +45,6 @@ const menu = page.slice(start, page.indexOf('\nfunction ', start + 10))
 eq(/label: 'Cycle & Logs'/.test(menu), false, 'Cycle & Logs is not in the ⋮ menu')
 eq(/label: 'Print Report'/.test(menu), false, 'Print Report is not in the ⋮ menu')
 for (const kept of ["label: 'View Details'", "label: 'Edit'", "label: 'Force Harvest'"]) eq(menu.includes(kept), true, `${kept} stays`)
-eq(page.includes('buildReport'), true, 'the Print Report button above the table (buildReport) stays')
+eq(page.includes('buildReport'), false, 'the top-level Print Report button above the table was removed (the cycle report in the Cycle & Logs window stays)')
 
 console.log(`ok - ${n} assertions`)

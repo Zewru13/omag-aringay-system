@@ -14,6 +14,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicCell from '../../components/UI/PcicCell.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ListPrintButton from '../../components/ListPrintButton.jsx'
+import { displayFisherfolkType } from '../../utils/fisherfolkType.js'
 import { buildPersonHistorySpec } from '../AssistanceManagement/assistanceHistoryReport.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -377,7 +378,7 @@ function FisherfolkDetailPage() {
                     </div>
                     <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Name</p>
                     <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">{fisherfolk.full_name}</h1>
-                    <p className="mt-0.5 text-xs text-[#7A8E7A]">{fisherfolk.fisherfolk_type}</p>
+                    <p className="mt-0.5 text-xs text-[#7A8E7A]">{displayFisherfolkType(fisherfolk.fisherfolk_type)}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {fisherfolk.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
                       {(fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
