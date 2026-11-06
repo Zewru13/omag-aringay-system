@@ -113,7 +113,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record a harvest?',
-        a: 'In Crop Monitoring, open the crop\'s ⋮ menu and choose Record Harvest. It stays unavailable until half of the growing time of the crop has passed (planting date to expected harvest date); before that, use Force Harvest. Enter the harvest dates, the area harvested and the quantity in the unit it was counted in. Harvest Unit Settings turns that unit into kilograms. A harvest more than 7 days after the expected date asks for a reason.',
+        a: 'In Crop Monitoring, press the wheat Record Harvest button beside the crop\'s ⋮ menu. It stays unavailable until half of the growing time of the crop has passed (planting date to expected harvest date); before that, use Force Harvest. Enter the harvest dates, the area harvested and the quantity in the unit it was counted in. Harvest Unit Settings turns that unit into kilograms. A harvest more than 7 days after the expected date asks for a reason.',
       },
       {
         q: 'What is a forced harvest?',

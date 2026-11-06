@@ -46,6 +46,7 @@ import EditParcelModal from '../Farmers/EditParcelModal.jsx'
 import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, cropDisplayStatus, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
 import { actualHarvestFacts } from './cropActualHarvest.js'
+import { harvestButton } from './cropHarvestButton.js'
 import { harvestAmountText, harvestKg, harvestUnitOptions, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
 import useHarvestUnitWeights from './useHarvestUnitWeights.js'
 import { printSpec } from './disasterReportDocument.js'
@@ -1892,17 +1893,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   )
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
-
-function isNearHarvest(row) {
-  if (!row.expected_harvest_date) return false
-  if (row.status === 'Harvested')  return false
-  const today   = new Date()
-  const harvest = new Date(row.expected_harvest_date)
-  const diffDays = (harvest - today) / (1000 * 60 * 60 * 24)
-  return diffDays <= 14
-}
-
 // Mirrors HarvestRecordCreateView.create()'s date_planted_is_estimated block on the backend (the real
 // enforcement - this is client-side UX only, to explain it before the user opens the modal rather than after a
 // rejected submit). The same goes for the half-growing-time rule.
@@ -2148,30 +2138,29 @@ export default function CropMonitoringPage() {
       : <span className="text-[#A8BCA8]">—</span>,
     logs_cell: rec.log_count ?? 0,
     pcic_cell: <PcicCell insured={rec.has_pcic_insurance} photos={rec.pcic_form_photos} url={rec.pcic_form_photo} />,
-    // Most rows offer 3 (View Logs, Record Harvest, Report Disaster) -> ⋮.
-    // Once Harvested/Total Loss, Record Harvest drops out, leaving 2 (View
-    // Logs, Report Disaster) — RowActions' own action-count rule still
-    // renders that as a ⋮, same per-row logic as CropInformationPage's menu.
-    actions: (
+    // Record Harvest is a button beside the ⋮ menu (placed and styled like the harvest button of Aquaculture Monitoring); it opens the same
+    // Record Harvest form the menu item used to, with the same gate. Greyed out (with the reason) for a crop that cannot be harvested.
+    actions: (() => {
+      const harvest = harvestButton(rec, harvestGateInfo(rec))
+      return (
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          data-testid="quick-harvest"
+          title={harvest.title}
+          aria-label={harvest.title}
+          disabled={!harvest.active}
+          onClick={(e) => { e.stopPropagation(); setHarvestRecord(rec) }}
+          className={`rounded-lg p-1.5 transition-colors ${harvest.active ? 'text-[#1B4D2E] hover:bg-[#F0F4F0]' : 'cursor-not-allowed text-[#C8D5C8]'}`}
+        >
+          <Wheat size={16} />
+        </button>
       <RowActions
         actions={[
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
             key: 'activity', label: 'Log Activity', icon: ClipboardList, onClick: () => setViewLogsRecord(rec),
           },
           { key: 'details', label: 'Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
-          rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (() => {
-            const gate = harvestGateInfo(rec)
-            // Before half of the growing time has passed the item is still there, grayed out (its hover text says why).
-            return {
-              key: 'harvest',
-              label: 'Record Harvest',
-              icon: Wheat,
-              onClick: () => setHarvestRecord(rec),
-              disabled: gate.gated,
-              disabledReason: gate.gated ? gate.message : undefined,
-              tone: gate.gated ? 'default' : (isNearHarvest(rec) ? 'amber' : 'default'),
-            }
-          })(),
           // Force Harvest: staff only. Several crops of this farmer that are not ready yet, harvested together because of something coming.
           (isAdmin || isEvaluator) && (rec.status === 'Planted' || rec.status === 'Near Harvest') && {
             key: 'force-harvest', label: 'Force Harvest', icon: Zap, tone: 'rose', onClick: () => setForceRecord(rec),
@@ -2183,7 +2172,9 @@ export default function CropMonitoringPage() {
           },
         ]}
       />
-    ),
+      </div>
+      )
+    })(),
   })
   const rows = filtered.map(buildRow)
 
