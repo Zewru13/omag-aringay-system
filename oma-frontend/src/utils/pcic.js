@@ -86,3 +86,10 @@ export const PCIC_FILTER_OPTIONS = [
   { value: 'insured', label: 'PCIC insured' },
   { value: 'not_insured', label: 'Not PCIC insured' },
 ]
+
+// The PCIC Insured filter of Aquaculture Monitoring: sent as ?pcic= (the select has no label of its own, so each option names the filter).
+export const AQUACULTURE_PCIC_OPTIONS = [
+  { value: '', label: 'PCIC Insured: All' },
+  { value: 'insured', label: 'PCIC Insured: Insured' },
+  { value: 'not_insured', label: 'PCIC Insured: Not Insured' },
+]

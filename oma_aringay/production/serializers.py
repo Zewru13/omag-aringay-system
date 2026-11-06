@@ -8,6 +8,7 @@ from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
 from farmers.serializers import _farmer_main_membership
 from farmers.area_rules import growing_area_problem
+from fisheries.models import HARVEST_TIMING_LABELS, harvest_timing
 from .forced_reasons import apply_forced_reason
 from .harvest_area import harvest_area_problem
 from .unit_weights import apply_unit_weight
@@ -521,6 +522,10 @@ class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerial
     forced_harvest         = serializers.SerializerMethodField()
     disaster_report_count  = serializers.SerializerMethodField()
     harvest_variance_days  = serializers.SerializerMethodField()
+    latest_harvest_date    = serializers.SerializerMethodField()
+    actual_harvest_timing  = serializers.SerializerMethodField()
+    actual_harvest_timing_label = serializers.SerializerMethodField()
+    actual_harvest_timing_days  = serializers.SerializerMethodField()
     growth_stage           = serializers.SerializerMethodField()
     recommended_input_type_id   = serializers.SerializerMethodField()
     recommended_input_type_name = serializers.SerializerMethodField()
@@ -545,6 +550,7 @@ class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerial
             'has_disaster', 'disasters_count', 'has_recovered_disaster',
             'has_harvest', 'harvest_record_id', 'harvest_count', 'forced_harvest', 'disaster_report_count',
             'harvest_variance_days',
+            'latest_harvest_date', 'actual_harvest_timing', 'actual_harvest_timing_label', 'actual_harvest_timing_days',
             'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
             'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
         ]
@@ -668,6 +674,29 @@ class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerial
     def get_harvest_variance_days(self, obj):
         hr = self._first_harvest(obj)
         return hr.harvest_variance_days if hr else None
+
+    # The Forecast table's Actual Harvest Date and its Early / On-Time / Late badge, read from the crop's own harvest records (nothing stored).
+    # A harvest's day is the day harvesting started (what the harvest form asks for); one saved without it counts as the day it was recorded.
+    # With several harvests the latest decides, and the timing is Fisheries Forecasting's own rule (fisheries.models.harvest_timing).
+    def _latest_harvest_date(self, obj):
+        days = [h.harvest_start_date or (h.date_recorded.date() if h.date_recorded else None) for h in obj.harvest_records.all()]
+        return max((d for d in days if d), default=None)
+
+    def _actual_timing(self, obj):
+        return harvest_timing(self._latest_harvest_date(obj), obj.expected_harvest_date)
+
+    def get_latest_harvest_date(self, obj):
+        latest = self._latest_harvest_date(obj)
+        return str(latest) if latest else None
+
+    def get_actual_harvest_timing(self, obj):
+        return self._actual_timing(obj)[0]
+
+    def get_actual_harvest_timing_label(self, obj):
+        return HARVEST_TIMING_LABELS.get(self._actual_timing(obj)[0])
+
+    def get_actual_harvest_timing_days(self, obj):
+        return self._actual_timing(obj)[1]
 
     def get_growth_stage(self, obj):
         return obj.compute_growth_stage()
