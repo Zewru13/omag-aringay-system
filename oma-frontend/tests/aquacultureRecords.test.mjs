@@ -93,7 +93,14 @@ eq(monCols.includes('ORGANIZATION') || monCols.includes('PCIC INSURED'), false, 
 eq(/assoc_name:|pcic_cell:/.test(monitoring), false, 'and their row values')
 eq(RECORD_COLUMNS.some((c) => c.label === 'ORGANIZATION') && RECORD_COLUMNS.some((c) => c.label === 'PCIC INSURED'), true, 'Aquaculture Records still has both')
 // the PCIC information stays where it is still needed: the units' PCIC in the expanded rows and the cycle details
-eq((monitoring.match(/\bpcic\b/g) || []).length >= 2 && monitoring.includes('ProductionUnitsTable') && monitoring.includes('ProductionUnitsCards'), true, 'the expanded ponds/cages still show PCIC')
+// the expanded pond/cage section (table and phone cards) no longer has a PCIC Insured column; its other columns are unchanged
+const panel = read('../src/pages/FisheriesRecords/ProductionUnitsPanel.jsx').replace(/\r\n/g, '\n')
+eq(/PCIC/i.test(panel.replace(/\/\/.*$/gm, '')), false, 'the units panel has no PCIC column, cell or import')
+eq(monitoring.split('\n').filter((l) => l.includes('<ProductionUnits')).every((l) => !/\spcic(\s|$)/.test(l)), true, 'Aquaculture Monitoring no longer asks the units panel for one')
+const fieldLabels = [...panel.slice(panel.indexOf('function unitFields'), panel.indexOf('function PanelHeader')).matchAll(/label: (?:forecast \? '([^']+)' : '([^']+)'|'([^']+)')/g)].map((m) => m[3] || `${m[1]}|${m[2]}`)
+eq(fieldLabels, ['Production Unit', 'Species', 'Fingerlings Count|Fingerlings', 'Dimensions', 'Area (m²)', 'Est. Harvest (kg)', 'Actual Harvest (kg)', 'Est. Harvest Date', 'Actual Harvest Date|Date Harvested', 'Status'], 'the remaining unit columns, in order')
+// PCIC is not deleted anywhere else it is needed: Cycle details / View Details and the stored data
+eq(monitoring.includes('PcicBadge') && monitoring.includes('CycleInfoSummary'), true, 'View Details still shows the cycle PCIC and its form')
 eq(monitoring.includes('CycleInfoSummary'), true, 'View Details is untouched')
 eq(monitoring.includes('aria-label="PCIC insured"'), true, 'the PCIC Insured filter stays')
 eq(/<th key=\{col\.key\} className="whitespace-nowrap px-3 /.test(monitoring) && /<td key=\{col\.key\} className="whitespace-nowrap px-3 /.test(monitoring), true, 'the remaining columns are tighter so the table fits without scrolling')
