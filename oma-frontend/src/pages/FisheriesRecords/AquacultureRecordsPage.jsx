@@ -7,6 +7,7 @@ import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import OwnershipCell from '../../components/UI/OwnershipCell.jsx'
 import PcicCell from '../../components/UI/PcicCell.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import { AQUACULTURE_PCIC_OPTIONS } from '../../utils/pcic.js'
@@ -85,7 +86,7 @@ export default function AquacultureRecordsPage() {
     const row = recordRow(rec)
     return {
       id: rec.id,
-      ownership_cell: row.ownership,
+      ownership_cell: <OwnershipCell record={rec} />,
       cycle_cell: (
         <span className="block">
           <span className="block">{row.cycle}</span>

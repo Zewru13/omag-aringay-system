@@ -81,6 +81,6 @@ eq(aqua.includes('pcicFilter') && /activeCount=\{\[[^\]]*Boolean\(pcicFilter\)/.
 eq(/AQUACULTURE_PCIC_OPTIONS/.test(aqua), true, 'its options come from one list')
 const { AQUACULTURE_PCIC_OPTIONS } = await import(new URL('../src/utils/pcic.js', import.meta.url).href)
 eq(AQUACULTURE_PCIC_OPTIONS.map((o) => [o.value, o.label]), [['', 'PCIC Insured: All'], ['insured', 'PCIC Insured: Insured'], ['not_insured', 'PCIC Insured: Not Insured']], 'All / Insured / Not Insured')
-eq(aqua.includes("label: 'PCIC INSURED'") || aqua.includes("label: 'PCIC INSURED'"), true, 'the PCIC INSURED column is still there')
+eq(fs.readFileSync(new URL('../src/pages/FisheriesRecords/aquacultureRecords.js', import.meta.url), 'utf8').includes("label: 'PCIC INSURED'"), true, 'the PCIC INSURED column is in Aquaculture Records')
 
 console.log(`ok - ${n} assertions`)

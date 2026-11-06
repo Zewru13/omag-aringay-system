@@ -1,7 +1,7 @@
 // Aquaculture Records (Fisheries Management): one row per production cycle, listed from the existing stocking records
 // (GET /fisheries/stocking/), with filters. No screen and no network here, so the rules can be tested on their own.
 import { dateRangeParams, dateRangeProblem } from '../../utils/dateRange.js'
-import { ownershipLabel } from '../../utils/ownership.js'
+import { ownerLine, ownershipLabel } from '../../utils/ownership.js'
 
 export const PAGE_SIZE = 10
 
@@ -64,6 +64,7 @@ export function recordRow(rec) {
   const number = rec.production_cycle_no ? `#${rec.production_cycle_no}` : ''
   return {
     ownership: ownershipLabel(rec.ownership),
+    ownerLine: ownerLine(rec),
     cycle: rec.production_cycle_name || number || '—',
     cycleNo: rec.production_cycle_name ? number : '',
     species: dash(rec.species_name),

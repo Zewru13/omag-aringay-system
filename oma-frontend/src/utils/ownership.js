@@ -14,6 +14,14 @@ export const needsOwnerDetails = (ownership) => ownership === 'Tenant'
 // What a cycle (or a table row carrying its cycle's ownership) shows: the saved value, else a fallback for older cycles.
 export const ownershipLabel = (value) => (OWNERSHIP_OPTIONS.includes(value) ? value : OWNERSHIP_NOT_SPECIFIED)
 
+// The line under "Tenant" in the Aquaculture Monitoring and Aquaculture Records tables: "Owner: <the saved owner name>". Only a Tenant has one,
+// and only when a name was saved: nothing is shown (never a placeholder or a guess) for any other ownership or a blank name.
+export function ownerLine(record) {
+  if (!record || record.ownership !== 'Tenant') return ''
+  const name = String(record.owner_name || '').trim()
+  return name ? `Owner: ${name}` : ''
+}
+
 // The form state for a saved cycle.
 export function ownershipFrom(cycle) {
   if (!cycle) return { ...EMPTY_OWNERSHIP }

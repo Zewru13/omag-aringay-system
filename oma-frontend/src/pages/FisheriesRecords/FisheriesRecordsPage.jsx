@@ -38,7 +38,7 @@ import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPan
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
-import PcicCell from '../../components/UI/PcicCell.jsx'
+import OwnershipCell from '../../components/UI/OwnershipCell.jsx'
 import { AQUACULTURE_PCIC_OPTIONS } from '../../utils/pcic.js'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
@@ -70,9 +70,7 @@ const COLUMNS = [
   { key: 'cycle_cell',          label: 'CYCLE' },
   { key: 'date_stocked_fmt',    label: 'DATE STOCKED' },
   { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
-  { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
-  { key: 'pcic_cell',           label: 'PCIC INSURED' },
   { key: 'status_cell',         label: 'STATUS' },
   { key: 'actions_cell',        label: 'ACTIONS' },
 ]
@@ -778,7 +776,6 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
     ['Date Stocked', row.date_stocked_fmt],
     ['Expected Harvest', row.expected_harvest_fmt],
     ['Pond Location', row.pond_location],
-    ['PCIC Insured', row.pcic_cell],
   ]
   const btn = 'flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 text-[13px] font-medium transition-colors'
   return (
@@ -1062,7 +1059,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         )}
       </span>
     ),
-    ownership_cell:       ownershipLabel(rec.ownership),
+    ownership_cell:       <OwnershipCell record={rec} />,
     fisherfolk_cell:      isFisherfolk ? '—' : (rec.fisherfolk_name || '—'),
     cycle_cell:           rec.production_cycle_no ? `#${rec.production_cycle_no}` : '—',
     date_stocked_fmt:     rec.date_stocked_is_estimated ? (
@@ -1077,10 +1074,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       </span>
     ) : fmtShort(rec.date_stocked),
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
-    assoc_name:   rec.organization_name || '—',
     pond_location: rec.pond_location_barangay || '—',
-    // Read-only: the cycle's own PCIC status (recorded once when it starts), the same round check as Crop Monitoring's PCIC INSURED column.
-    pcic_cell: <PcicCell insured={rec.has_pcic_insurance} photos={rec.pcic_form_photos} url={rec.pcic_form_photo} />,
     status_cell: (
       <span className="flex items-center gap-1.5">
         {/* Overall cycle status is the backend's display_status (rec.status with Stocked / Near Harvest / Late
@@ -1223,7 +1217,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
                 {columns.map(col => (
-                  <th key={col.key} className="whitespace-nowrap px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
+                  <th key={col.key} className="whitespace-nowrap px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
                     {col.label}
                   </th>
                 ))}
@@ -1234,7 +1228,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
                     {columns.map(col => (
-                      <td key={col.key} className="px-4 py-[13px]">
+                      <td key={col.key} className="px-3 py-[13px]">
                         <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
                       </td>
                     ))}
@@ -1262,7 +1256,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                         aria-expanded={isExpanded}
                         {...rowClickProps(() => toggleExpanded(row._rec), `${isExpanded ? 'Hide' : 'Show'} ponds/cages: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}>
                         {columns.map(col => (
-                          <td key={col.key} className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
+                          <td key={col.key} className="whitespace-nowrap px-3 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
                             {row[col.key]}
                           </td>
                         ))}

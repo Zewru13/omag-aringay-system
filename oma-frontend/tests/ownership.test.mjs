@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 const {
   OWNERSHIP_OPTIONS, EMPTY_OWNERSHIP, needsOwnerDetails, ownershipLabel, ownershipFrom, chooseOwnership, ownershipProblem, ownershipPayload,
-  ownershipChanged, ownershipRows,
+  ownershipChanged, ownershipRows, ownerLine,
 } = await import(new URL('../src/utils/ownership.js', import.meta.url).href)
 
 let n = 0
@@ -50,5 +50,17 @@ eq(ownershipRows(saved), [['Ownership', 'Tenant'], ['Owner Name', 'Rosa'], ['RSB
 eq(ownershipRows({}), [['Ownership', 'Not specified']], 'an older cycle')
 eq(ownershipRows({ ownership: 'Lease' }), [['Ownership', 'Lease']], 'lease shows only the ownership')
 eq(ownershipRows({ ownership: 'Lease', owner_name: 'Rosa', owner_registration_number: '' }), [['Ownership', 'Lease'], ['Owner Name', 'Rosa'], ['RSBSA / FishR No. of Owner', '—']], 'an older lease cycle still shows its saved owner')
+
+// the owner's name under "Tenant" in the Aquaculture Monitoring and Aquaculture Records tables
+eq(ownerLine({ ownership: 'Tenant', owner_name: 'Juan Dela Cruz' }), 'Owner: Juan Dela Cruz', 'a tenant shows the saved owner')
+eq(ownerLine({ ownership: 'Tenant', owner_name: '  Juan  ' }), 'Owner: Juan', 'trimmed')
+eq(ownerLine({ ownership: 'Tenant', owner_name: '' }), '', 'a tenant without a saved owner shows nothing invented')
+eq(ownerLine({ ownership: 'Tenant', owner_name: '   ' }), '', 'blank spaces are not a name')
+eq(ownerLine({ ownership: 'Tenant' }), '', 'no owner field at all')
+eq(ownerLine({ ownership: 'Tenant', owner_name: null }), '', 'null')
+eq(ownerLine({ ownership: 'Owner', owner_name: 'Juan' }), '', 'Owner keeps its current display')
+eq(ownerLine({ ownership: 'Lease', owner_name: 'Juan' }), '', 'Lease keeps its current display, even with older owner details')
+eq(ownerLine({ ownership: '', owner_name: 'Juan' }), '', 'Not specified keeps its current display')
+eq(ownerLine(null), '', 'nothing')
 
 console.log(`ownership: ${n} checks passed`)

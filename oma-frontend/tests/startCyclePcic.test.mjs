@@ -32,13 +32,10 @@ eq(pondSection.indexOf('Number of') >= 0 && pondSection.indexOf('<PcicInsuranceF
 eq(form.slice(0, at[4]).includes('<PcicInsuranceField'), false, 'and not in an earlier section')
 eq(pondSection.indexOf('<PcicInsuranceField') < pondSection.indexOf('data-testid="unit-table"'), true, 'before the pond rows')
 
-// ── Aquaculture Monitoring: a read-only PCIC INSURED column between Pond Location and Status
-const page = fs.readFileSync(new URL('../src/pages/FisheriesRecords/FisheriesRecordsPage.jsx', import.meta.url), 'utf8')
-const columns = page.slice(page.indexOf('const COLUMNS = ['), page.indexOf(']\n', page.indexOf('const COLUMNS = [')))
-const keys = [...columns.matchAll(/key: '([a-z_]+)'/g)].map((m) => m[1])
-const label = (key) => (columns.match(new RegExp(`key: '${key}',\\s*label: '([^']+)'`)) || [])[1]
-eq(keys.indexOf('pcic_cell') === keys.indexOf('pond_location') + 1 && keys.indexOf('status_cell') === keys.indexOf('pcic_cell') + 1, true, 'right beside Pond Location, before Status')
-eq(label('pcic_cell'), 'PCIC INSURED', 'its heading')
-eq(/pcic_cell:\s*<PcicCell insured=\{rec\.has_pcic_insurance\}/.test(page), true, 'the cycle\'s own flag, in the Crop Monitoring checkbox design (PcicCell)')
+// ── the read-only PCIC INSURED column lives in Aquaculture Records now (Aquaculture Monitoring's main table no longer has it)
+const records = fs.readFileSync(new URL('../src/pages/FisheriesRecords/AquacultureRecordsPage.jsx', import.meta.url), 'utf8')
+const recordColumns = fs.readFileSync(new URL('../src/pages/FisheriesRecords/aquacultureRecords.js', import.meta.url), 'utf8')
+eq(/key: 'pcic_cell',\s*label: 'PCIC INSURED'/.test(recordColumns), true, 'its heading, in Aquaculture Records')
+eq(/pcic_cell: <PcicCell insured=\{row\.insured\}/.test(records), true, 'the cycle\'s own flag, in the Crop Monitoring checkbox design (PcicCell)')
 
 console.log(`ok - ${n} assertions`)
