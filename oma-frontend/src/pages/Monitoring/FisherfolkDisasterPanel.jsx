@@ -5,18 +5,21 @@ import { FormLabel, baseInputClasses } from '../../components/UI/FormField.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import { AQUACULTURE_EQUIPMENT_GROUPS, equipmentPayload } from './fisheriesDisasterConstants.js'
-import { EquipmentChecklist } from './fisheriesDisasterShared.jsx'
+import { DamagePhotosField, EquipmentChecklist } from './fisheriesDisasterShared.jsx'
+import useDamagePhotos from './useDamagePhotos.js'
 import { fetchAllStocks } from './disasterReportDocument.js'
 import { FingerlingsLostTable, StockPicker } from './FisherfolkStockDisasterModal.jsx'
 import { HARVESTED, effectiveLost, rowError, rowKey } from './fisheriesStockLosses.js'
-import { personLine } from './multiFisherfolkDisaster.js'
+import { affectedSummary, personLine } from './multiFisherfolkDisaster.js'
 
-// One selected fisherfolk's own part of the multi Log Disaster form: their stocks and ponds/cages with the fingerlings lost (or "not linked to a
-// stock"), the equipment damaged and the volume lost. It is the same part as the single Log Disaster form (FisherfolkStockDisasterModal.jsx, whose
-// stock picker and loss table it uses), for one fisherfolk of several. The event itself (date, type, description, photos) is filled in once by the
-// modal that holds the panels, which asks each panel to check itself and to hand over its entry:
-//   ref.validate(date) -> '' or the message to show      ref.entry() -> { mode, stockLosses, volume, equipment }      ref.clearDraft()
-// What is typed is a draft per fisherfolk, so leaving the page and coming back keeps it.
+// One selected fisherfolk's own part of the multi Log Disaster form, as one row of its table: who they are, a line on what was hit, THEIR OWN
+// photo documentation (uploads, previews, remove) and a button to remove them; below the row, their details: the stocks and ponds/cages with the
+// fingerlings lost (or "not linked to a stock"), the equipment damaged and the volume lost. The details are the same part as the single Log Disaster
+// form (FisherfolkStockDisasterModal.jsx, whose stock picker and loss table it uses), for one fisherfolk of several. The event itself (date, type,
+// description) is filled in once by the modal that holds the rows, which asks each row to check itself and to hand over its entry and photos:
+//   ref.validate(date) -> '' or the message to show     ref.entry() -> { mode, stockLosses, volume, equipment }     ref.photos() -> [{ file }]     ref.clearDraft()
+// The photo list lives in the row (useDamagePhotos), so the photos are this fisherfolk's alone and are dropped, previews released, when they are
+// removed from the selection. What is typed is a draft per fisherfolk, so leaving the page and coming back keeps it.
 
 const LINKED = 'stocks'
 const NOT_LINKED = 'unlinked'
@@ -24,6 +27,7 @@ const NOT_LINKED = 'unlinked'
 const FisherfolkDisasterPanel = forwardRef(function FisherfolkDisasterPanel({ person, onRemove, showErrors: submitted }, ref) {
   const draft = useDraftForm(`fisheries-multi-disaster:ff:${person.id}`)
   const [open, setOpen] = useState(true)
+  const photosState = useDamagePhotos()
   const [stocks, setStocks] = useState(null)          // every eligible stock of this fisherfolk; null while loading
   const [blocked, setBlocked] = useState('')           // why nothing can be logged for them (no pond or cage on record, or the check failed)
   const [mode, setMode] = useDraftField(draft, 'mode', LINKED)
@@ -136,85 +140,113 @@ const FisherfolkDisasterPanel = forwardRef(function FisherfolkDisasterPanel({ pe
         equipment: equipmentPayload(form.equipment_damaged, form.equipment_damaged_other),
       }
     },
+    photos: () => photosState.photos,
     clearDraft() { draft.clear() },
   }))
 
   const radioCls = (on) => `flex h-full min-h-[44px] cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${on ? 'border-green-400 bg-[#f0f7f0]' : 'border-slate-200 hover:bg-slate-50'}`
   const name = `ff-${person.id}`
+  const summary = affectedSummary({ mode, stocks: selected.length, units: groups.reduce((sum, g) => sum + g.rows.length, 0), lost: groups.reduce((sum, g) => sum + g.total, 0) })
 
   return (
-    <section className="rounded-xl border border-[#E2E8E2] bg-white" data-testid="fisherfolk-panel" data-fisherfolk-id={person.id}>
-      <header className="flex items-center gap-2 border-b border-[#F0F4F0] px-3 py-2.5">
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-label={`${open ? 'Hide' : 'Show'} the details of ${person.full_name}`}>
-          <ChevronDown size={16} className={`flex-none text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
-          <span className="min-w-0 truncate text-sm font-semibold text-[#1A2B1A]">{personLine(person)}</span>
-        </button>
-        {blocked && <span className="flex-none rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Cannot be logged</span>}
-        <button type="button" onClick={onRemove} className="flex-none rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={`Remove ${person.full_name}`}>
-          <X size={14} />
-        </button>
-      </header>
+    <tbody className="border-b border-[#E2E8E2] last:border-b-0 max-md:block" data-testid="fisherfolk-panel" data-fisherfolk-id={person.id}>
+      <tr className="align-top max-md:block max-md:px-3 max-md:pt-3">
+        <td className="px-3 py-3 md:w-[24%] max-md:block max-md:p-0">
+          <div className="flex items-start gap-1">
+            <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+              className="flex min-w-0 flex-1 items-start gap-2 text-left" aria-label={`${open ? 'Hide' : 'Show'} the details of ${person.full_name}`}>
+              <ChevronDown size={16} className={`mt-0.5 flex-none text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold text-[#1A2B1A]">{person.full_name}</span>
+                <span className="block text-[11.5px] text-[#7A8E7A]">{[person.rsbsa_number || person.fishr_number, person.barangay].filter(Boolean).join(' · ')}</span>
+              </span>
+            </button>
+            <button type="button" onClick={onRemove} className="flex-none rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden" aria-label={`Remove ${person.full_name}`}>
+              <X size={14} />
+            </button>
+          </div>
+        </td>
+        <td className="px-3 py-3 text-[12.5px] text-[#4A5E4A] md:w-[24%] max-md:mt-1 max-md:block max-md:p-0 max-md:pl-6">
+          {blocked
+            ? <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Cannot be logged</span>
+            : stocks === null ? 'Loading stocks…' : summary}
+        </td>
+        <td className="px-3 py-3 max-md:mt-2 max-md:block max-md:p-0">
+          {blocked ? <span className="text-xs text-slate-400">—</span> : (
+            <DamagePhotosField photosState={photosState} compact title="" hint="" testId={`fisherfolk-photos-${person.id}`}
+              ownerLabel={person.full_name} altPrefix={`Damage photo of ${person.full_name}`}
+              cameraSubtitle={`Photo of the damage for ${person.full_name}.`} />
+          )}
+        </td>
+        <td className="w-10 px-2 py-3 text-right max-md:hidden">
+          <button type="button" onClick={onRemove} className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={`Remove ${person.full_name}`}>
+            <X size={14} />
+          </button>
+        </td>
+      </tr>
 
       {open && (
-        <div className="space-y-4 p-3">
-          {blocked && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700" role="alert">{blocked} Remove this fisherfolk to log the others.</p>}
-          {!blocked && (
-            <>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div>
-                  <FormLabel>Affected Stock</FormLabel>
-                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Affected stock of ${person.full_name}`}>
-                    <label className={radioCls(mode === LINKED)}>
-                      <input type="radio" name={`link-${name}`} className="mt-0.5 shrink-0" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
-                      <span>
-                        <span className="block font-medium text-slate-800">One or more stocks</span>
-                        <span className="block text-xs text-slate-500">Choose the affected stocks below</span>
-                      </span>
-                    </label>
-                    <label className={radioCls(mode === NOT_LINKED)}>
-                      <input type="radio" name={`link-${name}`} className="mt-0.5 shrink-0" checked={mode === NOT_LINKED}
-                        onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
-                      <span>
-                        <span className="block font-medium text-slate-800">Not linked to a stock</span>
-                        <span className="block text-xs text-slate-500">(pond, cage or equipment damage only)</span>
-                      </span>
-                    </label>
+        <tr className="bg-[#F9FAF9] max-md:block">
+          <td colSpan={4} className="space-y-4 px-3 py-3 max-md:block">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Affected stock, equipment and losses — {personLine(person)}</p>
+            {blocked && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700" role="alert">{blocked} Remove this fisherfolk to log the others.</p>}
+            {!blocked && (
+              <>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <FormLabel>Affected Stock</FormLabel>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Affected stock of ${person.full_name}`}>
+                      <label className={radioCls(mode === LINKED)}>
+                        <input type="radio" name={`link-${name}`} className="mt-0.5 shrink-0" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
+                        <span>
+                          <span className="block font-medium text-slate-800">One or more stocks</span>
+                          <span className="block text-xs text-slate-500">Choose the affected stocks below</span>
+                        </span>
+                      </label>
+                      <label className={radioCls(mode === NOT_LINKED)}>
+                        <input type="radio" name={`link-${name}`} className="mt-0.5 shrink-0" checked={mode === NOT_LINKED}
+                          onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
+                        <span>
+                          <span className="block font-medium text-slate-800">Not linked to a stock</span>
+                          <span className="block text-xs text-slate-500">(pond, cage or equipment damage only)</span>
+                        </span>
+                      </label>
+                    </div>
+                    <div className="mt-2">
+                      {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
+                        : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
+                          : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} disabled={mode === NOT_LINKED} />}
+                    </div>
                   </div>
-                  <div className="mt-2">
-                    {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
-                      : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
-                        : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} disabled={mode === NOT_LINKED} />}
+                  <div className="flex flex-col">
+                    <FormLabel>Equipment Damaged</FormLabel>
+                    <EquipmentChecklist
+                      groups={AQUACULTURE_EQUIPMENT_GROUPS}
+                      selected={form.equipment_damaged}
+                      onToggle={toggleEquipment}
+                      otherValue={form.equipment_damaged_other}
+                      onOtherChange={(v) => set('equipment_damaged_other', v)}
+                      inputClassName={baseInputClasses}
+                    />
                   </div>
                 </div>
-                <div className="flex flex-col">
-                  <FormLabel>Equipment Damaged</FormLabel>
-                  <EquipmentChecklist
-                    groups={AQUACULTURE_EQUIPMENT_GROUPS}
-                    selected={form.equipment_damaged}
-                    onToggle={toggleEquipment}
-                    otherValue={form.equipment_damaged_other}
-                    onOtherChange={(v) => set('equipment_damaged_other', v)}
-                    inputClassName={baseInputClasses}
-                  />
+
+                {mode === LINKED && groups.length > 0 && (
+                  <FingerlingsLostTable groups={groups} values={losses} onChange={changeLoss} showErrors={showRowErrors} />
+                )}
+
+                <div className="sm:w-1/2">
+                  <FormLabel>Volume Lost (kg)</FormLabel>
+                  <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
+                    aria-label={`Volume lost (kg) for ${person.full_name}`}
+                    onChange={(e) => set('volume_lost_kg', e.target.value)} placeholder="e.g. 150" />
                 </div>
-              </div>
-
-              {mode === LINKED && groups.length > 0 && (
-                <FingerlingsLostTable groups={groups} values={losses} onChange={changeLoss} showErrors={showRowErrors} />
-              )}
-
-              <div className="sm:w-1/2">
-                <FormLabel>Volume Lost (kg)</FormLabel>
-                <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
-                  aria-label={`Volume lost (kg) for ${person.full_name}`}
-                  onChange={(e) => set('volume_lost_kg', e.target.value)} placeholder="e.g. 150" />
-              </div>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </td>
+        </tr>
       )}
-    </section>
+    </tbody>
   )
 })
 

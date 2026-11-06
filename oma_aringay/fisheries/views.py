@@ -27,7 +27,7 @@ from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_date_range, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
 from core.idnumbers import by_id_key
-from core.photos import discard_uploaded_files, validated_photos
+from core.photos import discard_uploaded_files, photos_by_owner, validated_photos
 from core.validators import validate_uploaded_image
 
 from monitoring.models import AquacultureProductionUnit
@@ -915,11 +915,13 @@ class MultiFisherfolkDisasterCreateView(APIView):
     typhoon hits a whole barangay). Staff only: a fisherfolk logs their own stocks on /stocks/.
 
     Body (JSON, or multipart when there are photos - then `fisherfolk_groups` is a JSON string): the event fields shared by everyone
-    (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage, photos) and `fisherfolk_groups`:
+    (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage) and `fisherfolk_groups`:
     [{ fisherfolk, stock_losses: [{stocking_record, production_unit, fingerlings_lost, is_total_loss}], volume_lost_kg, equipment_damaged }].
     A group with stock_losses is logged exactly like /stocks/ (their own stocks only); a group with none is "not linked to a stock" (pond, cage
     or equipment damage only) and is logged exactly like /monitoring/fisherfolk-disasters/ (the fisherfolk must have a pond or cage on record).
-    It creates one log per fisherfolk, each validated like the single form, with its own copy of the photos and its own notifications, so every
+    The photos are NOT shared: each fisherfolk's own files are sent as `photos_<fisherfolk id>` (at most 10, validated like the single form) and are
+    saved on that fisherfolk's log only; a plain `photos` field, or photos for someone not in the request, is refused.
+    It creates one log per fisherfolk, each validated like the single form, with its own photos and its own notifications, so every
     log keeps its own recovery, Total Loss and photos. All or nothing: one problem saves nothing. A repeat of the same request moments later
     (double click, retry) returns the logs already saved instead of making second ones."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -952,8 +954,11 @@ class MultiFisherfolkDisasterCreateView(APIView):
         if len(owners) != len(owner_ids):
             raise ValidationError({'fisherfolk_groups': ['One of the fisherfolk could not be found.']})
 
-        photos = _validated_damage_photos(request)
-        contents = [(f.name, f.read()) for f in photos]
+        if request.FILES.getlist('photos'):
+            raise ValidationError({'photos': ['Attach the photos to each fisherfolk (photos_<fisherfolk id>), not to the whole report.']})
+        # Every fisherfolk's photos are their own: only on their log, never copied to another fisherfolk's.
+        own_photos = photos_by_owner(request, owner_ids, limit=FisheriesDisasterReportPhoto.MAX_PER_REPORT)
+        contents_of = {oid: [(f.name, f.read()) for f in files] for oid, files in own_photos.items()}
         form = _disaster_form_data(request)
         shared = {k: form[k] for k in self.SHARED_FIELDS if k in form}
 
@@ -1014,7 +1019,7 @@ class MultiFisherfolkDisasterCreateView(APIView):
                         notify_user(recipient=resolve_owner_user(fisherfolk_id=owner.id), actor=user, verb='reported a disaster on',
                                     record_type='fisherfolk_disaster', record_id=report.fisherfolk_id,
                                     record_label=_fisherfolk_disaster_label(owner), detail=report.disaster_type)
-                    for name, blob in contents:
+                    for name, blob in contents_of[owner.id]:
                         row = FisheriesDisasterReportPhoto.objects.create(disaster_report=report, image=ContentFile(blob, name=name), uploaded_by=user)
                         written.append(row.image.name)
                     reports.append(report)

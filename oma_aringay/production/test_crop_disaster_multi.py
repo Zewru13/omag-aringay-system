@@ -8,6 +8,7 @@ import tempfile
 from datetime import date
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
@@ -188,6 +189,65 @@ class MultiCropDisasterTests(APITestCase):
         self.assertEqual(len(set(names)), 4)                       # four files, not two shared ones
         folder = os.path.join(self.media, 'disaster_reports', 'crop', 'photos')
         self.assertEqual(len(os.listdir(folder)), 4)
+
+    def multipart(self, crops, **files):
+        data = {'disaster_type': 'Flood', 'date_of_occurrence': '2026-09-01', 'estimated_damage': 'water', 'crops': json.dumps(crops)}
+        data.update(files)
+        return self.client.post(URL, data, format='multipart')
+
+    def photos_of(self, record):
+        return list(CropDisasterReport.objects.get(monitoring_record=record).photos.all())
+
+    def test_each_farmer_keeps_only_their_own_photos(self):
+        r = self.multipart(
+            [{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.a2.id, 'area_affected_ha': '1.00'},
+             {'monitoring_record': self.b1.id, 'area_affected_ha': '1.00'}],
+            **{f'photos_{self.ana.id}': [png('ana1.png', (8, 8)), png('ana2.png', (8, 8))], f'photos_{self.ben.id}': [png('ben1.png', (20, 20))]})
+        self.assertEqual(r.status_code, 201, r.content)
+        # Ana's two photos go on each of HER crops; Ben's one photo only on his; nothing crosses over
+        self.assertEqual([len(self.photos_of(x)) for x in (self.a1, self.a2, self.b1)], [2, 2, 1])
+        names = {x.id: {ph.image.name for ph in self.photos_of(x)} for x in (self.a1, self.a2, self.b1)}
+        self.assertFalse(names[self.a1.id] & names[self.b1.id])
+        size = lambda x: {(ph.image.width, ph.image.height) for ph in self.photos_of(x)}
+        self.assertEqual([size(self.a1), size(self.a2), size(self.b1)], [{(8, 8)}, {(8, 8)}, {(20, 20)}])   # each crop holds its own farmer's pictures
+
+    def test_a_farmer_with_no_photos_gets_none(self):
+        r = self.multipart(
+            [{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.b1.id, 'area_affected_ha': '1.00'}],
+            **{f'photos_{self.ben.id}': [png('ben1.png')]})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual([len(self.photos_of(x)) for x in (self.a1, self.b1)], [0, 1])
+
+    def test_photos_for_a_farmer_who_is_not_in_the_report_are_refused(self):
+        for key in (f'photos_{self.ben.id}', 'photos_abc'):
+            r = self.multipart([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}], **{key: [png('x.png')]})
+            self.assertEqual(r.status_code, 400, (key, r.content))
+        self.assertEqual(CropDisasterReport.objects.count(), 0)
+
+    def test_one_bad_or_too_many_photos_for_one_farmer_saves_nothing(self):
+        crops = [{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.b1.id, 'area_affected_ha': '1.00'}]
+        notimage = SimpleUploadedFile('x.png', b'not an image', content_type='image/png')
+        r = self.multipart(crops, **{f'photos_{self.ana.id}': [png('ok.png')], f'photos_{self.ben.id}': [notimage]})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn(f'photos_{self.ben.id}', r.json())
+        r = self.multipart(crops, **{f'photos_{self.ana.id}': [png(f'p{i}.png') for i in range(11)]})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn(f'photos_{self.ana.id}', r.json())
+        self.assertEqual(CropDisasterReport.objects.count(), 0)
+
+    def test_a_failed_batch_leaves_no_per_farmer_photo_files(self):
+        r = self.multipart(
+            [{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.b1.id, 'area_affected_ha': '9.00'}],
+            **{f'photos_{self.ana.id}': [png('ana1.png')], f'photos_{self.ben.id}': [png('ben1.png')]})
+        self.assertEqual(r.status_code, 400)
+        folder = os.path.join(self.media, 'disaster_reports', 'crop', 'photos')
+        self.assertEqual(os.listdir(folder) if os.path.isdir(folder) else [], [])
+
+    def test_a_farmer_account_can_send_its_own_photos_per_farmer_key(self):
+        self.client.force_authenticate(self.ana_user)
+        r = self.multipart([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}], **{f'photos_{self.ana.id}': [png('mine.png')]})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(len(self.photos_of(self.a1)), 1)
 
     def test_a_failed_batch_leaves_no_photo_files(self):
         data = {'disaster_type': 'Flood', 'date_of_occurrence': '2026-09-01', 'estimated_damage': 'water',

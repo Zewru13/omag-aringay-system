@@ -91,10 +91,12 @@ const cameraApiAvailable = () => Boolean(typeof navigator !== 'undefined' && nav
 // Photos picks existing images (multiple). Both feed the same 0-10 list.
 // Editing a draft: `existing` = the report's saved photos ({id, url}); each can be removed with
 // onRemoveExisting(id). They count toward the 10 (pass their number to usePhotoList as `reserved`).
+// `compact`: smaller thumbnails, for a field that sits in a table cell (one list per person); `ownerLabel` then names whose photos
+// they are in the remove buttons ("Remove photo 2 of Ana Cruz").
 export default function PhotoListField({
   photosState, existing = [], onRemoveExisting, testId = 'photo-list',
   title = 'Photos', hint = 'Optional - up to 10 photos.', altPrefix = 'Photo',
-  cameraSubtitle = 'Point the camera, then capture.',
+  cameraSubtitle = 'Point the camera, then capture.', compact = false, ownerLabel = '',
 }) {
   const { showToast } = useToast()
   const { photos, add, remove } = photosState
@@ -122,7 +124,7 @@ export default function PhotoListField({
         className="hidden" onChange={e => { add(e.target.files); e.target.value = '' }} />
       <input ref={uploadInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
         className="hidden" onChange={e => { add(e.target.files); e.target.value = '' }} />
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className={`${title || hint ? 'mt-2' : ''} flex flex-wrap items-center gap-2`}>
         <Button type="button" variant="outline" onClick={takePhoto} disabled={full}>
           <Camera size={15} className="mr-1" /> Take Photo
         </Button>
@@ -132,12 +134,12 @@ export default function PhotoListField({
         <span className="text-xs text-slate-500">{total} / {MAX_PHOTOS} photos · JPG, PNG or WEBP, up to 5 MB each</span>
       </div>
       {total > 0 && (
-        <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+        <ul className={compact ? 'mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-4' : 'mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5'}>
           {existing.map((p, i) => (
             <li key={`saved-${p.id}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-              <img src={p.url} alt={`${altPrefix} ${i + 1}`} className="h-24 w-full object-cover" />
+              <img src={p.url} alt={`${altPrefix} ${i + 1}`} className={`${compact ? 'h-16' : 'h-24'} w-full object-cover`} />
               <button type="button" onClick={() => onRemoveExisting?.(p.id)}
-                aria-label={`Remove photo ${i + 1}`} title="Remove photo"
+                aria-label={`Remove photo ${i + 1}${ownerLabel ? ` of ${ownerLabel}` : ''}`} title="Remove photo"
                 className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80">
                 <X size={13} />
               </button>
@@ -145,9 +147,9 @@ export default function PhotoListField({
           ))}
           {photos.map((p, i) => (
             <li key={p.key} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-              <img src={p.url} alt={`${altPrefix} ${existing.length + i + 1}`} className="h-24 w-full object-cover" />
+              <img src={p.url} alt={`${altPrefix} ${existing.length + i + 1}`} className={`${compact ? 'h-16' : 'h-24'} w-full object-cover`} />
               <button type="button" onClick={() => remove(p.key)}
-                aria-label={`Remove photo ${existing.length + i + 1}`} title="Remove photo"
+                aria-label={`Remove photo ${existing.length + i + 1}${ownerLabel ? ` of ${ownerLabel}` : ''}`} title="Remove photo"
                 className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80">
                 <X size={13} />
               </button>

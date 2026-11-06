@@ -160,16 +160,51 @@ class MultiFisherfolkDisasterTests(APITestCase):
         self.nothing_saved()
 
     # ── photos, notifications, duplicates, permissions
-    def test_the_photos_are_copied_to_every_log_linked_or_not(self):
+    def test_each_fisherfolk_keeps_only_their_own_photos(self):
         a, (a1, _a2) = self.stock(self.ann)
+        b, (b1,) = self.stock(self.ben, (400,))
         self.stock(self.cy)
         r = self.post([
             {'fisherfolk': self.ann.id, 'stock_losses': [self.row(a, a1, 5)]},
+            {'fisherfolk': self.ben.id, 'stock_losses': [self.row(b, b1, 5)]},
             {'fisherfolk': self.cy.id, 'stock_losses': []},
-        ], fmt='multipart', photos=[_png('one.png'), _png('two.png')])
+        ], fmt='multipart', **{f'photos_{self.ann.id}': [_png('ann1.png'), _png('ann2.png')], f'photos_{self.cy.id}': [_png('cy1.png')]})
         self.assertEqual(r.status_code, 201, r.content)
-        for report in FisheriesDisasterReport.objects.all():
-            self.assertEqual(FisheriesDisasterReportPhoto.objects.filter(disaster_report=report).count(), 2)
+        count = lambda ff: sum(
+            FisheriesDisasterReportPhoto.objects.filter(disaster_report=x).count()
+            for x in FisheriesDisasterReport.objects.filter(stocking_record__fisherfolk=ff) | FisheriesDisasterReport.objects.filter(fisherfolk=ff))
+        self.assertEqual(FisheriesDisasterReport.objects.count(), 3)
+        self.assertEqual([count(self.ann), count(self.ben), count(self.cy)], [2, 0, 1])      # nobody else's photos, none shared
+        self.assertEqual(FisheriesDisasterReportPhoto.objects.count(), 3)
+        self.assertEqual(len({p.image.name for p in FisheriesDisasterReportPhoto.objects.all()}), 3)
+
+    def test_the_old_shared_photos_field_is_refused(self):
+        a, (a1, _a2) = self.stock(self.ann)
+        r = self.post([{'fisherfolk': self.ann.id, 'stock_losses': [self.row(a, a1, 5)]}], fmt='multipart', photos=[_png('one.png')])
+        self.assertEqual(r.status_code, 400, r.content)
+        self.nothing_saved()
+
+    def test_photos_for_someone_who_is_not_in_the_request_are_refused(self):
+        a, (a1, _a2) = self.stock(self.ann)
+        for key in (f'photos_{self.ben.id}', 'photos_abc'):
+            r = self.post([{'fisherfolk': self.ann.id, 'stock_losses': [self.row(a, a1, 5)]}], fmt='multipart', **{key: [_png('x.png')]})
+            self.assertEqual(r.status_code, 400, (key, r.content))
+        self.nothing_saved()
+        self.assertEqual(FisheriesDisasterReportPhoto.objects.count(), 0)
+
+    def test_one_bad_or_too_many_photos_for_one_fisherfolk_saves_nothing(self):
+        a, (a1, _a2) = self.stock(self.ann)
+        self.stock(self.cy)
+        groups = [{'fisherfolk': self.ann.id, 'stock_losses': [self.row(a, a1, 5)]}, {'fisherfolk': self.cy.id, 'stock_losses': []}]
+        notimage = SimpleUploadedFile('x.png', b'not an image', content_type='image/png')
+        r = self.post(groups, fmt='multipart', **{f'photos_{self.ann.id}': [_png('ok.png')], f'photos_{self.cy.id}': [notimage]})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn(f'photos_{self.cy.id}', r.json())
+        r = self.post(groups, fmt='multipart', **{f'photos_{self.ann.id}': [_png(f'p{i}.png') for i in range(11)]})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn(f'photos_{self.ann.id}', r.json())
+        self.nothing_saved()
+        self.assertEqual(FisheriesDisasterReportPhoto.objects.count(), 0)
 
     def test_each_fisherfolk_is_notified_once(self):
         a, (a1, _a2) = self.stock(self.ann)
