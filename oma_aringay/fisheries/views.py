@@ -30,7 +30,7 @@ from core.idnumbers import by_id_key
 from core.photos import discard_uploaded_files, photos_by_owner, validated_photos
 from core.validators import validate_uploaded_image
 
-from monitoring.models import AquacultureProductionUnit
+from monitoring.models import AquacultureProductionCycle, AquacultureProductionUnit
 
 from . import disaster_reports
 from .eligibility import NO_PONDS_MESSAGE, fisherfolk_has_ponds
@@ -522,6 +522,66 @@ def stocking_pond_q(text):
     return Q(pond__name__icontains=text) | Q(production_cycle_id__in=unit_cycles)
 
 
+def _filter_stocking_records(qs, params):
+    """The filters of Aquaculture Records, on top of the ones the list already had: ?ownership= (Tenant / Lease / Owner, or none for a cycle
+    with no ownership saved), ?cycle= (the production cycle's name), ?culture_type=, ?organization= (the cycle's organization id),
+    ?fisherfolk_barangay= (the fisherfolk's registered barangay) and ?pond_location= (the barangay the ponds/cages are in). Each only
+    narrows the list when given, so they combine with each other, the search and the rest."""
+    ownership = (params.get('ownership') or '').strip()
+    if ownership == 'none':
+        qs = qs.filter(production_cycle__ownership='')
+    elif ownership in dict(AquacultureProductionCycle.OWNERSHIP_CHOICES):
+        qs = qs.filter(production_cycle__ownership=ownership)
+    if params.get('cycle'):
+        qs = qs.filter(production_cycle__cycle_name=params['cycle'])
+    if params.get('culture_type'):
+        qs = qs.filter(culture_type__iexact=params['culture_type'])
+    if params.get('organization'):
+        qs = qs.filter(production_cycle__organization_id=params['organization'])
+    if params.get('fisherfolk_barangay'):
+        qs = qs.filter(fisherfolk__barangay__iexact=params['fisherfolk_barangay'])
+    if params.get('pond_location'):
+        qs = qs.filter(pond_location_barangay__iexact=params['pond_location'])
+    return qs
+
+
+class StockingFilterOptionsView(APIView):
+    """GET /fisheries/stocking/filter-options/ - the values the Aquaculture Records filter dropdowns offer, read from the existing stocking
+    records (every status) the caller may see: a fisherfolk account is offered only its own. Nothing here is a fixed list."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = StockingRecord.objects.all()
+        if request.user.role == 'CITIZEN':
+            fisherfolk_id = request.user.get_linked_fisherfolk_id()
+            qs = qs.filter(fisherfolk_id=fisherfolk_id if fisherfolk_id else -1)
+        distinct = lambda field: sorted({v for v in qs.values_list(field, flat=True) if v}, key=str.lower)
+        ownerships = [{'value': v, 'label': v} for v in distinct('production_cycle__ownership')]
+        if qs.filter(production_cycle__ownership='').exists():
+            ownerships.append({'value': 'none', 'label': 'Not specified'})
+        people = {}
+        for pk, first, middle, last in qs.exclude(fisherfolk__isnull=True).values_list(
+                'fisherfolk_id', 'fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name').distinct():
+            people[pk] = ' '.join(part for part in (first, middle, last) if part)
+        organizations = {}
+        for pk, name in qs.exclude(production_cycle__organization__isnull=True).values_list('production_cycle__organization_id', 'production_cycle__organization__name').distinct():
+            organizations[pk] = name
+        species = {}
+        for pk, name in qs.values_list('species_id', 'species__species_name').distinct():
+            species[pk] = name
+        by_name = lambda mapping: [{'id': k, 'name': v} for k, v in sorted(mapping.items(), key=lambda kv: kv[1].lower())]
+        return Response({
+            'ownerships': ownerships,
+            'cycles': distinct('production_cycle__cycle_name'),
+            'species': by_name(species),
+            'fisherfolk': by_name(people),
+            'barangays': distinct('fisherfolk__barangay'),
+            'pond_locations': distinct('pond_location_barangay'),
+            'culture_types': distinct('culture_type'),
+            'organizations': by_name(organizations),
+        })
+
+
 class StockingListView(generics.ListAPIView):
     """Stocking records are created only by Start Production Cycle (monitoring.AquacultureProductionCycle); there is
     no manual create, bulk create or spreadsheet import. CITIZEN lists their own records only, scoped below."""
@@ -569,6 +629,7 @@ class StockingListView(generics.ListAPIView):
             qs = qs.filter(has_pcic_insurance=True)
         elif params.get('pcic') == 'not_insured':
             qs = qs.filter(has_pcic_insurance=False)
+        qs = _filter_stocking_records(qs, params)
         # Date stocked: ?stocked_from= and ?stocked_to= (YYYY-MM-DD, both ends included). (date_from / date_to below are the
         # forecast's expected-harvest window.)
         qs = filter_date_range(qs, 'date_stocked', params, 'stocked_from', 'stocked_to')

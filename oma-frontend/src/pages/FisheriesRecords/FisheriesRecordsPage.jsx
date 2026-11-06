@@ -1122,15 +1122,18 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          className={`flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors ${isFisherfolk ? 'min-h-[44px] w-full justify-center md:min-h-0 md:w-auto' : ''}`}
-          onClick={() => setShowStartCycle(true)}
-        >
-          <Fish size={15} /> Start Production Cycle
-        </button>
-      </div>
+      {/* Production cycles are started in Aquaculture Records (staff). A fisherfolk account has no Records page, so it keeps the button here. */}
+      {isFisherfolk && (
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0] md:min-h-0 md:w-auto"
+            onClick={() => setShowStartCycle(true)}
+          >
+            <Fish size={15} /> Start Production Cycle
+          </button>
+        </div>
+      )}
 
       <div className="space-y-4">
         {/* Search + Filters are staff tools; a fisherfolk account sees only its own records, so it gets the
@@ -1192,7 +1195,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             ) : rows.length === 0 ? (
               <div className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-10 text-center">
                 <p className="text-[14px] font-medium text-[#4A5E4A]">No stocking records found</p>
-                <p className="mt-1 text-[13px] text-[#7A8E7A]">Tap Start Production Cycle to add one</p>
+                <p className="mt-1 text-[13px] text-[#7A8E7A]">{isFisherfolk ? 'Tap Start Production Cycle to add one' : 'Start a production cycle in Aquaculture Records'}</p>
               </div>
             ) : rows.map(row => (
               <StockingMobileCard

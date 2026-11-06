@@ -28,6 +28,7 @@ const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePassw
 const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
 const CropMonitoringPage = lazy(() => import("./pages/Monitoring/CropMonitoringPage.jsx"));
 const FisheriesMonitoringPage = lazy(() => import("./pages/Monitoring/FisheriesMonitoringPage.jsx"));
+const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
 const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
 const ProductionPage = lazy(() => import("./pages/Production/ProductionPage.jsx"));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
@@ -260,6 +261,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
                 <CropMonitoringPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/aquaculture-records"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AquacultureRecordsPage />
               </ProtectedRoute>
             }
           />

@@ -71,8 +71,10 @@ const GROUPS = [
     key: "fisheries-management",
     label: "Fisheries Management",
     icon: Waves,
-    // One page, two views (?tab=stocking | ?tab=capture): each gets its own menu entry instead of tabs inside the page.
+    // Aquaculture Records lists and starts the production cycles (like Crop Records); Aquaculture Monitoring watches them.
+    // Monitoring is one page with two views (?tab=stocking | ?tab=capture): each gets its own menu entry instead of tabs inside the page.
     items: [
+      { to: "/aquaculture-records", icon: ClipboardList, label: "Aquaculture Records" },
       { to: "/fisheries-monitoring?tab=stocking", icon: Waves, label: "Aquaculture Monitoring" },
       { to: "/fisheries-monitoring?tab=capture", icon: Fish, label: "Capture Monitoring" },
     ],
