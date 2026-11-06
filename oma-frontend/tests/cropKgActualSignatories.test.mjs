@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 // 1. every crop's harvest forms start on kg; 2. the signatories table adds a row inside the table like the other settings tables;
-// 6. Crop Monitoring has an Actual Harvest column with the variance, like the fisheries tables.
+// 6. Crop Monitoring has no Actual Harvest / variance column (that is Crop Forecasting's Act. Yield).
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -35,23 +35,12 @@ eq(sig.includes('DraftInput') && sig.includes('DraftSelect') && sig.includes('Dr
 eq(sig.includes('/reports/signatories/'), true, 'it still saves to the same endpoint')
 eq(sig.includes("Edit Signatory"), true, 'editing a row still opens the form')
 
-// ── 6. Actual Harvest column with the variance
-const { actualHarvestFacts } = await load('../src/pages/Monitoring/cropActualHarvest.js')
-eq(actualHarvestFacts({ status: 'Planted', actual_yield_kg: null }), null, 'not harvested: nothing')
-eq(actualHarvestFacts({ status: 'Planted' }), null, 'no yield field')
-const harvested = actualHarvestFacts({ status: 'Harvested', actual_yield_kg: '4500.00', estimated_yield_kg: '4000.00', yield_variance_pct: '12.50', actual_harvest_date: '2026-10-01' })
-eq([harvested.kgText, harvested.label, harvested.tone, harvested.date], ['4,500 kg', '+12.5%', 'green', '2026-10-01'], 'above the estimate')
-eq(actualHarvestFacts({ status: 'Harvested', actual_yield_kg: '3500', estimated_yield_kg: '4000', yield_variance_pct: '-12.5' }).tone, 'amber', 'a little under')
-eq(actualHarvestFacts({ status: 'Harvested', actual_yield_kg: '2000', estimated_yield_kg: '4000', yield_variance_pct: '-50' }).tone, 'rose', 'a lot under')
-eq(actualHarvestFacts({ status: 'Harvested', actual_yield_kg: '4000', estimated_yield_kg: '4000', yield_variance_pct: '0.00' }).label, '+0.0%', 'on the estimate')
-eq(actualHarvestFacts({ status: 'Harvested', actual_yield_kg: '3000', estimated_yield_kg: '4000' }).label, '-25.0%', 'worked out when the server sent no variance')
-eq(actualHarvestFacts({ status: 'Harvested', actual_yield_kg: '3000', estimated_yield_kg: null }).label, '', 'no estimate: the kg only, no variance')
-eq(actualHarvestFacts({ status: 'Total Loss', actual_yield_kg: '0' }), { kgText: '', label: 'Total loss', tone: 'rose', date: '' }, 'a total loss says so')
-eq(actualHarvestFacts({ status: 'Near Harvest', actual_yield_kg: '1200', estimated_yield_kg: '4000', yield_variance_pct: '-70' }).kgText, '1,200 kg', 'harvested so far shows too')
-
-const keys = [...page.slice(page.indexOf('const COLUMNS = ['), page.indexOf(']\n', page.indexOf('const COLUMNS = [')))].join('').match(/key: '[a-z_]+'/g).map((k) => k.slice(6, -1))
-eq(keys.indexOf('actual_harvest_cell') === keys.indexOf('expected_harvest_cell') + 1, true, 'Actual Harvest sits right after Expected Harvest')
-eq(page.includes("label: 'ACTUAL HARVEST'"), true, 'its heading')
-eq(page.includes('actual_harvest_cell:'), true, 'its cell is built for every row (also the grouped ones)')
+// ── 6. Crop Monitoring has no Actual Harvest / variance column (they live in Crop Forecasting: Act. Yield and Actual Harvest Date)
+eq(page.includes("label: 'ACTUAL HARVEST'") || page.includes('actual_harvest_cell') || page.includes('actualHarvestFacts'), false, 'no Actual Harvest column, cell or helper in Crop Monitoring')
+eq(fs.existsSync(new URL('../src/pages/Monitoring/cropActualHarvest.js', import.meta.url)), false, 'and the helper that only it used is gone')
+const pageText = page.replace(/\r\n/g, '\n')
+const monitoringKeys = [...pageText.slice(pageText.indexOf('const COLUMNS = ['), pageText.indexOf(']\n', pageText.indexOf('const COLUMNS = [')))].join('').match(/key: '[a-z_]+'/g).map((k) => k.slice(6, -1))
+eq(monitoringKeys, ['crop_cell', 'variety_col', 'farmer_col', 'organization_col', 'location_col', 'date_planted', 'expected_harvest_cell', 'logs_cell', 'pcic_cell', 'status_cell', 'actions'], 'every other column is unchanged, in the same order')
+eq(read('../src/pages/Forecasting/ForecastingPage.jsx').includes("label: 'ACT. YIELD (KG)'"), true, 'Crop Forecasting keeps its Act. Yield column')
 
 console.log(`ok - ${n} assertions`)
