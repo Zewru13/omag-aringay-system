@@ -810,7 +810,7 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
             ))}
           </dl>
           <div className="border-t border-[#F0F4F0] pt-3">
-            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits} pcic
+            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits}
               headerAction={unitsState?.status === 'ok' && unitsState.hasCycle ? <LogActivityButton onChoose={onLogActivity} /> : null} />
           </div>
           <div className="grid grid-cols-2 gap-2 border-t border-[#F0F4F0] pt-3 min-[420px]:flex">
@@ -1264,7 +1264,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                       {isExpanded && (
                         <tr className="border-b border-[#E2E8E2]">
                           <td colSpan={columns.length} className="p-0">
-                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)} pcic
+                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)}
                               headerAction={unitsState(row.id)?.status === 'ok' && unitsState(row.id).hasCycle ? <LogActivityButton onChoose={(kind) => startLogActivity(row._rec, kind)} /> : null} />
                           </td>
                         </tr>
