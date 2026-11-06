@@ -39,6 +39,7 @@ import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import PcicCell from '../../components/UI/PcicCell.jsx'
+import { AQUACULTURE_PCIC_OPTIONS } from '../../utils/pcic.js'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
 import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
@@ -872,6 +873,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const debouncedPond = useDebouncedValue(pondFilter.trim())
   const [statusFilter, setStatusFilter] = useState('All Status')
   const [speciesFilter, setSpeciesFilter] = useState('')
+  const [pcicFilter,  setPcicFilter]  = useState('')   // '' (All) | insured | not_insured: the cycle's saved PCIC status
   const [seasonFilter, setSeasonFilter] = useState('')
   const [yearFilter,   setYearFilter]   = useState('')
   const [stockedFrom,  setStockedFrom]  = useState('')
@@ -990,6 +992,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         params.set('status', statusFilter)
       }
       if (speciesFilter) params.set('species', speciesFilter)
+      if (pcicFilter) params.set('pcic', pcicFilter)
       if (seasonFilter) params.set('season', seasonFilter)
       if (yearFilter)   params.set('year', yearFilter)
       Object.entries(dateRangeParams(stockedFrom, stockedTo, 'stocked_from', 'stocked_to')).forEach(([k, v]) => params.set(k, v))
@@ -1002,7 +1005,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     } finally {
       if (fetchId === latestFetch.current) setIsLoading(false)
     }
-  }, [statusFilter, speciesFilter, seasonFilter, yearFilter, stockedFrom, stockedTo, debouncedSearch, debouncedPond])
+  }, [statusFilter, speciesFilter, pcicFilter, seasonFilter, yearFilter, stockedFrom, stockedTo, debouncedSearch, debouncedPond])
 
   // ONE fetch per page view: changing a filter also resets the page to 1 in the same update (changeFilter
   // below), so this single effect runs once with the new filters and page.
@@ -1137,7 +1140,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by fisherfolk, RSBSA no., species, or barangay..."
-          activeCount={[statusFilter !== 'All Status', Boolean(speciesFilter), Boolean(seasonFilter), Boolean(yearFilter), Boolean(stockedFrom), Boolean(stockedTo), Boolean(pondFilter.trim())].filter(Boolean).length}
+          activeCount={[statusFilter !== 'All Status', Boolean(speciesFilter), Boolean(pcicFilter), Boolean(seasonFilter), Boolean(yearFilter), Boolean(stockedFrom), Boolean(stockedTo), Boolean(pondFilter.trim())].filter(Boolean).length}
         >
           <input
             type="search"
@@ -1158,6 +1161,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           <select className={filterSelectCls} value={speciesFilter} onChange={e => changeFilter(setSpeciesFilter)(e.target.value)} aria-label="Species">
             <option value="">All Species</option>
             {speciesList.map(sp => <option key={sp.id} value={sp.id}>{sp.species_name}</option>)}
+          </select>
+          <select className={filterSelectCls} value={pcicFilter} onChange={e => changeFilter(setPcicFilter)(e.target.value)} aria-label="PCIC insured">
+            {AQUACULTURE_PCIC_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <select className={filterSelectCls} value={seasonFilter} onChange={e => changeFilter(setSeasonFilter)(e.target.value)}>
             <option value="">All Seasons</option>

@@ -1007,6 +1007,13 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
                 harvest.desc(nulls_last=True) if ordering.startswith('-') else harvest.asc(nulls_last=True),
                 '-id',
             )
+        elif ordering == 'forecast':
+            # The Forecast table also lists harvested crops: the growing ones first (soonest expected harvest first), then the harvested.
+            qs = qs.order_by(
+                Case(When(status__in=('Planted', 'Near Harvest'), then=0), default=1, output_field=IntegerField()),
+                F('expected_harvest_date').asc(nulls_last=True),
+                '-id',
+            )
         return qs
 
     def perform_create(self, serializer):

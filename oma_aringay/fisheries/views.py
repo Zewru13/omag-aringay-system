@@ -563,6 +563,12 @@ class StockingListView(generics.ListAPIView):
             qs = qs.filter(species_id=params['species'])
         if params.get('barangay'):
             qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+        # PCIC insured (Aquaculture Monitoring's filter): ?pcic=insured keeps the cycles saved as insured, ?pcic=not_insured the others
+        # (anything else: all). It reads the same flag as the table's PCIC INSURED column.
+        if params.get('pcic') == 'insured':
+            qs = qs.filter(has_pcic_insurance=True)
+        elif params.get('pcic') == 'not_insured':
+            qs = qs.filter(has_pcic_insurance=False)
         # Date stocked: ?stocked_from= and ?stocked_to= (YYYY-MM-DD, both ends included). (date_from / date_to below are the
         # forecast's expected-harvest window.)
         qs = filter_date_range(qs, 'date_stocked', params, 'stocked_from', 'stocked_to')

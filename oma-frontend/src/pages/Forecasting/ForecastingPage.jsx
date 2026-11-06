@@ -19,6 +19,7 @@ import { ForecastCard } from '../../components/UI/ForecastCard.jsx'
 import { ActivityBreakdown, PhoneGroupList, PhoneYieldCard } from '../../components/UI/YieldPhone.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import GroupedForecast from './GroupedForecast.jsx'
+import { actualYieldFacts, timingFacts, varianceLongLabel } from './cropForecastActuals.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { dateRangeParams } from '../../utils/dateRange.js'
@@ -40,10 +41,45 @@ const COLUMNS = [
   { key: 'farmer_cell',       label: 'FARMER' },
   { key: 'area_cell',         label: 'AREA (HA)' },
   { key: 'yield_cell',        label: 'EST. YIELD (KG)' },
-  { key: 'harvest_date_cell', label: 'EXPECTED HARVEST' },
+  { key: 'actual_yield_cell', label: 'ACT. YIELD (KG)' },
+  { key: 'harvest_date_cell', label: 'EXPECTED HARVEST DATE' },
+  { key: 'actual_date_cell',  label: 'ACTUAL HARVEST DATE' },
   { key: 'status_cell',       label: 'STATUS' },
   { key: 'actions',           label: 'DETAILS' },
 ]
+
+// The rounded Early / Late / yield badge: exactly the look of Fisheries Forecasting's badges (colours come from cropForecastActuals.js).
+const BADGE = 'rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30'
+
+// Act. Yield (kg): the crop's recorded harvest and how it compares with the estimate; a dash until something is harvested.
+// `onOpen` makes the badge a button that opens the crop's details (the table); without it the badge is plain (inside the details).
+function ActualYieldCell({ rec, onOpen }) {
+  const a = actualYieldFacts(rec)
+  if (a.kgText === '—') return '—'
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span>{a.kgText}</span>
+      {a.badge && (onOpen
+        ? <button type="button" data-testid="variance-indicator" title="View details" onClick={onOpen} className={`${BADGE} ${a.cls}`}>{a.badge}</button>
+        : <span data-testid="variance-indicator" className={`${BADGE} ${a.cls}`}>{a.badge}</span>)}
+    </span>
+  )
+}
+
+// Actual Harvest Date: the day the crop was harvested (its latest harvest) and Early / On-Time / Late against the expected harvest date,
+// as the server classified it; a dash until something is harvested.
+function ActualDateCell({ rec, onOpen }) {
+  const t = timingFacts(rec)
+  if (!t) return '—'
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span>{fmtShortDate(t.date)}</span>
+      {t.text && (onOpen
+        ? <button type="button" data-testid="timing-indicator" title="View details" onClick={onOpen} className={`${BADGE} ${t.cls}`}>{t.text}</button>
+        : <span data-testid="timing-indicator" className={`${BADGE} ${t.cls}`}>{t.text}</span>)}
+    </span>
+  )
+}
 
 // A value label inside the detail dialog: plain sentence-case text.
 const labelCls = 'text-[11px] font-medium text-[#7A8E7A]'
@@ -106,7 +142,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
                 <dt className={labelCls}>Expected harvest</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
                   {fmtShortDate(record.expected_harvest_date)}
-                  <span className="ml-1.5 text-[11px] font-normal text-[#7A8E7A]">{countdownText(record.expected_harvest_date)}</span>
+                  {record.status !== 'Harvested' && <span className="ml-1.5 text-[11px] font-normal text-[#7A8E7A]">{countdownText(record.expected_harvest_date)}</span>}
                 </dd>
               </div>
               <div>
@@ -115,9 +151,26 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
                   {record.estimated_yield_kg ? `${Number(record.estimated_yield_kg).toLocaleString()} kg` : '—'}
                 </dd>
               </div>
+              {record.status === 'Harvested' && (
+                <>
+                  <div>
+                    <dt className={labelCls}>Actual yield</dt>
+                    <dd className="text-[13px] font-semibold text-[#1A2B1A]">
+                      <ActualYieldCell rec={record} />
+                      {actualYieldFacts(record).v && (
+                        <span className="mt-0.5 block text-[11px] font-normal text-[#7A8E7A]">{varianceLongLabel(actualYieldFacts(record).v)}</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className={labelCls}>Actual harvest date</dt>
+                    <dd className="text-[13px] font-semibold text-[#1A2B1A]"><ActualDateCell rec={record} /></dd>
+                  </div>
+                </>
+              )}
               <div>
                 <dt className={labelCls}>Status</dt>
-                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{daysUntil(record.expected_harvest_date) < 0 ? 'Overdue' : (record.status || '—')}</dd>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.status !== 'Harvested' && daysUntil(record.expected_harvest_date) < 0 ? 'Overdue' : (record.status || '—')}</dd>
               </div>
             </dl>
           </div>
@@ -843,8 +896,9 @@ export default function ForecastingPage() {
   const fetchRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setIsLoading(true); setError('')
     try {
-      // Soonest expected harvest first — the order a forecast is read in.
-      const params = { status: 'Planted,Near Harvest', page: pageNum, ordering: 'expected_harvest_date' }
+      // Growing crops first, soonest expected harvest first (the order a forecast is read in), then the harvested ones, so their Act. Yield
+      // and Actual Harvest Date show beside the estimate, as on Fisheries Forecasting.
+      const params = { status: 'Planted,Near Harvest,Harvested', page: pageNum, ordering: 'forecast' }
       if (barangayFilter) params.barangay = barangayFilter
       if (cropTypeFilter) params.crop_type = cropTypeFilter
       if (statusFilter) params.forecast_status = statusFilter
@@ -871,14 +925,15 @@ export default function ForecastingPage() {
 
   const rows = records.map(rec => {
     const days = daysUntil(rec.expected_harvest_date)
-    const overdue = days !== null && days < 0
+    const harvested = rec.status === 'Harvested'
+    const overdue = !harvested && days !== null && days < 0   // a harvested crop is never "Overdue"
     return {
       ...rec,
       crop_cell: <span className="font-medium text-[#1A2B1A] whitespace-nowrap">{rec.crop_type_name}</span>,
       // Name, then barangay and organization on one truncated line (the full
       // text is on hover and in the detail dialog) so every row stays two lines.
       farmer_cell: (
-        <span className="block w-[210px] max-w-[210px]">
+        <span className="block w-[168px] max-w-[168px]">
           <span className="block truncate text-[#1A2B1A]" title={rec.farmer_name || ''}>{rec.farmer_name || '—'}</span>
           <span className="block truncate text-[11px] text-[#7A8E7A]" title={[rec.farmer_barangay, rec.organization_name].filter(Boolean).join(' · ')}>
             {[rec.farmer_barangay, rec.organization_name].filter(Boolean).join(' · ') || '—'}
@@ -889,14 +944,16 @@ export default function ForecastingPage() {
       yield_cell: rec.estimated_yield_kg
         ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_yield_kg).toLocaleString()}</span>
         : '—',
+      actual_yield_cell: <ActualYieldCell rec={rec} onOpen={() => setDetailRecord(rec)} />,
       harvest_date_cell: (
         <span className="block whitespace-nowrap">
           <span className="block text-[#1A2B1A]">{fmtShortDate(rec.expected_harvest_date)}</span>
-          <span className={`block text-[11px] ${overdue ? 'text-rose-600' : 'text-[#7A8E7A]'}`}>{countdownText(rec.expected_harvest_date)}</span>
+          {!harvested && <span className={`block text-[11px] ${overdue ? 'text-rose-600' : 'text-[#7A8E7A]'}`}>{countdownText(rec.expected_harvest_date)}</span>}
         </span>
       ),
+      actual_date_cell: <ActualDateCell rec={rec} onOpen={() => setDetailRecord(rec)} />,
       status_cell: (
-        <StatusPill tone={overdue ? 'rose' : rec.status === 'Near Harvest' ? 'amber' : 'green'}>
+        <StatusPill tone={harvested ? 'teal' : overdue ? 'rose' : rec.status === 'Near Harvest' ? 'amber' : 'green'}>
           {overdue ? 'Overdue' : rec.status}
         </StatusPill>
       ),
@@ -956,6 +1013,7 @@ export default function ForecastingPage() {
                 <option value="Planted">Planted</option>
                 <option value="Near Harvest">Near Harvest</option>
                 <option value="Overdue">Overdue</option>
+                <option value="Harvested">Harvested</option>
               </select>
               <DateRangeFields label="Date Planted" from={plantedFrom} to={plantedTo} onFromChange={setPlantedFrom} onToChange={setPlantedTo} />
             </FilterPanel>
@@ -964,7 +1022,7 @@ export default function ForecastingPage() {
 
             {forecastView === 'flat' && !isLoading && (
               <p className="text-[12px] text-[#7A8E7A]">
-                {totalCount.toLocaleString()} growing crop{totalCount === 1 ? '' : 's'}, soonest harvest first
+                {totalCount.toLocaleString()} crop{totalCount === 1 ? '' : 's'}, growing ones first (soonest harvest first), then harvested
               </p>
             )}
 
@@ -974,7 +1032,8 @@ export default function ForecastingPage() {
                 {!isLoading && rows.length > 0 && (
                   <div className="space-y-3 md:hidden">
                     {rows.map(rec => {
-                      const overdue = (daysUntil(rec.expected_harvest_date) ?? 0) < 0
+                      const harvested = rec.status === 'Harvested'
+                      const overdue = !harvested && (daysUntil(rec.expected_harvest_date) ?? 0) < 0
                       return (
                         <ForecastCard
                           key={rec.id}
@@ -984,10 +1043,17 @@ export default function ForecastingPage() {
                           stats={[
                             { label: 'Area (ha)', value: rec.area_planted_ha ? Number(rec.area_planted_ha).toFixed(2) : '—' },
                             { label: 'Est. yield', value: rec.estimated_yield_kg ? `${Number(rec.estimated_yield_kg).toLocaleString()} kg` : '—' },
-                            { label: 'Harvest', value: fmtShortDate(rec.expected_harvest_date), sub: countdownText(rec.expected_harvest_date), subTone: overdue ? 'rose' : 'muted' },
+                            { label: 'Harvest', value: fmtShortDate(rec.expected_harvest_date), sub: harvested ? undefined : countdownText(rec.expected_harvest_date), subTone: overdue ? 'rose' : 'muted' },
                           ]}
                           onOpen={() => setDetailRecord(rec)}
-                        />
+                        >
+                          {harvested && (
+                            <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px]">
+                              <div><dt className="text-[10px] font-semibold uppercase tracking-wide text-[#7A8E7A]">Act. yield (kg)</dt><dd className="mt-0.5"><ActualYieldCell rec={rec} /></dd></div>
+                              <div><dt className="text-[10px] font-semibold uppercase tracking-wide text-[#7A8E7A]">Actual harvest date</dt><dd className="mt-0.5"><ActualDateCell rec={rec} /></dd></div>
+                            </dl>
+                          )}
+                        </ForecastCard>
                       )
                     })}
                   </div>
