@@ -45,7 +45,6 @@ import ParcelViewModal from './ParcelViewModal.jsx'
 import EditParcelModal from '../Farmers/EditParcelModal.jsx'
 import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, cropDisplayStatus, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
-import { actualHarvestFacts } from './cropActualHarvest.js'
 import { harvestButton } from './cropHarvestButton.js'
 import { harvestAmountText, harvestKg, harvestUnitOptions, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
 import useHarvestUnitWeights from './useHarvestUnitWeights.js'
@@ -1944,7 +1943,6 @@ const COLUMNS = [
   { key: 'location_col',    label: 'BARANGAY' },
   { key: 'date_planted',    label: 'DATE PLANTED' },
   { key: 'expected_harvest_cell', label: 'EXPECTED HARVEST' },
-  { key: 'actual_harvest_cell',   label: 'ACTUAL HARVEST' },
   { key: 'logs_cell',       label: 'LOGS', center: true },
   { key: 'pcic_cell',       label: 'PCIC INSURED', center: true },
   { key: 'status_cell',     label: 'STATUS' },
@@ -2119,20 +2117,6 @@ export default function CropMonitoringPage() {
       </span>
     ) : (rec.date_planted || '—'),
     expected_harvest_cell: rec.expected_harvest_date || '—',
-    // What was harvested (kg) with how it compares with the estimate (+/- %) and the date, as in the fisheries tables; '—' until something is harvested.
-    actual_harvest_cell: (() => {
-      const actual = actualHarvestFacts(rec)
-      if (!actual) return '—'
-      return (
-        <span className="flex flex-col gap-0.5 whitespace-nowrap">
-          <span className="inline-flex items-center gap-1.5">
-            {actual.kgText && <span className="font-medium text-[#1A2B1A]">{actual.kgText}</span>}
-            {actual.label && <StatusPill tone={actual.tone || 'slate'}>{actual.label}</StatusPill>}
-          </span>
-          {actual.date && <span className="text-[11px] text-[#7A8E7A]">{actual.date}</span>}
-        </span>
-      )
-    })(),
     location_col: (rec.farm_location_barangay || rec.farmer_barangay)
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,
