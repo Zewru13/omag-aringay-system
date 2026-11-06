@@ -1,6 +1,8 @@
 // Logging one disaster on several of a farmer's crops at once (POST /production/disasters/multi/). Pure functions - no
 // screen, no network - so the rules can be tested on their own. The server checks everything again.
 
+import { appendUserPhotos, hasUserPhotos } from './userPhotos.js'
+
 export const MAX_CROPS = 1000
 
 const WHOLE_AREA_TOLERANCE = 0.00005   // the same tolerance the single-crop form uses
@@ -72,6 +74,17 @@ export function buildRequest(shared, rows) {
     },
     crops: rows.map((r) => ({ monitoring_record: r.id, area_affected_ha: parseFloat(r.area), is_total_loss: r.total && isWholeArea(r) })),
   }
+}
+
+// The request: plain JSON, or a form once any farmer has photos (then `crops` travels as one JSON string and each farmer's files as
+// photos_<farmer id>, so a farmer's photos are saved on that farmer's crops only). photosByUser: { [farmer id]: [{ file }] }.
+export function cropDisasterPayload({ fields, crops, photosByUser }) {
+  if (!hasUserPhotos(photosByUser)) return { ...fields, crops }
+  const form = new FormData()
+  Object.entries(fields).forEach(([key, value]) => { if (value !== null && value !== undefined) form.append(key, value) })
+  form.append('crops', JSON.stringify(crops))
+  appendUserPhotos(form, photosByUser)
+  return form
 }
 
 export function selectionSummary(rows) {

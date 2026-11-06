@@ -30,7 +30,7 @@ from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
-from core.photos import discard_uploaded_files, validated_photos
+from core.photos import discard_uploaded_files, photos_by_owner, validated_photos
 from farmers.area_rules import growing_area_problem
 from .duplicates import ACTIVE_STATUSES, find_active_duplicates, growing_area_on_parcel, same_place
 from .naming import normalize_name
@@ -1832,8 +1832,11 @@ class CropDisasterReportMultiCreateView(APIView):
     Body (JSON, or multipart when there are photos - then `crops` is a JSON string): the shared fields of the single-crop
     form (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage, production_loss, severity,
     photos) and `crops`: [{monitoring_record, area_affected_ha, is_total_loss}, ...]. It creates one CropDisasterReport
-    per crop, each validated exactly like the single-crop endpoint and each with its own copy of the photos, so every
-    report keeps its own recovery, Total Loss and photos. All or nothing: one problem saves nothing.
+    per crop, each validated exactly like the single-crop endpoint, so every report keeps its own recovery, Total Loss and
+    photos. Photos belong to the farmer: `photos_<farmer id>` holds that farmer's files, saved (as separate copies) on
+    each of THAT farmer's crop reports and on nobody else's; a photos_<id> for a farmer who is not in the request is
+    refused. A plain `photos` field (one farmer, one list) is still copied to every crop. All or nothing: one problem
+    saves nothing.
 
     Staff may log for any farmers' crops, several farmers at once; a farmer account only for its own crops; nobody else.
     """
@@ -1875,11 +1878,15 @@ class CropDisasterReportMultiCreateView(APIView):
                 raise PermissionDenied('You can only report a disaster on your own crops.')
 
         photos = validated_photos(request, 'photos', legacy_field='photo', limit=CropDisasterReportPhoto.MAX_PER_PARENT)
-        contents = [(f.name, f.read()) for f in photos]
+        contents = [(f.name, f.read()) for f in photos]        # `photos`: for every crop (a caller with one farmer and one list)
+        # `photos_<farmer id>`: that farmer's own photos, saved on their crops' reports only, never on another farmer's.
+        own_photos = photos_by_owner(request, sorted(owners), limit=CropDisasterReportPhoto.MAX_PER_PARENT, already=len(photos))
+        contents_of = {fid: [(f.name, f.read()) for f in files] for fid, files in own_photos.items()}
+        is_file_field = lambda k: k in ('photos', 'photo', 'crops') or k.startswith('photos_')
         if hasattr(request.data, 'getlist'):   # multipart: one value per field, photo files excluded
-            shared = {k: request.data.get(k) for k in request.data.keys() if k not in ('photos', 'photo', 'crops')}
+            shared = {k: request.data.get(k) for k in request.data.keys() if not is_file_field(k)}
         else:
-            shared = {k: v for k, v in request.data.items() if k not in ('photos', 'photo', 'crops')}
+            shared = {k: v for k, v in request.data.items() if not is_file_field(k)}
 
         validated, errors = [], []
         for item in items:
@@ -1905,7 +1912,7 @@ class CropDisasterReportMultiCreateView(APIView):
                 for record, serializer in validated:
                     assert_not_locked_by_other(user, 'crop', record.id)
                     report = serializer.save(monitoring_record=record, reported_by=user)
-                    for name, blob in contents:
+                    for name, blob in contents + contents_of[record.farmer_id]:
                         row = CropDisasterReportPhoto.objects.create(
                             disaster_report=report, image=ContentFile(blob, name=name), uploaded_by=user)
                         written.append(row.image.name)

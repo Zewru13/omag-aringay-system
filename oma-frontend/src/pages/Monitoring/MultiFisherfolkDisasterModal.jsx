@@ -8,22 +8,20 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 import { FISHERFOLK_DISASTER_TYPES, saveErrorMessage } from './fisheriesDisasterConstants.js'
-import { DamagePhotosField } from './fisheriesDisasterShared.jsx'
-import useDamagePhotos from './useDamagePhotos.js'
+import { photoProblem } from './userPhotos.js'
 import FisherfolkDisasterPanel from './FisherfolkDisasterPanel.jsx'
 import FisherfolkMultiSelect from './FisherfolkMultiSelect.jsx'
 import { todayLocal } from './fisheriesStockLosses.js'
 import { MAX_FISHERFOLK, buildGroups, eventProblem, multiPayload, removePerson, togglePerson } from './multiFisherfolkDisaster.js'
 
 // Log Disaster (Admin > Disaster > Fisheries Disaster) for one or SEVERAL fisherfolk in a single submission. Choose the fisherfolk in the
-// multi-select (search by name or registration number; each can be removed again), fill in the event once (date, type, description, photos), then
+// multi-select (search by name or registration number; each can be removed again), fill in the event once (date, type, description), then
 // give each fisherfolk their own part: the stocks and ponds/cages hit with the fingerlings lost, the equipment damaged and the volume lost
 // (FisherfolkDisasterPanel). POST /fisheries/disaster-reports/multi/ saves one disaster log per fisherfolk, all or nothing, each with its own
 // photos, recovery and notifications. onSaved(logs) receives the saved logs (the rows the Fisheries Disaster table lists).
 
 export default function MultiFisherfolkDisasterModal({ onClose, onSaved }) {
   const { showToast } = useToast()
-  const damagePhotos = useDamagePhotos()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   // What is typed is a draft: still here when the page is opened again (see hooks/useDraftForm.js). Each panel keeps its own.
@@ -33,7 +31,7 @@ export default function MultiFisherfolkDisasterModal({ onClose, onSaved }) {
     date_of_occurrence: todayLocal(), disaster_type: 'Typhoon', disaster_type_other_specify: '', estimated_damage: '',
   })
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
-  const panels = useRef({})   // fisherfolk id -> the panel's handle (validate / entry / clearDraft)
+  const panels = useRef({})   // fisherfolk id -> the row's handle (validate / entry / photos / clearDraft)
 
   // Removing a fisherfolk (by their chip, by choosing them again, or by their panel) throws away what was typed for them. This is done here, not
   // inside the state update, because it changes the panel's own state.
@@ -59,14 +57,16 @@ export default function MultiFisherfolkDisasterModal({ onClose, onSaved }) {
         date_of_occurrence: form.date_of_occurrence,
         estimated_damage: form.estimated_damage.trim(),
       }
-      const r = await api.post('/fisheries/disaster-reports/multi/', multiPayload({ fields, groups: buildGroups(entries), photos: damagePhotos.photos }))
+      // Every fisherfolk's photos are their own: asked of their row, sent as photos_<fisherfolk id>, saved on their log only.
+      const photosByUser = Object.fromEntries(people.map((person) => [person.id, panels.current[person.id].photos()]))
+      const r = await api.post('/fisheries/disaster-reports/multi/', multiPayload({ fields, groups: buildGroups(entries), photosByUser }))
       showToast(people.length === 1 ? `Disaster logged for ${people[0].full_name}.` : `Disaster logged for ${people.length} fisherfolk.`, 'success')
       Object.values(panels.current).forEach((panel) => panel?.clearDraft())
       draft.clear()
       onSaved(Array.isArray(r.data) ? r.data : [])
     } catch (err) {
       // Never a false success; the form keeps everything entered so the Admin can fix it and retry.
-      showToast(saveErrorMessage(err), 'error')
+      showToast(photoProblem(err?.response?.data, (id) => people.find((p) => String(p.id) === id)?.full_name) || saveErrorMessage(err), 'error')
     } finally { setIsSubmitting(false) }
   }
 
@@ -120,23 +120,37 @@ export default function MultiFisherfolkDisasterModal({ onClose, onSaved }) {
                 placeholder="Describe the damage to the stock, pond/cage and equipment" />
             </div>
           </div>
-          <DamagePhotosField photosState={damagePhotos} />
-          <p className="text-xs text-slate-500">The date, type, description and photos are saved on every fisherfolk's own disaster log.</p>
+          <p className="text-xs text-slate-500">The date, type and description are saved on every fisherfolk's own disaster log. Photos, stocks and equipment are entered per fisherfolk, in the table below.</p>
         </section>
 
-        {/* Each fisherfolk's own part. */}
+        {/* Each fisherfolk's own part: one row per fisherfolk, with their own photos. */}
         {people.length > 0 && (
           <section className="space-y-3" aria-label="Each fisherfolk">
-            <h3 className="text-sm font-semibold text-slate-800">Affected stocks, equipment and losses per fisherfolk</h3>
-            {people.map((person) => (
-              <FisherfolkDisasterPanel
-                key={person.id}
-                ref={(handle) => { if (handle) panels.current[person.id] = handle; else delete panels.current[person.id] }}
-                person={person}
-                showErrors={submitted}
-                onRemove={() => removeChosen(person.id)}
-              />
-            ))}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">Affected stocks, equipment, losses and photos per fisherfolk</h3>
+              <p className="text-xs text-slate-500">Photos are optional (up to 10 per fisherfolk, JPG, PNG or WEBP, 5 MB each) and are saved only on that fisherfolk's log. Removing a fisherfolk removes their photos.</p>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white">
+              <table className="w-full text-sm max-md:block">
+                <thead className="bg-[#F0F4F0] text-[#4A5E4A] max-md:hidden">
+                  <tr>
+                    {['Fisherfolk', 'Affected stock', 'Photo documentation'].map((h) => (
+                      <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</th>
+                    ))}
+                    <th className="w-10 px-2 py-2.5"><span className="sr-only">Remove</span></th>
+                  </tr>
+                </thead>
+                {people.map((person) => (
+                  <FisherfolkDisasterPanel
+                    key={person.id}
+                    ref={(handle) => { if (handle) panels.current[person.id] = handle; else delete panels.current[person.id] }}
+                    person={person}
+                    showErrors={submitted}
+                    onRemove={() => removeChosen(person.id)}
+                  />
+                ))}
+              </table>
+            </div>
           </section>
         )}
       </form>

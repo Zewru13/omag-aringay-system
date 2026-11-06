@@ -44,16 +44,17 @@ eq(buildGroups([
 ], 'stocks for one, "not linked" (no stocks) for the other; empty volume and equipment are left out')
 eq(buildGroups([{ person: ann, mode: 'stocks', stockLosses: losses, volume: '0', equipment: '' }])[0].volume_lost_kg, 0, 'a volume of 0 is kept')
 
-// ── the request: plain JSON, or a form with the photos once there are some
+// ── the request: plain JSON, or a form with each fisherfolk's own photos once there are some (the details are in userPhotos.test.mjs)
 const fields = { disaster_type: 'Typhoon', disaster_type_other_specify: '', date_of_occurrence: '2026-11-01', estimated_damage: 'Dikes overtopped' }
 const groups = buildGroups([{ person: ann, mode: 'stocks', stockLosses: losses, volume: '', equipment: '' }])
-eq(multiPayload({ fields, groups, photos: [] }), { ...fields, fisherfolk_groups: groups }, 'no photos: JSON')
+eq(multiPayload({ fields, groups, photosByUser: {} }), { ...fields, fisherfolk_groups: groups }, 'no photos: JSON')
 const file = new File(['x'], 'damage.png', { type: 'image/png' })
-const form = multiPayload({ fields, groups, photos: [{ file }] })
+const form = multiPayload({ fields, groups, photosByUser: { 1: [{ file }] } })
 eq(form instanceof FormData, true, 'photos: a form')
 eq(form.get('disaster_type'), 'Typhoon', 'the shared fields are in it')
 eq(JSON.parse(form.get('fisherfolk_groups')), groups, 'the groups travel as one JSON string')
-eq(form.getAll('photos').length, 1, 'each photo is its own file')
+eq(form.getAll('photos_1').length, 1, "the photo travels under its fisherfolk's own field")
+eq(form.has('photos'), false, 'no shared photos field')
 eq(form.has('disaster_type_other_specify'), true, 'an empty text field is still sent')
 
 // ── the screen: a multi-select with removable chips, one panel per fisherfolk, one request, one atomic save

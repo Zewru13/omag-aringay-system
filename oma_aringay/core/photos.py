@@ -45,6 +45,19 @@ def validated_photos(request, field='photos', legacy_field=None, limit=MAX_PHOTO
     return files
 
 
+def photos_by_owner(request, owner_ids, prefix='photos_', limit=MAX_PHOTOS, already=0):
+    """The photos of a report that covers SEVERAL people at once, one list per person: the files sent as `<prefix><owner id>`
+    (photos_12 holds the photos of person 12). Each person's list is validated exactly like `validated_photos` (at most
+    `limit - already` files, JPG/PNG/WEBP up to 5 MB) and is theirs alone. A file field that names someone who is not in
+    the report (photos_99, photos_abc) is refused instead of being ignored. Returns {owner id: [files]} with an entry
+    for every owner (empty when they sent none)."""
+    allowed = {str(i) for i in owner_ids}
+    for key in (request.FILES.keys() if hasattr(request, 'FILES') else []):
+        if key.startswith(prefix) and key[len(prefix):] not in allowed:
+            raise ValidationError({key: ['These photos belong to someone who is not in this report.']})
+    return {i: validated_photos(request, f'{prefix}{i}', limit=limit, already=already) for i in owner_ids}
+
+
 def discard_uploaded_files(names):
     """Delete files this request wrote for a record whose transaction then rolled back - only those exact names
     (storage gives every upload a unique name), never anything belonging to a saved record."""

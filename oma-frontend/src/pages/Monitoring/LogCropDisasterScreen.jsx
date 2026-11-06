@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, ChevronDown } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
@@ -8,28 +8,29 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import usePhotoList from '../../hooks/usePhotoList.js'
 import CropDisasterEventReport from './CropDisasterEventReport.jsx'
+import UserPhotoRow from './UserPhotoRow.jsx'
+import { photoProblem } from './userPhotos.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
 import { allSelected, counts, markTotal, selectMany, updateRow } from './disasterEvent.js'
 import {
   PAGE_SIZE, SORTS, allCrops, barangayOptions, farmerOptions, filterParcels, orderedRows, pageOf, parcelState, prepareParcels, selectedStats,
-  sortParcels, summaryLine,
+  selectedFarmers, sortParcels, summaryLine,
 } from './disasterTargets.js'
-import { MAX_CROPS, areaProblem, buildRequest, dateProblem, isWholeArea, withArea, withTotal } from './multiCropDisaster.js'
+import { MAX_CROPS, areaProblem, buildRequest, cropDisasterPayload, dateProblem, isWholeArea, withArea, withTotal } from './multiCropDisaster.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Log Disaster (Crop Disaster page, staff): a full-page form for ONE disaster event over many parcels. It takes the place of the disaster
 // list inside the page, so the sidebar and the top bar stay in view. Fill the event once (type, date,
-// description, estimated loss, photos), then tick the parcels it hit in the table of every parcel that has crops in the field - search,
+// description, estimated loss), then tick the parcels it hit in the table of every parcel that has crops in the field - search,
 // filter by farmer or barangay and sort, all behind the Filters button of the search bar. Ticking a parcel ticks all its crops; its "Total loss"
 // box marks them all as lost; open a parcel to tick single crops, type each one's area affected and mark one as a total loss. Saves one
 // disaster record per crop in one go (POST /production/disasters/multi/), all or nothing, then shows the report of what was saved
-// (every reported parcel and crop) with Download and Print.
+// (every reported parcel and crop) with Download and Print. Each farmer who has a crop ticked gets a row in the
+// "Photo documentation per farmer" table with their own photos (UserPhotoRow), saved only on that farmer's crop reports.
 
 const DISASTER_TYPES = ['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak']
 const CHECK = 'h-4 w-4 flex-none accent-[#1B4D2E]'
@@ -132,7 +133,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const [date, setDate] = useDraftField(draft, 'date', today)
   const [damage, setDamage] = useDraftField(draft, 'damage', '')
   const [loss, setLoss] = useDraftField(draft, 'loss', '')
-  const photosState = usePhotoList()
+  const photoRows = useRef({})                         // farmer id -> that farmer's photo row (ref.photos() = their own photos)
   const [targets, setTargets] = useState(null)             // null while loading, false when it failed
   const [reload, setReload] = useState(0)
   const [search, setSearch] = useState('')
@@ -166,6 +167,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const { rows, records } = useMemo(() => orderedRows(selection, parcels), [selection, parcels])
   const { crops: cropCount, total: totalCount } = counts(selection)
   const stats = selectedStats(selection, parcels)
+  const farmerRows = useMemo(() => selectedFarmers(selection, parcels), [selection, parcels])
 
   const typeError = !disasterType ? 'Please select a disaster type.' : (disasterType === 'Other' && !other.trim() ? 'Please specify the disaster type.' : '')
   const dateError = dateProblem(date, rows, records, today)
@@ -193,15 +195,9 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
     setIsSubmitting(true)
     try {
       const { fields, crops: sent } = buildRequest({ disasterType, other, date, damage, loss }, rows)
-      let payload
-      if (photosState.photos.length) {
-        payload = new FormData()
-        Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
-        payload.append('crops', JSON.stringify(sent))
-        photosState.photos.forEach((p) => payload.append('photos', p.file))
-      } else {
-        payload = { ...fields, crops: sent }
-      }
+      // Every farmer's photos are their own: asked of their row, sent as photos_<farmer id>, saved on that farmer's crops only.
+      const photosByUser = Object.fromEntries(farmerRows.map((f) => [f.id, photoRows.current[f.id]?.photos() || []]))
+      const payload = cropDisasterPayload({ fields, crops: sent, photosByUser })
       const { data: created } = await api.post('/production/disasters/multi/', payload)
       showToast(`Disaster recorded on ${cropCount} crop${cropCount === 1 ? '' : 's'} of ${stats.farmers} farmer${stats.farmers === 1 ? '' : 's'}.`, 'success')
       draft.clear()
@@ -209,7 +205,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
       setSaved((Array.isArray(created) ? created : []).map((r) => r.id))
     } catch (err) {
       const data = err?.response?.data
-      showToast(data?.photos?.[0] || data?.detail || data?.crops?.[0] || 'Failed to save the disaster report.', 'error')
+      showToast(photoProblem(data, (id) => farmerRows.find((f) => String(f.id) === id)?.name) || data?.detail || data?.crops?.[0] || 'Failed to save the disaster report.', 'error')
     } finally { setIsSubmitting(false) }
   }
 
@@ -239,7 +235,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
           <div>
             <div className="space-y-5">
               <section className="rounded-xl border border-[#E2E8E2] bg-white p-4">
-                <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Disaster details</h3>
+                <h3 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Disaster details</h3>
+                <p className="mb-3 text-xs text-[#7A8E7A]">The same for every farmer in this report. Photos are added per farmer, below the parcels.</p>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-slate-700">Type of disaster *</label>
@@ -262,10 +259,6 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
                     <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={loss} onChange={(e) => setLoss(e.target.value)}
                       placeholder="Describe or estimate production loss" />
                   </div>
-                </div>
-                <div className="mt-4">
-                  <PhotoListField photosState={photosState} title="Photos (optional)"
-                    hint="Up to 10 photos showing the damage. Each crop's report keeps a copy." altPrefix="Damage photo" />
                 </div>
               </section>
 
@@ -343,6 +336,32 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
                   </>
                 )}
               </section>
+
+              {farmerRows.length > 0 && (
+                <section className="space-y-3" aria-label="Photo documentation per farmer">
+                  <div>
+                    <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Photo documentation per farmer</h3>
+                    <p className="text-xs text-[#7A8E7A]">Optional. Each farmer has their own photos (up to 10, JPG, PNG or WEBP, 5 MB each). They are saved only on that farmer's crop reports. Un-ticking all of a farmer's crops removes their photos.</p>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white">
+                    <table className="w-full text-sm">
+                      <thead className="bg-[#F0F4F0] text-[#4A5E4A] max-md:hidden">
+                        <tr>
+                          <th className={TH}>Farmer</th>
+                          <th className={TH}>Affected parcels and crops</th>
+                          <th className={TH}>Photo documentation</th>
+                        </tr>
+                      </thead>
+                      <tbody className="max-md:block max-md:divide-y max-md:divide-[#F0F4F0]">
+                        {farmerRows.map((farmer) => (
+                          <UserPhotoRow key={farmer.id} farmer={farmer}
+                            ref={(handle) => { if (handle) photoRows.current[farmer.id] = handle; else delete photoRows.current[farmer.id] }} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
 
               {totalCount > 0 && (
                 <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">

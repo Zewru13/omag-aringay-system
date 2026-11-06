@@ -70,6 +70,25 @@ export function selectedStats(selection, parcels) {
   return { crops: Object.keys(selection).length, parcels: touched.length, farmers: new Set(touched.map((p) => p.farmer_id)).size }
 }
 
+// The farmers who have a crop ticked, one entry each in the order of the table: who they are and what of theirs is affected. The
+// Log Disaster form shows one photo-documentation row per entry; a farmer whose last crop is un-ticked is no longer listed.
+export function selectedFarmers(selection, parcels) {
+  const byFarmer = new Map()
+  parcels.forEach((p) => {
+    const picked = p.crops.filter((c) => selection[c.id])
+    if (!picked.length) return
+    if (!byFarmer.has(p.farmer_id)) {
+      byFarmer.set(p.farmer_id, { id: p.farmer_id, name: p.farmer_name, rsbsa: p.rsbsa_number, barangay: p.barangay, parcels: 0, crops: 0, total: 0, parcelTitles: [] })
+    }
+    const entry = byFarmer.get(p.farmer_id)
+    entry.parcels += 1
+    entry.crops += picked.length
+    entry.total += picked.filter((c) => selection[c.id].total).length
+    entry.parcelTitles.push(p.title)
+  })
+  return [...byFarmer.values()]
+}
+
 export function summaryLine({ crops, parcels, farmers }) {
   if (!crops) return 'No crops selected'
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`

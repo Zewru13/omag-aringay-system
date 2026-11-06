@@ -1,7 +1,9 @@
 // Fisheries Disaster > Log Disaster for several fisherfolk: the rules that need no screen and no network, so they can be tested on their own.
-// The Admin picks the fisherfolk in a multi-select, fills in the event once (date, type, description, photos) and, for each fisherfolk, their own
-// stocks and ponds/cages with the fingerlings lost (or "not linked to a stock"), the equipment damaged and the volume lost. One request
+// The Admin picks the fisherfolk in a multi-select, fills in the event once (date, type, description) and, for each fisherfolk, their own
+// stocks and ponds/cages with the fingerlings lost (or "not linked to a stock"), the equipment damaged, the volume lost and their own photos. One request
 // (POST /fisheries/disaster-reports/multi/) saves one disaster log per fisherfolk, all or nothing.
+
+import { appendUserPhotos, hasUserPhotos } from './userPhotos.js'
 
 export const MAX_FISHERFOLK = 100   // the server's limit (fisheries.views.MultiFisherfolkDisasterCreateView)
 
@@ -36,12 +38,21 @@ export const buildGroups = (entries) => entries.map(({ person, mode, stockLosses
   ...(equipment ? { equipment_damaged: equipment } : {}),
 }))
 
-// The request body: plain JSON, or a form once there are photos (then the groups travel as one JSON string and every photo is its own file).
-export function multiPayload({ fields, groups, photos }) {
-  if (!photos.length) return { ...fields, fisherfolk_groups: groups }
+// The request body: plain JSON, or a form once there are photos (then the groups travel as one JSON string and each fisherfolk's own
+// files as photos_<fisherfolk id>, saved on that fisherfolk's log only). photosByUser: { [fisherfolk id]: [{ file }] }.
+export function multiPayload({ fields, groups, photosByUser }) {
+  if (!hasUserPhotos(photosByUser)) return { ...fields, fisherfolk_groups: groups }
   const form = new FormData()
   Object.entries(fields).forEach(([key, value]) => { if (value !== null && value !== undefined) form.append(key, value) })
   form.append('fisherfolk_groups', JSON.stringify(groups))
-  photos.forEach((p) => form.append('photos', p.file, p.file.name))
+  appendUserPhotos(form, photosByUser)
   return form
+}
+
+// What a fisherfolk's row says about what was hit: "2 stocks · 3 ponds/cages · 140 fingerlings lost".
+export function affectedSummary({ mode, stocks, units, lost }) {
+  if (mode !== 'stocks') return 'Not linked to a stock'
+  if (!stocks) return 'No stock chosen yet'
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
+  return [plural(stocks, 'stock', 'stocks'), plural(units, 'pond/cage', 'ponds/cages'), lost ? `${lost} ${lost === 1 ? 'fingerling' : 'fingerlings'} lost` : ''].filter(Boolean).join(' · ')
 }

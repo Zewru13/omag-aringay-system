@@ -121,11 +121,11 @@ export const SECTIONS = [
       },
       {
         q: 'How do I log one disaster for many fisherfolk?',
-        a: 'Go to Disaster > Fisheries Disaster and press Log Disaster. Search by name or registration number and tick every fisherfolk the disaster hit; each one shows as a chip you can remove. Fill in the date, type, description and photos once, then give each fisherfolk their own stocks, fingerlings lost, equipment damaged and volume lost. Pressing Log Disaster saves one log for each fisherfolk in one go: if anything is wrong nothing is saved, and each fisherfolk is notified. A fisherfolk with no pond or cage on record cannot be logged, so remove them first.',
+        a: 'Go to Disaster > Fisheries Disaster and press Log Disaster. Search by name or registration number and tick every fisherfolk the disaster hit; each one shows as a chip you can remove. Fill in the date, type and description once. Then the table has one row for each fisherfolk: their own photos of the damage (up to 10, shown as previews you can remove), and below the row their own stocks, fingerlings lost, equipment damaged and volume lost. A fisherfolk\'s photos are saved only on their own log; removing a fisherfolk removes their photos. Pressing Log Disaster saves one log for each fisherfolk in one go: if anything is wrong nothing is saved, and each fisherfolk is notified. A fisherfolk with no pond or cage on record cannot be logged, so remove them first.',
       },
       {
         q: 'How do I report a disaster or crop damage?',
-        a: 'For one crop, open its ⋮ menu in Crop Monitoring and choose Report Disaster. For many crops or farmers at once, go to Disaster > Crop Disaster and press Log Disaster: choose the farmers and their affected parcels and crops (there is a total loss option), and after saving you can download or print the report. A crop reported as a total loss moves to Total Loss.',
+        a: 'For one crop, open its ⋮ menu in Crop Monitoring and choose Report Disaster. For many crops or farmers at once, go to Disaster > Crop Disaster and press Log Disaster: choose the farmers and their affected parcels and crops (there is a total loss option), then add each farmer\'s own photos in the Photo documentation per farmer table (one row for each farmer you ticked; a farmer\'s photos are saved only on that farmer\'s crops). After saving you can download or print the report. A crop reported as a total loss moves to Total Loss.',
       },
       {
         q: 'How do I filter, print or download the Crop Disaster and Fisheries Disaster tables?',
