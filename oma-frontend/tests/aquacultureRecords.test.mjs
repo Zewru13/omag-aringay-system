@@ -16,17 +16,18 @@ eq(new Set(RECORD_COLUMNS.map((c) => c.key)).size, 10, 'each column has its own 
 
 // ── a row is made of the existing production-cycle record, nothing invented
 const rec = {
-  id: 7, ownership: 'Tenant', production_cycle_name: 'Grow-out Phase', production_cycle_no: 2, species_name: 'Bangus', fisherfolk_name: 'Pedro Cruz',
+  id: 7, ownership: 'Tenant', production_cycle_name: 'Grow-out Phase', owner_name: 'Juan Dela Cruz', production_cycle_no: 2, species_name: 'Bangus', fisherfolk_name: 'Pedro Cruz',
   fisherfolk_barangay: 'Samara', pond_location_barangay: 'Basca', culture_type: 'Pond', organization_name: 'Samara Fishers', date_stocked: '2026-10-05', has_pcic_insurance: true,
 }
 eq(recordRow(rec), {
-  ownership: 'Tenant', cycle: 'Grow-out Phase', cycleNo: '#2', species: 'Bangus', fisherfolk: 'Pedro Cruz', barangay: 'Samara', pondLocation: 'Basca', cultureType: 'Pond',
+  ownership: 'Tenant', ownerLine: 'Owner: Juan Dela Cruz', cycle: 'Grow-out Phase', cycleNo: '#2', species: 'Bangus', fisherfolk: 'Pedro Cruz', barangay: 'Samara', pondLocation: 'Basca', cultureType: 'Pond',
   organization: 'Samara Fishers', dateStocked: '10/5/2026', insured: true,
 }, 'a full row')
 const bare = recordRow({ id: 8, ownership: '', species_name: 'Tilapia', date_stocked: '2026-01-02' })
 eq([bare.ownership, bare.cycle, bare.cycleNo, bare.fisherfolk, bare.barangay, bare.pondLocation, bare.cultureType, bare.organization, bare.insured],
   ['Not specified', '—', '', '—', '—', '—', '—', '—', false], 'a cycle with little saved shows dashes, "Not specified" ownership and no PCIC')
 eq(recordRow({ ...rec, has_pcic_insurance: false }).insured, false, 'unchecked when not insured')
+eq([recordRow({ ...rec, ownership: 'Owner' }).ownerLine, recordRow({ ...rec, owner_name: '' }).ownerLine, bare.ownerLine], ['', '', ''], 'the owner line only for a Tenant with a saved owner')
 eq(recordRow({ ...rec, production_cycle_name: null }).cycle, '#2', 'the cycle number stands in for a missing name')
 
 // ── filters
@@ -77,5 +78,25 @@ eq(page.includes('PcicCell'), true, 'the PCIC check is the same one the other ta
 const monitoring = read('../src/pages/FisheriesRecords/FisheriesRecordsPage.jsx')
 eq(/\{isFisherfolk && \(\s*<div className="flex justify-end gap-2">[\s\S]{0,800}Start Production Cycle/.test(monitoring), true, 'only a fisherfolk account still sees the button in Monitoring')
 eq(monitoring.includes('Start a production cycle in Aquaculture Records'), true, 'the empty state points staff to the new page')
+
+// the Ownership column shows the Tenant's owner in both tables, from one shared cell
+const cellSrc = read('../src/components/UI/OwnershipCell.jsx')
+eq(cellSrc.includes('ownerLine(') && cellSrc.includes('text-[11.5px] text-[#7A8E7A]'), true, 'the owner is smaller, secondary text under the ownership')
+eq(page.includes('<OwnershipCell') && monitoring.includes('<OwnershipCell'), true, 'both tables use it')
+
+// Aquaculture Monitoring's main table drops Organization and PCIC Insured; Aquaculture Records keeps them
+const monText = monitoring.replace(/\r\n/g, '\n')
+const monCols = monText.slice(monText.indexOf('const COLUMNS = ['), monText.indexOf(']\n', monText.indexOf('const COLUMNS = [')))
+const monKeys = [...monCols.matchAll(/key: '([a-z_]+)'/g)].map((m) => m[1])
+eq(monKeys, ['ownership_cell', 'species_name_cell', 'fisherfolk_cell', 'culture_type', 'cycle_cell', 'date_stocked_fmt', 'expected_harvest_fmt', 'pond_location', 'status_cell', 'actions_cell'], 'Monitoring columns without Organization and PCIC INSURED')
+eq(monCols.includes('ORGANIZATION') || monCols.includes('PCIC INSURED'), false, 'their headers are gone')
+eq(/assoc_name:|pcic_cell:/.test(monitoring), false, 'and their row values')
+eq(RECORD_COLUMNS.some((c) => c.label === 'ORGANIZATION') && RECORD_COLUMNS.some((c) => c.label === 'PCIC INSURED'), true, 'Aquaculture Records still has both')
+// the PCIC information stays where it is still needed: the units' PCIC in the expanded rows and the cycle details
+eq((monitoring.match(/\bpcic\b/g) || []).length >= 2 && monitoring.includes('ProductionUnitsTable') && monitoring.includes('ProductionUnitsCards'), true, 'the expanded ponds/cages still show PCIC')
+eq(monitoring.includes('CycleInfoSummary'), true, 'View Details is untouched')
+eq(monitoring.includes('aria-label="PCIC insured"'), true, 'the PCIC Insured filter stays')
+eq(/<th key=\{col\.key\} className="whitespace-nowrap px-3 /.test(monitoring) && /<td key=\{col\.key\} className="whitespace-nowrap px-3 /.test(monitoring), true, 'the remaining columns are tighter so the table fits without scrolling')
+eq(cellSrc.includes('max-w-[10rem]') && cellSrc.includes('whitespace-normal'), true, 'a long owner name wraps instead of widening the column')
 
 console.log(`ok - ${n} assertions`)
