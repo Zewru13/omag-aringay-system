@@ -46,17 +46,24 @@ eq(timingFacts({ latest_harvest_date: null, actual_harvest_timing: null }), null
 eq(timingFacts({}), null, 'nothing sent')
 eq(timingFacts({ latest_harvest_date: '2026-09-10', actual_harvest_timing: null }).text, '', 'a date with no expected date to compare: the date, no badge')
 
-// ── the same look as Fisheries Forecasting: the very same colour classes and badge shape
+// ── ONE badge design for both forecasting pages: Fisheries Forecasting imports the colours, words and badge shape from this same module
+// (so it cannot drift) and Crop Forecasting's own badge string is the very same one.
 const fish = read('../src/pages/Monitoring/FisheriesForecastingTab.jsx')
-for (const [name, cls] of Object.entries({ ...VARIANCE_TONE_CLS, ...Object.fromEntries(Object.entries(TIMING_BADGE_CLS).map(([k, v]) => [`timing ${k}`, v])) })) {
-  eq(fish.includes(`'${cls}'`), true, `Fisheries Forecasting uses the same classes for ${name}`)
-}
-eq([TIMING_SHORT.early, TIMING_SHORT.on_time, TIMING_SHORT.late], ['Early', 'On-Time', 'Late'], 'badge words')
-const badgeShape = 'rounded-full border px-2 py-0.5 text-[11px] font-semibold'
-eq(fish.includes(badgeShape), true, 'the fisheries badge shape')
 const page = read('../src/pages/Forecasting/ForecastingPage.jsx')
-eq(page.includes(badgeShape), true, 'the crop badge has the same shape (padding, size, weight, rounding)')
-eq(page.includes('inline-flex items-center gap-1.5 whitespace-nowrap'), true, 'the value and its badge sit side by side with the same spacing')
+const { FORECAST_BADGE } = await import(new URL('../src/pages/Forecasting/cropForecastActuals.js', import.meta.url).href)
+eq(FORECAST_BADGE, 'rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30', 'the badge shape')
+eq(page.includes(`const BADGE = '${FORECAST_BADGE}'`), true, "Crop Forecasting's badge is exactly the shared one")
+eq(/from '\.\.\/Forecasting\/cropForecastActuals\.js'/.test(fish), true, 'Fisheries Forecasting imports the shared design')
+eq(/const (VARIANCE_TONE_CLS|TIMING_BADGE_CLS|TIMING_SHORT) =/.test(fish), false, 'Fisheries Forecasting has no colour set of its own')
+eq((fish.match(/\$\{FORECAST_BADGE\}/g) || []).length, 2, 'both the Early/Late and the yield badge of Fisheries Forecasting use it')
+eq(fish.includes('rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity'), false, 'no second copy of the badge shape')
+eq([TIMING_SHORT.early, TIMING_SHORT.on_time, TIMING_SHORT.late], ['Early', 'On-Time', 'Late'], 'badge words')
+eq(page.includes('inline-flex items-center gap-1.5 whitespace-nowrap') && fish.includes('inline-flex items-center gap-1.5 whitespace-nowrap'), true, 'the value and its badge sit side by side with the same spacing')
+// the Status column: the same rounded pill as Crop Forecasting (StatusPill), one tone per existing status, the text itself unchanged
+eq(/status_cell: <StatusPill tone=\{FC_STATUS_TONE\[/.test(fish), true, 'the Fisheries status is a StatusPill')
+eq(fish.includes('status_text: rec.display_status || rec.status'), true, 'the status value is still the backend display_status')
+eq(/FC_STATUS_TONE = \{ Stocked: 'green', 'Near Harvest': 'amber', Late: 'rose', Harvested: 'teal', 'Total Loss': 'rose' \}/.test(fish), true, 'the tones of the existing statuses')
+eq(page.includes("harvested ? 'teal'"), true, 'Crop Forecasting shows Harvested in the same teal')
 
 // ── the table: Act. Yield right after Est. Yield, Actual Harvest Date right after the expected date
 const keys = [...page.matchAll(/\{ key: '([a-z_]+)',\s+label: '([^']+)' \}/g)].map((m) => m[2])

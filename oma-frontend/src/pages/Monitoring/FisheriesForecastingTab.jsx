@@ -19,6 +19,7 @@ import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
 import { fmtActualHarvestKg } from '../FisheriesRecords/stockingHelpers.js'
 import { ProductionUnitsCards, ProductionUnitsTable } from '../FisheriesRecords/ProductionUnitsPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { FORECAST_BADGE, TIMING_BADGE_CLS, TIMING_SHORT, VARIANCE_TONE_CLS } from '../Forecasting/cropForecastActuals.js'   // the badge design shared with Crop Forecasting
 import { ForecastCard } from '../../components/UI/ForecastCard.jsx'
 import { ActivityBreakdown, PhoneGroupList, PhoneYieldCard } from '../../components/UI/YieldPhone.jsx'
 import useExpandableProductionUnits from '../FisheriesRecords/useExpandableProductionUnits.js'
@@ -264,13 +265,6 @@ function varianceTone(pct) {
   if (pct >= 0) return 'green'
   if (pct >= -20) return 'amber'
   return 'rose'
-}
-
-const VARIANCE_TONE_CLS = {
-  green: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  amber: 'text-amber-700 bg-amber-50 border-amber-200',
-  rose:  'text-rose-700 bg-rose-50 border-rose-200',
-  slate: 'text-slate-500 bg-slate-100 border-slate-200',
 }
 
 function VarianceBadge({ pct }) {
@@ -537,13 +531,6 @@ function HarvestVarianceDetailsModal({ record, onClose }) {
 // ── Harvest timing (Early / On-Time / Late) ─────────────────────────────────────
 // Display only: the timing itself always comes from the backend (fisheries.models.harvest_timing via
 // actual_harvest_timing on the row and harvest_timing on each harvest record) - nothing is recomputed here.
-const TIMING_SHORT = { early: 'Early', on_time: 'On-Time', late: 'Late' }
-const TIMING_BADGE_CLS = {
-  early:   'text-sky-700 bg-sky-50 border-sky-200',
-  on_time: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  late:    'text-amber-700 bg-amber-50 border-amber-200',
-}
-
 function timingDifferenceText(timing, days) {
   if (timing === 'on_time') return 'On the estimated harvest date.'
   if (days == null) return ''
@@ -920,7 +907,8 @@ export default function ForecastingTab({ asTab = false }) {
     ),
     // Same backend display_status as Fisheries Monitoring (Stocked / Near Harvest / Late from today's date;
     // Harvested / Total Loss as stored). A completed harvest's own timing is the badge in Actual Harvest Date.
-    status_cell: rec.display_status || rec.status,
+    status_text: rec.display_status || rec.status,
+    status_cell: <StatusPill tone={FC_STATUS_TONE[rec.display_status || rec.status] || 'slate'}>{rec.display_status || rec.status}</StatusPill>,
     stocked_cell: fmtMDY(rec.date_stocked),
     fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
     harvest_date_cell: fmtMDY(rec.expected_harvest_date),
@@ -935,7 +923,7 @@ export default function ForecastingTab({ asTab = false }) {
             data-testid="timing-indicator"
             title="View Harvest Timing Details"
             onClick={() => setTimingRec(rec)}
-            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30 ${TIMING_BADGE_CLS[rec.actual_harvest_timing]}`}
+            className={`${FORECAST_BADGE} ${TIMING_BADGE_CLS[rec.actual_harvest_timing]}`}
           >
             {TIMING_SHORT[rec.actual_harvest_timing]}
           </button>
@@ -959,7 +947,7 @@ export default function ForecastingTab({ asTab = false }) {
                 ? 'View Harvest Variance Details'
                 : 'Based on harvest recorded so far - view Harvest Variance Details'}
               onClick={() => setVarianceRec(rec)}
-              className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30 ${varianceBadgeCls(v)}`}
+              className={`${FORECAST_BADGE} ${varianceBadgeCls(v)}`}
             >
               {varianceShortLabel(v)}
             </button>
@@ -1334,7 +1322,7 @@ export default function ForecastingTab({ asTab = false }) {
                 <ForecastCard
                   key={row.id}
                   title={row.species_name}
-                  status={<StatusPill tone={FC_STATUS_TONE[row.status_cell] || 'slate'}>{row.status_cell}</StatusPill>}
+                  status={row.status_cell}
                   subtitle={<>{row.fisherfolk_name ? row.fisherfolk_cell : null}{row.fisherfolk_name && row.culture_type ? ' · ' : null}{row.culture_type}</>}
                   stats={[
                     { label: 'Stocked', value: row.stocked_cell },

@@ -14,6 +14,9 @@ export const VARIANCE_TONE_CLS = {
   slate: 'text-slate-500 bg-slate-100 border-slate-200',
 }
 
+// The rounded Early / Late / yield badge of BOTH forecasting pages (Crop Forecasting and Fisheries Forecasting): one string, so they cannot drift.
+export const FORECAST_BADGE = 'rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30'
+
 export const TIMING_SHORT = { early: 'Early', on_time: 'On-Time', late: 'Late' }
 export const TIMING_BADGE_CLS = {
   early:   'text-sky-700 bg-sky-50 border-sky-200',
