@@ -6,8 +6,8 @@ const { REPORT_TYPES, reportType, reportTypeFromParam, periodText, detailFromFil
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
-// ── the six reports, in the order the Report type dropdown lists them
-eq(REPORT_TYPES.map((r) => r.id), ['registered', 'harvested', 'fisheries', 'disaster_fisheries', 'disaster_crops', 'organization_assistance'], 'the six reports')
+// ── the seven reports, in the order the Report type dropdown lists them
+eq(REPORT_TYPES.map((r) => r.id), ['registered', 'harvested', 'fisheries', 'disaster_fisheries', 'disaster_crops', 'organization_assistance', 'organization_assistance_individual'], 'the seven reports')
 assert.ok(REPORT_TYPES.every((r) => r.label && r.description)); n++
 
 eq(reportType('fisheries').label, 'Fisheries Production Harvested', 'a report by id')
