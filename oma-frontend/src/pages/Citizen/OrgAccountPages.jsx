@@ -22,7 +22,6 @@ import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
-import UserManualTabs from '../Manual/UserManualTabs.jsx'
 import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 
 // ── Help ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -56,7 +55,7 @@ const ORG_HELP_EN = {
     {
       key: 'lend-equipment',
       q: 'How do I lend equipment to a member?',
-      a: 'Only units in Good condition can be lent. Tap the item, choose Lend, pick the member, the number of units and an optional return-by date. Members with an account can also ask to borrow from their Borrow Equipment page; their requests appear on the Borrowed tab, where you can approve or reject them. When the units come back, open the loan, choose Mark returned and say what condition they are in.',
+      a: 'You can lend only the units that are in Good condition. Tap the item, choose Lend, pick the member, the number of units and an optional return-by date. Members with an account can also ask to borrow from their Borrow Equipment page; their requests appear on the Borrowed tab, where you can approve or reject them. When the units come back, open the loan, choose Mark returned and say what condition they are in.',
     },
     {
       key: 'report-assistance',
@@ -103,10 +102,8 @@ const ORG_HELP_EN = {
 export function OrgHelpPage() {
   const { isFisherfolkOrg } = useAuth()
   return (
-    <PageLayout title="User Manual" subtitle="How to use your organization account.">
-      <UserManualTabs>
-        <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={ORG_HELP_EN} bare />
-      </UserManualTabs>
+    <PageLayout title="Help" subtitle="Questions and answers about your organization account.">
+      <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={ORG_HELP_EN} bare />
     </PageLayout>
   )
 }

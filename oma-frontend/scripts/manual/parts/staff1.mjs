@@ -9,7 +9,7 @@ const LAYOUT = (R) => R({
   callouts: [
     { find: MENU_TOGGLE, label: 'Menu button', desc: 'Hides the left menu to give the page more room, or shows it again. On a phone the menu moves to the bottom of the screen instead.' },
     { find: BELL, label: 'Notifications bell', desc: 'Notices for you, such as a disaster that a farmer or fisherfolk reported, a change request waiting for review, or a harvest coming up. A number on the bell counts the new ones; open it to read them.' },
-    { find: ACCOUNT, label: 'Account menu', desc: 'Your name, the role and today\'s date. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile.' },
+    { find: ACCOUNT, label: 'Account menu', desc: 'Your name, the role and today\'s date. Open it for Help, the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile.' },
     { find: { text: 'Dashboard', tag: 'a, span', exact: true, in: 'aside' }, label: 'Dashboard', desc: 'The first page after sign-in: totals of the municipality and what needs attention today.' },
     { find: g('Registration'), label: 'Registration', desc: 'Farmers and Fisherfolk: the registry of every person, their profile and their farm parcels or ponds.' },
     { find: g('Organizations'), label: 'Organizations', desc: 'Farmers Organizations and Fisherfolk Organizations: each one\'s members, officers and equipment.' },

@@ -37,7 +37,7 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Open the system in your browser and sign in with your username (or email) and password. The first time, you are asked to choose a new password. There is no self-registration: the Admin creates every account.',
       'The menu on the left lists everything you can open. The groups open and close when you press them. Press the three-line button at the top to hide or show the menu.',
-      'The bell shows notices for you, such as a disaster that a farmer or fisherfolk reported or a change request waiting for review. Your name opens the account menu: your profile, the User Manual (this page), the Activity Log (Admin) and Logout.',
+      'The bell shows notices for you, such as a disaster that a farmer or fisherfolk reported or a change request waiting for review. Your name opens the account menu: your profile, Help (the quick guide and the common questions), the User Manual (this page), the Activity Log (Admin) and Logout.',
       'The Dashboard opens after sign-in. Its panels show the registered farmers and fisherfolk, the disasters over time (choose the From and To month), the season\'s yield against the target, how farmers and fisherfolk harvested against the estimate (choose the year), the overdue, due today and upcoming activities, the barangay activity status and the change requests waiting for review.',
       'In Pending Change Requests, Approve applies the change a farmer, fisherfolk or organization asked for (for example a new name or barangay) and Reject refuses it.',
       'My Profile (from the account menu) shows your own account: Edit profile changes your details and the camera button changes your photo.',
@@ -229,7 +229,7 @@ const FARMER_GUIDES = [
       'The menu on the left has Home, Crop Monitoring, Forecasting, Disaster and Assistance (and Equipment when you belong to an organization). The three-line button hides or shows it.',
       'Home shows your farm parcels, active crops, total area and harvests this month, with three charts: your crops by stage, your harvest against the estimate and your disasters by type.',
       'When a crop has an activity due or overdue, a notice says so and View opens it. Each crop card has Open crop (its details) and Report disaster, and shows the next recommended activity.',
-      'The bell shows your notices. Your name opens the account menu: your profile, the User Manual and Log out. Your crops appear once the office registers them; if something is missing or wrong, tell the office.',
+      'The bell shows your notices. Your name opens the account menu: your profile, Help (questions and answers), the User Manual (this page) and Log out. Your crops appear once the office registers them; if something is missing or wrong, tell the office.',
     ],
   },
   {
@@ -301,7 +301,7 @@ const FARMER_GUIDES = [
     steps: [
       PHONE_NOTE,
       'The menu along the bottom has Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it.',
-      'The bell and your initials at the top open your notifications and your account menu (My Profile, User Manual and Log out).',
+      'The bell and your initials at the top open your notifications and your account menu (My Profile, Help, User Manual and Log out).',
       'Tables become cards on a phone. Tap a parcel to open its crops; use the search box and Filters to find one.',
       'To report a disaster in the field, open Disaster, tick the crops that were hit, press Continue and add photos with the phone camera.',
     ],
@@ -316,7 +316,7 @@ const FISHERFOLK_GUIDES = [
     steps: [
       'Sign in with your username (or email) and password. The first time you are asked to choose a new password.',
       'On a larger screen you land on Aquaculture Monitoring. On a phone, Home shows a summary of your cycles first.',
-      'The menu has Home, Aquaculture Monitoring, Forecasting, Disaster and Assistance. The bell shows your notices; your name opens your profile, the User Manual and Log out.',
+      'The menu has Home, Aquaculture Monitoring, Forecasting, Disaster and Assistance. The bell shows your notices; your name opens your profile, Help (questions and answers), the User Manual (this page) and Log out.',
     ],
   },
   {

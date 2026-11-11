@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Info, BookOpen, HelpCircle, ChevronDown } from "lucide-react";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import { SYSTEM_TITLE } from "../../constants/appInfo.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { ROLE_LABELS, helpFor } from "./helpContent.js";
-import UserManualTabs from "../Manual/UserManualTabs.jsx";
 
 function FaqItem({ question, answer }) {
   const [open, setOpen] = useState(false);
@@ -39,10 +39,13 @@ function HelpPage() {
   const { steps, sections } = helpFor(role);
   return (
     <PageLayout
-      title="User Manual"
-      subtitle={`Screen guides, quick guide and frequently asked questions for the ${ROLE_LABELS[role]} account`}
+      title="Help"
+      subtitle={`Quick guide and frequently asked questions for the ${ROLE_LABELS[role]} account`}
     >
-      <UserManualTabs>
+      <p className="mb-4 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3 text-[13px] text-[#4A5E4A]">
+        Looking for a picture of a screen with every button explained?{" "}
+        <Link to="/manual" className="font-semibold text-[#1B4D2E] hover:underline">Open the User Manual</Link>.
+      </p>
       {/* About This System */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 mb-4">
         <div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#F0F4F0]">
@@ -169,7 +172,6 @@ function HelpPage() {
           ))}
         </div>
       </div>
-      </UserManualTabs>
     </PageLayout>
   );
 }

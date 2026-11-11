@@ -102,7 +102,7 @@ export const labels = {
     },
     menu: {
       viewProfile: 'View Profile',
-      help: 'User Manual',
+      help: 'Help',
       logout: 'Log out',
     },
   },
@@ -238,7 +238,7 @@ export const labels = {
       greetingMorning: (name) => `Good morning, ${name}!`,
 
       accountProfile: 'My Profile',
-      accountHelp: 'User Manual',
+      accountHelp: 'Help',
       accountLogout: 'Log out',
 
       needsAttention: 'Needs Attention',
@@ -466,7 +466,7 @@ export const labels = {
       footerLine1: 'For questions, please contact the',
       footerLine2: 'Office of the Municipal Agriculturist · Aringay, La Union',
 
-      helpRowLabel: 'User Manual',
+      helpRowLabel: 'Help',
 
       // Edit sheet. Kept to exactly what the backend supports, and says
       // plainly which changes are instant and which need review.
@@ -1431,7 +1431,7 @@ export const labels = {
 
   // ── Org parity batch: Help screen ───────────────────────────────────────
   orgHelp: {
-    title: 'User Manual',
+    title: 'Help',
     faqHeading: 'Frequently asked questions',
     contactHeading: 'Contact OMAg',
     contactOfficeName: 'Office of the Municipal Agriculturist — Aringay, La Union',
@@ -1474,7 +1474,7 @@ export const labels = {
   // of a Log out row — see FarmerHelpScreen/FisherfolkHelpScreen render
   // logic, not a difference to "fix" into one shape.
   farmerHelp: {
-    title: 'User Manual',
+    title: 'Help',
     subtitle: 'Answers to common questions about your account and using the system.',
     faqHeading: 'FREQUENTLY ASKED QUESTIONS',
     faq: [
@@ -1531,7 +1531,7 @@ export const labels = {
   },
 
   fisherfolkHelp: {
-    title: 'User Manual',
+    title: 'Help',
     subtitle: 'Answers to common questions about your account and using the system.',
     faqHeading: 'FREQUENTLY ASKED QUESTIONS',
     faq: [
@@ -1674,7 +1674,7 @@ export const labels = {
 
     // Profile chip dropdown (>=640px) and nav rail toggle
     accountProfile: 'My Profile',
-    accountHelp: 'User Manual',
+    accountHelp: 'Help',
     accountLogout: 'Log out',
     expandNav: 'Expand navigation',
     collapseNav: 'Collapse navigation',

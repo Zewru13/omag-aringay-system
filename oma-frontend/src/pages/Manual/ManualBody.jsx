@@ -36,7 +36,7 @@ function Screen({ screen, number }) {
 
 // The User Manual's annotated screen guides for the kind of account that is signed in (an Admin can also read the others). Print / Save as PDF turns the same
 // guides into one document. The words are in manualContent.js; the pictures and their number tables come from the screenshot tool (scripts/manual/shoot.mjs).
-// It sits inside every account's User Manual (Help) page, see UserManualTabs.jsx.
+// It is the whole of the User Manual page (ManualPage.jsx, /manual); the quick guide and the questions are on the Help pages, not here.
 export default function ManualBody() {
   const { user, isFarmer, isFisherfolk, isOrg, isAdmin } = useAuth()
   const { showToast } = useToast()

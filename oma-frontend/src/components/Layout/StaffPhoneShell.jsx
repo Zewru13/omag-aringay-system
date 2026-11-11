@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronRight, ClipboardList, Ellipsis, BookOpen, HandHeart, History, House, LogOut, TrendingUp, User } from 'lucide-react'
+import { ChevronRight, CircleHelp, ClipboardList, Ellipsis, BookOpen, HandHeart, History, House, LogOut, TrendingUp, User } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import omagLogo from '../../assets/LOGO OMAg-small.png'
@@ -145,6 +145,9 @@ function AccountMenu({ onLogout }) {
               </button>
             )}
             <button type="button" role="menuitem" className={item} onClick={() => go('/help')}>
+              <CircleHelp size={16} className="text-text-muted" aria-hidden="true" /> Help
+            </button>
+            <button type="button" role="menuitem" className={item} onClick={() => go('/manual')}>
               <BookOpen size={16} className="text-text-muted" aria-hidden="true" /> User Manual
             </button>
             <div className="my-1 border-t border-border" />
