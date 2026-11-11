@@ -34,6 +34,7 @@ import { emptyAssistanceText, inGroup, tabFromParam } from './assistanceGroups.j
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import { EMPTY_OTHER_AGENCY, otherAgencyProblem, sourceAgencies } from './distributeFlow.js'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
   isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
@@ -121,6 +122,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const originalData = {
     assistance_type: record.assistance_type || '',
     source_agencies: record.source_agencies || [],
+    ...EMPTY_OTHER_AGENCY,   // "Others": an agency that is not in the list, typed here
     date_received: record.date_given || '',
     quantity: isCashType(record.assistance_type) ? cashAmountFrom(record.quantity) : (record.quantity != null ? String(record.quantity) : ''),
     description: record.description || '',
@@ -150,11 +152,14 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     if (trainingError) { showToast(trainingError, 'error'); return }
     const cashError = cashAmountError(form.assistance_type, form.quantity)
     if (cashError) { showToast(cashError, 'error'); return }
+    if (otherAgencyProblem(form)) { showToast(otherAgencyProblem(form), 'error'); return }
     setError(''); setIsSubmitting(true)
     try {
-      const { date_received, quantity, ...rest } = form
+      // eslint-disable-next-line no-unused-vars -- the two "Others" fields are form-only: the typed agency travels inside source_agencies
+      const { date_received, quantity, source_other_on, source_other, ...rest } = form
       await api.patch(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
         ...rest,
+        source_agencies: sourceAgencies(form),
         date_given: date_received,
         quantity: isTraining ? null : (quantity !== '' ? parseFloat(quantity) : null),
         ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer: false }),
@@ -228,7 +233,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
             <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={false} />
           </div>
           <FormField label="Source of Assistance">
-            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)} />
+            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)}
+              other={{ on: form.source_other_on, text: form.source_other, onToggle: (on) => set('source_other_on', on), onText: (t) => set('source_other', t) }} />
           </FormField>
           <FormField label="Description">
             <textarea className={baseInputClasses} rows={2} value={form.description}

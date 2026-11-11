@@ -36,6 +36,7 @@ import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import { EMPTY_OTHER_AGENCY, otherAgencyProblem, sourceAgencies } from './distributeFlow.js'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
   isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
@@ -119,6 +120,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     quantity: isCashType(record.assistance_type) ? cashAmountFrom(record.quantity) : (record.quantity || ''),
     date_received: record.date_given || '',
     source_agencies: record.source_agencies || [],
+    ...EMPTY_OTHER_AGENCY,   // "Others": an agency that is not in the list, typed here
     year: record.year,
     training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
     equipment_type: record.equipment_type || '',
@@ -146,11 +148,14 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     if (trainingError) { showToast(trainingError, 'error'); return }
     const cashError = cashAmountError(form.assistance_type, form.quantity)
     if (cashError) { showToast(cashError, 'error'); return }
+    if (otherAgencyProblem(form)) { showToast(otherAgencyProblem(form), 'error'); return }
     setError(''); setIsSubmitting(true)
     try {
-      const { description, date_received, quantity, ...rest } = form
+      // eslint-disable-next-line no-unused-vars -- the two "Others" fields are form-only: the typed agency travels inside source_agencies
+      const { description, date_received, quantity, source_other_on, source_other, ...rest } = form
       await api.patch(`/interventions/beneficiaries/adhoc/${record.id}/`, {
         ...rest,
+        source_agencies: sourceAgencies(form),
         quantity: isTraining ? '' : quantity,
         remarks: description,
         date_given: date_received,
@@ -232,7 +237,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
             </FormField>
           </div>
           <FormField label="Source Agency">
-            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)} />
+            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)}
+              other={{ on: form.source_other_on, text: form.source_other, onToggle: (on) => set('source_other_on', on), onText: (t) => set('source_other', t) }} />
           </FormField>
           <FormField label="Description">
             <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />

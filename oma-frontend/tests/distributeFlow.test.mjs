@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  makeAssistanceForm, withAssistanceType, typeName, quantityText, assistanceFormProblem, sourceAgencies, organizationRequest, peopleRequest,
+  makeAssistanceForm, withAssistanceType, typeName, quantityText, assistanceFormProblem, sourceAgencies, otherAgencyProblem, EMPTY_OTHER_AGENCY, organizationRequest, peopleRequest,
   eligibleIds, reviewTotals, outcomeTotals, personOutcomeTotals, reportRecords, toggleInMap, MAX_RECIPIENTS,
 } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
@@ -105,5 +105,22 @@ eq(records.map((r) => [r.id, r.name, r.barangay, r.assistance_type, r.quantity, 
   [[11, 'Ana Cruz', 'Alaska', 'Seeds', '1 sack', 'Alaska Farmers'], [12, 'Ben Dizon', 'Basca', 'Seeds', '1 sack', 'Basca Growers']], 'created records only, with the organization')
 eq([records[0].source_agencies, records[0].date_given], [['DA'], today], 'agencies and date')
 eq(reportRecords([], form(), {}), [], 'nothing created, nothing to print')
+
+// ── the "Others" source agency is offered wherever a source agency is chosen: the Distribute window and both Edit Assistance windows
+eq(EMPTY_OTHER_AGENCY, { source_other_on: false, source_other: '' }, 'an edit form starts with Others unticked')
+eq(otherAgencyProblem({ source_other_on: true, source_other: '  ' }), 'Type the other source agency.', 'ticked but not typed')
+eq(otherAgencyProblem({ source_other_on: true, source_other: 'Brgy. Council' }), '', 'typed')
+eq(otherAgencyProblem({ source_other_on: false, source_other: '' }), '', 'not ticked')
+eq(sourceAgencies({ source_agencies: ['DA'], source_other_on: true, source_other: 'Brgy. Council' }), ['DA', 'Brgy. Council'], 'the typed agency is saved with the chosen ones')
+const fs = await import('node:fs')
+for (const [file, name] of [['CropAssistancePage.jsx', 'crop'], ['FisheriesAssistancePage.jsx', 'fisheries']]) {
+  const src = fs.readFileSync(new URL(`../src/pages/AssistanceManagement/${file}`, import.meta.url), 'utf8')
+  const editForm = src.slice(src.indexOf('function EditAssistanceModal'), src.indexOf('handleDeleteConfirmed'))
+  eq(src.includes('other={{ on: form.source_other_on, text: form.source_other,'), true, `the ${name} Edit Assistance window offers Others with a box to type it`)
+  eq(editForm.includes('...EMPTY_OTHER_AGENCY'), true, `${name}: Others starts unticked`)
+  eq(editForm.includes('otherAgencyProblem(form)'), true, `${name}: a ticked Others must be typed`)
+  eq(editForm.includes('source_agencies: sourceAgencies(form)'), true, `${name}: the typed agency is sent with the record`)
+  eq(/source_other_on, source_other, \.\.\.rest/.test(editForm), true, `${name}: the two form-only fields are not sent`)
+}
 
 console.log(`ok - ${n} assertions`)
