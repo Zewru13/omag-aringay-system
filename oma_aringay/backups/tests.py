@@ -1,5 +1,7 @@
-"""System backups (Admin > Backup): a zip of the whole database plus the uploaded files, built by backups.service and listed / downloaded by the
-Admin. Run ONLY with the file storage overridden to a temporary folder (below), never against the real bucket."""
+"""System backups (Admin > Backup): a zip of the whole database plus the uploaded files, built by backups.service when the Admin asks, downloaded to
+the Admin's computer (the online copy goes once it is downloaded), never deleted from the list, and restored from the list.
+Run ONLY with the file storage overridden to a temporary folder (below), never against the real bucket."""
+import hashlib
 import io
 import json
 import os
@@ -10,8 +12,10 @@ from datetime import date, timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.db import connection
 from django.test import TransactionTestCase, override_settings
@@ -38,6 +42,8 @@ def open_zip_text(test, record, name):
 @override_settings(STORAGES=STORAGES, MEDIA_ROOT=_MEDIA)
 class BackupTests(TransactionTestCase):
     def setUp(self):
+        shutil.rmtree(_MEDIA, ignore_errors=True)      # every test starts with its own uploaded files, not the last test's
+        os.makedirs(_MEDIA, exist_ok=True)
         User = get_user_model()
         self.admin = User.objects.create_user(username='bk-admin', password='pw', role='ADMIN', email='bk@x.test')
         self.focal = User.objects.create_user(username='bk-foc', password='pw', role='EVALUATOR', email='bf@x.test')
@@ -150,31 +156,93 @@ class BackupTests(TransactionTestCase):
         after = set(default_storage.listdir('backups')[1]) if default_storage.exists('backups') else set()
         self.assertEqual(after, before)
 
-    def test_only_the_latest_backups_are_kept(self):
+    def test_a_backup_keeps_its_name_its_file_name_and_its_fingerprint(self):
+        record = self.make(name='Before the harvest season', location='Office computer, drive D', remarks='Monthly copy')
+        self.assertEqual((record.name, record.location, record.remarks), ('Before the harvest season', 'Office computer, drive D', 'Monthly copy'))
+        self.assertTrue(record.file_name.startswith('oma_backup_') and record.file_name.endswith('.zip'), record.file_name)
+        with default_storage.open(record.file_path, 'rb') as f:
+            self.assertEqual(record.checksum, hashlib.sha256(f.read()).hexdigest())
+
+    def test_no_backup_is_ever_deleted(self):
         with override_settings(BACKUP_KEEP=2):
             first, second, third = self.make(), self.make(), self.make()
-        kept = list(BackupRecord.objects.filter(status='done').values_list('id', flat=True))
-        self.assertEqual(sorted(kept), sorted([second.id, third.id]))
-        self.assertFalse(default_storage.exists(first.file_path))
-        self.assertTrue(default_storage.exists(third.file_path))
+        self.assertEqual(BackupRecord.objects.filter(status='done').count(), 3)
+        self.assertTrue(default_storage.exists(first.file_path))
+        self.assertEqual(self.client.delete(f'{URL}{first.id}/').status_code, 405)
+        self.assertEqual(BackupRecord.objects.count(), 3)
 
     # --- the Admin screen's endpoints
-    def test_the_admin_lists_creates_downloads_and_deletes(self):
+    def start(self, **body):
         with mock.patch('backups.views.start_backup', side_effect=lambda record_id: service.run_backup(record_id)):
-            r = self.client.post(URL, {}, format='json')
+            return self.client.post(URL, body, format='json')
+
+    def restore(self, record, password='pw', data=None):
+        body = {'password': password}
+        if data is not None:
+            body['file'] = SimpleUploadedFile('backup.zip', data, content_type='application/zip')
+        with mock.patch('backups.views.start_restore', side_effect=lambda *args: service.run_restore(*args)):
+            return self.client.post(f'{URL}{record.id}/restore/', body, format='multipart')
+
+    def download(self, record):
+        r = self.client.get(f'{URL}{record.id}/download/')
+        self.assertEqual(r.status_code, 200, getattr(r, 'content', b''))
+        return b''.join(r.streaming_content)
+
+    def test_the_admin_makes_one_names_it_and_downloads_it(self):
+        r = self.start(name='October copy', location='USB drive in the vault')
         self.assertEqual(r.status_code, 201, r.content)
         listing = self.client.get(URL).json()
+        self.assertFalse(listing['busy'])
         self.assertEqual([b['status'] for b in listing['results']], ['done'])
         row = listing['results'][0]
-        self.assertEqual(row['created_by_name'], 'bk-admin')
+        self.assertEqual((row['name'], row['location'], row['made_by'], row['kind_label']), ('October copy', 'USB drive in the vault', 'bk-admin', 'Manual'))
+        self.assertTrue(row['has_file'] and row['can_restore'])
         self.assertGreater(row['size_bytes'], 0)
         d = self.client.get(f"{URL}{row['id']}/download/")
         self.assertEqual(d.status_code, 200)
         self.assertEqual(d['Content-Type'], 'application/zip')
         self.assertIn('attachment; filename="oma_backup_', d['Content-Disposition'])
         self.assertTrue(zipfile.ZipFile(io.BytesIO(b''.join(d.streaming_content))).namelist())
-        self.assertEqual(self.client.delete(f"{URL}{row['id']}/").status_code, 204)
-        self.assertEqual(BackupRecord.objects.count(), 0)
+
+    def test_a_backup_with_no_name_is_named_by_its_date(self):
+        self.assertEqual(self.start().status_code, 201)
+        row = self.client.get(URL).json()['results'][0]
+        self.assertTrue(row['name'].startswith('Backup of '), row['name'])
+
+    def test_once_downloaded_the_online_copy_goes_and_the_entry_stays(self):
+        record = self.make()
+        path = record.file_path
+        self.download(record)
+        self.assertTrue(default_storage.exists(path))          # still there until the page says the file arrived
+        r = self.client.post(f'{URL}{record.id}/downloaded/')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertFalse(default_storage.exists(path))
+        record.refresh_from_db()
+        self.assertEqual(record.file_path, '')
+        self.assertIsNotNone(record.downloaded_at)
+        row = self.client.get(URL).json()['results'][0]
+        self.assertEqual((row['id'], row['has_file'], row['can_restore']), (record.id, False, True))
+        self.assertEqual(row['file_name'], record.file_name)
+        self.assertEqual(self.client.get(f'{URL}{record.id}/download/').status_code, 404)
+
+    def test_an_older_backup_with_no_fingerprint_gets_one_when_it_is_downloaded(self):
+        record = self.make()
+        BackupRecord.objects.filter(pk=record.pk).update(checksum='', file_name='')
+        data = self.download(record)
+        record.refresh_from_db()
+        self.assertEqual(record.checksum, hashlib.sha256(data).hexdigest())
+        self.assertTrue(record.file_name.endswith('.zip'))
+
+    def test_the_name_the_location_and_the_remarks_can_be_edited(self):
+        record = self.make()
+        made = record.created_at
+        r = self.client.patch(f'{URL}{record.id}/', {'name': 'Year-end copy', 'location': 'Cabinet 2, blue USB', 'remarks': 'Kept by the Admin',
+                                                     'created_at': '2001-01-01T00:00:00Z', 'status': 'failed'}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        record.refresh_from_db()
+        self.assertEqual((record.name, record.location, record.remarks), ('Year-end copy', 'Cabinet 2, blue USB', 'Kept by the Admin'))
+        self.assertEqual((record.created_at, record.status), (made, 'done'))      # the date, the time and the result are facts, not editable
+        self.assertEqual(self.client.patch(f'{URL}{record.id}/', {'name': '   '}, format='json').status_code, 400)
 
     def test_only_one_backup_runs_at_a_time(self):
         BackupRecord.objects.create(created_by=self.admin, status='running')
@@ -182,6 +250,19 @@ class BackupTests(TransactionTestCase):
             r = self.client.post(URL, {}, format='json')
         self.assertEqual(r.status_code, 409)
         start.assert_not_called()
+
+    def test_nothing_else_can_be_done_while_one_is_running(self):
+        done = self.make()
+        BackupRecord.objects.create(created_by=self.admin, status='running')
+        self.assertTrue(self.client.get(URL).json()['busy'])
+        self.assertEqual(self.client.patch(f'{URL}{done.id}/', {'name': 'x'}, format='json').status_code, 409)
+        self.assertEqual(self.client.get(f'{URL}{done.id}/download/').status_code, 409)
+        self.assertEqual(self.client.post(f'{URL}{done.id}/downloaded/').status_code, 409)
+        with mock.patch('backups.views.start_restore') as start:
+            self.assertEqual(self.client.post(f'{URL}{done.id}/restore/', {'password': 'pw'}, format='multipart').status_code, 409)
+        start.assert_not_called()
+        done.refresh_from_db()
+        self.assertNotEqual(done.name, 'x')
 
     def test_a_stuck_running_backup_is_marked_failed_when_listed(self):
         old = BackupRecord.objects.create(created_by=self.admin, status='running')
@@ -196,18 +277,185 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(self.client.get(URL).status_code, 403)
         self.assertEqual(self.client.post(URL, {}, format='json').status_code, 403)
         self.assertEqual(self.client.get(f'{URL}{record.id}/download/').status_code, 403)
-        self.assertEqual(self.client.delete(f'{URL}{record.id}/').status_code, 403)
+        self.assertEqual(self.client.post(f'{URL}{record.id}/downloaded/').status_code, 403)
+        self.assertEqual(self.client.patch(f'{URL}{record.id}/', {'name': 'x'}, format='json').status_code, 403)
+        self.assertEqual(self.client.post(f'{URL}{record.id}/restore/', {'password': 'pw'}, format='multipart').status_code, 403)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(URL).status_code, (401, 403))
+        self.assertTrue(default_storage.exists(record.file_path))
 
     def test_a_missing_file_is_a_404_not_a_crash(self):
         record = self.make()
         default_storage.delete(record.file_path)
         self.assertEqual(self.client.get(f'{URL}{record.id}/download/').status_code, 404)
 
-    # --- the command a scheduler can run
-    def test_the_command_makes_a_scheduled_backup(self):
-        call_command('backup_system')
-        record = BackupRecord.objects.get()
-        self.assertEqual((record.kind, record.status), ('scheduled', 'done'))
-        self.assertIsNone(record.created_by)
+    # --- restore
+    def change_things(self):
+        """What happens after a backup: a record is edited, one is added, one is removed, a file is replaced and a new file arrives."""
+        Farmer.objects.filter(rsbsa_number='01-033-02-019-990001').update(first_name='Changed')
+        Farmer.objects.create(
+            rsbsa_number='01-033-02-019-990002', first_name='Added', last_name='Later', gender='Female', birthdate=date(1990, 2, 2), barangay='Alaska', civil_status='Single')
+        self.admin.groups.clear()
+        default_storage.delete('photos/one.txt')
+        default_storage.save('photos/one.txt', ContentFile(b'a different photo'))
+        default_storage.save('photos/new.txt', ContentFile(b'arrived later'))
+
+    def dump(self):
+        path = tempfile.mktemp(suffix='.json')
+        try:
+            service.dump_database(path)
+            return json.load(open(path, encoding='utf-8'))
+        finally:
+            os.remove(path)
+
+    def test_restore_puts_the_records_and_the_files_back(self):
+        record = self.make(name='Good copy')
+        self.change_things()
+        r = self.restore(record)
+        self.assertEqual(r.status_code, 202, r.content)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+        self.assertFalse(Farmer.objects.filter(rsbsa_number='01-033-02-019-990002').exists())
+        with default_storage.open('photos/one.txt', 'rb') as f:
+            self.assertEqual(f.read(), b'hello photo')
+        self.assertTrue(default_storage.exists('photos/new.txt'))          # a file that arrived later is left alone
+        done = BackupRecord.objects.get(kind='restore')
+        self.assertEqual(done.status, 'done', done.detail)
+        self.assertIn('Good copy', done.name)
+        self.assertEqual(done.made_by, 'bk-admin')
+        self.assertTrue(BackupRecord.objects.filter(pk=record.pk, status='done').exists())      # the list of backups is not part of what is replaced
+
+    def test_restore_first_makes_a_safety_backup_of_how_things_are_now(self):
+        record = self.make()
+        self.change_things()
+        self.assertEqual(self.restore(record).status_code, 202)
+        safety = BackupRecord.objects.get(kind='safety')
+        self.assertEqual(safety.status, 'done', safety.detail)
+        text = open_zip_text(self, safety, 'database.json')
+        self.assertIn('01-033-02-019-990002', text)          # what the restore was about to remove
+        self.assertEqual(self.open_zip(safety).read('media/photos/one.txt'), b'a different photo')
+        # ... and that safety backup can be restored in its turn, which undoes the restore
+        self.assertEqual(self.restore(safety).status_code, 202)
+        self.assertTrue(Farmer.objects.filter(rsbsa_number='01-033-02-019-990002').exists())
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+
+    def test_restore_gives_back_exactly_what_was_backed_up(self):
+        # every record, its dates, its many-to-many links - and nothing more (no activity-log entry is written by the restore itself)
+        self.admin.groups.add(Group.objects.create(name='bk-group'))
+        before = self.dump()
+        record = self.make()
+        self.change_things()
+        self.assertNotEqual(self.dump(), before)
+        self.assertEqual(self.restore(record).status_code, 202)
+        self.assertEqual(BackupRecord.objects.get(kind='restore').status, 'done')
+        self.assertEqual(self.dump(), before)
+        self.assertEqual(list(self.admin.groups.values_list('name', flat=True)), ['bk-group'])
+
+    def test_new_records_can_be_added_after_a_restore(self):
+        record = self.make()
+        self.change_things()
+        self.assertEqual(self.restore(record).status_code, 202)
+        added = Farmer.objects.create(
+            rsbsa_number='01-033-02-019-990003', first_name='After', last_name='Restore', gender='Male', birthdate=date(1991, 3, 3), barangay='Alaska', civil_status='Single')
+        self.assertEqual(Farmer.objects.filter(pk=added.pk).count(), 1)
+
+    def test_restore_wants_the_admins_own_password(self):
+        record = self.make()
+        self.change_things()
+        for wrong in ('', 'not-it'):
+            with mock.patch('backups.views.start_restore') as start:
+                r = self.client.post(f'{URL}{record.id}/restore/', {'password': wrong}, format='multipart')
+            self.assertEqual(r.status_code, 400, r.content)
+            start.assert_not_called()
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
+
+    def test_a_downloaded_backup_is_restored_from_its_own_file_only(self):
+        record, other = self.make(), self.make()
+        data, other_data = self.download(record), self.download(other)
+        self.assertEqual(self.client.post(f'{URL}{record.id}/downloaded/').status_code, 200)
+        self.change_things()
+        r = self.restore(record)                              # the online copy is gone: the file has to be chosen
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn('file', r.json()['detail'].lower())
+        r = self.restore(record, data=other_data)             # another backup's file
+        self.assertEqual(r.status_code, 400, r.content)
+        r = self.restore(record, data=b'not a zip at all')
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
+        r = self.restore(record, data=data)
+        self.assertEqual(r.status_code, 202, r.content)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+
+    def test_a_restore_that_fails_changes_no_record(self):
+        record = self.make()
+        self.change_things()
+        with mock.patch('backups.service.insert_records', side_effect=RuntimeError('lost the connection')):
+            self.assertEqual(self.restore(record).status_code, 202)
+        failed = BackupRecord.objects.get(kind='restore')
+        self.assertEqual(failed.status, 'failed')
+        self.assertIn('lost the connection', failed.detail)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+        self.assertTrue(Farmer.objects.filter(rsbsa_number='01-033-02-019-990002').exists())
+        self.assertFalse(self.client.get(URL).json()['busy'])
+
+    def test_a_file_that_cannot_go_back_under_its_own_name_stops_the_restore(self):
+        # the storage keeps a file it was asked to remove (and so saves the restored one under another name): no half restore
+        record = self.make()
+        self.change_things()
+        real_delete = default_storage.delete
+        with mock.patch.object(default_storage, 'delete', side_effect=lambda name: None if name == 'photos/one.txt' else real_delete(name)):
+            self.assertEqual(self.restore(record).status_code, 202)
+        failed = BackupRecord.objects.get(kind='restore')
+        self.assertEqual(failed.status, 'failed')
+        self.assertIn('photos/one.txt', failed.detail)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+        self.assertEqual(default_storage.listdir('photos')[1].count('one.txt'), 1)
+        self.assertEqual(len([n for n in default_storage.listdir('photos')[1] if n.startswith('one')]), 1)      # no stray copy left behind
+
+    def test_no_restore_when_the_safety_backup_cannot_be_made(self):
+        record = self.make()
+        self.change_things()
+        with mock.patch('backups.service.dump_database', side_effect=RuntimeError('disk full')):
+            self.assertEqual(self.restore(record).status_code, 202)
+        self.assertEqual(BackupRecord.objects.get(kind='safety').status, 'failed')
+        failed = BackupRecord.objects.get(kind='restore')
+        self.assertEqual(failed.status, 'failed')
+        self.assertIn('safety backup', failed.detail)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+
+    def test_a_restore_entry_or_a_failed_backup_cannot_be_restored(self):
+        record = self.make()
+        self.assertEqual(self.restore(record).status_code, 202)
+        entry = BackupRecord.objects.get(kind='restore')
+        failed = BackupRecord.objects.create(created_by=self.admin, status='failed')
+        for bad in (entry, failed):
+            self.assertEqual(self.restore(bad).status_code, 400)
+        rows = {row['id']: row for row in self.client.get(URL).json()['results']}
+        self.assertFalse(rows[entry.id]['can_restore'] or rows[failed.id]['can_restore'])
+        self.assertEqual(rows[entry.id]['kind_label'], 'Restore')
+
+    def test_a_backup_file_cannot_write_outside_the_uploaded_files(self):
+        # a doctored zip: its file names try to leave the storage or to overwrite the backups themselves
+        record = self.make()
+        good = self.open_zip(record)
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, 'w') as zf:
+            zf.writestr('database.json', good.read('database.json'))
+            zf.writestr('manifest.json', good.read('manifest.json'))
+            zf.writestr('media/photos/one.txt', b'hello photo')
+            zf.writestr('media/../escaped.txt', b'x')
+            zf.writestr('media/backups/planted.zip', b'x')
+            zf.writestr('media//abs.txt', b'x')
+        data = out.getvalue()
+        default_storage.delete(record.file_path)
+        BackupRecord.objects.filter(pk=record.pk).update(file_path='', checksum=hashlib.sha256(data).hexdigest())
+        self.assertEqual(self.restore(record, data=data).status_code, 202)
+        self.assertEqual(BackupRecord.objects.get(kind='restore').status, 'done')
+        self.assertFalse(default_storage.exists('backups/planted.zip'))
+        self.assertFalse(os.path.exists(os.path.join(os.path.dirname(_MEDIA), 'escaped.txt')))
+        self.assertFalse(default_storage.exists('escaped.txt') or default_storage.exists('abs.txt'))
+
+    def test_there_is_no_automatic_backup_command(self):
+        from django.core.management import get_commands
+        self.assertNotIn('backup_system', get_commands())

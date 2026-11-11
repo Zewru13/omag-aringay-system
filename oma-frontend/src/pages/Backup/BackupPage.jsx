@@ -1,143 +1,397 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Download, HardDriveDownload, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Download, HardDriveDownload, History, Loader2, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
-import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
-import { backupSummary, formatBytes, isRunning } from './backupFormat.js'
+import { CycleField, CycleRow, CycleRows, CycleSection } from '../Monitoring/CycleFormTable.jsx'
+import {
+  backupSummary, fileNote, formatBytes, formatDate, formatTime, nextAutoDownload, notesProblem, restoreProblem, runningMessage,
+} from './backupFormat.js'
 
-// Admin > Backup: one file with the whole database and every uploaded file. Back up now starts one in the background (the list shows it Running
-// and refreshes by itself); each finished backup can be downloaded or deleted. The newest 14 are kept. See docs/BACKUP_AND_RESTORE.md to restore.
+// Admin > Backup. A backup is one file (.zip) with the whole database and every uploaded file. It is made only when the Admin presses Back up now,
+// and it is made for download: when it is done the page saves it to the computer and the online copy is removed. The list keeps every backup ever
+// made (nothing is deleted) with its name, date, time and the place the Admin says the file is kept; those notes can be edited. Restore puts a
+// backup of the list back (its own file is chosen from the computer, and the Admin types their password); a safety backup of how things are now is
+// made first. While a backup or a restore is running, nothing else can be done here.
 const TONES = { done: 'green', running: 'amber', failed: 'red' }
-const fmtWhen = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
+const COLUMNS = [
+  { key: 'name', label: 'NAME' },
+  { key: 'date', label: 'DATE' },
+  { key: 'time', label: 'TIME' },
+  { key: 'location', label: 'LOCATION' },
+  { key: 'made_by', label: 'MADE BY' },
+  { key: 'size', label: 'SIZE' },
+  { key: 'status', label: 'STATUS' },
+  { key: 'actions', label: 'ACTIONS' },
+]
+const LOCKED_REASON = 'Wait until the running backup or restore is done.'
+const muted = 'text-[12px] text-[#7A8E7A]'
+const detail = (err, fallback) => err?.response?.data?.detail || fallback
+// A file name may wrap after an underscore, never in the middle of its date.
+const breakable = (name) => name.split('_').flatMap((part, i) => (i ? ['_', <wbr key={i} />, part] : [part]))
 
-export default function BackupPage() {
-  const { showToast } = useToast()
-  const [rows, setRows] = useState(null)          // null while loading
+// The notes of a backup as a table of labelled rows: the same form starts a new backup (`backup` empty) and edits one.
+function BackupNotesModal({ backup, onClose, onSubmit }) {
+  const isEdit = Boolean(backup)
+  const [form, setForm] = useState({ name: backup?.name || '', location: backup?.location || '', remarks: backup?.remarks || '' })
   const [error, setError] = useState('')
-  const [isStarting, setIsStarting] = useState(false)
-  const [busyId, setBusyId] = useState(null)
-  const [deleting, setDeleting] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const set = (field, value) => { setForm((f) => ({ ...f, [field]: value })); setError('') }
 
-  const load = useCallback(async () => {
+  const submit = async (e) => {
+    e.preventDefault()
+    const problem = isEdit ? notesProblem(form) : ''
+    if (problem) { setError(problem); return }
+    setIsSaving(true)
     try {
-      const r = await api.get('/backups/')
-      setRows(r.data.results || [])
-      setError('')
-    } catch {
-      setError('Failed to load the backups.')
-      setRows((prev) => prev || [])
-    }
-  }, [])
-
-  useEffect(() => {
-    let alive = true
-    api.get('/backups/')
-      .then((r) => { if (alive) { setRows(r.data.results || []); setError('') } })
-      .catch(() => { if (alive) { setError('Failed to load the backups.'); setRows((prev) => prev || []) } })
-    return () => { alive = false }
-  }, [])
-  // While a backup is running the list asks again every few seconds.
-  const running = rows ? isRunning(rows) : false
-  useEffect(() => {
-    if (!running) return undefined
-    const timer = setInterval(load, 4000)
-    return () => clearInterval(timer)
-  }, [running, load])
-
-  const start = async () => {
-    setIsStarting(true)
-    try {
-      await api.post('/backups/')
-      showToast('The backup has started. It can take a few minutes.', 'success')
-      await load()
+      await onSubmit({ name: form.name.trim(), location: form.location.trim(), remarks: form.remarks.trim() })
+      onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to start the backup.', 'error')
-    } finally {
-      setIsStarting(false)
-    }
-  }
-
-  const download = async (row) => {
-    setBusyId(row.id)
-    try {
-      await downloadFile(api, `/backups/${row.id}/download/`, `oma_backup_${row.id}.zip`)
-    } catch {
-      showToast('The backup file could not be downloaded.', 'error')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const remove = async () => {
-    const row = deleting
-    setDeleting(null)
-    try {
-      await api.delete(`/backups/${row.id}/`)
-      showToast('Backup deleted.', 'success')
-      load()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete the backup.', 'error')
+      setError(detail(err, isEdit ? 'Failed to save the backup details.' : 'Failed to start the backup.'))
+      setIsSaving(false)
     }
   }
 
   return (
-    <PageLayout title="Backup" subtitle="A copy of the whole system: every record and every uploaded file, in one download">
+    <ModalShell
+      title={isEdit ? 'Edit Backup Details' : 'Back Up Now'}
+      subtitle={isEdit ? 'Its name and where its file is kept. The date, the time and the result cannot be changed.'
+        : 'One file with every record and every uploaded file, saved to this computer.'}
+      icon={isEdit ? Pencil : HardDriveDownload}
+      onClose={isSaving ? () => {} : onClose}
+      maxWidth="max-w-2xl"
+      footer={(
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button type="submit" form="backup-notes-form" isLoading={isSaving} disabled={isSaving}>{isEdit ? 'Update' : 'Start Backup'}</Button>
+        </>
+      )}
+    >
+      <form id="backup-notes-form" onSubmit={submit} className="space-y-3" noValidate>
+        {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
+        <CycleSection title="Backup Details">
+          <CycleRows label="Backup details">
+            <CycleRow>
+              <CycleField label="Name" required={isEdit} wide
+                hint={!isEdit && <p className={`mt-1 ${muted}`}>Leave it empty to name it by its date and time.</p>}>
+                <input id="backup-name" className={baseInputClasses} value={form.name} maxLength={120} autoFocus placeholder="e.g. Before the year-end reports"
+                  onChange={(e) => set('name', e.target.value)} />
+              </CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Location" wide hint={<p className={`mt-1 ${muted}`}>Where the downloaded file is kept, so it can be found again for a restore.</p>}>
+                <input id="backup-location" className={baseInputClasses} value={form.location} maxLength={255} placeholder="e.g. Office computer, drive D, Backups folder"
+                  onChange={(e) => set('location', e.target.value)} />
+              </CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Remarks" wide>
+                <input id="backup-remarks" className={baseInputClasses} value={form.remarks} maxLength={255} placeholder="Optional"
+                  onChange={(e) => set('remarks', e.target.value)} />
+              </CycleField>
+            </CycleRow>
+            {isEdit && (
+              <>
+                <CycleRow>
+                  <CycleField label="Date"><p className="py-1.5 text-[13px] text-[#1A2B1A]">{formatDate(backup.created_at)}</p></CycleField>
+                  <CycleField label="Time"><p className="py-1.5 text-[13px] text-[#1A2B1A]">{formatTime(backup.created_at)}</p></CycleField>
+                </CycleRow>
+                {backup.file_name && (
+                  <CycleRow>
+                    <CycleField label="File" wide><p className="break-all py-1.5 text-[13px] text-[#1A2B1A]">{backup.file_name}</p></CycleField>
+                  </CycleRow>
+                )}
+              </>
+            )}
+          </CycleRows>
+        </CycleSection>
+      </form>
+    </ModalShell>
+  )
+}
+
+function RestoreModal({ backup, onClose, onStarted }) {
+  const [file, setFile] = useState(null)
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isSending, setIsSending] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    const problem = restoreProblem({ row: backup, file, password })
+    if (problem) { setError(problem); return }
+    const body = new FormData()
+    body.append('password', password)
+    if (file && !backup.has_file) body.append('file', file)
+    setIsSending(true)
+    try {
+      const r = await api.post(`/backups/${backup.id}/restore/`, body, { headers: { 'Content-Type': 'multipart/form-data' } })
+      onStarted(r.data)
+      onClose()
+    } catch (err) {
+      setError(detail(err, 'The restore could not be started.'))
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Restore Backup"
+      subtitle="Puts the records and the uploaded files back to how they were when this backup was made."
+      icon={History}
+      iconBg="bg-amber-50"
+      iconColor="text-amber-700"
+      onClose={isSending ? () => {} : onClose}
+      maxWidth="max-w-2xl"
+      footer={(
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSending}>Cancel</Button>
+          <Button type="submit" form="backup-restore-form" variant="danger" isLoading={isSending} disabled={isSending}>Restore</Button>
+        </>
+      )}
+    >
+      <form id="backup-restore-form" onSubmit={submit} className="space-y-3" noValidate>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-900">
+          <p className="font-semibold">Everything recorded after this backup will be replaced.</p>
+          <p>
+            Records, uploaded files, user accounts and passwords go back to what this backup holds. A safety backup of how things are now is made first
+            and saved to this computer. Do this when nobody else is using the system; everyone signs in again afterwards.
+          </p>
+        </div>
+        {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
+        <CycleSection title="Backup to Restore">
+          <CycleRows label="Backup to restore">
+            <CycleRow>
+              <CycleField label="Name" wide><p className="break-words py-1.5 text-[13px] font-medium text-[#1A2B1A]">{backup.name}</p></CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Date"><p className="py-1.5 text-[13px] text-[#1A2B1A]">{formatDate(backup.created_at)}</p></CycleField>
+              <CycleField label="Time"><p className="py-1.5 text-[13px] text-[#1A2B1A]">{formatTime(backup.created_at)}</p></CycleField>
+            </CycleRow>
+            <CycleRow>
+              <CycleField label="Holds"><p className="py-1.5 text-[13px] text-[#1A2B1A]">{backupSummary(backup)}</p></CycleField>
+              <CycleField label="Location"><p className="break-words py-1.5 text-[13px] text-[#1A2B1A]">{backup.location || '—'}</p></CycleField>
+            </CycleRow>
+          </CycleRows>
+        </CycleSection>
+        <CycleSection title="Confirm">
+          <CycleRows label="Confirm the restore">
+            {!backup.has_file && (
+              <CycleRow>
+                <CycleField label="Backup file" required wide
+                  hint={<p className={`mt-1 break-all ${muted}`}>Choose the file that was downloaded for this backup{backup.file_name ? `: ${backup.file_name}` : ''}. Any other file is refused.</p>}>
+                  <input id="restore-file" type="file" accept=".zip,application/zip,application/x-zip-compressed"
+                    className="block w-full text-[13px] text-[#1A2B1A] file:mr-3 file:rounded-lg file:border file:border-[#C8D5C8] file:bg-white file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-[#1B4D2E]"
+                    onChange={(e) => { setFile(e.target.files?.[0] || null); setError('') }} />
+                </CycleField>
+              </CycleRow>
+            )}
+            <CycleRow>
+              <CycleField label="Your password" required wide>
+                <input id="restore-password" type="password" autoComplete="current-password" className={baseInputClasses} value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError('') }} />
+              </CycleField>
+            </CycleRow>
+          </CycleRows>
+        </CycleSection>
+      </form>
+    </ModalShell>
+  )
+}
+
+export default function BackupPage() {
+  const { showToast } = useToast()
+  const [rows, setRows] = useState(null)          // null while loading
+  const [busy, setBusy] = useState(false)         // a backup or a restore is running (the server says so)
+  const [error, setError] = useState('')
+  const [savingId, setSavingId] = useState(null)  // the backup whose file is being saved to the computer
+  const [notes, setNotes] = useState(null)        // null = closed, {} = a new backup, a row = editing it
+  const [restoring, setRestoring] = useState(null)
+  // What this page started and still has to finish: files to save by itself, and the entry whose end it announces.
+  const wanted = useRef({ ids: [], safety: false, watch: null })
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api.get('/backups/')
+      const list = r.data.results || []
+      setRows(list)
+      setBusy(Boolean(r.data.busy))
+      setError('')
+      return { list, busy: Boolean(r.data.busy) }
+    } catch {
+      setError('Failed to load the backups.')
+      setRows((prev) => prev || [])
+      return null
+    }
+  }, [])
+
+  const download = useCallback(async (row) => {
+    wanted.current.ids = wanted.current.ids.filter((id) => id !== row.id)
+    if (row.kind === 'safety') wanted.current.safety = false
+    setSavingId(row.id)
+    try {
+      await downloadFile(api, `/backups/${row.id}/download/`, row.file_name || `oma_backup_${row.id}.zip`)
+      // The whole file is here: the online copy can go. The entry stays in the list.
+      await api.post(`/backups/${row.id}/downloaded/`)
+      showToast(`Saved to this computer as ${row.file_name || 'a .zip file'}. Keep it somewhere safe.`, 'success')
+    } catch {
+      showToast('The backup file could not be downloaded. It is still online: press Download to try again.', 'error')
+    } finally {
+      setSavingId(null)
+      load()
+    }
+  }, [load, showToast])
+
+  // Ask for the list again; when nothing is running any more, say how what this page started ended and save its file.
+  const refresh = useCallback(async () => {
+    const got = await load()
+    if (!got || got.busy) return
+    const watched = got.list.find((r) => r.id === wanted.current.watch)
+    if (watched && watched.status !== 'running') {
+      wanted.current.watch = null
+      const what = watched.kind === 'restore' ? 'restore' : 'backup'
+      if (watched.status === 'failed') showToast(`The ${what} did not finish. ${watched.detail || ''}`.trim(), 'error')
+      else if (watched.kind === 'restore') showToast('The restore is done. The records and files are back to that backup.', 'success')
+    }
+    const file = nextAutoDownload(got.list, wanted.current)
+    if (file) await download(file)
+  }, [load, download, showToast])
+
+  useEffect(() => {
+    let alive = true
+    api.get('/backups/')
+      .then((r) => { if (alive) { setRows(r.data.results || []); setBusy(Boolean(r.data.busy)); setError('') } })
+      .catch(() => { if (alive) { setError('Failed to load the backups.'); setRows((prev) => prev || []) } })
+    return () => { alive = false }
+  }, [])
+  // While one is running the list asks again every few seconds.
+  useEffect(() => {
+    if (!busy) return undefined
+    const timer = setInterval(refresh, 4000)
+    return () => clearInterval(timer)
+  }, [busy, refresh])
+
+  const startBackup = async (body) => {
+    const r = await api.post('/backups/', body)
+    wanted.current.ids.push(r.data.id)
+    wanted.current.watch = r.data.id
+    showToast('The backup has started. It can take a few minutes; the file is saved to this computer when it is done.', 'success')
+    refresh()
+  }
+
+  const saveNotes = async (body) => {
+    await api.patch(`/backups/${notes.id}/`, body)
+    showToast('Backup details updated.', 'success')
+    load()
+  }
+
+  const restoreStarted = (entry) => {
+    wanted.current.safety = true
+    wanted.current.watch = entry.id
+    showToast('The restore has started: a safety backup first, then the backup is put back. Keep this page open.', 'success')
+    refresh()
+  }
+
+  const list = rows || []
+  const locked = busy || savingId !== null
+  const waiting = list.filter((r) => r.status === 'done' && r.has_file).length
+  const data = list.map((row) => ({
+    id: row.id,
+    name: (
+      <div className="min-w-0 md:min-w-[165px]">
+        <p className="break-words font-medium text-[#1A2B1A]">{row.name}</p>
+        <p className={`break-words ${muted}`}>{backupSummary(row)}</p>
+        {row.remarks && <p className={`break-words ${muted}`}>{row.remarks}</p>}
+      </div>
+    ),
+    date: <span className="whitespace-nowrap">{formatDate(row.created_at)}</span>,
+    time: <span className="whitespace-nowrap">{formatTime(row.created_at)}</span>,
+    location: (
+      <div className="min-w-0 md:min-w-[160px]">
+        <p className="break-words">{row.location || <span className="text-[#A8BCA8]">—</span>}</p>
+        {row.file_name && <p className={`break-words ${muted}`}>{breakable(row.file_name)}</p>}
+      </div>
+    ),
+    made_by: (
+      <div>
+        <p>{row.made_by}</p>
+        <p className={`whitespace-nowrap ${muted}`}>{row.kind_label}</p>
+      </div>
+    ),
+    size: <span className="whitespace-nowrap tabular-nums">{row.kind !== 'restore' && row.status === 'done' ? formatBytes(row.size_bytes) : '—'}</span>,
+    status: (
+      <div>
+        <StatusPill tone={TONES[row.status] || 'slate'}>{row.status_label}</StatusPill>
+        {fileNote(row) && <p className={`mt-1 whitespace-nowrap ${row.has_file ? 'text-[12px] font-medium text-amber-700' : muted}`}>{fileNote(row)}</p>}
+      </div>
+    ),
+    actions: (
+      <RowActions alwaysMenu actions={[
+        row.has_file && { key: 'download', label: savingId === row.id ? 'Saving…' : 'Download', icon: Download, onClick: () => download(row), disabled: locked, disabledReason: LOCKED_REASON },
+        row.status !== 'running' && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setNotes(row), disabled: locked, disabledReason: LOCKED_REASON },
+        row.can_restore && { key: 'restore', label: 'Restore', icon: History, onClick: () => setRestoring(row), disabled: locked, disabledReason: LOCKED_REASON, group: 'restore' },
+      ]} />
+    ),
+  }))
+
+  return (
+    <PageLayout title="Backup" subtitle="A copy of the whole system in one file, saved to your computer, and a way to put one back">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white p-4">
           <div className="min-w-0 flex-1 basis-72">
             <p className="text-[13px] font-semibold text-[#1A2B1A]">Back up now</p>
             <p className="text-[12.5px] text-[#7A8E7A]">
-              Makes one file (.zip) with the database and the uploaded photos and files. It holds personal records and login password hashes, so keep the
-              download somewhere safe. The latest 14 backups are kept here.
+              Makes one file (.zip) with the database and the uploaded photos and files, and saves it to this computer. It is not kept online, so keep
+              the file somewhere safe and write where in its Location. It holds personal records and login password hashes.
             </p>
           </div>
-          <Button type="button" icon={HardDriveDownload} isLoading={isStarting} disabled={isStarting || running} onClick={start}>
-            {running ? 'Backup running…' : 'Back up now'}
+          <Button type="button" icon={HardDriveDownload} disabled={locked || rows === null} onClick={() => setNotes({})}>
+            {busy ? 'Please wait…' : 'Back up now'}
           </Button>
         </div>
+
+        {busy && (
+          <div role="status" className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            <Loader2 size={18} className="mt-0.5 shrink-0 animate-spin" aria-hidden="true" />
+            <p>
+              <span className="font-semibold">{runningMessage(list) || 'A backup or a restore is running.'}</span>{' '}
+              Nothing else can be done on this page until it is finished. Keep this page open; it can take a few minutes.
+            </p>
+          </div>
+        )}
+        {!busy && waiting > 0 && (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            {waiting === 1 ? 'One backup file is' : `${waiting} backup files are`} still online, waiting to be downloaded. Download {waiting === 1 ? 'it' : 'them'} to
+            keep {waiting === 1 ? 'it' : 'them'}; the online copy is removed once the file is on your computer.
+          </p>
+        )}
 
         {error && <ErrorMessage message={error} />}
 
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <CardHeader title="Backups" count={rows ? rows.length : 0} />
-          {rows === null && <p className="px-5 py-8 text-center text-sm text-slate-500">Loading…</p>}
-          {rows && rows.length === 0 && <p className="px-5 py-8 text-center text-sm text-slate-500">No backup yet. Press Back up now to make the first one.</p>}
-          <ul className="divide-y divide-[#F0F4F0]">
-            {(rows || []).map((row) => (
-              <li key={row.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
-                <div className="min-w-0 flex-1 basis-64">
-                  <p className="text-[13.5px] font-medium text-[#1A2B1A]">{fmtWhen(row.created_at)}</p>
-                  <p className="break-words text-[12.5px] text-[#7A8E7A]">{backupSummary(row)}</p>
-                </div>
-                <span className="text-[12.5px] text-[#4A5E4A]">{row.kind_label} · {row.created_by_name}</span>
-                <span className="w-20 text-[12.5px] tabular-nums text-[#4A5E4A]">{row.status === 'done' ? formatBytes(row.size_bytes) : '—'}</span>
-                <StatusPill tone={TONES[row.status] || 'slate'}>{row.status_label}</StatusPill>
-                <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="outline" icon={Download} disabled={!row.can_download || busyId === row.id} isLoading={busyId === row.id}
-                    onClick={() => download(row)}>Download</Button>
-                  <Button type="button" size="sm" variant="outline" icon={Trash2} disabled={row.status === 'running'} onClick={() => setDeleting(row)}>Delete</Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <CardHeader title="Backups" count={list.length} />
+          <DataTable bare columns={COLUMNS} data={data} isLoading={rows === null} phoneTitleKey="name" phoneSubtitleKey="date"
+            emptyState={<p className="px-5 py-8 text-center text-sm text-slate-500">No backup yet. Press Back up now to make the first one.</p>} />
         </div>
 
-        <p className="text-[12px] text-[#7A8E7A]">
-          To restore from a backup, follow docs/BACKUP_AND_RESTORE.md. To make backups automatically, schedule <code>python manage.py backup_system</code> once a day
-          (for example a Render cron job); they appear in this list as Scheduled.
+        <p className={muted}>
+          Backups are made only when you press Back up now. An entry is never removed from this list. To restore, choose Restore on a
+          finished backup; you will be asked for its file and your password.
         </p>
       </div>
 
-      {deleting && (
-        <ConfirmDialog title="Delete Backup" message={`Delete the backup of ${fmtWhen(deleting.created_at)}? Its file is removed and cannot be recovered.`}
-          confirmLabel="Delete" variant="danger" onConfirm={remove} onCancel={() => setDeleting(null)} />
-      )}
+      {notes && !notes.id && <BackupNotesModal onClose={() => setNotes(null)} onSubmit={startBackup} />}
+      {notes?.id && <BackupNotesModal backup={notes} onClose={() => setNotes(null)} onSubmit={saveNotes} />}
+      {restoring && <RestoreModal backup={restoring} onClose={() => setRestoring(null)} onStarted={restoreStarted} />}
     </PageLayout>
   )
 }

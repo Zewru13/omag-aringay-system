@@ -1,73 +1,193 @@
 import os
+import shutil
+import tempfile
 
 from django.core.files.storage import default_storage
 from django.http import FileResponse
 from rest_framework import status
 from rest_framework.exceptions import NotFound
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin
 
+from . import service
 from .models import BackupRecord
-from .service import delete_backup, mark_stale, start_backup
+from .service import start_backup, start_restore
+
+BUSY = 'A backup or a restore is running. Wait until it is done.'
+NOTES = (('name', 120), ('location', 255), ('remarks', 255))
 
 
 def row(record):
+    done = record.status == BackupRecord.Status.DONE
+    has_file = done and bool(record.file_path)
     return {
         'id': record.id, 'kind': record.kind, 'kind_label': record.get_kind_display(), 'status': record.status, 'status_label': record.get_status_display(),
-        'created_at': record.created_at, 'finished_at': record.finished_at,
-        'created_by_name': record.created_by.username if record.created_by_id else 'Automatic',
+        'name': record.name or service.default_name(record.created_at), 'location': record.location, 'remarks': record.remarks,
+        'created_at': record.created_at, 'finished_at': record.finished_at, 'downloaded_at': record.downloaded_at,
+        'made_by': record.made_by or (record.created_by.username if record.created_by_id else 'Automatic'),
+        'file_name': record.file_name or os.path.basename(record.file_path),
         'size_bytes': record.size_bytes, 'records_count': record.records_count, 'files_count': record.files_count,
-        'files_skipped': record.files_skipped, 'detail': record.detail, 'can_download': record.status == BackupRecord.Status.DONE and bool(record.file_path),
+        'files_skipped': record.files_skipped, 'detail': record.detail,
+        # has_file: the online copy is still waiting to be downloaded. can_restore: a finished backup that can be recognised again
+        # (its online copy, or its fingerprint to check the chosen file against).
+        'has_file': has_file, 'can_restore': record.is_backup and done and (has_file or bool(record.checksum)),
     }
 
 
+def busy_response():
+    return Response({'detail': BUSY}, status=status.HTTP_409_CONFLICT)
+
+
+def get_record(pk, **filters):
+    try:
+        return BackupRecord.objects.select_related('created_by').get(pk=pk, **filters)
+    except BackupRecord.DoesNotExist:
+        raise NotFound('That backup was not found.')
+
+
+def clean_notes(data, partial):
+    """The Admin's own notes about a backup (name, location, remarks), trimmed. Returns (values, error)."""
+    values = {}
+    for field, limit in NOTES:
+        if field not in data:
+            continue
+        value = str(data.get(field) or '').strip()
+        if len(value) > limit:
+            return None, f'The {field} is too long (at most {limit} characters).'
+        values[field] = value
+    if partial and 'name' in values and not values['name']:
+        return None, 'Type a name for the backup.'
+    return values, ''
+
+
 class BackupListCreateView(APIView):
-    """Admin only. GET: the backups, newest first. POST: start a new one (it runs in the background; the list shows it as Running)."""
+    """Admin only. GET: the list, newest first, and whether one is running. POST: make a backup now (it runs in the background; the list shows it Running)."""
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
-        mark_stale()
-        records = BackupRecord.objects.select_related('created_by')[:50]
-        return Response({'results': [row(r) for r in records]})
+        busy = service.is_busy()
+        records = BackupRecord.objects.select_related('created_by')[:200]
+        return Response({'results': [row(r) for r in records], 'busy': busy})
 
     def post(self, request):
-        mark_stale()
-        if BackupRecord.objects.filter(status=BackupRecord.Status.RUNNING).exists():
-            return Response({'detail': 'A backup is already running. Wait for it to finish.'}, status=status.HTTP_409_CONFLICT)
-        record = BackupRecord.objects.create(created_by=request.user, kind=BackupRecord.Kind.MANUAL)
+        if service.is_busy():
+            return busy_response()
+        notes, error = clean_notes(request.data, partial=False)
+        if error:
+            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+        record = BackupRecord.objects.create(created_by=request.user, made_by=request.user.username, kind=BackupRecord.Kind.MANUAL, **notes)
+        if not record.name:
+            record.name = service.default_name(record.created_at)
+            record.save(update_fields=['name'])
         start_backup(record.id)
         record.refresh_from_db()
         return Response(row(record), status=status.HTTP_201_CREATED)
 
 
 class BackupDetailView(APIView):
+    """PATCH: the Admin's notes about a backup (its name, where the file is kept, remarks). Its date, time and result are facts and are not edited;
+    an entry is never deleted."""
     permission_classes = [IsAuthenticated, IsAdmin]
 
-    def delete(self, request, pk):
-        try:
-            record = BackupRecord.objects.get(pk=pk)
-        except BackupRecord.DoesNotExist:
-            raise NotFound('That backup was not found.')
-        if record.status == BackupRecord.Status.RUNNING:
-            return Response({'detail': 'A running backup cannot be deleted.'}, status=status.HTTP_409_CONFLICT)
-        delete_backup(record)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def patch(self, request, pk):
+        record = get_record(pk)
+        if service.is_busy():
+            return busy_response()
+        notes, error = clean_notes(request.data, partial=True)
+        if error:
+            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+        for field, value in notes.items():
+            setattr(record, field, value)
+        if notes:
+            record.save(update_fields=list(notes))
+        return Response(row(record))
 
 
 class BackupDownloadView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request, pk):
-        try:
-            record = BackupRecord.objects.get(pk=pk, status=BackupRecord.Status.DONE)
-        except BackupRecord.DoesNotExist:
-            raise NotFound('That backup was not found.')
+        record = get_record(pk, status=BackupRecord.Status.DONE)
+        if service.is_busy():
+            return busy_response()
         if not record.file_path or not default_storage.exists(record.file_path):
-            raise NotFound('The backup file is no longer in the storage.')
+            raise NotFound('The backup file is no longer online. It was downloaded already; look for it where it was saved.')
+        service.fingerprint_online_copy(record)
         response = FileResponse(default_storage.open(record.file_path, 'rb'), content_type='application/zip', as_attachment=True,
-                                filename=os.path.basename(record.file_path))
+                                filename=record.file_name or os.path.basename(record.file_path))
         response['Cache-Control'] = 'no-store'
         return response
+
+
+class BackupDownloadedView(APIView):
+    """The page calls this once the whole file has reached the Admin's browser: the online copy is removed, the entry stays."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        record = get_record(pk, status=BackupRecord.Status.DONE)
+        if service.is_busy():
+            return busy_response()
+        if record.file_path:
+            service.remove_online_copy(record)
+        return Response(row(record))
+
+
+class BackupRestoreView(APIView):
+    """Put a backup of the list back. The Admin types their own password; the backup's own file is chosen from the computer when its online copy
+    is gone, and checked against the fingerprint kept on the entry. A safety backup of how things are now is made first, in the same run."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def post(self, request, pk):
+        record = get_record(pk)
+        if service.is_busy():
+            return busy_response()
+        if not (record.is_backup and record.status == BackupRecord.Status.DONE):
+            return self.refuse('Only a finished backup can be restored.')
+        if not request.user.check_password(str(request.data.get('password') or '')):
+            return self.refuse('The password is not correct.')
+
+        upload = request.FILES.get('file')
+        handle, local = tempfile.mkstemp(prefix='oma_restore_', suffix='.zip')
+        try:
+            with os.fdopen(handle, 'wb') as out:
+                if upload is not None:
+                    for chunk in upload.chunks():
+                        out.write(chunk)
+                elif record.file_path and default_storage.exists(record.file_path):
+                    service.fingerprint_online_copy(record)
+                    with default_storage.open(record.file_path, 'rb') as src:
+                        shutil.copyfileobj(src, out, 1 << 20)
+                else:
+                    raise service.RestoreError(f'Choose the backup file from your computer{f" ({record.file_name})" if record.file_name else ""}.')
+            if not record.checksum:
+                raise service.RestoreError('This older backup cannot be checked against a file. Make a new backup instead.')
+            with open(local, 'rb') as f:
+                if service.checksum_of(f) != record.checksum:
+                    raise service.RestoreError(
+                        f'That is not the file of this backup{f" ({record.file_name})" if record.file_name else ""}. Choose the file that was downloaded for it.')
+            service.read_backup_zip(local)
+        except service.RestoreError as exc:
+            os.remove(local)
+            return self.refuse(str(exc))
+        except Exception:
+            os.remove(local)
+            raise
+
+        who = request.user.username
+        safety = BackupRecord.objects.create(
+            created_by=request.user, made_by=who, kind=BackupRecord.Kind.SAFETY, name=f'Before restoring "{record.name or service.default_name(record.created_at)}"'[:120],
+            remarks='Made automatically before a restore.')
+        restore = BackupRecord.objects.create(
+            created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, name=f'Restore of "{record.name or service.default_name(record.created_at)}"'[:120])
+        start_restore(restore.id, safety.id, local)
+        restore.refresh_from_db()
+        return Response(row(restore), status=status.HTTP_202_ACCEPTED)
+
+    @staticmethod
+    def refuse(message):
+        return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
