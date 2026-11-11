@@ -12,6 +12,7 @@ export const REPORT_TYPES = [
   { id: 'disaster_fisheries', label: 'Fisheries Disaster Reports', description: 'Disasters logged against fisherfolk and their stocks, with the volume lost and recovery status.' },
   { id: 'disaster_crops', label: 'Crop / Parcel Disaster Reports', description: 'Disasters logged against crops and farm parcels, with the area affected and recovery status.' },
   { id: 'organization_assistance', label: 'Organization Assistance', description: 'Assistance organizations gave to their members, for one organization or all, with who received it.' },
+  { id: 'organization_assistance_individual', label: 'Individual Organization Assistance', description: 'Everything one chosen organization gave to its members: each distribution and every recipient.' },
 ]
 
 // One report by id.
