@@ -3583,7 +3583,7 @@ export default {
  "admin-backup": {
   "audience": "admin",
   "title": "Admin > Backup",
-  "purpose": "Makes and downloads a copy of the whole system.",
+  "purpose": "Makes a copy of the whole system, saves it to your computer, and can put one back.",
   "image": "/manual/admin/backup.png",
   "width": 1280,
   "height": 800,
@@ -3591,22 +3591,17 @@ export default {
    {
     "n": 1,
     "label": "Back up now",
-    "desc": "Starts a backup in the background (a few minutes). The list updates by itself. The system also makes one every night by itself."
+    "desc": "Opens Back Up Now: type a name and the Location where you will keep the file (both can be left empty), then Start Backup. A backup is made only when you press this. When it is done, its file (.zip) is saved to your computer and is no longer kept online. While one runs, nothing else can be done on this page."
    },
    {
     "n": 2,
     "label": "Backups list",
-    "desc": "Each backup with its date, who made it (or Scheduled for the nightly one), its size and its status: Running, Done or Failed. The latest 14 are kept."
+    "desc": "Every backup, newest first: its name, date, time, location (where you keep its file), kind, who made it, size and status (Running, Done or Failed). Nothing is removed from this list. The file holds personal records and is not encrypted: keep it somewhere safe."
    },
    {
     "n": 3,
-    "label": "Download",
-    "desc": "Saves the backup file (a .zip with the database and the uploaded files) to your computer. It holds personal records and is not encrypted: keep it somewhere safe."
-   },
-   {
-    "n": 4,
-    "label": "Delete",
-    "desc": "Removes a backup and its file after you confirm."
+    "label": "Row menu",
+    "desc": "Download saves the file while it is still online. Edit changes the name, the location and the remarks (not the date or the time). Restore puts that backup back: choose the file that was downloaded for it and type your password; a safety backup of how things are now is made first."
    }
   ]
  },

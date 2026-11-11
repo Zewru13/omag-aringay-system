@@ -6,51 +6,57 @@ Admin > Backup makes **one .zip file** of the whole system:
 
 | In the zip | What it holds |
 |---|---|
-| `database.json` | Every record of every app (farmers, fisherfolk, organizations, crops, harvests, fisheries, assistance, disasters, users with their password **hashes**, audit log...). Sessions, permissions, content types, the Django admin log and the login-token blacklist are left out: the system rebuilds them. |
-| `media/...` | Every uploaded file (damage photos, PCIC forms, profile photos, documents), by its path in the file storage. Earlier backups are never packed into a new one. |
+| `database.json` | Every record of every app (farmers, fisherfolk, organizations, crops, harvests, fisheries, assistance, disasters, users with their password **hashes**, audit log...). Sessions, permissions, content types, the Django admin log, the login-token blacklist and the Backup list itself are left out: the system rebuilds them. |
+| `media/...` | Every uploaded file (damage photos, PCIC forms, profile photos, documents), by its path in the file storage. Backups are never packed into a backup. |
 | `manifest.json` | When it was made, how many records and files, and any file that was left out. |
 
-The zip is kept in the system's file storage under `backups/` (the Supabase bucket on the live site) and listed on the Backup page. The newest **14** are kept; older ones are deleted. Files above the size limit (`BACKUP_MAX_MEDIA_BYTES`, 500 MB of uploads by default) are left out and named in the manifest and on the page.
+Files above the size limit (`BACKUP_MAX_MEDIA_BYTES`, 500 MB of uploads by default) are left out and named in the manifest and on the page.
 
 The zip holds personal records and password hashes: **download it only on a trusted computer and store it somewhere safe** (it is not encrypted).
 
-## Making backups
+## Making a backup
 
-- **By hand:** Admin > Backup > Back up now. It runs in the background (a few minutes for a large system); the list refreshes by itself. Download it from the same list.
-- **Automatically (free, GitHub Actions):** the workflow `.github/workflows/backup.yml` runs `python manage.py backup_system` every day at 2:00 AM Philippine time (18:00 UTC). It appears in the list as *Scheduled*. To switch it on, add these ten **repository secrets** (GitHub > the repository > Settings > Secrets and variables > Actions > New repository secret), with the **same values the live web service uses**:
+Backups are made **only by hand**: Admin > Backup > **Back up now**. There is no automatic or nightly backup.
 
-  `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_NAME`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_STORAGE_ACCESS_KEY`, `SUPABASE_STORAGE_SECRET_KEY`, `SUPABASE_STORAGE_ENDPOINT`, `SUPABASE_STORAGE_REGION`, `SUPABASE_STORAGE_BUCKET`.
+1. Press **Back up now**. Type a name and the **Location** where the file will be kept (both can be left empty; an empty name becomes "Backup of <date and time>"), then **Start Backup**.
+2. It runs in the background (a few minutes for a large system). While it runs, the page is locked: no other backup, edit, download or restore can be started until it is done. Keep the page open.
+3. When it is done the page **saves the file to the computer** (`oma_backup_YYYYMMDD_HHMMSS.zip`, usually in Downloads) and the online copy is removed. The zip is **not kept online**. If the page was closed before the file arrived, the entry says *Waiting to be downloaded*: press **Download** in its row menu.
 
-  Then test it without waiting for the night: Actions > *Daily backup* > Run workflow. A good run ends with `Backup backups/...zip: N records, N files, N bytes.` and a new *Scheduled* entry in Admin > Backup. GitHub emails you when a run fails. Notes: the live `SECRET_KEY` is not needed (the job uses a placeholder); GitHub's servers reach the internet over IPv4 only, so if the run says "Network is unreachable", put the Supabase **Session pooler** address and port in `SUPABASE_DB_HOST` / `SUPABASE_DB_PORT` (the pooler user is `postgres.<project reference>`); anyone who can write to the repository can read these secrets, so only add trusted people; when you change the database password or the storage keys, update the secrets too.
-- **Automatically (paid alternative):** schedule the same command on a host instead, for example a Render cron job (about $1/month) with the same environment as the web service and root directory `oma_aringay`. The command exits with an error if the backup fails, so the scheduler can alert you.
+## The Backups list
 
-Do a **test restore** into a scratch database now and then (below): a backup nobody has restored is only a hope.
+- Every backup stays in the list with its name, date, time, location, kind, who made it, size and status. **Nothing can be deleted from it.**
+- **Edit** (row menu) changes the name, the location and the remarks. The date, the time and the result are facts and cannot be changed.
+- Kinds: *Manual* (Back up now), *Before restore* (the safety backup a restore makes), *Restore* (a restore that was run), *Automatic* (nightly backups made by an earlier version; none are made any more).
+- Each backup keeps the fingerprint (SHA-256) of its file, so that the same file can be recognised when it is chosen for a restore.
 
-## Restoring
+## Restoring from the list
 
-Restoring replaces data, so do it deliberately and, if the live site is involved, with the site stopped.
+Restoring replaces data, so do it deliberately and when nobody else is using the system.
 
-1. **Get the zip** (Admin > Backup > Download) and unzip it.
-2. **Prepare an empty database** of the same system version: point `DATABASES` (or `DATABASE_URL`) at it and run
+1. Admin > Backup > the row menu of a finished backup > **Restore**.
+2. **Choose the backup file** from the computer: the file that was downloaded for that entry (its name is shown). A different file is refused. (If the file is still online, no file is asked for.)
+3. Type **your own password** and press **Restore**.
+4. The system first makes a **safety backup** of how things are now (it appears as *Before restore* and is saved to the computer too). If the safety backup cannot be made, nothing is restored.
+5. Then the backup is put back: the uploaded files, and every record in one step. If anything fails, **no record is changed** and the entry says *Failed* with the reason.
 
-   ```bash
-   python manage.py migrate
-   ```
+After a restore, the records, uploaded files, user accounts and passwords are those of the backup; everyone signs in again. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup.
 
-3. **Load the records:**
+A backup restores best into the same version of the system that made it. Fields or tables the system no longer has are skipped.
 
-   ```bash
-   python manage.py loaddata database.json
-   ```
+## Restoring into an empty copy (disaster recovery)
 
-   Run this on a database with no data of its own: loading over existing rows with the same ids overwrites them. The `loaddata` of a large file can take several minutes.
-4. **Put the uploaded files back** into the file storage under the same paths: copy everything inside the zip's `media/` folder into the media location (the bucket root on the live site, or `oma_aringay/media/` on a local copy). Keep the folder structure as it is.
-5. **Check:** sign in as an Admin, open a farmer with a photo and an organization with members, and compare the counts with `manifest.json`.
+When the system itself is lost and a new, empty copy is set up, a backup can be loaded by hand:
+
+1. Unzip the backup.
+2. Point `DATABASES` at the empty database of the same system version and run `python manage.py migrate`.
+3. `python manage.py loaddata database.json` (on a database with no data of its own).
+4. Copy everything inside the zip's `media/` folder into the media location (the bucket root on the live site, or `oma_aringay/media/` on a local copy), keeping the folder structure.
+5. Sign in as an Admin and compare the counts with `manifest.json`.
 
 If the restored system is a different copy (not the live one), set its own environment variables (database, storage, email) first; do not point a test restore at the live bucket.
 
 ## Notes
 
-- Backups never change the system's own data; the only row they add is the entry in the Backup list.
-- Only an Admin can see, make, download or delete backups.
-- Deleting a backup in the list also deletes its file from the storage.
+- A backup never changes the system's own data; the only row it adds is its entry in the Backup list.
+- Only an Admin can see, make, download, edit or restore backups.
+- A backup or a restore still shown as Running 30 minutes after it started (the server restarted under it) is marked Failed, so the page is not locked for ever.

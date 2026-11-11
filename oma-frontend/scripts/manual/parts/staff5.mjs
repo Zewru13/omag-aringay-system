@@ -190,12 +190,11 @@ export const STAFF5 = [
       { find: { text: 'Action', tag: 'label' }, label: 'Action', desc: 'Only Create, Update or Delete.' },
       { find: [{ text: 'Date From', tag: 'label' }, { text: 'Date To', tag: 'label' }], label: 'Date From / To', desc: 'Only changes made in that period. On a phone each date is a row of its own.' },
     ] }),
-  A({ id: 'admin-backup', file: 'admin/backup.png', url: '/backup', title: 'Admin > Backup', purpose: 'Makes and downloads a copy of the whole system.',
+  A({ id: 'admin-backup', file: 'admin/backup.png', url: '/backup', title: 'Admin > Backup', purpose: 'Makes a copy of the whole system, saves it to your computer, and can put one back.',
     callouts: [
-      { find: { text: 'Back up now', tag: 'button' }, label: 'Back up now', desc: 'Starts a backup in the background (a few minutes). The list updates by itself. The system also makes one every night by itself.' },
-      { find: { text: 'Backups', tag: 'h2', closest: H }, label: 'Backups list', desc: 'Each backup with its date, who made it (or Scheduled for the nightly one), its size and its status: Running, Done or Failed. The latest 14 are kept.' },
-      { find: { text: 'Download', tag: 'button', exact: true }, label: 'Download', desc: 'Saves the backup file (a .zip with the database and the uploaded files) to your computer. It holds personal records and is not encrypted: keep it somewhere safe.' },
-      { find: { text: 'Delete', tag: 'button', exact: true }, label: 'Delete', desc: 'Removes a backup and its file after you confirm.' },
+      { find: { text: 'Back up now', tag: 'button' }, label: 'Back up now', desc: 'Opens Back Up Now: type a name and the Location where you will keep the file (both can be left empty), then Start Backup. A backup is made only when you press this. When it is done, its file (.zip) is saved to your computer and is no longer kept online. While one runs, nothing else can be done on this page.' },
+      { find: { text: 'Backups', tag: 'h2', closest: H }, label: 'Backups list', desc: 'Every backup, newest first: its name, date, time, location (where you keep its file), kind, who made it, size and status (Running, Done or Failed). Nothing is removed from this list. The file holds personal records and is not encrypted: keep it somewhere safe.' },
+      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Download saves the file while it is still online. Edit changes the name, the location and the remarks (not the date or the time). Restore puts that backup back: choose the file that was downloaded for it and type your password; a safety backup of how things are now is made first.' },
     ] }),
   A({ id: 'admin-signatories', file: 'admin/signatories.png', url: '/signatories', title: 'Admin > Signatories', purpose: 'The names that can sign the reports.',
     callouts: [
