@@ -31,6 +31,14 @@ export const STATUS_FILTER_OPTIONS = [
   { value: 'all', label: 'All Status' },
 ]
 
+// The stage filter of a farmer's profile (Crop Monitoring Records): it opens on All Status, so every crop of the farmer is listed first, and
+// it has no Overdue choice (Due Harvest is the one the office uses there). All Status leads the list because it is the default.
+export const PROFILE_DEFAULT_STATUS = 'all'
+export const PROFILE_STATUS_OPTIONS = [
+  STATUS_FILTER_OPTIONS.find((o) => o.value === 'all'),
+  ...STATUS_FILTER_OPTIONS.filter((o) => o.value !== 'all' && o.value !== 'Overdue'),
+]
+
 // What a record's status pill says. Only a "Near Harvest" record is split by how far its expected date is (the same days the
 // server uses for display_status): Due Harvest = still ahead, Ready for Harvest = today or up to 7 days past, Overdue = more than
 // 7 days past with no harvest recorded. Every other status (Planted / Harvested / Total Loss) passes through.

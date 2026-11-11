@@ -26,6 +26,13 @@ export const withAssistanceType = (form, type) => ({
   ...form, assistance_type: type, quantity_amount: '', quantity_unit: '', cash_amount: '', training_duration_days: '', equipment_type: '', seed_type: '', fertilizer_type: '',
 })
 
+// The "Others" source agency of a form: a tick, and the agency typed for it. Every form that chooses a source agency has these two fields
+// (the Distribute window and the Edit Assistance windows); they are form-only and never sent as they are (see sourceAgencies).
+export const EMPTY_OTHER_AGENCY = { source_other_on: false, source_other: '' }
+
+// A ticked "Others" must say which agency ('' when there is nothing wrong).
+export const otherAgencyProblem = (form) => (form.source_other_on && !(form.source_other || '').trim() ? 'Type the other source agency.' : '')
+
 // The source agencies of the form as sent: the ones chosen, plus the typed "Others" one (when ticked and not the same as a chosen one).
 export function sourceAgencies(form) {
   const list = [...form.source_agencies]
@@ -49,7 +56,7 @@ export function assistanceFormProblem(form, { today }) {
   if (form.assistance_type === 'Other' && !(form.assistance_type_other || '').trim()) return 'Say what the assistance type is.'
   // The source agency (one chosen, or "Others" typed out), the quantity per recipient (an amount for cash, days for training) and the date
   // are all required.
-  if (form.source_other_on && !(form.source_other || '').trim()) return 'Type the other source agency.'
+  if (otherAgencyProblem(form)) return otherAgencyProblem(form)
   if (sourceAgencies(form).length === 0) return 'Choose the source agency.'
   const dateProblem = assistanceDateProblem(form.date_given, { today })
   if (dateProblem) return dateProblem

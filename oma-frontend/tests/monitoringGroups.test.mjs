@@ -72,4 +72,16 @@ eq(cropDisplayStatus(near('2026-10-26'), today), 'Ready for Harvest', 'today is 
 eq(cropDisplayStatus(near('2026-10-19'), today), 'Ready for Harvest', 'up to 7 days past is still ready')
 eq(cropDisplayStatus(near('2026-10-18'), today), 'Overdue', 'more than 7 days past is overdue')
 
+// ── the farmer profile's Crop Monitoring Records filter: opens on All Status, and has no Overdue choice (Due Harvest is the one kept)
+const { PROFILE_DEFAULT_STATUS, PROFILE_STATUS_OPTIONS } = await import(new URL('../src/pages/Monitoring/monitoringGroups.js', import.meta.url).href)
+eq(PROFILE_DEFAULT_STATUS, 'all', 'the profile opens on All Status')
+eq(PROFILE_STATUS_OPTIONS.map((o) => o.value), ['all', 'Planted', 'Near Harvest', 'Due Harvest', 'Ready for Harvest', 'Harvested', 'Total Loss'], 'All Status first, no Overdue')
+eq(PROFILE_STATUS_OPTIONS.map((o) => o.label), ['All Status', 'Planted', 'Near Harvest', 'Due Harvest', 'Ready for Harvest', 'Harvested', 'Total Loss'], 'their labels')
+eq(farmerCropParams(5, PROFILE_DEFAULT_STATUS), { farmer: 5, status: 'Planted,Near Harvest,Harvested,Total Loss' }, 'so every crop of the farmer is listed first')
+eq(STATUS_FILTER_OPTIONS.some((o) => o.value === 'Overdue'), true, 'the general stage list is unchanged')
+const fs = await import('node:fs')
+const profile = fs.readFileSync(new URL('../src/pages/Farmers/FarmerDetailPage.jsx', import.meta.url), 'utf8')
+eq(profile.includes('useState(PROFILE_DEFAULT_STATUS)') && profile.includes('PROFILE_STATUS_OPTIONS.map('), true, 'the profile uses them')
+eq(/useState\(DEFAULT_STATUS\)|[^_]STATUS_FILTER_OPTIONS/.test(profile), false, 'and no longer the general list or the Planted default')
+
 console.log(`monitoringGroups: ${n} checks passed`)

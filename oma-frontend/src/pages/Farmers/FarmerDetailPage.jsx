@@ -20,7 +20,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { rowClickProps } from '../../utils/rowClick.js'
-import { DEFAULT_STATUS, STATUS_FILTER_OPTIONS, cropDisplayStatus, farmerCropParams } from '../Monitoring/monitoringGroups.js'
+import { PROFILE_DEFAULT_STATUS, PROFILE_STATUS_OPTIONS, cropDisplayStatus, farmerCropParams } from '../Monitoring/monitoringGroups.js'
 import EditFarmerModal from './EditFarmerModal.jsx'
 import EditParcelModal from './EditParcelModal.jsx'
 import FarmerMachineryCard from './FarmerMachineryCard.jsx'
@@ -315,7 +315,7 @@ function FarmerDetailPage() {
   const [history, setHistory] = useState([])
   const [visitHistory, setVisitHistory] = useState([])
   const [cropRecords, setCropRecords] = useState([])
-  const [cropStatusFilter, setCropStatusFilter] = useState(DEFAULT_STATUS)   // the crops still planted, until another stage is chosen
+  const [cropStatusFilter, setCropStatusFilter] = useState(PROFILE_DEFAULT_STATUS)   // every crop of the farmer, until a stage is chosen
   const [isLoadingFarmer, setIsLoadingFarmer] = useState(true)
   const [isLoadingParcels, setIsLoadingParcels] = useState(true)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
@@ -684,7 +684,7 @@ function FarmerDetailPage() {
               aria-label="Show crops in this stage"
               className="h-9 rounded-lg border border-[#E2E8E2] bg-white px-3 text-[13px] text-[#1A2B1A] focus:border-[#1B4D2E] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/10"
             >
-              {STATUS_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {PROFILE_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
@@ -702,7 +702,7 @@ function FarmerDetailPage() {
             <p className="rounded-lg border border-[#E2E8E2] bg-[#EBF5EE]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
               {cropStatusFilter === 'all'
                 ? 'No crop monitoring records for this farmer.'
-                : `No ${STATUS_FILTER_OPTIONS.find((o) => o.value === cropStatusFilter)?.label || ''} crops for this farmer. Choose another stage or All Status.`}
+                : `No ${PROFILE_STATUS_OPTIONS.find((o) => o.value === cropStatusFilter)?.label || ''} crops for this farmer. Choose another stage or All Status.`}
             </p>
           ) : (
             <>
