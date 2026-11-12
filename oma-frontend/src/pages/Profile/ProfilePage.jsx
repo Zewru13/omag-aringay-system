@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Camera, Edit, Loader2 } from "lucide-react"
+import { Camera, Edit } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import PageLayout from "../../components/Layout/PageLayout.jsx"
 import Button from "../../components/UI/Button.jsx"
@@ -8,7 +8,9 @@ import ModalShell from "../../components/UI/ModalShell.jsx"
 import PasswordRequirementChecklist from "../../components/UI/PasswordRequirementChecklist.jsx"
 import { passwordMeetsRules } from "../../utils/passwordRules.js"
 import StatusPill from "../../components/UI/StatusPill.jsx"
-import { baseInputClasses, FormLabel } from "../../components/UI/FormField.jsx"
+import { baseInputClasses } from "../../components/UI/FormField.jsx"
+import { DetailTable, FormCell, FormRow, FormRows, FormSection } from "../../components/UI/FormTable.jsx"
+import { formatDate } from "../../utils/dateFormat.js"
 import EmailInput from "../../components/UI/EmailInput.jsx"
 import api from "../../api/axiosInstance.js"
 import { useAuth } from "../../context/AuthContext.jsx"
@@ -32,27 +34,6 @@ import { useToast } from "../../context/ToastContext.jsx"
 // accounts/views.py's MeView.patch): email in particular is tied into this
 // account's verification/reset flow, so a bare PATCH without proof of
 // current possession of the account felt like too light a bar.
-
-function formatDate(value) {
-  if (!value) return "—"
-  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(value))
-}
-
-const CARD = "rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden"
-const CARD_HEADER = "px-5 py-3.5 bg-[#EBF5EE] border-b border-[#E2E8E2]"
-const CARD_HEADER_TEXT = "text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]"
-const MINI_LABEL = "text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]"
-
-function ReadOnlyRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-[#F0F4F0] last:border-0">
-      <div>
-        <p className={MINI_LABEL}>{label}</p>
-        <p className="mt-1 text-[13px] text-[#1A2B1A]">{value || "—"}</p>
-      </div>
-    </div>
-  )
-}
 
 function Avatar({ initials, photoUrl, size = 64, onPick, uploading }) {
   return (
@@ -292,16 +273,13 @@ function ProfilePage() {
           {/* Account Information — the previous Account Information and
               Profile Information cards merged; they duplicated Email,
               Username, and Date Joined between them. */}
-          <section className={CARD}>
-            <div className={CARD_HEADER}><p className={CARD_HEADER_TEXT}>Account Information</p></div>
-            <div className="px-5">
-              <ReadOnlyRow label="Full Name" value={profile?.full_name} />
-              <ReadOnlyRow label="Email Address" value={profile?.email} />
-              <ReadOnlyRow label="Username" value={profile?.username} />
-              <ReadOnlyRow label="Role" value={roleLabel} />
-              <ReadOnlyRow label="Date Joined" value={formatDate(profile?.date_joined)} />
-            </div>
-          </section>
+          <DetailTable title="Account Information" fields={[
+            { label: "Full Name", value: profile?.full_name },
+            { label: "Email Address", value: profile?.email },
+            { label: "Username", value: profile?.username },
+            { label: "Role", value: roleLabel },
+            { label: "Date Joined", value: formatDate(profile?.date_joined) },
+          ]} />
         </div>
       </PageLayout>
 
@@ -311,92 +289,96 @@ function ProfilePage() {
           subtitle="Update your account details or password"
           icon={Edit}
           onClose={closeEditModal}
-          maxWidth="max-w-lg"
+          maxWidth="max-w-3xl"
           footer={(
             <>
-              <Button onClick={closeEditModal} type="button" variant="ghost">Cancel</Button>
-              <button
-                type="submit"
-                form="edit-profile-form"
-                disabled={isSaving}
-                className="press-scale flex h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[#1B4D2E] px-4 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {isSaving && <Loader2 size={15} className="animate-spin" aria-hidden="true" />}
-                Save Changes
-              </button>
+              <Button onClick={closeEditModal} type="button" variant="outline">Cancel</Button>
+              <Button type="submit" form="edit-profile-form" isLoading={isSaving}>Save Changes</Button>
             </>
           )}
         >
-          <form id="edit-profile-form" onSubmit={handleSave} className="space-y-4">
-            <div>
-              <FormLabel hideIndicator>Full Name</FormLabel>
-              <input
-                className={baseInputClasses}
-                type="text"
-                value={form.full_name}
-                onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-              />
-            </div>
-            <div>
-              <FormLabel hideIndicator>Email Address</FormLabel>
-              <EmailInput
-                className={baseInputClasses}
-                value={form.email}
-                onChange={(v) => setForm((f) => ({ ...f, email: v }))}
-              />
-            </div>
-            <div>
-              <FormLabel hideIndicator>Username</FormLabel>
-              <input
-                className={baseInputClasses}
-                type="text"
-                value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              />
-            </div>
+          <form id="edit-profile-form" onSubmit={handleSave} className="space-y-3">
+            <FormSection title="Account">
+              <FormRows label="Account">
+                <FormRow>
+                  <FormCell label="Full Name" wide>
+                    <input
+                      className={baseInputClasses}
+                      type="text"
+                      value={form.full_name}
+                      onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+                    />
+                  </FormCell>
+                </FormRow>
+                <FormRow>
+                  <FormCell label="Email Address">
+                    <EmailInput
+                      className={baseInputClasses}
+                      value={form.email}
+                      onChange={(v) => setForm((f) => ({ ...f, email: v }))}
+                    />
+                  </FormCell>
+                  <FormCell label="Username">
+                    <input
+                      className={baseInputClasses}
+                      type="text"
+                      value={form.username}
+                      onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                    />
+                  </FormCell>
+                </FormRow>
+              </FormRows>
+            </FormSection>
 
-            <div className="border-t border-[#F0F4F0] pt-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">
-                Change Password <span className="normal-case font-normal text-[#A8BCA8]">(optional)</span>
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <FormLabel hideIndicator>New Password</FormLabel>
-                  <input
-                    autoComplete="new-password"
-                    className={baseInputClasses}
-                    type="password"
-                    value={passwords.new_password}
-                    onChange={(e) => setPasswords((p) => ({ ...p, new_password: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <FormLabel hideIndicator>Confirm New Password</FormLabel>
-                  <input
-                    autoComplete="new-password"
-                    className={baseInputClasses}
-                    type="password"
-                    value={passwords.confirm_new_password}
-                    onChange={(e) => setPasswords((p) => ({ ...p, confirm_new_password: e.target.value }))}
-                  />
-                </div>
-                {passwords.new_password && <PasswordRequirementChecklist password={passwords.new_password} />}
-              </div>
-            </div>
+            <FormSection title="Change Password">
+              <FormRows label="Change Password">
+                <FormRow>
+                  <FormCell label="New Password">
+                    <input
+                      autoComplete="new-password"
+                      className={baseInputClasses}
+                      type="password"
+                      value={passwords.new_password}
+                      onChange={(e) => setPasswords((p) => ({ ...p, new_password: e.target.value }))}
+                    />
+                  </FormCell>
+                  <FormCell label="Confirm New Password">
+                    <input
+                      autoComplete="new-password"
+                      className={baseInputClasses}
+                      type="password"
+                      value={passwords.confirm_new_password}
+                      onChange={(e) => setPasswords((p) => ({ ...p, confirm_new_password: e.target.value }))}
+                    />
+                  </FormCell>
+                </FormRow>
+                {passwords.new_password && (
+                  <FormRow>
+                    <FormCell label="Requirements" wide>
+                      <PasswordRequirementChecklist password={passwords.new_password} />
+                    </FormCell>
+                  </FormRow>
+                )}
+              </FormRows>
+              <p className="border-t border-[#F0F4F0] px-3 py-2 text-[11.5px] text-[#7A8E7A]">Leave both empty to keep your password.</p>
+            </FormSection>
 
-            <div className="border-t border-[#F0F4F0] pt-4">
-              <FormLabel hideIndicator>Current Password</FormLabel>
-              <input
-                autoComplete="current-password"
-                className={baseInputClasses}
-                type="password"
-                value={passwords.current_password}
-                onChange={(e) => setPasswords((p) => ({ ...p, current_password: e.target.value }))}
-              />
-              <p className="mt-1.5 text-[12px] leading-[1.5] text-[#7A8E7A]">
-                Required only if you change your email, username, or password above.
-              </p>
-            </div>
+            <FormSection title="Confirm It Is You">
+              <FormRows label="Confirm it is you">
+                <FormRow>
+                  <FormCell label="Current Password" wide
+                    hint={<p className="mt-1 text-[11.5px] leading-[1.5] text-[#7A8E7A]">Required only if you change your email, username, or password above.</p>}>
+                    <input
+                      autoComplete="current-password"
+                      className={baseInputClasses}
+                      type="password"
+                      value={passwords.current_password}
+                      onChange={(e) => setPasswords((p) => ({ ...p, current_password: e.target.value }))}
+                    />
+                  </FormCell>
+                </FormRow>
+              </FormRows>
+            </FormSection>
 
             {formError && (
               <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">

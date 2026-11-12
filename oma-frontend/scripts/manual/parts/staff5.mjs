@@ -174,7 +174,7 @@ export const STAFF5 = [
       { find: [{ text: 'Staff', tag: 'button', exact: true }, { text: 'Fisherfolk', tag: 'button', exact: true }, { text: 'Farmers', tag: 'button', exact: true }, { text: 'Organizations', tag: 'button', exact: true }], label: 'Account kinds', desc: 'Staff (Admin and Focal Person), Fisherfolk, Farmers and Organizations: one table for each kind of account.' },
       SEARCH_ROW('an account by name or email'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: role and status.' },
-      { find: { text: 'Create User', tag: 'button' }, label: 'Create User', desc: 'Opens Add New User: choose the role, then Next to fill in the details of the new staff account.' },
+      { find: { text: 'Create User', tag: 'button' }, label: 'Create User', desc: 'Opens Add New User: choose the role, fill in the name and contact details, then Add User.' },
       { find: COLS, label: 'Columns', desc: 'Name, email, role, status (Active or Inactive) and Actions.' },
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'Edit user changes the details and can turn the account off. Resend verification email sends the verification message again to an account that has not verified its email.' },
     ] }),

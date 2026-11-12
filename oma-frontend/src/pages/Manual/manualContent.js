@@ -207,7 +207,7 @@ const STAFF_GUIDES = (focal) => [
     screens: ['admin-users', 'admin-audit-log', 'admin-audit-log-filters', 'admin-signatories', 'admin-backup'],
     steps: [
       'Open Admin > User Management. The buttons at the top choose the kind of account: Staff, Fisherfolk, Farmers or Organizations. Search, or open Filters.',
-      'Create User opens Add New User: choose the role, then Next. The Actions menu of an account has Edit user and Resend verification email.',
+      'Create User opens Add New User: choose the role, fill in the name and contact details, then Add User. The Actions menu of an account has Edit user and Resend verification email.',
       'Open the Activity Log from the account menu. Filters has the model, the action (Create, Update or Delete) and the date range. Each row says who changed what and when.',
       'Open Admin > Signatories to keep the names that sign the reports. Add Signatory under the table adds a row at the top of it: type the name, the position printed under it, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then Save; turn off Active to stop offering a name. The Reports pages offer these names in their Signatories block.',
       'Open Admin > Backup and press Back up now. Type a name and the Location where you will keep the file (both can be left empty), then Start Backup. A backup is made only when you press this button. While it runs, nothing else can be done on the page: keep it open.',
