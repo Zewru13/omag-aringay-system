@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const {
-  SORTS, PAGE_SIZE, stockTitle, placeOf, prepareStocks, filterStocks, sortStocks, pageOf, pageCount, rowsOf, barangayOptions, fisherfolkOptions,
+  PAGE_SIZE, stockTitle, placeOf, prepareStocks, filterStocks, sortStocks, pageOf, pageCount, rowsOf, barangayOptions, stockProblem,
   selectRows, markTotal, updateRow, allSelected, pruneSelection, selectedPeople, stockLossesOf, rowsProblem, summaryLine, selectionStats,
 } = await import(new URL('../src/pages/Monitoring/disasterPonds.js', import.meta.url).href)
 
@@ -36,7 +36,6 @@ eq(placeOf(stocks[0]), 'Dulao', 'the barangay is where the ponds are')
 eq(placeOf(stocks[1]), 'Samara', '...or the fisherfolk\'s own barangay when none is recorded')
 eq(rowsOf(stocks).length, 5, 'every pond and cage')
 eq(barangayOptions(stocks), ['Alaska', 'Basca', 'Dulao', 'Samara'], 'barangays')
-eq(fisherfolkOptions(stocks), [{ id: 10, name: 'Ana Cruz' }, { id: 11, name: 'Ben Dizon' }, { id: 12, name: 'Cora Lim' }], 'fisherfolk')
 
 // ── search and filters
 eq(filterStocks(stocks, { search: 'ana' }).map((s) => s.stock_id), [1, 2], 'search a name')
@@ -45,14 +44,12 @@ eq(filterStocks(stocks, { search: 'bangus' }).map((s) => s.stock_id), [2], 'sear
 eq(filterStocks(stocks, { search: 'cage' }).map((s) => s.stock_id), [2], 'search a pond or cage label')
 eq(filterStocks(stocks, { search: 'ana pond 2' }).map((s) => s.stock_id), [1], 'every word has to match')
 eq(filterStocks(stocks, { barangay: 'Dulao' }).map((s) => s.stock_id), [1], 'filter by where the ponds are')
-eq(filterStocks(stocks, { fisherfolk: '11' }).map((s) => s.stock_id), [3], 'filter by fisherfolk')
+eq(filterStocks(stocks, { fisherfolk: '11' }).map((s) => s.stock_id), [1, 2, 3, 4], 'there is no fisherfolk filter: the search finds a fisherfolk by name')
 eq(filterStocks(stocks, { search: '', barangay: '', fisherfolk: '' }).length, 4, 'no filter keeps everything')
 
 // ── order and pages
-eq(SORTS.map((s) => s.id), ['fisherfolk', 'barangay', 'species'], 'sorts')
-eq(sortStocks(stocks, 'fisherfolk').map((s) => s.stock_id), [1, 2, 3, 4], 'by fisherfolk')
-eq(sortStocks(stocks, 'barangay').map((s) => s.stock_id), [4, 3, 1, 2], 'by barangay, ties by fisherfolk')
-eq(sortStocks(stocks, 'species').map((s) => s.stock_id), [2, 4, 1, 3], 'by species, ties by fisherfolk')
+eq(sortStocks(stocks).map((s) => s.stock_id), [1, 2, 3, 4], 'by fisherfolk, then the order of the server (there is no Sort choice)')
+eq(sortStocks(stocks, 'barangay').map((s) => s.stock_id), [1, 2, 3, 4], 'a sort name makes no difference any more')
 eq(PAGE_SIZE, 10, 'ten stocks a page')
 eq(pageCount(0), 1, 'always one page')
 eq(pageCount(25), 3, 'pages')
@@ -74,6 +71,12 @@ eq([sel['1:12'].total, sel['3:31'].total, sel['1:11'].total], [true, true, false
 sel = markTotal(sel, [stocks[0].rows[1]], false)
 eq([sel['1:12'].total, '1:12' in sel], [false, true], 'switching total loss off keeps the row ticked')
 eq(Object.keys(pruneSelection({ ...sel, '9:9': { lost: '', total: false } }, stocks)).sort(), ['1:11', '1:12', '3:31'], 'a restored draft drops ponds that are gone')
+
+// ── a mistake inside one stock (so a closed cycle can be opened on it)
+const bad = updateRow(selectRows({}, stocks[0].rows, true), '1:11', (v) => ({ ...v, lost: '301' }))
+eq(stockProblem(stocks[0], bad), 'Cannot exceed 300 stocked.', 'a stock with a mistake')
+eq(stockProblem(stocks[0], selectRows({}, stocks[0].rows, true)), '', 'a stock without one')
+eq(stockProblem(stocks[2], bad), '', 'a stock with nothing ticked')
 
 // ── who is affected
 eq(selectedPeople(sel, stocks).map((p) => [p.id, p.full_name, p.stocks, p.units, p.total]), [[10, 'Ana Cruz', 1, 2, 0], [11, 'Ben Dizon', 1, 1, 1]], 'one entry a fisherfolk, in table order')
@@ -114,5 +117,8 @@ ok(modal.includes('stockLossesOf('), 'what is sent is built from the ticked rows
 const table = read('../src/pages/Monitoring/FisheriesDisasterTargetsTable.jsx')
 ok(table.includes('Select every pond/cage shown') && table.includes('FilterPanel') && table.includes('PaginationBar'), 'the table has select-all, search/filters and pages')
 ok(table.includes('Total loss') && table.includes('Fingerlings Lost'), 'each row takes the fingerlings lost and a total loss')
+ok(!table.includes('aria-label="Fisherfolk"') && !table.includes('aria-label="Sort"') && !table.includes('SORTS'), 'no Fisherfolk filter and no Sort')
+ok(table.includes('aria-label="Barangay"'), 'the Barangay filter stays')
+ok(table.includes('aria-expanded') && table.includes('the ponds and cages of'), 'a cycle opens to show its ponds and cages when it is clicked')
 
 console.log(`disasterPonds: ${n} checks passed`)
