@@ -66,8 +66,7 @@ export const PHONE = [
     ] }),
   FA({ id: 'farmer-p-assistance', phone: true, file: 'farmer/phone-assistance.png', url: '/crop-assistance', wait: 5000, title: 'Assistance on a phone (Farmer)', purpose: 'The help given to you.',
     callouts: [
-      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed.' },
-      { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'An assistance', desc: 'Tap one to open its details and to confirm that you received it when it asks you to.' },
+      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed. Tap an assistance to open its details and to confirm that you received it when it asks you to.' },
       BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
     ] }),
   FA({ id: 'farmer-p-profile', phone: true, file: 'farmer/phone-profile.png', url: '/my-profile', wait: 5000, height: 1300, title: 'My Profile on a phone (Farmer)', purpose: 'Your details on a phone.',

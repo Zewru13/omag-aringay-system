@@ -21,7 +21,6 @@ export const STAFF2 = [
     callouts: [
       SEARCH_ROW('a fisherfolk by name, RSBSA number, FishR number or barangay'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: fisherfolk type, barangay, gender, senior citizen, ICC/IP, PWD and the Registered From / To dates.' },
-      PRINT_ROW, DOWNLOAD_ROW,
       { find: { text: 'Import Fisherfolk', tag: 'button' }, label: 'Import Fisherfolk', desc: 'Registers many fisherfolk from a spreadsheet, with a preview first. A recent import can be undone from the import window.' },
       { find: { text: 'Register Fisherfolk', tag: 'button', exact: true }, label: 'Register Fisherfolk', desc: 'Opens the form to register one new fisherfolk.' },
       { find: COLS, label: 'Columns', desc: 'FishR number (the fisherfolk registration number), RSBSA number, full name, type (Aquaculture), barangay, age and date registered.' },
@@ -49,7 +48,7 @@ export const STAFF2 = [
       { find: { text: 'View Assistance History', tag: 'button' }, label: 'View Assistance History', desc: 'Opens every assistance this fisherfolk received: type, source agency, quantity, season, year and the date given. Print Report and Download Report in that window give the history as a PDF.' },
       { find: { text: 'Generate Report', tag: 'button' }, label: 'Generate Report', desc: 'Makes a PDF profile of the fisherfolk and downloads it.' },
       { find: { text: 'Edit Profile', tag: 'button' }, label: 'Edit Profile', desc: 'Opens the same form as Register Fisherfolk, to correct the details.' },
-      { find: { text: 'Regenerate Password', tag: 'button' }, label: 'Regenerate Password', desc: 'Makes a new random password for the fisherfolk\'s login account and shows it once, to be read to them. Until an account exists it says Set Up Account.' },
+      { find: [{ text: 'Regenerate Password', tag: 'button' }, { text: 'Set Up Account', tag: 'button' }], label: 'Regenerate Password', desc: 'Makes a new random password for the fisherfolk\'s login account and shows it once, to be read to them. Until an account exists it says Set Up Account.' },
       { find: { text: 'Stocking Records', tag: 'h2', closest: H }, label: 'Stocking Records', desc: 'Each production cycle: species, culture type, date stocked, expected harvest, estimated and actual harvest (kg), pond barangay and status.' },
       { find: { text: 'Bulk Add Ponds', tag: 'button' }, label: 'Bulk Add Ponds', desc: 'Adds several ponds or cages at once.' },
       { find: { text: 'Add Pond', tag: 'button', exact: true }, label: 'Add Pond', desc: 'Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance (with up to 5 photos of the insurance form).' },
@@ -60,7 +59,7 @@ export const STAFF2 = [
   A({ id: 'admin-organizations', file: 'admin/organizations.png', url: '/farmers?tab=organizations', title: 'Organizations > Farmers Organizations', purpose: 'Each organization with its members, officers and equipment. Fisherfolk Organizations works the same way.',
     callouts: [
       SEARCH_ROW('an organization by name or address'),
-      FILTERS_ROW, PRINT_ROW, DOWNLOAD_ROW,
+      FILTERS_ROW,
       { find: { text: 'Import Organizations', tag: 'button' }, label: 'Import Organizations', desc: 'Registers many organizations from a spreadsheet, with a preview first.' },
       { find: { text: 'Add Organization', tag: 'button', exact: true }, label: 'Add Organization', desc: 'Opens the registration form, with equipment and members inside it.' },
       { find: COLS, label: 'Columns', desc: 'Organization name, address, contact person, contact number and Actions.' },
@@ -99,7 +98,7 @@ export const STAFF2 = [
   A({ id: 'admin-org-detail', file: 'admin/org-detail.png', url: '/organizations/farmers/1', wait: 6000, height: 1300, title: 'Organization page: Members and Officers', purpose: 'One organization: its members, equipment inventory, confirmations and officers.',
     callouts: [
       { find: { text: 'Back to Organizations', tag: 'a' }, label: 'Back to Organizations', desc: 'Returns to the list.' },
-      { find: { text: 'Regenerate Password', tag: 'button' }, label: 'Regenerate Password', desc: 'Makes a new random password for the organization\'s login account and shows it once, to be read to its officer. Until an account exists it says Set Up Account.' },
+      { find: [{ text: 'Regenerate Password', tag: 'button' }, { text: 'Set Up Account', tag: 'button' }], label: 'Regenerate Password', desc: 'Makes a new random password for the organization\'s login account and shows it once, to be read to its officer. Until an account exists it says Set Up Account.' },
       { find: [{ text: 'Members', tag: 'button', exact: true }, { text: 'Equipment Inventory', tag: 'button' }, { text: 'Confirmed for Members', tag: 'button' }], label: 'Tabs', desc: 'Members, Equipment Inventory and Confirmed for Members (the next pictures show the last two).' },
       { find: { text: 'Import Members', tag: 'button' }, label: 'Import Members', desc: 'Adds many members from a spreadsheet, with a preview first.' },
       { find: { text: 'Add Member', tag: 'button', exact: true }, label: 'Add Member', desc: 'Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member.' },
@@ -113,8 +112,7 @@ export const STAFF2 = [
       { find: { text: 'Equipment Inventory', tag: 'button' }, label: 'Equipment Inventory tab', desc: 'The equipment of this organization, one line per kind.' },
       { find: { text: 'Import Equipment', tag: 'button' }, label: 'Import Equipment', desc: 'Adds many equipment lines from a spreadsheet.' },
       { find: { text: 'Add Equipment', tag: 'button', exact: true }, label: 'Add Equipment', desc: 'Choose the equipment, how many units and optionally the date acquired and remarks. New equipment starts as Good.' },
-      { find: COLS, label: 'Columns', desc: 'Equipment, quantity, condition (Good, Needs Repair, Not Operational, Broken or Lost), date acquired and remarks.' },
-      { find: { text: 'Remove', tag: 'button' }, label: 'Remove', desc: 'Removes a line that was entered by mistake.' },
+      { find: COLS, label: 'Columns', desc: 'Equipment, quantity, condition (Good, Needs Repair, Not Operational, Broken or Lost), date acquired and remarks. A line that was entered by mistake has a Remove button at its end.' },
     ] }),
   A({ id: 'admin-org-confirmed', file: 'admin/org-confirmed.png', url: '/organizations/farmers/1', js: click('Confirmed for Members'), after: 2500, height: 900, title: 'Organization page: Confirmed for Members', purpose: 'The record of what the organization confirmed for its members.',
     callouts: [
@@ -129,7 +127,7 @@ export const STAFF2 = [
   A({ id: 'admin-fisherfolk-orgs', file: 'admin/fisherfolk-organizations.png', url: '/fisherfolk?tab=organizations', title: 'Organizations > Fisherfolk Organizations', purpose: 'The same page for fisherfolk organizations.',
     callouts: [
       SEARCH_ROW('an organization by name or address'),
-      FILTERS_ROW, PRINT_ROW, DOWNLOAD_ROW,
+      FILTERS_ROW,
       { find: { text: 'Import Organizations', tag: 'button' }, label: 'Import Organizations', desc: 'Registers many fisherfolk organizations from a spreadsheet.' },
       { find: { text: 'Add Organization', tag: 'button', exact: true }, label: 'Add Organization', desc: 'The same form as for farmers, with fisherfolk as members and fishing equipment.' },
       { find: COLS, label: 'Columns and Actions', desc: 'Name, address, contact person and number; the Actions menu has Edit organization, View organization profile and Add assistance.' },
