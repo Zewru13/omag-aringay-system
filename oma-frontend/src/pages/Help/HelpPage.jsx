@@ -96,7 +96,7 @@ function HelpPage() {
               System Developed By
             </p>
             <p className="text-[13px] font-medium text-[#1A2B1A]">
-              John Michael E. Marzan
+              John Michael E. Marzan And Jhoaquin Carl B. Inong
             </p>
             <p className="text-[12px] text-[#7A8E7A] mt-0.5">
               Saint Louis College
