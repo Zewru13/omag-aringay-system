@@ -1,411 +1,265 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Pencil, Ship, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import AddButton from '../../components/UI/AddButton.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection, FormValue } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import { todayISO } from '../../utils/localDate.js'
+import {
+  FISHING_GROUNDS, GEARS, SPECIES_NAMES, catchTotal, emptySpeciesRow, speciesChanges, speciesRowsFrom, tripFormFrom, tripPayload, tripProblem,
+} from './catchForm.js'
 
-const FISHING_GROUND_OPTIONS = [
-  'Beach',
-  'Municipal Waters',
-  'Coastal Waters',
-  'Nearshore Waters',
-  'Offshore Waters',
-  'Open Sea',
-  'River',
-  'Lake',
-  'Fishpond',
-  'Fish Cage Area',
-  'Fish Pen Area',
-  'Mangrove Area',
-  'Estuary',
-  'Brackish Water',
-  'Freshwater Area',
-  'Irrigation Canal',
-  'Reservoir',
-  'Other',
-]
+const isCapture = (ff) => ff.fisherfolk_type === 'Capture' || ff.fisherfolk_type === 'Inland'
+const nameOf = (ff) => ff.full_name || `${ff.first_name || ''} ${ff.last_name || ''}`.trim()
 
-const GEAR_USED_OPTIONS = [
-  'Hook and Line',
-  'Gill Net',
-  'Cast Net',
-  'Fish Trap',
-  'Crab Trap',
-  'Spear Fishing',
-  'Long Line',
-  'Seine Net',
-  'Lift Net',
-  'Handline',
-  'Multiple Hook and Line',
-  'Net',
-  'Other',
-]
-
-const SPECIES_NAME_OPTIONS = [
-  'Bangus',
-  'Tilapia',
-  'Galunggong',
-  'Tamban',
-  'Tulingan',
-  'Maya-maya',
-  'Lapu-lapu',
-  'Dalagang Bukid',
-  'Alumahan',
-  'Bisugo',
-  'Hito',
-  'Dalag',
-  'Hipon',
-  'Alimango',
-  'Tahong',
-  'Talaba',
-  'Squid',
-  'Other',
-]
-
-const emptySpeciesRow = () => ({
-  species_name: '',
-  species_name_other: '',
-  volume_kg: '',
-  estimated_value_php: '',
-  notes: '',
-})
-
-function LogCatchModal({ onClose, onSuccess }) {
+// Log Fishing Trip / Catch, and Edit Catch Log when `record` is given: the same window, so the edit form is the log form filled in. The trip
+// details are a table form; the species caught are a table with one row per species (the total catch is their sum). The rules are in
+// catchForm.js. An Admin can delete the log from the edit window.
+function LogCatchModal({ record = null, onClose, onSuccess }) {
+  const isEdit = Boolean(record)
+  const { isAdmin } = useAuth()
   const { showToast } = useToast()
-  // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm('log-catch')
-  const [ffSearch, setFfSearch] = useDraftField(draft, 'ffSearch', '')
+  // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js). One per log being edited.
+  const draft = useDraftForm(isEdit ? `edit-catch:${record.id}` : 'log-catch')
+  const [ffSearch, setFfSearch] = useDraftField(draft, 'ffSearch', '', { skip: isEdit })
   const [ffResults, setFfResults] = useState([])
-  const [selectedFf, setSelectedFf] = useDraftField(draft, 'selectedFf', null)
+  const [selectedFf, setSelectedFf] = useDraftField(draft, 'selectedFf', null, { skip: isEdit })
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [form, setForm] = useDraftField(draft, 'form', {
-    trip_date: '',
-    return_date: '',
-    fishing_ground: '',
-    fishing_ground_other: '',
-    gear_used: '',
-    gear_used_other: '',
-    remarks: '',
-  })
-  const [speciesRows, setSpeciesRows] = useDraftField(draft, 'speciesRows', () => [emptySpeciesRow()])
+  const [form, setForm] = useDraftField(draft, 'form', () => tripFormFrom(record))
+  const [speciesRows, setSpeciesRows] = useDraftField(draft, 'speciesRows', () => speciesRowsFrom(record))
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
+    if (isEdit) return undefined
     let mounted = true
-    const loadFisherfolk = async () => {
-      try {
-        const r = await api.get('/fisheries/fisherfolk/')
-        const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
-        if (mounted) {
-          setFfResults(rows.filter((ff) => ff.fisherfolk_type === 'Capture' || ff.fisherfolk_type === 'Inland'))
-        }
-      } catch {
-        if (mounted) {
-          setFfResults([])
-        }
-      }
-    }
-    loadFisherfolk()
+    api.get('/fisheries/fisherfolk/')
+      .then((r) => { if (mounted) setFfResults((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter(isCapture)) })
+      .catch(() => { if (mounted) setFfResults([]) })
     return () => { mounted = false }
-  }, [])
+  }, [isEdit])
 
   const filteredFisherfolk = useMemo(() => {
     const q = ffSearch.trim().toLowerCase()
     if (!q) return ffResults
     return ffResults.filter((ff) => {
-      const fullName = (ff.full_name || '').toLowerCase()
-      const firstName = (ff.first_name || '').toLowerCase()
-      const middleName = (ff.middle_name || '').toLowerCase()
-      const lastName = (ff.last_name || '').toLowerCase()
-      const rsbsa = (ff.rsbsa_number || '').toLowerCase()
-      return (
-        fullName.includes(q)
-        || firstName.includes(q)
-        || middleName.includes(q)
-        || lastName.includes(q)
-        || `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim().includes(q)
-        || `${firstName} ${lastName}`.trim().includes(q)
-        || `${lastName} ${firstName}`.trim().includes(q)
-        || rsbsa.includes(q)
-      )
+      const first = (ff.first_name || '').toLowerCase()
+      const middle = (ff.middle_name || '').toLowerCase()
+      const last = (ff.last_name || '').toLowerCase()
+      return [(ff.full_name || '').toLowerCase(), `${first} ${middle} ${last}`.replace(/\s+/g, ' ').trim(), `${first} ${last}`.trim(), `${last} ${first}`.trim(),
+        (ff.rsbsa_number || '').toLowerCase()].some((text) => text.includes(q))
     })
   }, [ffResults, ffSearch])
 
   const handleFfSearch = async (q) => {
     setFfSearch(q)
     setIsDropdownOpen(true)
-    const normalized = q.trim()
     try {
-      const endpoint = normalized
-        ? `/fisheries/fisherfolk/?search=${encodeURIComponent(normalized)}`
-        : '/fisheries/fisherfolk/'
-      const r = await api.get(endpoint)
-      const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
-      setFfResults(rows.filter((ff) => ff.fisherfolk_type === 'Capture' || ff.fisherfolk_type === 'Inland'))
+      const r = await api.get('/fisheries/fisherfolk/', { params: q.trim() ? { search: q.trim() } : {} })
+      setFfResults((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter(isCapture))
     } catch {
       setFfResults([])
     }
   }
 
-  const handleSelectFf = (ff) => {
-    setSelectedFf(ff)
-    setFfSearch(ff.full_name || `${ff.first_name || ''} ${ff.last_name || ''}`.trim())
-    setIsDropdownOpen(false)
-  }
-
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
-
-  const updateSpeciesRow = useCallback((index, field, value) => {
-    setSpeciesRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)))
-  }, [setSpeciesRows])
-
-  const addSpeciesRow = () => setSpeciesRows((rows) => [...rows, emptySpeciesRow()])
-
-  const removeSpeciesRow = (index) => {
-    setSpeciesRows((rows) => rows.filter((_, i) => i !== index))
-  }
-
-  const totalCatch = speciesRows.reduce((sum, r) => sum + (parseFloat(r.volume_kg) || 0), 0)
-  const totalValue = speciesRows.reduce((sum, r) => sum + (parseFloat(r.estimated_value_php) || 0), 0)
-  const validSpeciesRows = speciesRows.filter((r) => {
-    const speciesName = r.species_name === 'Other' ? r.species_name_other.trim() : r.species_name.trim()
-    const volume = parseFloat(r.volume_kg)
-    return Boolean(speciesName) && Number.isFinite(volume) && volume > 0
-  })
+  const setRow = (index, field, value) => setSpeciesRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)))
+  const total = catchTotal(speciesRows)
+  const fisherfolk = isEdit ? { id: record.fisherfolk } : selectedFf
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!selectedFf) { showToast('Select a fisherfolk.', 'error'); return }
-    if (!form.trip_date || !form.fishing_ground || !form.gear_used) {
-      showToast('Fill in all required fields.', 'error'); return
-    }
-
-    if (form.fishing_ground === 'Other' && !form.fishing_ground_other.trim()) {
-      showToast('Specify Fishing Ground.', 'error'); return
-    }
-
-    if (form.gear_used === 'Other' && !form.gear_used_other.trim()) {
-      showToast('Specify Gear Used.', 'error'); return
-    }
-    if (validSpeciesRows.length === 0) {
-      showToast('Add at least one species entry.', 'error'); return
-    }
+    // A log saved long ago with a total and no species may stay without species; every other log needs at least one.
+    const problem = tripProblem({ fisherfolk, form, rows: speciesRows, speciesOptional: isEdit && !(record.species_entries || []).length })
+    if (problem) { showToast(problem, 'error'); return }
     setIsSubmitting(true)
     try {
-      const tripRes = await api.post('/fisheries/fishing-trips/', {
-        fisherfolk: selectedFf.id,
-        trip_date: form.trip_date,
-        return_date: form.return_date || null,
-        fishing_ground: form.fishing_ground === 'Other'
-          ? form.fishing_ground_other.trim()
-          : form.fishing_ground,
-        gear_used: form.gear_used === 'Other'
-          ? form.gear_used_other.trim()
-          : form.gear_used,
-        remarks: form.remarks,
-      })
-      const tripId = tripRes.data.id
-
-      await Promise.all(
-        validSpeciesRows.map((row) => {
-          const speciesName = row.species_name === 'Other'
-            ? row.species_name_other.trim()
-            : row.species_name.trim()
-
-          return api.post(`/fisheries/fishing-trips/${tripId}/species/`, {
-            species_name: speciesName,
-            volume_kg: row.volume_kg,
-            estimated_value_php: row.estimated_value_php || null,
-            notes: row.notes || '',
-          })
-        }),
-      )
-
-      showToast('Catch log saved.', 'success')
+      const body = tripPayload(form)
+      const trip = isEdit
+        ? (await api.patch(`/fisheries/fishing-trips/${record.id}/`, body)).data
+        : (await api.post('/fisheries/fishing-trips/', { ...body, fisherfolk: fisherfolk.id })).data
+      // The species: the new and changed rows are added first, then the ones taken out are removed, so the log is never left empty in between.
+      const { add, remove } = speciesChanges(isEdit ? record.species_entries : [], speciesRows)
+      for (const entry of add) await api.post(`/fisheries/fishing-trips/${trip.id}/species/`, entry)
+      for (const id of remove) await api.delete(`/fisheries/fishing-trips/species/${id}/`)
+      showToast(isEdit ? 'Catch log updated.' : 'Catch log saved.', 'success')
       draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
-      const detail = err?.response?.data?.detail || err?.response?.data?.non_field_errors?.[0] || 'Failed to save.'
-      showToast(detail, 'error')
+      const data = err?.response?.data
+      showToast(data?.detail || data?.non_field_errors?.[0] || (isEdit ? 'Failed to update the catch log.' : 'Failed to save.'), 'error')
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/fisheries/fishing-trips/${record.id}/`)
+      showToast('Catch log deleted.', 'success')
+      draft.clear()
+      onSuccess()
+      onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete catch log.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
-    <ModalShell
-      title="Log Fishing Trip / Catch"
-      onClose={onClose}
-      maxWidth="max-w-2xl"
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="log-catch-form" isLoading={isSubmitting}>Save Log</Button>
-        </>
-      }
-    >
-      <form id="log-catch-form" onSubmit={handleSubmit} className="space-y-4">
-        <DraftBanner draft={draft} />
-        <FormField label="Fisherfolk (Capture / Inland Fishery)" required>
-          <SearchBar
-            value={ffSearch}
-            onChange={handleFfSearch}
-            placeholder="Search by name or RSBSA number…"
-          />
-          {isDropdownOpen && (
-            <ul className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-              {filteredFisherfolk.length > 0 ? (
-                filteredFisherfolk.map((ff) => (
-                  <li key={ff.id}>
-                    <button
-                      type="button"
-                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]"
-                      onClick={() => handleSelectFf(ff)}
-                    >
-                      <span className="font-medium">{ff.full_name || `${ff.first_name || ''} ${ff.last_name || ''}`.trim()}</span>
-                      <span className="ml-2 text-slate-400">({ff.rsbsa_number})</span>
-                      <span className="ml-2 text-slate-400">{ff.fisherfolk_type}</span>
-                    </button>
-                  </li>
-                ))
-              ) : (
-                <li className="px-4 py-2.5 text-sm text-slate-500">No fisherfolk found</li>
-              )}
-            </ul>
+    <>
+      <ModalShell
+        title={isEdit ? 'Edit Catch Log' : 'Log Fishing Trip / Catch'}
+        subtitle={isEdit ? record.fisherfolk_name : 'One fishing trip of a capture or inland fisherfolk, with what was caught'}
+        icon={isEdit ? Pencil : Ship}
+        onClose={onClose}
+        maxWidth="max-w-4xl"
+        footer={(
+          <>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="log-catch-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : 'Save Log'}</Button>
+          </>
+        )}
+      >
+        <form id="log-catch-form" onSubmit={handleSubmit} className="space-y-3">
+          <DraftBanner draft={draft} />
+
+          <FormSection title="Trip Details">
+            <FormRows label="Trip details">
+              <FormRow>
+                <FormCell label="Fisherfolk" required wide>
+                  {isEdit ? <FormValue>{record.fisherfolk_name}</FormValue> : (
+                    <>
+                      <SearchBar value={ffSearch} onChange={handleFfSearch} placeholder="Search a capture or inland fisherfolk by name or RSBSA number…" />
+                      {isDropdownOpen && (
+                        <ul className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                          {filteredFisherfolk.length > 0 ? filteredFisherfolk.map((ff) => (
+                            <li key={ff.id}>
+                              <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]"
+                                onClick={() => { setSelectedFf(ff); setFfSearch(nameOf(ff)); setIsDropdownOpen(false) }}>
+                                <span className="font-medium">{nameOf(ff)}</span>
+                                <span className="ml-2 text-slate-400">({ff.rsbsa_number})</span>
+                                <span className="ml-2 text-slate-400">{ff.fisherfolk_type}</span>
+                              </button>
+                            </li>
+                          )) : <li className="px-4 py-2.5 text-sm text-slate-500">No fisherfolk found</li>}
+                        </ul>
+                      )}
+                      {selectedFf && <p className="mt-1 text-xs text-[#1E4620]">Selected: {nameOf(selectedFf)}</p>}
+                    </>
+                  )}
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Trip Date" required>
+                  <input type="date" className={baseInputClasses} value={form.trip_date} max={todayISO()} aria-label="Trip Date" onChange={(e) => set('trip_date', e.target.value)} />
+                </FormCell>
+                <FormCell label="Return Date">
+                  <input type="date" className={baseInputClasses} value={form.return_date} min={form.trip_date || undefined} max={todayISO()} aria-label="Return Date"
+                    onChange={(e) => set('return_date', e.target.value)} />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Fishing Ground" required>
+                  <ComboboxWithOther options={FISHING_GROUNDS} value={form.fishing_ground} otherValue={form.fishing_ground_other}
+                    onChange={(v) => set('fishing_ground', v)} onOtherChange={(v) => set('fishing_ground_other', v)} placeholder="Select Fishing Ground" />
+                </FormCell>
+                <FormCell label="Gear Used" required>
+                  <ComboboxWithOther options={GEARS} value={form.gear_used} otherValue={form.gear_used_other}
+                    onChange={(v) => set('gear_used', v)} onOtherChange={(v) => set('gear_used_other', v)} placeholder="Select Gear Used" />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Hours at Sea">
+                  <input type="number" step="0.1" min="0" className={baseInputClasses} value={form.hours_at_sea} placeholder="Optional" aria-label="Hours at Sea"
+                    onChange={(e) => set('hours_at_sea', e.target.value)} />
+                </FormCell>
+                <FormCell label="Total Catch"><FormValue>{total > 0 ? `${total.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : ''}</FormValue></FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Remarks" wide>
+                  <textarea className={`${baseInputClasses} h-auto py-2`} rows={2} value={form.remarks} aria-label="Remarks" onChange={(e) => set('remarks', e.target.value)} />
+                </FormCell>
+              </FormRow>
+            </FormRows>
+          </FormSection>
+
+          <FormSection title="Species Caught">
+            <div className="space-y-3 p-3">
+              <EntryTable label="Species caught" testId="catch-species-table">
+                <EntryHead>
+                  <EntryTh required>Species Name</EntryTh>
+                  <EntryTh required>Volume (kg)</EntryTh>
+                  <EntryTh>Notes</EntryTh>
+                  <EntryTh className="w-10"><span className="sr-only">Remove</span></EntryTh>
+                </EntryHead>
+                <tbody>
+                  {speciesRows.map((row, i) => (
+                    <EntryRow key={row.id ?? `new-${i}`}>
+                      <EntryCell label="Species Name *">
+                        <ComboboxWithOther options={SPECIES_NAMES} value={row.species_name} otherValue={row.species_name_other || ''}
+                          onChange={(v) => setRow(i, 'species_name', v)} onOtherChange={(v) => setRow(i, 'species_name_other', v)} placeholder="Select Species" />
+                      </EntryCell>
+                      <EntryCell label="Volume (kg) *">
+                        <input type="number" step="0.01" min="0.01" className={baseInputClasses} placeholder="0.00" value={row.volume_kg} aria-label={`Species ${i + 1} volume (kg)`}
+                          onChange={(e) => setRow(i, 'volume_kg', e.target.value)} />
+                      </EntryCell>
+                      <EntryCell label="Notes">
+                        <input type="text" className={baseInputClasses} maxLength={200} placeholder="Optional" value={row.notes} aria-label={`Species ${i + 1} notes`}
+                          onChange={(e) => setRow(i, 'notes', e.target.value)} />
+                      </EntryCell>
+                      <EntryCell className="md:pt-3">
+                        <button type="button" onClick={() => setSpeciesRows((rows) => rows.filter((_, j) => j !== i))} disabled={speciesRows.length === 1}
+                          className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30" aria-label={`Remove species ${i + 1}`}>
+                          <X size={14} aria-hidden="true" />
+                        </button>
+                      </EntryCell>
+                    </EntryRow>
+                  ))}
+                </tbody>
+              </EntryTable>
+              <AddButton onClick={() => setSpeciesRows((rows) => [...rows, emptySpeciesRow()])}>Add Species</AddButton>
+            </div>
+          </FormSection>
+
+          {isEdit && isAdmin && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <p className="mb-1 text-[12px] font-semibold text-rose-700">Danger Zone</p>
+              <p className="mb-2 text-[11px] text-rose-600">Permanently delete this catch log and its species entries.</p>
+              <Button type="button" size="sm" variant="outline" icon={Trash2} onClick={() => setShowDeleteConfirm(true)}>Delete this record</Button>
+            </div>
           )}
-        </FormField>
+        </form>
+      </ModalShell>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Trip Date" required>
-            <input
-              type="date"
-              className={baseInputClasses}
-              value={form.trip_date}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => set('trip_date', e.target.value)}
-            />
-          </FormField>
-          <FormField label="Return Date">
-            <input
-              type="date"
-              className={baseInputClasses}
-              value={form.return_date}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => set('return_date', e.target.value)}
-            />
-          </FormField>
-          <FormField label="Fishing Ground" required>
-            <ComboboxWithOther
-              options={FISHING_GROUND_OPTIONS.filter(o => o !== 'Other')}
-              value={form.fishing_ground}
-              otherValue={form.fishing_ground_other}
-              onChange={(v) => set('fishing_ground', v)}
-              onOtherChange={(v) => set('fishing_ground_other', v)}
-              placeholder="Select Fishing Ground"
-            />
-          </FormField>
-          <FormField label="Gear Used" required>
-            <ComboboxWithOther
-              options={GEAR_USED_OPTIONS.filter(o => o !== 'Other')}
-              value={form.gear_used}
-              otherValue={form.gear_used_other}
-              onChange={(v) => set('gear_used', v)}
-              onOtherChange={(v) => set('gear_used_other', v)}
-              placeholder="Select Gear Used"
-            />
-          </FormField>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-slate-700">Species Breakdown *</span>
-            {totalCatch > 0 && (
-              <span className="text-xs text-slate-500">
-                Total: <b>{totalCatch.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg</b>
-                {totalValue > 0 && <> | ₱<b>{totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></>}
-              </span>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            {speciesRows.map((row, i) => (
-              <div key={i} className="grid grid-cols-2 items-end gap-2 rounded-lg border border-slate-100 p-2 sm:grid-cols-[2fr_1fr_1fr_auto] sm:rounded-none sm:border-0 sm:p-0">
-                {/* On a phone each row is its own little card with its labels; from sm up one aligned row, labels on the first only. */}
-                <div className="col-span-2 sm:col-span-1">
-                  <label className={`text-xs text-slate-500 mb-1 block ${i === 0 ? '' : 'sm:hidden'}`}>Species Name</label>
-                  <ComboboxWithOther
-                    options={SPECIES_NAME_OPTIONS.filter(o => o !== 'Other')}
-                    value={row.species_name}
-                    otherValue={row.species_name_other || ''}
-                    onChange={(v) => updateSpeciesRow(i, 'species_name', v)}
-                    onOtherChange={(v) => updateSpeciesRow(i, 'species_name_other', v)}
-                    placeholder="Select Species"
-                  />
-                </div>
-                <div>
-                  <label className={`text-xs text-slate-500 mb-1 block ${i === 0 ? '' : 'sm:hidden'}`}>Volume (kg)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    className={baseInputClasses}
-                    placeholder="0.00"
-                    value={row.volume_kg}
-                    onChange={(e) => updateSpeciesRow(i, 'volume_kg', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className={`text-xs text-slate-500 mb-1 block ${i === 0 ? '' : 'sm:hidden'}`}>Est. Value (₱)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className={baseInputClasses}
-                    placeholder="Optional"
-                    value={row.estimated_value_php}
-                    onChange={(e) => updateSpeciesRow(i, 'estimated_value_php', e.target.value)}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeSpeciesRow(i)}
-                  disabled={speciesRows.length === 1}
-                  className="col-span-2 justify-self-end rounded-md px-2 py-1 text-sm text-slate-400 hover:text-red-500 disabled:opacity-30 max-sm:min-h-[36px] sm:col-span-1 sm:pb-1 sm:px-1"
-                  title="Remove row"
-                  aria-label="Remove species row"
-                >
-                  <span aria-hidden="true">✕</span><span className="sm:hidden"> Remove</span>
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addSpeciesRow}
-            className="mt-2 text-sm text-[#1E4620] hover:text-green-900 font-medium"
-          >
-            + Add Species
-          </button>
-        </div>
-
-        <FormField label="Remarks">
-          <textarea
-            className={baseInputClasses}
-            rows={2}
-            value={form.remarks}
-            onChange={(e) => set('remarks', e.target.value)}
-          />
-        </FormField>
-
-      </form>
-    </ModalShell>
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Catch Log?"
+          message="This action cannot be undone."
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
   )
 }
 

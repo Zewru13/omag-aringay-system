@@ -145,7 +145,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fishr_number',
             'prefix', 'first_name', 'last_name', 'middle_name', 'full_name',
-            'gender', 'birthdate', 'contact_number', 'barangay', 'municipality',
+            'gender', 'birthdate', 'contact_number', 'email', 'barangay', 'municipality',
             'civil_status', 'highest_education', 'philsys_number',
             'fisherfolk_type',
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',

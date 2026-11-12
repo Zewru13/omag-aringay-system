@@ -4,9 +4,10 @@ import api from '../../api/axiosInstance.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import BARANGAYS from '../../constants/barangays.js'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
@@ -15,9 +16,8 @@ import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../uti
 // Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly.
 const WATER_SOURCE_OPTIONS = ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other']
 
-// Add/Edit Pond — a single modal for both, since the form is small (name,
-// barangay, area, water source). is_active is toggled from the Ponds table
-// row action, not here.
+// Add / Edit Pond: one window for both, so the edit form is the add form filled in (name, barangay, area, water source, PCIC), laid out
+// as a table form. is_active is toggled from the Ponds table row action, not here.
 function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
   const isEdit = Boolean(pond)
   // What is typed is a draft (one per pond being edited, one for a new pond): still here when the window is opened again.
@@ -76,53 +76,64 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
   return (
     <ModalShell
       title={isEdit ? 'Edit Pond' : 'Add Pond'}
-      subtitle={isEdit ? 'Update this pond\'s details.' : 'Leave the name blank to auto-number it (e.g. "Pond 2").'}
+      subtitle={isEdit ? 'Update this pond\'s details.' : 'One pond or cage of this fisherfolk.'}
       icon={Waves}
       onClose={onClose}
-      maxWidth="max-w-md"
+      maxWidth="max-w-3xl"
       footer={
         <>
-          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="pond-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : 'Add Pond'}</Button>
         </>
       }
     >
-      <form id="pond-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="pond-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Pond Name (optional)">
-          <input
-            type="text"
-            className={baseInputClasses}
-            placeholder={isEdit ? pond.name : 'Auto-numbered if left blank'}
-            value={form.name}
-            onChange={(e) => set('name', e.target.value)}
-          />
-        </FormField>
-
-        <BarangaySelect
-          label="Barangay"
-          value={form.barangay}
-          onChange={(e) => set('barangay', e.target.value)}
-        />
-
-        <FormField label="Area (ha)">
-          <DecimalInput
-            decimals={4}
-            className={baseInputClasses}
-            placeholder="0.0000"
-            value={form.area_hectares}
-            onChange={(v) => set('area_hectares', v)}
-          />
-        </FormField>
-
-        <FormField label="Water Source">
-          <select className={baseInputClasses} value={form.water_source} onChange={(e) => set('water_source', e.target.value)}>
-            <option value="">Select…</option>
-            {WATER_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </FormField>
-
-        <PcicInsuranceField value={pcic} onChange={setPcic} subject="pond" />
+        <FormSection title="Pond Details">
+          <FormRows label="Pond details">
+            <FormRow>
+              <FormCell label="Pond Name" hint={!isEdit && <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Leave it blank to number it automatically (for example Pond 2).</p>}>
+                <input
+                  type="text"
+                  className={baseInputClasses}
+                  placeholder={isEdit ? pond.name : 'Auto-numbered if left blank'}
+                  value={form.name}
+                  aria-label="Pond Name"
+                  onChange={(e) => set('name', e.target.value)}
+                />
+              </FormCell>
+              <FormCell label="Barangay">
+                <select className={baseInputClasses} value={form.barangay} aria-label="Barangay" onChange={(e) => set('barangay', e.target.value)}>
+                  <option value="">Select barangay...</option>
+                  {BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Area (ha)">
+                <DecimalInput
+                  decimals={4}
+                  className={baseInputClasses}
+                  placeholder="0.0000"
+                  value={form.area_hectares}
+                  aria-label="Area (ha)"
+                  onChange={(v) => set('area_hectares', v)}
+                />
+              </FormCell>
+              <FormCell label="Water Source">
+                <select className={baseInputClasses} value={form.water_source} aria-label="Water Source" onChange={(e) => set('water_source', e.target.value)}>
+                  <option value="">Select…</option>
+                  {WATER_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="PCIC Insured" wide>
+                <PcicInsuranceField compact value={pcic} onChange={setPcic} subject="pond" />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{error}</p>
