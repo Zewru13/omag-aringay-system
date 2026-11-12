@@ -1750,26 +1750,21 @@ export default {
    },
    {
     "n": 3,
-    "label": "Area Harvested (ha)",
-    "desc": "Required. It is filled with the area planted; it cannot be more than that."
+    "label": "Area Harvested and Unit",
+    "desc": "Both required. The area is filled with the area planted and cannot be more than that. The unit starts on kg for every crop: the unit the harvest was counted in (cavan, kg, metric ton and the units set in Harvest Unit Settings)."
    },
    {
     "n": 4,
-    "label": "Unit of Measure",
-    "desc": "Required. Starts on kg for every crop. The unit the harvest was counted in (cavan, kg, metric ton and the units set in Harvest Unit Settings)."
-   },
-   {
-    "n": 5,
     "label": "Quantity Harvested",
     "desc": "Required. The amount in that unit. Harvest Unit Settings turns it into kilograms for the totals."
    },
    {
-    "n": 6,
-    "label": "Notes",
+    "n": 5,
+    "label": "Remarks",
     "desc": "Optional harvest notes or observations."
    },
    {
-    "n": 7,
+    "n": 6,
     "label": "Save Harvest Record",
     "desc": "Saves the harvest. The crop moves to Harvested and its actual yield is filled in."
    }
