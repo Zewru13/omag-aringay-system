@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import { DetailTable } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { formatDate } from '../../utils/dateFormat.js'
 import ConfirmedReportModal from './ConfirmedReportModal.jsx'
 import { buildAssistanceReportSpec } from './assistanceReport.js'
 
@@ -37,10 +39,10 @@ export default function ConfirmReceivedDialog({ record, url, domain = 'fisheries
   return (
     <ModalShell
       title="Confirm Received"
-      subtitle={`${record.assistance_type || 'Assistance'} · ${record.date_given || ''}`}
+      subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`}
       icon={CheckCircle2}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -48,7 +50,16 @@ export default function ConfirmReceivedDialog({ record, url, domain = 'fisheries
         </>
       )}
     >
-      <p className="text-[13px] leading-relaxed text-[#4A5E4A]">Confirm that this assistance was received. After that you can print the report.</p>
+      <div className="space-y-3">
+        <DetailTable
+          title="Assistance"
+          fields={[
+            { label: 'Assistance', value: record.assistance_type },
+            { label: 'Date Given', value: formatDate(record.date_given) },
+          ]}
+        />
+        <p className="text-[13px] leading-relaxed text-[#4A5E4A]">Confirm that this assistance was received. After that you can print the report.</p>
+      </div>
     </ModalShell>
   )
 }

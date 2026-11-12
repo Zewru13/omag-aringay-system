@@ -17,8 +17,9 @@ import { detailRows, displayValue } from './formTableRows.js'
 
 export function FormSection({ title, children }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white" aria-label={title}>
-      <h3 className="bg-[#EBF5EE] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]">{title}</h3>
+    <section className="rounded-xl border border-[#E2E8E2] bg-white" aria-label={title}>
+      {/* No overflow clipping on the section: a drop-down list opened inside it must not be cut off, so the header rounds its own corners. */}
+      <h3 className="rounded-t-[11px] bg-[#EBF5EE] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]">{title}</h3>
       {children}
     </section>
   )
