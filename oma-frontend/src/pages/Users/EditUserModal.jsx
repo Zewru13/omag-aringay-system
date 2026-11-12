@@ -1,40 +1,15 @@
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import EmailInput from '../../components/UI/EmailInput.jsx'
-import PhoneInput from '../../components/UI/PhoneInput.jsx'
-import { tidyPhone } from '../../utils/inputGuards.js'
-import { describeRole } from './userRoleHelpers.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
-
-const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
-
-const SUFFIX_OPTIONS = ['', 'Jr.', 'Sr.', 'II', 'III', 'IV']
-
-const ROLE_OPTIONS = [
-  {
-    value: 'ADMIN',
-    label: 'ADMIN',
-    desc: 'Full system access: manage users, view all reports, and configure system settings.',
-  },
-  {
-    value: 'EVALUATOR',
-    label: 'FOCAL PERSON',
-    desc: 'OMAg staff for daily data entry, crop monitoring, and record management.',
-  },
-]
-
-const validateContact = (value) => {
-  if (!value) return ''
-  const digits = value.replace(/\D/g, '')
-  if (digits.length !== 11) return 'Contact number must be exactly 11 digits.'
-  if (!digits.startsWith('09')) return 'Contact number must start with 09.'
-  return ''
-}
+import { tidyPhone } from '../../utils/inputGuards.js'
+import { describeRole } from './userRoleHelpers.js'
+import { composeFullName, splitFullName, validateUserForm } from './userForm.js'
+import UserFormSections from './UserFormSections.jsx'
 
 export default function EditUserModal({ user, onClose, onSuccess }) {
   // Farmer/Fisherfolk/Organization all share role=CITIZEN on the raw
@@ -43,48 +18,55 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
   // ADMIN/FOCAL PERSON never applies and role is never sent for them.
   const isCitizen = user.role === 'CITIZEN'
 
+  const { lastName: originalLast, firstName: originalFirst } = splitFullName(user.full_name, user.suffix)
   const originalData = {
-    email:          user.email || '',
-    full_name:      user.full_name || '',
-    suffix:         user.suffix || '',
-    contact_number: tidyPhone(user.contact_number || ''),   // an older number with dashes opens in the plain format
-    role:           user.role || 'EVALUATOR',
-    is_active:      user.is_active,
+    email:     user.email || '',
+    lastName:  originalLast,
+    firstName: originalFirst,
+    suffix:    user.suffix || '',
+    contact:   tidyPhone(user.contact_number || ''),   // an older number with dashes opens in the plain format
+    role:      user.role || 'EVALUATOR',
+    isActive:  user.is_active,
   }
 
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`edit-user:${user.id}`)
-  const [email,        setEmail]        = useDraftField(draft, 'email', originalData.email)
-  const [fullName,     setFullName]     = useDraftField(draft, 'fullName', originalData.full_name)
-  const [suffix,       setSuffix]       = useDraftField(draft, 'suffix', originalData.suffix)
-  const [contact,      setContact]      = useDraftField(draft, 'contact', originalData.contact_number)
-  const [contactError, setContactError] = useState('')
-  const [role,         setRole]         = useDraftField(draft, 'role', originalData.role)
-  const [isActive,     setIsActive]     = useDraftField(draft, 'isActive', originalData.is_active)
+  const [email,     setEmail]     = useDraftField(draft, 'email', originalData.email)
+  const [lastName,  setLastName]  = useDraftField(draft, 'lastName', originalData.lastName)
+  const [firstName, setFirstName] = useDraftField(draft, 'firstName', originalData.firstName)
+  const [suffix,    setSuffix]    = useDraftField(draft, 'suffix', originalData.suffix)
+  const [contact,   setContact]   = useDraftField(draft, 'contact', originalData.contact)
+  const [role,      setRole]      = useDraftField(draft, 'role', originalData.role)
+  const [isActive,  setIsActive]  = useDraftField(draft, 'isActive', originalData.isActive)
+  const [errors,       setErrors]       = useState({})
   const [error,        setError]        = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
 
-  const currentData = { email, full_name: fullName, suffix, contact_number: contact, role, is_active: isActive }
-  const hasChanges = JSON.stringify(currentData) !== JSON.stringify(originalData)
+  const values = { email, lastName, firstName, suffix, contact, role, isActive }
+  const hasChanges = JSON.stringify(values) !== JSON.stringify(originalData)
 
-  const handleContactChange = (digits) => {
-    setContact(digits)
-    setContactError(validateContact(digits))
+  const setters = { email: setEmail, lastName: setLastName, firstName: setFirstName, suffix: setSuffix, contact: setContact, role: setRole, isActive: setIsActive }
+  const set = (field, value) => {
+    setters[field](value)
+    if (errors[field]) setErrors((current) => ({ ...current, [field]: undefined }))
+  }
+
+  const askToSave = () => {
+    const found = validateUserForm(values)
+    setErrors(found)
+    if (Object.keys(found).length) return
+    setShowConfirm(true)
   }
 
   const handleSave = async () => {
     setShowConfirm(false)
-    if (contact && validateContact(contact)) {
-      setContactError(validateContact(contact))
-      return
-    }
     setError('')
     setIsSubmitting(true)
     try {
       await api.patch(`/accounts/users/${user.id}/`, {
         email,
-        full_name:      fullName,
+        full_name:      composeFullName(lastName, firstName, suffix),
         suffix,
         contact_number: contact,
         // Never send role for a citizen account — it isn't editable here
@@ -110,91 +92,17 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
         subtitle={user.full_name}
         icon={Pencil}
         onClose={onClose}
-        maxWidth="max-w-md"
+        maxWidth="max-w-3xl"
         footer={
           <>
-            <button type="button" onClick={onClose}
-              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="button" disabled={isSubmitting || !hasChanges} onClick={() => setShowConfirm(true)}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50">
-              Save Changes
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" isLoading={isSubmitting} disabled={!hasChanges} onClick={askToSave}>Save Changes</Button>
           </>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <DraftBanner draft={draft} />
-          {/* Email */}
-          <div>
-            <label className={labelCls}>Email Address</label>
-            <EmailInput className={baseInputClasses} value={email} onChange={setEmail} />
-          </div>
-
-          {/* Full Name + Suffix */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className={labelCls}>Full Name</label>
-              <input className={baseInputClasses} value={fullName} onChange={e => setFullName(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Suffix</label>
-              <select className={baseInputClasses} value={suffix} onChange={e => setSuffix(e.target.value)}>
-                {SUFFIX_OPTIONS.map(s => <option key={s} value={s}>{s || 'None'}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <label className={labelCls}>Contact Number</label>
-            <PhoneInput className={baseInputClasses}
-              value={contact}
-              onChange={handleContactChange} />
-            {contactError && <p className="mt-1 text-[12px] text-[#C0392B]">{contactError}</p>}
-          </div>
-
-          {/* Role — cards for staff; fixed, read-only type for citizens */}
-          <div>
-            <label className={labelCls}>{isCitizen ? 'Account Type' : 'Role'}</label>
-            {isCitizen ? (
-              <input
-                disabled
-                readOnly
-                value={describeRole(user).label}
-                className={`${baseInputClasses} mt-1.5 cursor-not-allowed bg-[#F5F7F5] text-[#7A8E7A]`}
-              />
-            ) : (
-              <div className="mt-1.5 space-y-2">
-                {ROLE_OPTIONS.map(opt => (
-                  <div
-                    key={opt.value}
-                    onClick={() => setRole(opt.value)}
-                    className={`cursor-pointer rounded-lg border-2 p-3 transition-all ${
-                      role === opt.value
-                        ? 'border-[#1B4D2E] bg-[#EBF5EE]'
-                        : 'border-[#E2E8E2] bg-white hover:border-[#C8D5C8]'
-                    }`}
-                  >
-                    <p className="text-[13px] font-semibold text-[#1A2B1A]">{opt.label}</p>
-                    <p className="text-[12px] text-[#7A8E7A]">{opt.desc}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className={labelCls}>Status</label>
-            <label className="mt-1.5 flex cursor-pointer items-center gap-2 max-md:min-h-[40px]">
-              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
-                className="h-4 w-4 rounded accent-[#1B4D2E]" />
-              <span className="text-[13px] font-medium text-[#4A5E4A]">{isActive ? 'Active' : 'Deactivated'}</span>
-            </label>
-          </div>
-
+          <UserFormSections mode="edit" values={values} set={set} errors={errors} accountType={isCitizen ? describeRole(user).label : ''} />
           {error && (
             <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">
               {error}

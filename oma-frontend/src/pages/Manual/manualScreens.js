@@ -3486,7 +3486,7 @@ export default {
    {
     "n": 4,
     "label": "Create User",
-    "desc": "Opens Add New User: choose the role, then Next to fill in the details of the new staff account."
+    "desc": "Opens Add New User: choose the role, fill in the name and contact details, then Add User."
    },
    {
     "n": 5,
