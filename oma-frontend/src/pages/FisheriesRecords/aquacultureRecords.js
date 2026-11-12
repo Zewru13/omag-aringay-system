@@ -1,7 +1,7 @@
 // Aquaculture Records (Fisheries Management): one row per production cycle, listed from the existing stocking records
 // (GET /fisheries/stocking/), with filters. No screen and no network here, so the rules can be tested on their own.
 import { formatDate } from '../../utils/dateFormat.js'
-import { dateRangeParams, dateRangeProblem } from '../../utils/dateRange.js'
+import { dateRangeParams } from '../../utils/dateRange.js'
 import { ownerLine, ownershipLabel } from '../../utils/ownership.js'
 
 export const PAGE_SIZE = 10
@@ -24,19 +24,14 @@ export const RECORD_COLUMNS = [
   { key: 'pcic_cell',          label: 'PCIC INSURED' },
 ]
 
-// All / empty by default.
+// Nothing picked by default. (There is no Fisherfolk or Pond/Cage Location filter: the search bar finds a fisherfolk and the Barangay filter
+// covers the place; both stay as table columns.)
 export const EMPTY_FILTERS = {
-  ownership: '', cycle: '', species: '', fisherfolk: '', barangay: '', pondLocation: '', cultureType: '', organization: '',
+  ownership: '', cycle: '', species: '', barangay: '', cultureType: '', organization: '',
   stockedFrom: '', stockedTo: '', pcic: '',
 }
 
 export const activeFilterCount = (filters) => Object.values(filters).filter(Boolean).length
-
-// What is picked in the panel is a draft until Apply Filters: true when it differs from what the table shows.
-export const filtersChanged = (draft, applied) => Object.keys(EMPTY_FILTERS).some((key) => (draft[key] || '') !== (applied[key] || ''))
-
-// Why the draft cannot be applied ('' when it can).
-export const applyProblem = (filters) => dateRangeProblem(filters.stockedFrom, filters.stockedTo)
 
 // The request: only what was chosen, plus the page and the status scope. The search travels with the filters, so they work together.
 export function recordsParams({ filters, search, page }) {
@@ -44,8 +39,8 @@ export function recordsParams({ filters, search, page }) {
   const text = String(search || '').trim()
   if (text) params.search = text
   const map = {
-    ownership: 'ownership', cycle: 'cycle', species: 'species', fisherfolk: 'fisherfolk', barangay: 'fisherfolk_barangay',
-    pondLocation: 'pond_location', cultureType: 'culture_type', organization: 'organization', pcic: 'pcic',
+    ownership: 'ownership', cycle: 'cycle', species: 'species', barangay: 'fisherfolk_barangay',
+    cultureType: 'culture_type', organization: 'organization', pcic: 'pcic',
   }
   Object.entries(map).forEach(([key, name]) => { if (filters[key]) params[name] = filters[key] })
   Object.assign(params, dateRangeParams(filters.stockedFrom, filters.stockedTo, 'stocked_from', 'stocked_to'))

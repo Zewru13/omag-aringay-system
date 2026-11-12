@@ -582,6 +582,18 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   // A new search starts from the first page.
   useEffect(() => { setPage(1) }, [debouncedSearch, debouncedPond])
   const changeFilter = (setter) => (value) => { setter(value); setPage(1) }
+  // Reset Filters: every filter back to nothing (the search text stays).
+  const resetFilters = () => {
+    setPondFilter('')
+    setStatusFilter('All Status')
+    setSpeciesFilter('')
+    setPcicFilter('')
+    setSeasonFilter('')
+    setYearFilter('')
+    setStockedFrom('')
+    setStockedTo('')
+    setPage(1)
+  }
 
   // Lock indicators for the currently-visible page only - one batched request for all its rows.
   const [lockStatuses, setLockStatuses] = useState({})
@@ -707,6 +719,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           onSearchChange={setSearch}
           searchPlaceholder="Search by fisherfolk, RSBSA no., species, or barangay..."
           activeCount={[statusFilter !== 'All Status', Boolean(speciesFilter), Boolean(pcicFilter), Boolean(seasonFilter), Boolean(yearFilter), Boolean(stockedFrom), Boolean(stockedTo), Boolean(pondFilter.trim())].filter(Boolean).length}
+          onReset={resetFilters}
         >
           <input
             type="search"
@@ -717,7 +730,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             onChange={e => setPondFilter(e.target.value)}
           />
           <select className={filterSelectCls} value={statusFilter} onChange={e => changeFilter(setStatusFilter)(e.target.value)}>
-            <option value="All Status">All Status</option>
+            <option value="All Status">Status</option>
             <option value="Stocked">Stocked</option>
             <option value="Near Harvest">Near Harvest</option>
             <option value="Late">Late</option>
@@ -725,19 +738,19 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             <option value="Total Loss">Total Loss</option>
           </select>
           <select className={filterSelectCls} value={speciesFilter} onChange={e => changeFilter(setSpeciesFilter)(e.target.value)} aria-label="Species">
-            <option value="">All Species</option>
+            <option value="">Species</option>
             {speciesList.map(sp => <option key={sp.id} value={sp.id}>{sp.species_name}</option>)}
           </select>
-          <select className={filterSelectCls} value={pcicFilter} onChange={e => changeFilter(setPcicFilter)(e.target.value)} aria-label="PCIC insured">
+          <select className={filterSelectCls} value={pcicFilter} onChange={e => changeFilter(setPcicFilter)(e.target.value)} aria-label="PCIC insurance">
             {AQUACULTURE_PCIC_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <select className={filterSelectCls} value={seasonFilter} onChange={e => changeFilter(setSeasonFilter)(e.target.value)}>
-            <option value="">All Seasons</option>
+            <option value="">Season</option>
             <option value="Dry">Dry Season</option>
             <option value="Wet">Wet Season</option>
           </select>
           <select className={filterSelectCls} value={yearFilter} onChange={e => changeFilter(setYearFilter)(e.target.value)}>
-            <option value="">All Years</option>
+            <option value="">Year</option>
             {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
               <option key={y} value={y}>{y}</option>
             ))}

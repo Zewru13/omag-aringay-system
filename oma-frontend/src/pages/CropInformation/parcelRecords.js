@@ -11,11 +11,11 @@ export function cropCountLabel(count) {
 
 const typed = (value) => (typeof value === 'string' ? value.trim() : value)
 
-// How the parcels can be grouped. The parcels come in the server's own order (farmer A-Z).
+// How the parcels can be grouped. The parcels come in the server's own order (farmer A-Z). There is no grouping by barangay: the Barangay
+// filter does that job.
 export const GROUP_OPTIONS = [
   { value: 'none', label: 'No grouping' },
   { value: 'farmer', label: 'Farmer' },
-  { value: 'barangay', label: 'Barangay' },
   { value: 'ownership', label: 'Land ownership' },
 ]
 export const DEFAULT_GROUP = 'none'
@@ -41,7 +41,6 @@ export function groupFilterParams(filters) {
 // What to add to the filters to get one group's parcels; null when the group has nothing to open onto.
 export function groupChildParams(groupBy, group) {
   if (groupBy === 'farmer') return group.id ? { farmer: group.id } : null
-  if (groupBy === 'barangay') return group.id ? { barangay: group.id } : null
   if (groupBy === 'ownership') return group.id ? { land_ownership: group.id } : null
   return null
 }
