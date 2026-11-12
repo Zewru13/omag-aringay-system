@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -58,7 +59,7 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
       subtitle="Generic feed category — not a per-species formulation."
       icon={Wheat}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -66,15 +67,16 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
         </>
       }
     >
-      <form id="feed-type-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="feed-type-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Name *">
+        <SettingsFields title="Feed Type">
+        <SettingsField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
-        </FormField>
-        <FormField label="Description (optional)">
+        </SettingsField>
+        <SettingsField label="Description (optional)">
           <textarea rows={2} className={`${baseInputClasses} resize-none`} value={description} onChange={e => setDescription(e.target.value)} />
-        </FormField>
-        <FormField label="Growth Stage (optional)">
+        </SettingsField>
+        <SettingsField label="Growth Stage (optional)">
           <select className={baseInputClasses} value={growthStage} onChange={e => setGrowthStage(e.target.value)}>
             <option value="">Any stage</option>
             {GROWTH_STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -82,7 +84,8 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
           <p className="mt-1 text-[11px] text-slate-400">
             Narrows this feed type to a specific growth stage for the automatic feed recommendation. Leave as "Any stage" for a general-purpose feed.
           </p>
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

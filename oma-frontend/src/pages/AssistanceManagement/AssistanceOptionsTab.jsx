@@ -8,8 +8,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetAssistanceChoices } from './useAssistanceChoices.js'
@@ -55,7 +56,7 @@ function NameModal({ singular, option, onClose, onSaved }) {
       subtitle={`Update ${option.name}`}
       icon={ListPlus}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -65,11 +66,13 @@ function NameModal({ singular, option, onClose, onSaved }) {
         </>
       )}
     >
-      <form id="assistance-option-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="assistance-option-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label={`${singular} Name`} required>
+        <SettingsFields title="Option">
+        <SettingsField label={`${singular} Name`} required>
           <input className={baseInputClasses} value={name} autoFocus onChange={(e) => setName(e.target.value)} />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

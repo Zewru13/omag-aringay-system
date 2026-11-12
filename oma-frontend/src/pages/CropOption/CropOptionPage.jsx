@@ -9,8 +9,9 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField, SettingsCell, FormRow } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PLANTING_TYPES, plantingTypeLabel } from '../CropInformation/cropEntry.js'
@@ -439,99 +440,113 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
       >
         <form id="crop-option-form" onSubmit={handleSubmit} className="space-y-3">
           <DraftBanner draft={draft} />
-          <FormField label="Crop Name" required error={nameError}>
-            <input
-              className={baseInputClasses}
-              placeholder="e.g. Palay (Rice)"
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
-              autoFocus
-            />
-          </FormField>
-          <FormField label="Category">
-            <select
-              className={baseInputClasses}
-              value={form.category}
-              onChange={e => { set('category', e.target.value); set('subcategory', '') }}
+          <SettingsFields title="Crop">
+            <SettingsField label="Crop Name" required error={nameError}>
+              <input
+                className={baseInputClasses}
+                placeholder="e.g. Palay (Rice)"
+                value={form.name}
+                onChange={e => set('name', e.target.value)}
+                autoFocus
+              />
+            </SettingsField>
+            <FormRow>
+              <SettingsCell label="Category">
+                <select
+                  className={baseInputClasses}
+                  aria-label="Category"
+                  value={form.category}
+                  onChange={e => { set('category', e.target.value); set('subcategory', '') }}
+                >
+                  <option value="">— None —</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </SettingsCell>
+              <SettingsCell label="Subcategory">
+                <select
+                  className={baseInputClasses}
+                  aria-label="Subcategory"
+                  value={form.subcategory}
+                  onChange={e => set('subcategory', e.target.value)}
+                  disabled={!form.category}
+                >
+                  <option value="">— None —</option>
+                  {filteredSubcats.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </SettingsCell>
+            </FormRow>
+            <FormRow>
+              <SettingsCell label="Growth Duration (days)" required>
+                <input
+                  type="number"
+                  min="1"
+                  className={baseInputClasses}
+                  aria-label="Growth Duration (days)"
+                  placeholder="e.g. 120"
+                  value={form.days_to_harvest}
+                  onChange={e => set('days_to_harvest', e.target.value)}
+                />
+              </SettingsCell>
+              <SettingsCell label="Yield Per Hectare (kg)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className={baseInputClasses}
+                  aria-label="Yield Per Hectare (kg)"
+                  placeholder="e.g. 4500"
+                  value={form.yield_per_ha_kg}
+                  onChange={e => set('yield_per_ha_kg', e.target.value)}
+                />
+              </SettingsCell>
+            </FormRow>
+            <SettingsField
+              label="Planted As"
+              required
+              hint="Seed: Add Crop Records asks for the Qty of Seeds (kg). Tree: it asks for the Qty of Trees. Seed or Tree: the person adding the crop can switch between the two."
             >
-              <option value="">— None —</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Subcategory">
-            <select
-              className={baseInputClasses}
-              value={form.subcategory}
-              onChange={e => set('subcategory', e.target.value)}
-              disabled={!form.category}
-            >
-              <option value="">— None —</option>
-              {filteredSubcats.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Growth Duration (days)" required>
-            <input
-              type="number"
-              min="1"
-              className={baseInputClasses}
-              placeholder="e.g. 120"
-              value={form.days_to_harvest}
-              onChange={e => set('days_to_harvest', e.target.value)}
-            />
-          </FormField>
-          <FormField label="Planted As" required>
-            <select className={baseInputClasses} value={form.planting_type} onChange={e => set('planting_type', e.target.value)}>
-              {PLANTING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-            <p className="mt-1 text-[11px] text-[#7A8E7A]">
-              Seed: Add Crop Records asks for the Qty of Seeds (kg). Tree: it asks for the Qty of Trees. Seed or Tree: the person adding the crop
-              can switch between the two.
-            </p>
-          </FormField>
-          <FormField label="Yield Per Hectare (kg)">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className={baseInputClasses}
-              placeholder="e.g. 4500"
-              value={form.yield_per_ha_kg}
-              onChange={e => set('yield_per_ha_kg', e.target.value)}
-            />
-          </FormField>
-          <FormField label="Allowed Units of Measure">
-            <UnitChipInput units={form.allowed_units} onChange={units => set('allowed_units', units)} />
-          </FormField>
+              <select className={baseInputClasses} value={form.planting_type} onChange={e => set('planting_type', e.target.value)}>
+                {PLANTING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </SettingsField>
+            <SettingsField label="Allowed Units of Measure">
+              <UnitChipInput units={form.allowed_units} onChange={units => set('allowed_units', units)} />
+            </SettingsField>
+          </SettingsFields>
 
-          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
-            <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Growth Stage Days (for input recommendation)</p>
-            <p className="mb-2 text-[11px] text-[#7A8E7A]">
-              Day after planting each stage begins. Leave all four blank if not yet known — growth-stage input
-              recommendation just won't be offered for this crop until they're set.
-            </p>
-            <p className="mb-2 text-[11px] leading-[1.5] text-[#7A8E7A] italic">
-              {GROWTH_STAGE_SOURCES_NOTE}
-            </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <FormField label="Vegetative">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 10"
+          <SettingsFields
+            title="Growth Stage Days"
+            note={(
+              <>
+                <p>
+                  Day after planting each stage begins (used for the input recommendation). Leave all four blank if not yet known — growth-stage input
+                  recommendation just won't be offered for this crop until they're set.
+                </p>
+                <p className="italic">{GROWTH_STAGE_SOURCES_NOTE}</p>
+              </>
+            )}
+          >
+            <FormRow>
+              <SettingsCell label="Vegetative">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 10" aria-label="Vegetative"
                   value={form.vegetative_start_day} onChange={e => set('vegetative_start_day', e.target.value)} />
-              </FormField>
-              <FormField label="Flowering">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 40"
+              </SettingsCell>
+              <SettingsCell label="Flowering">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 40" aria-label="Flowering"
                   value={form.flowering_start_day} onChange={e => set('flowering_start_day', e.target.value)} />
-              </FormField>
-              <FormField label="Fruiting">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 60"
+              </SettingsCell>
+            </FormRow>
+            <FormRow>
+              <SettingsCell label="Fruiting">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 60" aria-label="Fruiting"
                   value={form.fruiting_start_day} onChange={e => set('fruiting_start_day', e.target.value)} />
-              </FormField>
-              <FormField label="Maturity">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 80"
+              </SettingsCell>
+              <SettingsCell label="Maturity">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 80" aria-label="Maturity"
                   value={form.maturity_start_day} onChange={e => set('maturity_start_day', e.target.value)} />
-              </FormField>
-            </div>
-          </div>
-
+              </SettingsCell>
+            </FormRow>
+          </SettingsFields>
         </form>
 
         <SuggestionsSection cropId={crop.id} />

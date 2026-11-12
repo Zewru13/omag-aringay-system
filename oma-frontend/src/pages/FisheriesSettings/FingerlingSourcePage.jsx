@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -56,7 +57,7 @@ function SourceModal({ source, onClose, onSaved }) {
       subtitle={`Update ${source.name}`}
       icon={Fish}
       onClose={onClose}
-      maxWidth="max-w-xs"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -66,9 +67,10 @@ function SourceModal({ source, onClose, onSaved }) {
         </>
       }
     >
-      <form id="fingerling-source-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="fingerling-source-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Fingerling Source" required>
+        <SettingsFields title="Fingerling Source">
+        <SettingsField label="Fingerling Source" required>
           <input
             className={baseInputClasses}
             value={name}
@@ -77,7 +79,8 @@ function SourceModal({ source, onClose, onSaved }) {
             autoFocus
             placeholder="e.g. BFAR Regional Hatchery"
           />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

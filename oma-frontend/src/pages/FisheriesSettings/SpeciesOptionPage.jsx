@@ -6,10 +6,11 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField, SettingsCell, FormRow } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -322,7 +323,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
         subtitle={`Update details for ${species.species_name}`}
         icon={Fish}
         onClose={onClose}
-        maxWidth="max-w-md"
+        maxWidth="max-w-xl"
         footer={
           <>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -334,92 +335,104 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
       >
         <form id="species-option-form" onSubmit={handleSubmit} className="space-y-3">
           <DraftBanner draft={draft} />
-          <FormField label="Species Name" required error={nameError}>
-            <input
-              className={baseInputClasses}
-              placeholder="e.g. Tilapia"
-              value={form.species_name}
-              onChange={e => set('species_name', e.target.value)}
-              autoFocus
-            />
-          </FormField>
-          <FormField label="Category" required>
-            <select
-              className={baseInputClasses}
-              value={form.category}
-              onChange={e => set('category', e.target.value)}
-            >
-              <option value="" disabled>Select category…</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Culture Environment" required>
-            <select
-              className={baseInputClasses}
-              value={form.culture_environment}
-              onChange={e => set('culture_environment', e.target.value)}
-            >
-              <option value="Freshwater">Freshwater</option>
-              <option value="Brackishwater">Brackishwater</option>
-              <option value="Marine">Marine</option>
-            </select>
-          </FormField>
-          <FormField label="Culture Duration (days)" required>
-            <input
-              type="number"
-              min="1"
-              className={baseInputClasses}
-              placeholder="e.g. 120"
-              value={form.culture_duration_days}
-              onChange={e => set('culture_duration_days', e.target.value)}
-            />
-          </FormField>
-          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
-            <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Growth Stage Days (for feed recommendation)</p>
-            <p className="mb-2 text-[11px] text-[#7A8E7A]">
-              Day after stocking each stage begins. Leave all three blank if not yet known — growth-stage feed recommendation just won't be offered for this species until they're set.
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <FormField label="Fingerling">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 15"
-                  value={form.fingerling_start_day} onChange={e => set('fingerling_start_day', e.target.value)} />
-              </FormField>
-              <FormField label="Juvenile">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 45"
-                  value={form.juvenile_start_day} onChange={e => set('juvenile_start_day', e.target.value)} />
-              </FormField>
-              <FormField label="Adult">
-                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 90"
-                  value={form.adult_start_day} onChange={e => set('adult_start_day', e.target.value)} />
-              </FormField>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Default Survival Rate (%)" required>
+          <SettingsFields title="Species">
+            <SettingsField label="Species Name" required error={nameError}>
               <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
                 className={baseInputClasses}
-                placeholder="e.g. 80.00"
-                value={form.default_survival_rate_pct}
-                onChange={e => set('default_survival_rate_pct', e.target.value)}
+                placeholder="e.g. Tilapia"
+                value={form.species_name}
+                onChange={e => set('species_name', e.target.value)}
+                autoFocus
               />
-            </FormField>
-            <FormField label="Default Avg Body Weight (kg)" required>
-              <input
-                type="number"
-                min="0"
-                step="0.001"
-                className={baseInputClasses}
-                placeholder="e.g. 0.250"
-                value={form.default_avg_body_weight_kg}
-                onChange={e => set('default_avg_body_weight_kg', e.target.value)}
-              />
-            </FormField>
-          </div>
+            </SettingsField>
+            <FormRow>
+              <SettingsCell label="Category" required>
+                <select
+                  className={baseInputClasses}
+                  aria-label="Category"
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                >
+                  <option value="" disabled>Select category…</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </SettingsCell>
+              <SettingsCell label="Culture Environment" required>
+                <select
+                  className={baseInputClasses}
+                  aria-label="Culture Environment"
+                  value={form.culture_environment}
+                  onChange={e => set('culture_environment', e.target.value)}
+                >
+                  <option value="Freshwater">Freshwater</option>
+                  <option value="Brackishwater">Brackishwater</option>
+                  <option value="Marine">Marine</option>
+                </select>
+              </SettingsCell>
+            </FormRow>
+            <FormRow>
+              <SettingsCell label="Culture Duration (days)" required>
+                <input
+                  type="number"
+                  min="1"
+                  className={baseInputClasses}
+                  aria-label="Culture Duration (days)"
+                  placeholder="e.g. 120"
+                  value={form.culture_duration_days}
+                  onChange={e => set('culture_duration_days', e.target.value)}
+                />
+              </SettingsCell>
+            </FormRow>
+            <FormRow>
+              <SettingsCell label="Default Survival Rate (%)" required>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className={baseInputClasses}
+                  aria-label="Default Survival Rate (%)"
+                  placeholder="e.g. 80.00"
+                  value={form.default_survival_rate_pct}
+                  onChange={e => set('default_survival_rate_pct', e.target.value)}
+                />
+              </SettingsCell>
+              <SettingsCell label="Default Avg Body Weight (kg)" required>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  className={baseInputClasses}
+                  aria-label="Default Avg Body Weight (kg)"
+                  placeholder="e.g. 0.250"
+                  value={form.default_avg_body_weight_kg}
+                  onChange={e => set('default_avg_body_weight_kg', e.target.value)}
+                />
+              </SettingsCell>
+            </FormRow>
+          </SettingsFields>
 
+          <SettingsFields
+            title="Growth Stage Days"
+            note={<p>Day after stocking each stage begins (used for the feed recommendation). Leave all three blank if not yet known — growth-stage feed recommendation just won't be offered for this species until they're set.</p>}
+          >
+            <FormRow>
+              <SettingsCell label="Fingerling">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 15" aria-label="Fingerling"
+                  value={form.fingerling_start_day} onChange={e => set('fingerling_start_day', e.target.value)} />
+              </SettingsCell>
+              <SettingsCell label="Juvenile">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 45" aria-label="Juvenile"
+                  value={form.juvenile_start_day} onChange={e => set('juvenile_start_day', e.target.value)} />
+              </SettingsCell>
+            </FormRow>
+            <FormRow>
+              <SettingsCell label="Adult">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 90" aria-label="Adult"
+                  value={form.adult_start_day} onChange={e => set('adult_start_day', e.target.value)} />
+              </SettingsCell>
+            </FormRow>
+          </SettingsFields>
         </form>
 
         <SuggestionsSection speciesId={species.id} />

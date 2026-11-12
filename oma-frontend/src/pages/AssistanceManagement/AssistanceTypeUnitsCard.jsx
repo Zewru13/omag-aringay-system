@@ -6,6 +6,7 @@ import CardHeader from '../../components/UI/CardHeader.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ASSISTANCE_UNITS } from './assistanceFieldHelpers.js'
@@ -58,8 +59,9 @@ function UnitsModal({ row, onClose, onSaved }) {
       )}
     >
       <form id="assistance-type-units-form" onSubmit={handleSubmit} className="space-y-3">
-        <p className="text-[12.5px] text-[#4A5E4A]">The Unit box of the distribution form offers only the units ticked here.</p>
-        <div className="grid grid-cols-2 gap-2">
+        <SettingsFields title="Applicable Units" note={<p>The Unit box of the distribution form offers only the units ticked here.</p>}>
+          <SettingsField label="Units">
+            <div className="grid grid-cols-2 gap-2">
           {ASSISTANCE_UNITS.map((unit) => (
             <label key={unit} className="flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg border border-[#E2E8E2] px-3 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5]">
               <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" checked={chosen.has(unit)} onChange={() => toggle(unit)} />
@@ -67,6 +69,8 @@ function UnitsModal({ row, onClose, onSaved }) {
             </label>
           ))}
         </div>
+          </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -59,7 +60,7 @@ function CategoryModal({ category, onClose, onSaved }) {
       subtitle={`Update details for ${category.name}`}
       icon={Leaf}
       onClose={onClose}
-      maxWidth="max-w-xs"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -69,9 +70,10 @@ function CategoryModal({ category, onClose, onSaved }) {
         </>
       }
     >
-      <form id="crop-category-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-category-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Category Name *">
+        <SettingsFields title="Category">
+        <SettingsField label="Category Name *">
           <input
             className={baseInputClasses}
             value={name}
@@ -79,7 +81,8 @@ function CategoryModal({ category, onClose, onSaved }) {
             autoFocus
             placeholder="e.g. Cereals"
           />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )
@@ -119,7 +122,7 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
       subtitle={`Update details for ${subcategory.name}`}
       icon={Tag}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -129,15 +132,16 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
         </>
       }
     >
-      <form id="crop-subcategory-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-subcategory-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Parent Category" required>
+        <SettingsFields title="Subcategory">
+        <SettingsField label="Parent Category" required>
           <select className={baseInputClasses} value={form.category} onChange={e => set('category', e.target.value)}>
             <option value="">— Select —</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-        </FormField>
-        <FormField label="Subcategory Name *">
+        </SettingsField>
+        <SettingsField label="Subcategory Name *">
           <input
             className={baseInputClasses}
             value={form.name}
@@ -145,7 +149,8 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
             autoFocus
             placeholder="e.g. Rice"
           />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

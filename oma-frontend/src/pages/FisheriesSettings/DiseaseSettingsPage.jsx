@@ -8,8 +8,9 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -46,7 +47,7 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
       title="Edit Disease Type"
       icon={Bug}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -54,14 +55,16 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
         </>
       }
     >
-      <form id="disease-type-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="disease-type-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Name *">
+        <SettingsFields title="Disease Type">
+        <SettingsField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
-        </FormField>
-        <FormField label="Description (optional)">
+        </SettingsField>
+        <SettingsField label="Description (optional)">
           <textarea rows={2} className={`${baseInputClasses} resize-none`} value={description} onChange={e => setDescription(e.target.value)} />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )
@@ -99,7 +102,7 @@ function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
       subtitle="Shown as a suggestion when this disease is selected while logging an activity."
       icon={Bug}
       onClose={onClose}
-      maxWidth="max-w-md"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -107,16 +110,18 @@ function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
         </>
       }
     >
-      <form id="disease-response-guide-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="disease-response-guide-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Recommended Treatment (optional)">
+        <SettingsFields title="Response Guide">
+        <SettingsField label="Recommended Treatment (optional)">
           <textarea rows={4} className={`${baseInputClasses} resize-none`} value={recommendedTreatment}
             onChange={e => setRecommendedTreatment(e.target.value)}
             placeholder="Leave blank if there is no established recommendation yet." />
-        </FormField>
-        <FormField label="Notes (optional)">
+        </SettingsField>
+        <SettingsField label="Notes (optional)">
           <textarea rows={2} className={`${baseInputClasses} resize-none`} value={notes} onChange={e => setNotes(e.target.value)} />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetParcelClassifications } from './useParcelClassifications.js'
@@ -57,7 +58,7 @@ function ClassificationModal({ classification, onClose, onSaved }) {
       subtitle={`Update ${classification.name}`}
       icon={ListChecks}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -67,12 +68,14 @@ function ClassificationModal({ classification, onClose, onSaved }) {
         </>
       )}
     >
-      <form id="parcel-classification-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="parcel-classification-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Classification Name" required>
+        <SettingsFields title="Classification">
+        <SettingsField label="Classification Name" required>
           <input className={baseInputClasses} value={form.name} autoFocus placeholder="e.g. Irrigated by NIA"
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

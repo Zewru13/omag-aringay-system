@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -62,7 +63,7 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
       subtitle={`Update details for ${activityType.name}`}
       icon={ListChecks}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -72,9 +73,10 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
         </>
       }
     >
-      <form id="activity-type-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="activity-type-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Activity Type Name" required error={nameError}>
+        <SettingsFields title="Activity Type">
+        <SettingsField label="Activity Type Name" required error={nameError}>
           <input
             className={baseInputClasses}
             value={form.name}
@@ -82,7 +84,8 @@ function ActivityTypeModal({ endpoint, activityType, onClose, onSaved }) {
             autoFocus
             placeholder="e.g. Soil Testing"
           />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )
