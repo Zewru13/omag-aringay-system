@@ -9,9 +9,10 @@ const CELL = 'px-3 py-2 align-top max-md:block max-md:px-0 max-md:py-1.5 max-md:
 
 const CELL_PLAIN = 'px-3 py-2 align-top max-md:block max-md:px-0 max-md:py-1'
 
-export function EntryTable({ label, testId, children }) {
+// `bare`: no border of its own, for a table drawn inside a FormSection (which has one).
+export function EntryTable({ label, testId, bare = false, children }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white" data-testid={testId}>
+    <div className={`overflow-x-auto ${bare ? '' : 'rounded-xl border border-[#E2E8E2] bg-white'}`} data-testid={testId}>
       <table className="w-full text-sm max-md:block max-md:[&>tbody]:block max-md:[&>tfoot]:block" aria-label={label}>{children}</table>
     </div>
   )
