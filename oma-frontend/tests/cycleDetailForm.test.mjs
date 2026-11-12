@@ -1,5 +1,5 @@
 // The Cycle window (Cycle Info, Feeding Log, Health Log) is a table form: the saved cycle is a DetailTable, its ponds / cages an EntryTable,
-// and its Edit form labelled rows. The old commented-out Inputs and Economics tabs are gone.
+// (editing is in Edit Production Cycle). The old commented-out Inputs and Economics tabs are gone.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
@@ -18,9 +18,8 @@ ok(!src.includes('InfoField'), 'cycle summary: no hand-made field grid')
 ok(!/<table|<thead/.test(src), 'cycle window: no hand-made table')
 ok(!src.includes('Intl.DateTimeFormat') && src.includes("utils/dateFormat.js"), 'cycle window: dates use the shared format')
 
-// the Edit form
-ok(!src.includes('labelCls') && !src.includes('OwnershipFields'), 'cycle Edit form: no hand-made labels')
-ok(/<FormSection/.test(src) && /<FormCell/.test(src), 'cycle Edit form: sections of labelled rows')
+// the Edit form moved to Edit Production Cycle (tests/cycleEditMerge.test.mjs): this window only shows the cycle
+ok(!src.includes('labelCls') && !src.includes('OwnershipFields'), 'cycle window: no hand-made labels')
 
 // the tabs keep working through the shared Button where it is a plain button
 ok(src.includes('data-testid="use-suggested-feed"'), 'cycle window: suggested-feed hook kept')

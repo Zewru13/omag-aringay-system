@@ -510,16 +510,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     }
   }
 
-  const refreshViewingCycle = async () => {
-    if (!viewingCycle) return
-    try {
-      const r = await api.get(`/monitoring/aquaculture-cycles/${viewingCycle.id}/`)
-      setViewingCycle(r.data)
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to refresh production cycle.', 'error')
-    }
-  }
-
   // ?cycle=<id> (a Fisheries notification link): open that production cycle's existing details. The cycle
   // endpoint applies the usual ownership rules, so a fisherfolk can only ever open their own cycle.
   // ?record=<id> (a link from a fisherfolk's profile): open that stocking record's details window.
@@ -929,7 +919,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         <AquacultureCycleDetailModal
           cycle={viewingCycle}
           onClose={closeViewingCycle}
-          onRefresh={refreshViewingCycle}
           // A saved/deleted Health Log can start or clear Force Harvest: reload the rows so the
           // existing fishing-net button reflects it without a manual page reload.
           onHealthChanged={() => fetchRecords(page)}
