@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { effectiveLost, rowError, autoFilled } from './fisheriesStockLosses.js'
 import {
-  PAGE_SIZE, SORTS, allSelected, barangayOptions, filterStocks, fisherfolkOptions, markTotal, pageOf, rowsOf, selectRows, sortStocks, updateRow,
+  PAGE_SIZE, allSelected, barangayOptions, filterStocks, markTotal, pageOf, rowsOf, selectRows, sortStocks, stockProblem, updateRow,
 } from './disasterPonds.js'
 
-// The ponds and cages a disaster can hit (Fisheries Disaster > Log Disaster), as a table like the parcels of the crop Log Disaster: every active
-// stock with its ponds/cages, searchable and filterable by fisherfolk or barangay, ten stocks a page. Tick the ones that were hit - a stock's own tick
-// ticks all of its ponds/cages, or tick them one by one - and give each its fingerlings lost, or tick Total loss (the whole stocked count). What is
+// The ponds and cages a disaster can hit (Fisheries Disaster > Log Disaster), as a table like the parcels of the crop Log Disaster: one row for each
+// active stock (a cycle), searchable (a fisherfolk is found by name) and filterable by barangay, ten a page. Click a cycle to open it and see all the
+// ponds and cages inside. Tick the ones that were hit - a cycle's own tick ticks all of its ponds/cages and opens it, or tick them one by one - and give
+// each its fingerlings lost, or tick Total loss (the whole stocked count). A stock with no ponds/cages on record is one row with its own tick. What is
 // ticked is the selection { row key: { lost, total } } of disasterPonds.js, held by the window that saves it.
 //   stocks: the prepared list (prepareStocks)   selection / onChange: what is ticked   showErrors: show every row's mistake, not only the touched ones
 
@@ -51,21 +53,22 @@ function LostCell({ row, value, error, onChange }) {
 export default function FisheriesDisasterTargetsTable({ stocks, selection, onChange, showErrors = false }) {
   const [search, setSearch] = useState('')
   const [barangay, setBarangay] = useState('')
-  const [fisherfolk, setFisherfolk] = useState('')
-  const [sort, setSort] = useState('fisherfolk')
   const [page, setPage] = useState(1)
+  const [opened, setOpened] = useState(() => new Set())     // keys of the cycles shown open
   const [touched, setTouched] = useState(() => new Set())
   const query = useDebouncedValue(search.trim())
 
-  const sorted = useMemo(() => sortStocks(filterStocks(stocks, { search: query, barangay, fisherfolk }), sort), [stocks, query, barangay, fisherfolk, sort])
+  const sorted = useMemo(() => sortStocks(filterStocks(stocks, { search: query, barangay })), [stocks, query, barangay])
   const items = useMemo(() => pageOf(sorted, page), [sorted, page])
   const shownRows = useMemo(() => rowsOf(sorted), [sorted])
   const barangays = useMemo(() => barangayOptions(stocks), [stocks])
-  const people = useMemo(() => fisherfolkOptions(stocks), [stocks])
 
   const filtered = (setter) => (value) => { setter(value); setPage(1) }
-  const reset = () => { setBarangay(''); setFisherfolk(''); setSort('fisherfolk'); setPage(1) }
+  const reset = () => { setBarangay(''); setPage(1) }
+  const toggleOpen = (key) => setOpened((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next })
   const tick = (rows, on) => onChange(selectRows(selection, rows, on))
+  // Ticking a whole cycle opens it, so the count lost in each pond/cage can be typed.
+  const tickStock = (stock, on) => { tick(stock.rows, on); if (on) setOpened((prev) => new Set(prev).add(stock.key)) }
   const total = (rows, on) => onChange(markTotal(selection, rows, on))
   const change = (row, patch) => {
     setTouched((prev) => new Set(prev).add(row.key))
@@ -89,19 +92,12 @@ export default function FisheriesDisasterTargetsTable({ stocks, selection, onCha
         search={search}
         onSearchChange={filtered(setSearch)}
         searchPlaceholder="Search a fisherfolk, registration number, species, barangay, pond or cage…"
-        activeCount={[fisherfolk, barangay, sort !== 'fisherfolk'].filter(Boolean).length}
+        activeCount={[barangay].filter(Boolean).length}
         onReset={reset}
       >
-        <select className={SELECT} value={fisherfolk} onChange={(e) => filtered(setFisherfolk)(e.target.value)} aria-label="Fisherfolk">
-          <option value="">Fisherfolk</option>
-          {people.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </select>
         <select className={SELECT} value={barangay} onChange={(e) => filtered(setBarangay)(e.target.value)} aria-label="Barangay">
           <option value="">Barangay</option>
           {barangays.map((b) => <option key={b} value={b}>{b}</option>)}
-        </select>
-        <select className={SELECT} value={sort} onChange={(e) => filtered(setSort)(e.target.value)} aria-label="Sort">
-          {SORTS.map((o) => <option key={o.id} value={o.id}>Sort: {o.label}</option>)}
         </select>
       </FilterPanel>
 
@@ -112,7 +108,7 @@ export default function FisheriesDisasterTargetsTable({ stocks, selection, onCha
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[12.5px] text-[#4A5E4A]">
             <label className="flex min-h-[36px] cursor-pointer items-center gap-2 font-medium text-[#1A2B1A]">
               <input type="checkbox" className={CHECK} checked={allSelected(selection, shownRows)} disabled={nobody} onChange={(e) => tick(shownRows, e.target.checked)} />
-              Select every pond/cage shown ({sorted.length} stock{sorted.length === 1 ? '' : 's'}, {shownRows.length} pond{shownRows.length === 1 ? '/cage' : 's/cages'})
+              Select every pond/cage shown ({sorted.length} cycle{sorted.length === 1 ? '' : 's'}, {shownRows.length} pond{shownRows.length === 1 ? '/cage' : 's/cages'})
             </label>
             {Object.keys(selection).length > 0 && (
               <button type="button" className="font-medium text-[#1B4D2E] hover:underline" onClick={() => onChange({})}>Clear the selection</button>
@@ -124,7 +120,7 @@ export default function FisheriesDisasterTargetsTable({ stocks, selection, onCha
               <thead className="bg-[#F0F4F0] text-[#4A5E4A]">
                 <tr>
                   <th className={`${TH} w-10`}><span className="sr-only">Select</span></th>
-                  <th className={TH}>Stock</th>
+                  <th className={TH}>Cycle</th>
                   <th className={TH}>Fisherfolk</th>
                   <th className={TH}>Barangay</th>
                   <th className={TH}>Pond/Cage</th>
@@ -135,24 +131,23 @@ export default function FisheriesDisasterTargetsTable({ stocks, selection, onCha
               </thead>
               <tbody>
                 {items.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">No pond or cage matches the search and filters.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">No pond or cage matches the search and filter.</td></tr>
                 )}
                 {items.map((stock) => {
                   const picked = stock.rows.filter((r) => r.key in selection)
                   const all = picked.length === stock.rows.length
                   const who = (
-                    <>
-                      <td className={TD}><span className="font-medium text-[#1A2B1A]">{stock.title}</span></td>
-                      <td className={`${TD} whitespace-nowrap`}><p className="font-medium text-[#1A2B1A]">{stock.fisherfolk_name}</p><p className="text-[11.5px] text-[#7A8E7A]">{stock.rsbsa_number || stock.fishr_number}</p></td>
-                      <td className={`${TD} whitespace-nowrap`}>{stock.place || '—'}</td>
-                    </>
+                    <td className={`${TD} whitespace-nowrap`}><p className="font-medium text-[#1A2B1A]">{stock.fisherfolk_name}</p><p className="text-[11.5px] text-[#7A8E7A]">{stock.rsbsa_number || stock.fishr_number}</p></td>
                   )
-                  if (stock.rows.length === 1) {
+                  // A stock with no ponds/cages on record: one row, nothing to open.
+                  if (stock.rows.length === 1 && stock.rows[0].unitId === null) {
                     const row = stock.rows[0]
                     return (
                       <tr key={stock.key} className={`border-b border-[#F0F4F0] align-top ${row.key in selection ? 'bg-[#F6FAF7]' : ''}`}>
                         <td className="w-10 px-3 py-2.5">{rowTick(row)}</td>
+                        <td className={TD}><span className="font-medium text-[#1A2B1A]">{stock.title}</span></td>
                         {who}
+                        <td className={`${TD} whitespace-nowrap`}>{stock.place || '—'}</td>
                         <td className={`${TD} whitespace-nowrap`}>{row.unitLabel}</td>
                         <td className={`${TD} whitespace-nowrap`}>{fmt(row.stocked)}</td>
                         <td className={TD}>{lostCell(row)}</td>
@@ -160,19 +155,34 @@ export default function FisheriesDisasterTargetsTable({ stocks, selection, onCha
                       </tr>
                     )
                   }
+                  // A cycle with ponds/cages: one row, which opens to show them all when it is clicked.
+                  const open = opened.has(stock.key) || (showErrors && Boolean(stockProblem(stock, selection)))
                   return [
-                    <tr key={stock.key} className={`border-b border-[#F0F4F0] ${picked.length ? 'bg-[#F6FAF7]' : ''}`}>
+                    <tr
+                      key={stock.key}
+                      className={`cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${picked.length ? 'bg-[#F6FAF7]' : ''}`}
+                      onClick={(e) => { if (!e.target.closest('input, label, button')) toggleOpen(stock.key) }}
+                    >
                       <td className="w-10 px-3 py-2.5">
                         <input type="checkbox" className={CHECK} checked={all} aria-label={`Select every pond/cage of ${stock.title} (${stock.fisherfolk_name})`}
-                          ref={(el) => { if (el) el.indeterminate = picked.length > 0 && !all }} onChange={(e) => tick(stock.rows, e.target.checked)} />
+                          ref={(el) => { if (el) el.indeterminate = picked.length > 0 && !all }} onChange={(e) => tickStock(stock, e.target.checked)} />
+                      </td>
+                      <td className={TD}>
+                        <button type="button" onClick={() => toggleOpen(stock.key)} aria-expanded={open}
+                          aria-label={`${open ? 'Hide' : 'Show'} the ponds and cages of ${stock.title} (${stock.fisherfolk_name})`}
+                          className="flex min-h-[36px] items-center gap-2 text-left font-medium text-[#1A2B1A]">
+                          <ChevronDown size={15} className={`flex-none text-[#4A5E4A] transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden="true" />
+                          {stock.title}
+                        </button>
                       </td>
                       {who}
+                      <td className={`${TD} whitespace-nowrap`}>{stock.place || '—'}</td>
                       <td colSpan={3} className={`${TD} whitespace-nowrap`}>{stock.rows.length} ponds/cages{picked.length > 0 && <span className="text-[#1B4D2E]"> · {picked.length} affected</span>}</td>
                       <td className={TD}>
                         <TotalLossBox checked={all && picked.every((r) => selection[r.key].total)} label={`Every pond/cage of ${stock.title} (${stock.fisherfolk_name}) is a total loss`} onChange={(on) => total(stock.rows, on)} />
                       </td>
                     </tr>,
-                    ...stock.rows.map((row) => (
+                    ...(open ? stock.rows.map((row) => (
                       <tr key={row.key} className={`border-b border-[#F0F4F0] align-top ${row.key in selection ? 'bg-[#F6FAF7]' : 'bg-[#FBFCFB]'}`}>
                         <td className="w-10 px-3 py-2.5">{rowTick(row)}</td>
                         <td colSpan={3} />
@@ -181,7 +191,7 @@ export default function FisheriesDisasterTargetsTable({ stocks, selection, onCha
                         <td className={TD}>{lostCell(row)}</td>
                         <td className={TD}>{totalCell(row)}</td>
                       </tr>
-                    )),
+                    )) : []),
                   ]
                 })}
               </tbody>

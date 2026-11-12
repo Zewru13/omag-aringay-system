@@ -4,11 +4,6 @@
 // how much of each, which are a total loss) is the one in disasterEvent.js. The server checks everything again.
 import { cropLabel } from './disasterEvent.js'
 
-export const SORTS = [
-  { id: 'farmer', label: 'Farmer' },
-  { id: 'barangay', label: 'Barangay' },
-  { id: 'parcel', label: 'Parcel number' },
-]
 export const PAGE_SIZE = 25
 
 export const parcelTitle = (p) => (p.parcel_id ? (p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.parcel_id}`) : 'No parcel on file')
@@ -23,25 +18,21 @@ export const prepareParcels = (parcels) => (parcels || []).map((p) => ({
 
 const text = (p) => [p.farmer_name, p.rsbsa_number, p.parcel_number, p.title, p.barangay, ...p.crops.map((c) => c.crop_type_name)].join(' ').toLowerCase()
 
-// What is left after the search (every word has to appear somewhere on the parcel, its farmer or its crops) and the two filters.
-export function filterParcels(parcels, { search = '', barangay = '', farmer = '' } = {}) {
+// What is left after the search (every word has to appear somewhere on the parcel, its farmer or its crops, so a farmer is found by name there) and the
+// Barangay filter.
+export function filterParcels(parcels, { search = '', barangay = '' } = {}) {
   const words = String(search).toLowerCase().split(/\s+/).filter(Boolean)
   return parcels.filter((p) => (
     (!barangay || p.barangay === barangay)
-    && (!farmer || String(p.farmer_id) === String(farmer))
     && words.every((w) => text(p).includes(w))
   ))
 }
 
 const byText = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
 
-// The order the table shows: by farmer (the default), by barangay, or by parcel number; ties fall back to farmer, then parcel.
-export function sortParcels(parcels, sort) {
-  return [...parcels].sort((a, b) => (
-    (sort === 'barangay' ? byText(a.barangay, b.barangay) : sort === 'parcel' ? byText(a.title, b.title) : 0)
-    || byText(a.farmer_name, b.farmer_name)
-    || byText(a.title, b.title)
-  ))
+// The order the table shows: by farmer, then parcel. (There is no Sort choice.)
+export function sortParcels(parcels) {
+  return [...parcels].sort((a, b) => byText(a.farmer_name, b.farmer_name) || byText(a.title, b.title))
 }
 
 // One page of the sorted table.
@@ -96,9 +87,3 @@ export function summaryLine({ crops, parcels, farmers }) {
 }
 
 export const barangayOptions = (parcels) => [...new Set(parcels.map((p) => p.barangay).filter(Boolean))].sort(byText)
-
-export function farmerOptions(parcels) {
-  const seen = new Map()
-  parcels.forEach((p) => { if (!seen.has(p.farmer_id)) seen.set(p.farmer_id, { id: p.farmer_id, name: p.farmer_name }) })
-  return [...seen.values()].sort((a, b) => byText(a.name, b.name))
-}

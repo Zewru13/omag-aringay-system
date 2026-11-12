@@ -18,7 +18,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
 import { allSelected, counts, markTotal, selectMany, updateRow } from './disasterEvent.js'
 import {
-  PAGE_SIZE, SORTS, allCrops, barangayOptions, farmerOptions, filterParcels, orderedRows, pageOf, parcelState, prepareParcels, selectedStats,
+  PAGE_SIZE, allCrops, barangayOptions, filterParcels, orderedRows, pageOf, parcelState, prepareParcels, selectedStats,
   selectedFarmers, sortParcels, summaryLine,
 } from './disasterTargets.js'
 import { MAX_CROPS, areaProblem, buildRequest, cropDisasterPayload, dateProblem, isWholeArea, withArea, withTotal } from './multiCropDisaster.js'
@@ -28,7 +28,7 @@ import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 // Log Disaster (Crop Disaster page, staff): a floating table-form window (like the Fisheries Log Disaster) for ONE disaster event over many
 // parcels; it opens over the disaster list. Fill the event once (type, date,
 // description, estimated loss), then tick the parcels it hit in the table of every parcel that has crops in the field - search,
-// filter by farmer or barangay and sort, all behind the Filters button of the search bar. Ticking a parcel ticks all its crops; its "Total loss"
+// or filter by barangay behind the Filters button of the search bar (a farmer is found by name in the search box). Ticking a parcel ticks all its crops; its "Total loss"
 // box marks them all as lost; open a parcel to tick single crops, type each one's area affected and mark one as a total loss. Saves one
 // disaster record per crop in one go (POST /production/disasters/multi/), all or nothing, then shows the report of what was saved
 // (every reported parcel and crop) with Download and Print. Each farmer who has a crop ticked gets a row in the
@@ -140,8 +140,6 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const [reload, setReload] = useState(0)
   const [search, setSearch] = useState('')
   const [barangay, setBarangay] = useState('')
-  const [farmer, setFarmer] = useState('')
-  const [sort, setSort] = useState('farmer')
   const [saved, setSaved] = useState(null)                 // the ids of the reports just saved: their report is shown instead of the form
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState([])                 // keys of the parcels shown open
@@ -160,11 +158,10 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   }, [reload])
 
   const parcels = useMemo(() => targets || [], [targets])
-  const sorted = useMemo(() => sortParcels(filterParcels(parcels, { search: query, barangay, farmer }), sort), [parcels, query, barangay, farmer, sort])
+  const sorted = useMemo(() => sortParcels(filterParcels(parcels, { search: query, barangay })), [parcels, query, barangay])
   const items = useMemo(() => pageOf(sorted, page), [sorted, page])
   const shownCrops = useMemo(() => allCrops(sorted), [sorted])
   const barangays = useMemo(() => barangayOptions(parcels), [parcels])
-  const farmers = useMemo(() => farmerOptions(parcels), [parcels])
 
   const { rows, records } = useMemo(() => orderedRows(selection, parcels), [selection, parcels])
   const { crops: cropCount, total: totalCount } = counts(selection)
@@ -274,18 +271,12 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
                   search={search}
                   onSearchChange={filtered(setSearch)}
                   searchPlaceholder="Search a farmer, RSBSA number, parcel number, barangay or crop…"
-                  activeCount={[farmer, barangay, sort !== 'farmer'].filter(Boolean).length}
+                  activeCount={[barangay].filter(Boolean).length}
+                  onReset={() => filtered(setBarangay)('')}
                 >
-                  <select className={SELECT} value={farmer} onChange={(e) => filtered(setFarmer)(e.target.value)} aria-label="Farmer">
-                    <option value="">All farmers</option>
-                    {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
                   <select className={SELECT} value={barangay} onChange={(e) => filtered(setBarangay)(e.target.value)} aria-label="Barangay">
-                    <option value="">All barangays</option>
+                    <option value="">Barangay</option>
                     {barangays.map((b) => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  <select className={SELECT} value={sort} onChange={(e) => filtered(setSort)(e.target.value)} aria-label="Sort">
-                    {SORTS.map((o) => <option key={o.id} value={o.id}>Sort: {o.label}</option>)}
                   </select>
                 </FilterPanel>
 

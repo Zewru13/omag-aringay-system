@@ -6,11 +6,6 @@
 // everything again (fisheries/disaster_reports.py plan_stock_losses).
 import { effectiveLost, rowError, rowKey } from './fisheriesStockLosses.js'
 
-export const SORTS = [
-  { id: 'fisherfolk', label: 'Fisherfolk' },
-  { id: 'barangay', label: 'Barangay' },
-  { id: 'species', label: 'Species' },
-]
 export const PAGE_SIZE = 10
 
 export const stockTitle = (s) => [
@@ -51,37 +46,27 @@ const text = (s) => [
   s.fisherfolk_name, s.rsbsa_number, s.fishr_number, s.barangay, s.pond_location, s.species_name, s.cycle_name, s.title, ...s.rows.map((r) => r.unitLabel),
 ].join(' ').toLowerCase()
 
-// What is left after the search (every word has to appear somewhere on the stock, its fisherfolk or its ponds/cages) and the two filters.
-export function filterStocks(stocks, { search = '', barangay = '', fisherfolk = '' } = {}) {
+// What is left after the search (every word has to appear somewhere on the stock, its fisherfolk or its ponds/cages, so a fisherfolk is found by name
+// there) and the Barangay filter.
+export function filterStocks(stocks, { search = '', barangay = '' } = {}) {
   const words = String(search).toLowerCase().split(/\s+/).filter(Boolean)
   return stocks.filter((s) => (
     (!barangay || placeOf(s) === barangay)
-    && (!fisherfolk || String(s.fisherfolk_id) === String(fisherfolk))
     && words.every((w) => text(s).includes(w))
   ))
 }
 
 const byText = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
 
-// The order the table shows: by fisherfolk (the default), by barangay or by species; ties fall back to fisherfolk, then the order of the server.
-export function sortStocks(stocks, sort) {
-  return [...stocks].sort((a, b) => (
-    (sort === 'barangay' ? byText(placeOf(a), placeOf(b)) : sort === 'species' ? byText(a.species_name, b.species_name) : 0)
-    || byText(a.fisherfolk_name, b.fisherfolk_name)
-    || a.stock_id - b.stock_id
-  ))
+// The order the table shows: by fisherfolk, then the order of the server. (There is no Sort choice.)
+export function sortStocks(stocks) {
+  return [...stocks].sort((a, b) => byText(a.fisherfolk_name, b.fisherfolk_name) || a.stock_id - b.stock_id)
 }
 
 export const pageOf = (sorted, page, size = PAGE_SIZE) => sorted.slice((page - 1) * size, page * size)
 export const pageCount = (total, size = PAGE_SIZE) => Math.max(1, Math.ceil(total / size))
 
 export const barangayOptions = (stocks) => [...new Set(stocks.map(placeOf).filter(Boolean))].sort(byText)
-
-export function fisherfolkOptions(stocks) {
-  const seen = new Map()
-  stocks.forEach((s) => { if (!seen.has(s.fisherfolk_id)) seen.set(s.fisherfolk_id, { id: s.fisherfolk_id, name: s.fisherfolk_name }) })
-  return [...seen.values()].sort((a, b) => byText(a.name, b.name))
-}
 
 // ── the selection: { [row key]: { lost, total } } - the fingerlings lost typed for the pond/cage ('' = not recorded) and whether it is a total loss
 export const allSelected = (selection, rows) => rows.length > 0 && rows.every((r) => r.key in selection)
@@ -165,6 +150,16 @@ export function stockLossesOf(personId, selection, stocks) {
     const lost = effectiveLost(r, selection[r.key])
     return { stocking_record: r.stockId, production_unit: r.unitId, fingerlings_lost: lost === '' ? null : Number(lost), is_total_loss: Boolean(selection[r.key].total) }
   }))
+}
+
+// The first mistake in the ticked rows of ONE stock ('' when there is none): a cycle that is closed is opened on it.
+export function stockProblem(stock, selection) {
+  for (const row of stock.rows) {
+    if (!(row.key in selection)) continue
+    const problem = rowError(row, selection[row.key])
+    if (problem) return problem
+  }
+  return ''
 }
 
 // The first mistake in the ticked rows ('' when there is none).

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
 const {
-  SORTS, PAGE_SIZE, parcelTitle, prepareParcels, filterParcels, sortParcels, pageOf, pageCount, allCrops, parcelState, orderedRows,
-  selectedStats, summaryLine, barangayOptions, farmerOptions,
+  PAGE_SIZE, parcelTitle, prepareParcels, filterParcels, sortParcels, pageOf, pageCount, allCrops, parcelState, orderedRows,
+  selectedStats, summaryLine, barangayOptions,
 } = await import(new URL('../src/pages/Monitoring/disasterTargets.js', import.meta.url).href)
 const { selectCrop, markTotal } = await import(new URL('../src/pages/Monitoring/disasterEvent.js', import.meta.url).href)
 
@@ -37,19 +37,17 @@ eq(ids(filterParcels(parcels, { search: 'mango' })), [3], 'search by crop')
 eq(ids(filterParcels(parcels, { search: 'ana corn' })), [1], 'every word must match')
 eq(ids(filterParcels(parcels, { search: 'nobody' })), [], 'nothing found')
 eq(ids(filterParcels(parcels, { barangay: 'Basca' })), [1, 3], 'per barangay')
-eq(ids(filterParcels(parcels, { farmer: '10' })), [1, 2], 'per farmer (as text or number)')
-eq(ids(filterParcels(parcels, { farmer: 10, barangay: 'Alaska', search: 'palay' })), [2], 'filters combine')
+eq(ids(filterParcels(parcels, { farmer: '10' })), [1, 2, 3, 0], 'there is no farmer filter: the search finds a farmer by name')
+eq(ids(filterParcels(parcels, { barangay: 'Alaska', search: 'palay' })), [2], 'filters combine')
 
-// ── the sort order
-eq(SORTS.map((m) => m.id), ['farmer', 'barangay', 'parcel'], 'three sorts')
-eq(ids(sortParcels(parcels, 'farmer')), [1, 2, 3, 0], 'by farmer, then parcel')
-eq(ids(sortParcels(parcels, 'barangay')), [2, 1, 3, 0], 'by barangay, then farmer')
-eq(ids(sortParcels(parcels, 'parcel')), [1, 2, 3, 0].sort((a, b) => parcels.find((p) => p.parcel_id === a).title.localeCompare(parcels.find((p) => p.parcel_id === b).title, undefined, { numeric: true })), 'by parcel number')
+// ── the order: by farmer, then parcel (there is no Sort choice)
+eq(ids(sortParcels(parcels)), [1, 2, 3, 0], 'by farmer, then parcel')
+eq(ids(sortParcels(parcels, 'barangay')), [1, 2, 3, 0], 'a sort name makes no difference any more')
 
 // ── pages
 const many = prepareParcels(Array.from({ length: 30 }, (_, i) => parcel(i + 1, 10, 'Ana Cruz', 'Basca', [crop(100 + i)])))
 eq(PAGE_SIZE, 25, 'page size')
-eq([pageOf(sortParcels(many, 'farmer'), 1).length, pageOf(sortParcels(many, 'farmer'), 2).length], [25, 5], 'two pages')
+eq([pageOf(sortParcels(many), 1).length, pageOf(sortParcels(many), 2).length], [25, 5], 'two pages')
 eq([pageCount(0), pageCount(25), pageCount(26)], [1, 1, 2], 'page count')
 
 // ── ticking
@@ -71,6 +69,11 @@ eq([summaryLine({ crops: 0, parcels: 0, farmers: 0 }), summaryLine({ crops: 1, p
 
 // ── the filter lists
 eq(barangayOptions(parcels), ['Alaska', 'Basca', 'Dulao'], 'barangays')
-eq(farmerOptions(parcels), [{ id: 10, name: 'Ana Cruz' }, { id: 11, name: 'Ben Dizon' }, { id: 12, name: 'Cora Lim' }], 'farmers')
+
+// ── the Log Disaster window: only the search and the Barangay filter (no Farmer filter, no Sort)
+import fs from 'node:fs'
+const screen = fs.readFileSync(new URL('../src/pages/Monitoring/LogCropDisasterScreen.jsx', import.meta.url), 'utf8')
+eq(screen.includes('aria-label="Barangay"'), true, 'the Barangay filter stays')
+eq(screen.includes('aria-label="Farmer"') || screen.includes('aria-label="Sort"') || screen.includes('SORTS'), false, 'no Farmer filter and no Sort')
 
 console.log(`disasterTargets: ${n} checks passed`)

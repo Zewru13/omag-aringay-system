@@ -1926,7 +1926,7 @@ export default {
    {
     "n": 4,
     "label": "Filters",
-    "desc": "Narrow the parcels by farmer or barangay, and sort them."
+    "desc": "Narrow the parcels by barangay. A farmer is found by typing the name in the search box."
    },
    {
     "n": 5,
@@ -2721,12 +2721,12 @@ export default {
    {
     "n": 3,
     "label": "Affected ponds and cages",
-    "desc": "Every active pond and cage, with its stock, fisherfolk and barangay. Tick the ones that were hit: a stock tick ticks all of its ponds and cages, or tick them one by one. A line under the heading counts what is ticked."
+    "desc": "One row for each active cycle, with its fisherfolk and barangay. Click a cycle to open it and see all of its ponds and cages. Tick the ones that were hit: a cycle tick ticks all of its ponds and cages (and opens it), or tick them one by one. A line under the heading counts what is ticked."
    },
    {
     "n": 4,
     "label": "Search box",
-    "desc": "Find a fisherfolk, registration number, species, barangay, pond or cage. Filters has the fisherfolk, the barangay and the sort order, and Reset Filters clears them."
+    "desc": "Find a fisherfolk by name or registration number, or a species, barangay, pond or cage. Filters has the Barangay filter, and Reset Filters clears it."
    },
    {
     "n": 5,
@@ -2760,8 +2760,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Tick a stock",
-    "desc": "Ticking a stock ticks all of its ponds and cages. Each pond or cage also has its own tick, so one that was not hit can be left out."
+    "label": "Tick a cycle",
+    "desc": "Ticking a cycle ticks all of its ponds and cages and opens it; clicking the cycle row opens or closes it without ticking. Each pond or cage also has its own tick, so one that was not hit can be left out."
    },
    {
     "n": 2,
