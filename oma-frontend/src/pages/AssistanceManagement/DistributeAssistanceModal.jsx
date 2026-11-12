@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import AvatarInitials from '../../components/UI/AvatarInitials.jsx'
 import Button from '../../components/UI/Button.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import { FormSection } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import SectionEyebrow from '../../components/UI/SectionEyebrow.jsx'
 import StatTile from '../../components/UI/StatTile.jsx'
@@ -243,8 +244,8 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
               </div>
             </div>
           ) : (
-            <div className="space-y-3 rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
-              <SectionEyebrow className="mb-0">{people ? (memberUrl ? 'Members' : `Registered ${domain.personLabel}s`) : `Registered ${domain.orgLabel}s`}</SectionEyebrow>
+            <FormSection title={people ? (memberUrl ? 'Members' : `Registered ${domain.personLabel}s`) : `Registered ${domain.orgLabel}s`}>
+              <div className="space-y-3 p-3">
               <p className="text-[12.5px] text-[#4A5E4A]">
                 {people ? `Search, then tick every ${domain.personLabel.toLowerCase()} who receives this assistance.` : 'Search, then tick every organization whose members receive this assistance. You can untick members in the review.'}
               </p>
@@ -258,7 +259,8 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
                 onPickPage={(rows) => setPicked((m) => new Map([...m, ...rows.map((r) => [r.id, r])]))}
                 onClear={() => setPicked(new Map())}
               />
-            </div>
+              </div>
+            </FormSection>
           )}
 
           {error && <p role="alert" className="rounded-lg border border-[#FCA5A5] bg-[#FEE2E2] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
