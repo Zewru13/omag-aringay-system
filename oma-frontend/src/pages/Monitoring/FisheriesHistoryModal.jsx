@@ -8,6 +8,8 @@ import BarangaySelect from '../../components/UI/BarangaySelect';
 import Button from '../../components/UI/Button.jsx';
 import { baseInputClasses } from '../../components/UI/FormField.jsx';
 import ModalShell from '../../components/UI/ModalShell.jsx';
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx';
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx';
 
 const FISHERFOLK_TYPES = [
   { value: '', label: 'All Types' },
@@ -60,38 +62,40 @@ export default function FisheriesHistoryModal({ onClose }) {
       maxWidth="max-w-4xl"
       footer={<Button type="button" variant="outline" onClick={onClose}>Close</Button>}
     >
-        <div>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Barangay</label>
-              <BarangaySelect
-                value={barangay}
-                onChange={e => setBarangay(e.target.value)}
-                className="form-control"
-                includeAllOption
-                allOptionLabel="Municipality-wide"
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Fisherfolk Type</label>
-              <select value={fisherfolkType} onChange={e => setFisherfolkType(e.target.value)} className={baseInputClasses}>
-                {FISHERFOLK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-          </div>
+        <div className="space-y-3">
+          <FormSection title="Filters">
+            <FormRows label="Filters">
+              <FormRow>
+                <FormCell label="Barangay">
+                  <BarangaySelect
+                    value={barangay}
+                    onChange={e => setBarangay(e.target.value)}
+                    className={baseInputClasses}
+                    includeAllOption
+                    allOptionLabel="Municipality-wide"
+                  />
+                </FormCell>
+                <FormCell label="Fisherfolk Type">
+                  <select value={fisherfolkType} onChange={e => setFisherfolkType(e.target.value)} className={baseInputClasses}>
+                    {FISHERFOLK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </FormCell>
+              </FormRow>
+            </FormRows>
+          </FormSection>
 
-          {loading && <p style={{ color: '#888', textAlign: 'center' }}>Loading…</p>}
-          {error && <p style={{ color: '#c62828' }}>{error}</p>}
+          {loading && <p className="text-center text-[13px] text-[#7A8E7A]">Loading…</p>}
+          {error && <p className="text-[13px] text-rose-600" role="alert">{error}</p>}
 
           {!loading && chartData.length === 0 && (
-            <p style={{ color: '#9e9e9e', textAlign: 'center', marginTop: 40 }}>
+            <p className="py-8 text-center text-[13px] italic text-[#7A8E7A]">
               No catch records found for the selected filters.
             </p>
           )}
 
           {chartData.length > 0 && (
             <>
-              <div style={{ marginBottom: 8, fontSize: 13, color: '#666' }}>
+              <div className="text-[13px] text-[#4A5E4A]">
                 <b>{data?.scope}</b> — {data?.fisherfolk_type} — {chartData.length} season record(s)
               </div>
 
@@ -122,30 +126,28 @@ export default function FisheriesHistoryModal({ onClose }) {
                 </AreaChart>
               </ResponsiveContainer>
 
-              <div style={{ overflowX: 'auto', marginTop: 18 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: '#1B4D2E' }}>
-                      {['Season', 'Year', 'Total Catch (kg)', 'Trips', 'Active Fisherfolk'].map(h => (
-                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#fff', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
+              <FormSection title="Catch by Season">
+                <EntryTable bare label="Catch by season">
+                  <EntryHead>
+                    <EntryTh>Season</EntryTh>
+                    <EntryTh>Year</EntryTh>
+                    <EntryTh className="md:text-right">Total Catch (kg)</EntryTh>
+                    <EntryTh className="md:text-center">Trips</EntryTh>
+                    <EntryTh className="md:text-center">Active Fisherfolk</EntryTh>
+                  </EntryHead>
                   <tbody>
                     {chartData.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                        <td style={{ padding: '7px 10px' }}>{row.season}</td>
-                        <td style={{ padding: '7px 10px' }}>{row.year}</td>
-                        <td style={{ padding: '7px 10px' }}>{row.volume_kg.toLocaleString()} kg</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'center' }}>{row.trips}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'center' }}>{row.fisherfolk}</td>
-                      </tr>
+                      <EntryRow key={i}>
+                        <EntryCell label="Season">{row.season}</EntryCell>
+                        <EntryCell label="Year">{row.year}</EntryCell>
+                        <EntryCell label="Total Catch (kg)" className="tabular-nums md:text-right">{row.volume_kg.toLocaleString()} kg</EntryCell>
+                        <EntryCell label="Trips" className="md:text-center">{row.trips}</EntryCell>
+                        <EntryCell label="Active Fisherfolk" className="md:text-center">{row.fisherfolk}</EntryCell>
+                      </EntryRow>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </EntryTable>
+              </FormSection>
             </>
           )}
         </div>

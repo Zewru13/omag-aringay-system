@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Search, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { FormLabel, baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -104,106 +106,65 @@ function LostInput({ row, value, name, err, onChange, className = '', placeholde
   )
 }
 
-// One table: a row per selected stock and pond/cage (or one "Whole stock" row for a stock without them).
+// One table: a row per selected stock and pond/cage (or one "Whole stock" row for a stock without them), under a heading row per stock.
 export function FingerlingsLostTable({ groups, values, onChange, showErrors }) {
   const fmt = (n) => Number(n).toLocaleString()
   const overall = groups.reduce((sum, g) => sum + g.total, 0)
   return (
-    <section className="space-y-2" data-testid="fingerlings-lost">
-      <div>
-        <h3 className="text-sm font-semibold text-slate-800">Fingerlings Lost per Stock and Production Unit</h3>
-        <p className="text-xs text-slate-500">Leave blank if not counted. Tick Total Loss when a pond/cage was completely destroyed: its Fingerlings Lost becomes the full stocked count automatically. A stock ends as Total Loss only when all of its remaining ponds/cages are.</p>
-      </div>
-
-      {/* Desktop / tablet: a table (scrolls sideways inside the modal if needed). */}
-      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 sm:block">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-              <th className="px-2.5 py-1.5">Stock</th>
-              <th className="px-2.5 py-1.5">Production Unit</th>
-              <th className="px-2.5 py-1.5 text-right">Stocked</th>
-              <th className="px-2.5 py-1.5">Fingerlings Lost</th>
-              <th className="px-2.5 py-1.5 text-center">Total Loss</th>
-            </tr>
-          </thead>
+    <div data-testid="fingerlings-lost">
+      <FormSection title="Fingerlings Lost per Stock and Production Unit">
+        <p className="border-b border-[#F0F4F0] px-3 py-2.5 text-[11.5px] leading-[1.5] text-[#7A8E7A]">
+          Leave blank if not counted. Tick Total Loss when a pond/cage was completely destroyed: its Fingerlings Lost becomes the full stocked count automatically. A stock ends as Total Loss only when all of its remaining ponds/cages are.
+        </p>
+        <EntryTable bare label="Fingerlings lost per stock and production unit">
+          <EntryHead>
+            <EntryTh>Production Unit</EntryTh>
+            <EntryTh className="md:text-right">Stocked</EntryTh>
+            <EntryTh>Fingerlings Lost</EntryTh>
+            <EntryTh className="md:text-center">Total Loss</EntryTh>
+          </EntryHead>
           {groups.map(g => (
-            <tbody key={g.stock.id} className="border-t-2 border-slate-200 align-top">
-              {g.state === 'loading' && <tr><td colSpan={5} className="px-2.5 py-2 text-xs text-slate-500">{stockOptionLabel(g.stock)} — loading ponds/cages…</td></tr>}
-              {g.state === 'error' && <tr><td colSpan={5} className="px-2.5 py-2 text-xs text-rose-600">{stockOptionLabel(g.stock)} — the ponds/cages could not be loaded. Remove and re-select the stock to retry.</td></tr>}
-              {g.rows.map((r, i) => {
+            <tbody key={g.stock.id} className="align-top max-md:block">
+              <tr className="border-t border-[#E2E8E2] bg-[#F5F8F5] max-md:block">
+                <td colSpan={4} className="px-3 py-2 text-[12px] font-semibold text-[#1B4D2E] max-md:block">{stockOptionLabel(g.stock)}</td>
+              </tr>
+              {g.state === 'loading' && <tr className="max-md:block"><td colSpan={4} className="px-3 py-2 text-xs text-[#7A8E7A] max-md:block">Loading ponds/cages…</td></tr>}
+              {g.state === 'error' && <tr className="max-md:block"><td colSpan={4} className="px-3 py-2 text-xs text-rose-600 max-md:block">The ponds/cages could not be loaded. Remove and re-select the stock to retry.</td></tr>}
+              {g.rows.map((r) => {
                 const v = values[r.key] || {}
                 const err = showErrors(r.key) ? rowError(r, v) : ''
                 const name = `${stockOptionLabel(g.stock)}, ${r.unitLabel}`
                 return (
-                  <tr key={r.key} className="border-t border-slate-100" data-testid="loss-row">
-                    <td className="px-2.5 py-2 text-xs font-semibold text-slate-800">{i === 0 ? stockOptionLabel(g.stock) : ''}</td>
-                    <td className="px-2.5 py-2 font-medium text-slate-800">{r.unitLabel}</td>
-                    <td className="px-2.5 py-2 text-right tabular-nums text-slate-600">{r.stocked != null ? fmt(r.stocked) : '—'}</td>
-                    <td className="px-2.5 py-1.5">
-                      <LostInput row={r} value={v} name={name} err={err} onChange={onChange} className="w-32" />
-                    </td>
-                    <td className="px-2.5 py-2 text-center">
+                  <EntryRow key={r.key} data-testid="loss-row">
+                    <EntryCell label="Production Unit" className="font-medium text-[#1A2B1A]">{r.unitLabel}</EntryCell>
+                    <EntryCell label="Stocked" className="tabular-nums text-[#4A5E4A] md:text-right">{r.stocked != null ? fmt(r.stocked) : '—'}</EntryCell>
+                    <EntryCell label="Fingerlings Lost">
+                      <LostInput row={r} value={v} name={name} err={err} onChange={onChange} className="md:w-36" />
+                    </EntryCell>
+                    <EntryCell label="Total Loss" className="md:text-center">
                       <input type="checkbox" className="h-4 w-4 rounded border-rose-300 text-rose-600"
                         aria-label={`Total loss — ${name} completely destroyed`}
                         checked={Boolean(v.total)} onChange={e => onChange(r.key, { total: e.target.checked })} />
-                    </td>
-                  </tr>
+                    </EntryCell>
+                  </EntryRow>
                 )
               })}
-              {g.skipped.length > 0 && <tr><td colSpan={5} className="px-2.5 pb-2 text-[11px] text-slate-400">Already harvested, not listed: {g.skipped.join(', ')}</td></tr>}
+              {g.skipped.length > 0 && <tr className="max-md:block"><td colSpan={4} className="px-3 pb-2 text-[11px] text-[#7A8E7A] max-md:block">Already harvested, not listed: {g.skipped.join(', ')}</td></tr>}
               {g.rows.length > 0 && (
-                <tr className="bg-slate-50 text-xs font-semibold text-slate-700" data-testid="stock-total">
-                  <td className="px-2.5 py-1.5" colSpan={3}>Total — {stockOptionLabel(g.stock)}</td>
-                  <td className="px-2.5 py-1.5" colSpan={2}>{fmt(g.total)} fingerlings</td>
+                <tr className="bg-[#F9FAF9] text-xs font-semibold text-[#4A5E4A] max-md:block" data-testid="stock-total">
+                  <td className="px-3 py-1.5 max-md:block" colSpan={4}>Total — {stockOptionLabel(g.stock)}: {fmt(g.total)} fingerlings</td>
                 </tr>
               )}
             </tbody>
           ))}
-          <tfoot>
-            <tr className="border-t-2 border-slate-300 bg-slate-100 text-xs font-bold text-slate-800" data-testid="overall-total">
-              <td className="px-2.5 py-1.5" colSpan={3}>TOTAL FINGERLINGS LOST</td>
-              <td className="px-2.5 py-1.5" colSpan={2}>{fmt(overall)}</td>
+          <tfoot className="max-md:block">
+            <tr className="border-t-2 border-[#E2E8E2] bg-[#EBF5EE] text-xs font-bold text-[#1B4D2E] max-md:block" data-testid="overall-total">
+              <td className="px-3 py-2 max-md:block" colSpan={4}>TOTAL FINGERLINGS LOST: {fmt(overall)}</td>
             </tr>
           </tfoot>
-        </table>
-      </div>
-
-      {/* Phones: one card per stock, one block per pond/cage. */}
-      <div className="space-y-3 sm:hidden">
-        {groups.map(g => (
-          <div key={g.stock.id} className="rounded-lg border border-slate-200 p-3">
-            <p className="text-sm font-semibold text-slate-800">{stockOptionLabel(g.stock)}</p>
-            {g.state === 'loading' && <p className="text-xs text-slate-500">Loading ponds/cages…</p>}
-            {g.state === 'error' && <p className="text-xs text-rose-600">The ponds/cages could not be loaded. Remove and re-select the stock to retry.</p>}
-            {g.rows.map(r => {
-              const v = values[r.key] || {}
-              const err = showErrors(r.key) ? rowError(r, v) : ''
-              const name = `${stockOptionLabel(g.stock)}, ${r.unitLabel}`
-              return (
-                <div key={r.key} className="mt-2 border-t border-slate-100 pt-2">
-                  <div className="flex items-baseline justify-between gap-2 text-sm">
-                    <span className="font-medium text-slate-800">{r.unitLabel}</span>
-                    <span className="text-xs text-slate-500">Stocked: {r.stocked != null ? fmt(r.stocked) : '—'}</span>
-                  </div>
-                  <div className="mt-1 flex items-start gap-3">
-                    <LostInput row={r} value={v} name={name} err={err} onChange={onChange} className="flex-1" placeholder="Fingerlings lost" />
-                    <label className="flex min-h-[44px] items-center gap-1.5 text-xs font-medium text-rose-700">
-                      <input type="checkbox" className="h-4 w-4 rounded border-rose-300 text-rose-600" aria-label={`Total loss — ${name} completely destroyed`}
-                        checked={Boolean(v.total)} onChange={e => onChange(r.key, { total: e.target.checked })} />
-                      Total loss
-                    </label>
-                  </div>
-                </div>
-              )
-            })}
-            {g.skipped.length > 0 && <p className="mt-2 text-[11px] text-slate-400">Already harvested, not listed: {g.skipped.join(', ')}</p>}
-            {g.rows.length > 0 && <p className="mt-2 border-t border-slate-100 pt-2 text-xs font-semibold text-slate-700">Total: {fmt(g.total)} fingerlings</p>}
-          </div>
-        ))}
-        <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-800">Total fingerlings lost: {fmt(overall)}</p>
-      </div>
-    </section>
+        </EntryTable>
+      </FormSection>
+    </div>
   )
 }
 
@@ -370,89 +331,100 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
         <Button type="submit" form="ff-stock-disaster-form" isLoading={isSubmitting} disabled={isSubmitting || stocks === null}>Log Disaster</Button>
       </>}
     >
-      <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-3" noValidate>
         <DraftBanner draft={draft} />
-        {/* Row 1: the affected stock on the left, the equipment damaged beside it. From lg up the equipment list is
-            laid out inside the right cell (absolute) so it is exactly as tall as the stock side, with no gap under it. */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <FormField label="Affected Stock" required>
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Affected stock">
-              <label className={radioCls(mode === LINKED)}>
-                <input type="radio" name="disaster-link" className="mt-0.5 shrink-0" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
-                <span>
-                  <span className="block font-medium text-slate-800">One or more stocks</span>
-                  <span className="block text-xs text-slate-500">Choose the affected stocks below</span>
-                </span>
-              </label>
-              <label className={radioCls(mode === NOT_LINKED)}>
-                <input type="radio" name="disaster-link" className="mt-0.5 shrink-0" checked={mode === NOT_LINKED}
-                  onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
-                <span>
-                  <span className="block font-medium text-slate-800">Not linked to a stock</span>
-                  <span className="block text-xs text-slate-500">(pond, cage or equipment damage only)</span>
-                </span>
-              </label>
-            </div>
-            {/* Always shown; greyed out and unusable while the report is not linked to a stock. */}
-            <div className="mt-2">
-              {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
-                : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
-                  : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} disabled={mode === NOT_LINKED} />}
-            </div>
-          </FormField>
-          <div className="lg:relative">
-            <div className="flex flex-col lg:absolute lg:inset-0">
-              <FormLabel>Equipment Damaged</FormLabel>
-              <EquipmentChecklist
-                fill
-                groups={AQUACULTURE_EQUIPMENT_GROUPS}
-                selected={form.equipment_damaged}
-                onToggle={toggleEquipment}
-                otherValue={form.equipment_damaged_other}
-                onOtherChange={(v) => set('equipment_damaged_other', v)}
-                inputClassName={baseInputClasses}
-              />
-            </div>
-          </div>
-        </div>
+
+        <FormSection title="Event">
+          <FormRows label="Event">
+            <FormRow>
+              <FormCell label="Date of Occurrence" required>
+                <input type="date" className={baseInputClasses} required value={form.date_of_occurrence}
+                  max={todayLocal()} min={latestStocked || undefined}
+                  onChange={e => set('date_of_occurrence', e.target.value)} />
+              </FormCell>
+              <FormCell label="Disaster Type" required>
+                <select className={baseInputClasses} value={form.disaster_type} onChange={e => set('disaster_type', e.target.value)}>
+                  {FISHERFOLK_DISASTER_TYPES.map(d => <option key={d}>{d}</option>)}
+                </select>
+              </FormCell>
+            </FormRow>
+            {form.disaster_type === 'Other' && (
+              <FormRow>
+                <FormCell label="Specify Disaster Type" required wide>
+                  <input className={baseInputClasses} value={form.disaster_type_other_specify}
+                    onChange={e => set('disaster_type_other_specify', e.target.value)}
+                    placeholder="Specify disaster type" maxLength={150} required />
+                </FormCell>
+              </FormRow>
+            )}
+            <FormRow>
+              <FormCell label="Volume Lost (kg)" wide>
+                <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
+                  onChange={e => set('volume_lost_kg', e.target.value)} placeholder="e.g. 150" />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Description of Damage" wide>
+                <textarea rows={3} className={`${baseInputClasses} min-h-[5rem] resize-none`}
+                  value={form.estimated_damage}
+                  onChange={e => set('estimated_damage', e.target.value)}
+                  placeholder="Describe the damage to the stock, pond/cage and equipment" />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
+
+        <FormSection title="Stock and Equipment">
+          <FormRows label="Stock and equipment">
+            <FormRow>
+              <FormCell label="Affected Stock" required wide>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Affected stock">
+                  <label className={radioCls(mode === LINKED)}>
+                    <input type="radio" name="disaster-link" className="mt-0.5 shrink-0" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
+                    <span>
+                      <span className="block font-medium text-slate-800">One or more stocks</span>
+                      <span className="block text-xs text-slate-500">Choose the affected stocks below</span>
+                    </span>
+                  </label>
+                  <label className={radioCls(mode === NOT_LINKED)}>
+                    <input type="radio" name="disaster-link" className="mt-0.5 shrink-0" checked={mode === NOT_LINKED}
+                      onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
+                    <span>
+                      <span className="block font-medium text-slate-800">Not linked to a stock</span>
+                      <span className="block text-xs text-slate-500">(pond, cage or equipment damage only)</span>
+                    </span>
+                  </label>
+                </div>
+                {/* Always shown; greyed out and unusable while the report is not linked to a stock. */}
+                <div className="mt-2">
+                  {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
+                    : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
+                      : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} disabled={mode === NOT_LINKED} />}
+                </div>
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Equipment Damaged" wide>
+                <EquipmentChecklist
+                  groups={AQUACULTURE_EQUIPMENT_GROUPS}
+                  selected={form.equipment_damaged}
+                  onToggle={toggleEquipment}
+                  otherValue={form.equipment_damaged_other}
+                  onOtherChange={(v) => set('equipment_damaged_other', v)}
+                  inputClassName={baseInputClasses}
+                />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {mode === LINKED && groups.length > 0 && (
           <FingerlingsLostTable groups={groups} values={losses} onChange={changeLoss} showErrors={showErrors} />
         )}
 
-        {/* Row 2: when, what and how much on the left; the description fills the right column to the same height. */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-4">
-            <FormField label="Date of Occurrence" required>
-              <input type="date" className={baseInputClasses} required value={form.date_of_occurrence}
-                max={todayLocal()} min={latestStocked || undefined}
-                onChange={e => set('date_of_occurrence', e.target.value)} />
-            </FormField>
-            <FormField label="Disaster Type" required>
-              <select className={baseInputClasses} value={form.disaster_type} onChange={e => set('disaster_type', e.target.value)}>
-                {FISHERFOLK_DISASTER_TYPES.map(d => <option key={d}>{d}</option>)}
-              </select>
-              {form.disaster_type === 'Other' && (
-                <input className={`${baseInputClasses} mt-2`} value={form.disaster_type_other_specify}
-                  onChange={e => set('disaster_type_other_specify', e.target.value)}
-                  placeholder="Specify disaster type" maxLength={150} required />
-              )}
-            </FormField>
-            <FormField label="Volume Lost (kg)">
-              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
-                onChange={e => set('volume_lost_kg', e.target.value)} placeholder="e.g. 150" />
-            </FormField>
-          </div>
-          <div className="flex flex-col">
-            <FormLabel>Description of Damage</FormLabel>
-            <textarea rows={6} className="min-h-[9rem] w-full flex-1 resize-none rounded-lg border border-[#E2E8E2] bg-white px-3 py-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] transition-colors focus:border-[#1B4D2E] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/10"
-              value={form.estimated_damage}
-              onChange={e => set('estimated_damage', e.target.value)}
-              placeholder="Describe the damage to the stock, pond/cage and equipment" />
-          </div>
-        </div>
-
-        <DamagePhotosField photosState={damagePhotos} />
+        <FormSection title="Photo Documentation of Damage">
+          <div className="px-3 py-2.5"><DamagePhotosField photosState={damagePhotos} title="" /></div>
+        </FormSection>
       </form>
     </ModalShell>
   )

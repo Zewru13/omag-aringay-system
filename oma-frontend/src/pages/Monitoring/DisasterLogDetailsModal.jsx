@@ -4,6 +4,8 @@ import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { DetailTable, FormSection } from '../../components/UI/FormTable.jsx'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import {
   FARMER_LOG, FISHERIES_LOG, allPhotoUrls, cropSections, downloadLog, fmtDateTime, lossTable, printLog, reportSections,
@@ -17,27 +19,17 @@ import {
 const SUBMISSION_TONES = { SUBMITTED: 'green', DRAFT: 'amber' }
 const STATUS_TONES = { Active: 'amber', Recovered: 'green' }
 
-function Section({ title, children }) {
+// A titled section holding free content (a list, a paragraph, photos); `flush` for a table that brings its own cells.
+function Section({ title, children, flush = false }) {
   return (
-    <section className="space-y-2">
-      <h3 className="border-b border-[#E2E8E2] pb-1 text-[12px] font-semibold uppercase tracking-wide text-[#1E4620]">{title}</h3>
-      {children}
-    </section>
+    <FormSection title={title}>
+      {flush ? children : <div className="space-y-2 px-3 py-2.5">{children}</div>}
+    </FormSection>
   )
 }
 
-function Rows({ rows }) {
-  return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex items-start justify-between gap-4 border-b border-[#F0F4F0] pb-1.5">
-          <dt className="text-[12px] font-medium text-[#7A8E7A]">{label}</dt>
-          <dd className="text-right text-[13px] font-semibold text-[#1A2B1A]">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
+// The [label, value] pairs of a saved log as the fields of a detail table.
+const asFields = (rows) => rows.map(([label, value]) => ({ label, value }))
 
 function Photos({ urls }) {
   if (!urls.length) return null
@@ -61,23 +53,21 @@ function Paragraphs({ items, empty = 'No description recorded.' }) {
   return items.map(t => <p key={t} className="whitespace-pre-wrap text-[13px] text-[#1A2B1A]">{t}</p>)
 }
 
-// A read-only data table (affected stocks / fingerlings lost); scrolls sideways on narrow screens.
-function TableBlock({ table, testId }) {
+// A read-only data table (affected stocks / fingerlings lost): one labelled column per field; cards on a phone.
+function TableBlock({ table, testId, title }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#E2E8E2]" data-testid={testId}>
-      <table className="w-full min-w-[520px] text-[13px]">
-        <thead className="bg-[#F9FAF9] text-left text-[11px] uppercase tracking-wide text-[#7A8E7A]">
-          <tr>{table.head.map(h => <th key={h} className="px-2.5 py-1.5 font-semibold">{h}</th>)}</tr>
-        </thead>
+    <FormSection title={title}>
+      <EntryTable bare label={title} testId={testId}>
+        <EntryHead>{table.head.map(h => <EntryTh key={h}>{h}</EntryTh>)}</EntryHead>
         <tbody>
           {table.rows.map((r, i) => (
-            <tr key={i} className={`border-t border-[#F0F4F0] ${table.boldRows.has(i) ? 'bg-[#F9FAF9] font-semibold' : ''}`}>
-              {r.map((v, j) => <td key={j} className="px-2.5 py-1.5 text-[#1A2B1A]">{v}</td>)}
-            </tr>
+            <EntryRow key={i} tone={table.boldRows.has(i) ? 'bg-[#F9FAF9] font-semibold' : ''}>
+              {r.map((v, j) => <EntryCell key={j} label={table.head[j]}>{v}</EntryCell>)}
+            </EntryRow>
           ))}
         </tbody>
-      </table>
-    </div>
+      </EntryTable>
+    </FormSection>
   )
 }
 
@@ -97,14 +87,12 @@ function FisheriesBody({ doc }) {
           Submitted to Admin on {fmtDateTime(doc.submitted_at)}{doc.submitted_by_name ? ` by ${doc.submitted_by_name}` : ''}.
         </p>
       )}
-      <Section title="Disaster Log"><Rows rows={s.header} /></Section>
-      <Section title="Fisherfolk"><Rows rows={s.fisherfolk} /></Section>
-      {stocks && <Section title="Affected Stocks"><TableBlock table={stocks} testId="affected-stocks" /></Section>}
-      {s.stock && <Section title="Affected Stock"><Rows rows={s.stock} /></Section>}
-      {losses && (
-        <Section title="Fingerlings Lost per Stock and Production Unit"><TableBlock table={losses} testId="fingerlings-lost" /></Section>
-      )}
-      <Section title="Disaster Details"><Rows rows={s.details} /></Section>
+      <DetailTable title="Disaster Log" fields={asFields(s.header)} />
+      <DetailTable title="Fisherfolk" fields={asFields(s.fisherfolk)} />
+      {stocks && <TableBlock title="Affected Stocks" table={stocks} testId="affected-stocks" />}
+      {s.stock && <DetailTable title="Affected Stock" fields={asFields(s.stock)} />}
+      {losses && <TableBlock title="Fingerlings Lost per Stock and Production Unit" table={losses} testId="fingerlings-lost" />}
+      <DetailTable title="Disaster Details" fields={asFields(s.details)} />
       <Section title="Equipment Damaged">
         {doc.equipment_damaged.length ? (
           <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-[#1A2B1A]">{doc.equipment_damaged.map(e => <li key={e}>{e}</li>)}</ul>
@@ -128,10 +116,10 @@ function FarmerBody({ doc }) {
         <span className="text-[13px] font-semibold text-[#1A2B1A]">Reference No. {doc.report_number}</span>
         <StatusPill tone={STATUS_TONES[doc.status] || 'slate'}>{doc.status}</StatusPill>
       </div>
-      <Section title="Disaster Log"><Rows rows={s.header} /></Section>
-      <Section title="Farmer"><Rows rows={s.farmer} /></Section>
-      <Section title="Affected Crop"><Rows rows={s.crop} /></Section>
-      <Section title="Disaster Details"><Rows rows={s.details} /></Section>
+      <DetailTable title="Disaster Log" fields={asFields(s.header)} />
+      <DetailTable title="Farmer" fields={asFields(s.farmer)} />
+      <DetailTable title="Affected Crop" fields={asFields(s.crop)} />
+      <DetailTable title="Disaster Details" fields={asFields(s.details)} />
       <Section title="Description of Damage"><Paragraphs items={s.paragraphs} /></Section>
       <Photos urls={[...(doc.photo ? [doc.photo] : []), ...(doc.photos || []).map(p => p.url)]} />
     </>
@@ -182,7 +170,7 @@ export default function DisasterLogDetailsModal({ kind = 'fisheries', logId, onC
       {error && <p className="text-sm text-rose-600" role="alert">{error}</p>}
       {!doc && !error && <p className="text-sm text-slate-500">Loading the disaster log…</p>}
       {doc && (
-        <div className="space-y-5" data-testid="disaster-log">
+        <div className="space-y-3" data-testid="disaster-log">
           {kind === 'farmer' ? <FarmerBody doc={doc} /> : <FisheriesBody doc={doc} />}
         </div>
       )}
