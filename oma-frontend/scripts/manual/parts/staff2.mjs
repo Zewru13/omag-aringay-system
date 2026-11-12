@@ -122,8 +122,8 @@ export const STAFF2 = [
     ] }),
   A({ id: 'admin-assign-officer', file: 'admin/assign-officer.png', url: '/organizations/farmers/1', js: click('Assign Officer'), after: 2000, title: 'Assign Officer window', purpose: 'Gives a position to a member.',
     callouts: [
-      { find: { text: 'Position', tag: 'label', up: 1 }, label: 'Position', desc: 'President, Vice President, Secretary, Treasurer, Auditor, Board Member and the others. A position that is already held is grayed out and marked (taken); the first free one is chosen for you.' },
-      { find: { text: 'Member', tag: 'label', up: 1 }, label: 'Member', desc: 'Search this organization\'s members by name and choose one. Only members can be officers.' },
+      { find: { text: 'Position', tag: 'th', up: 1, last: true }, label: 'Position', desc: 'President, Vice President, Secretary, Treasurer, Auditor, Board Member and the others. A position that is already held is grayed out and marked (taken); the first free one is chosen for you.' },
+      { find: { text: 'Member', tag: 'th', up: 1 }, label: 'Member', desc: 'Search this organization\'s members by name and choose one. Only members can be officers.' },
       { find: { text: 'Assign Officer', tag: 'button', last: true }, label: 'Assign Officer', desc: 'Saves the assignment, with the date it starts.' },
     ] }),
   A({ id: 'admin-fisherfolk-orgs', file: 'admin/fisherfolk-organizations.png', url: '/fisherfolk?tab=organizations', title: 'Organizations > Fisherfolk Organizations', purpose: 'The same page for fisherfolk organizations.',

@@ -164,8 +164,8 @@ export const CITIZEN = [
     ] }),
   O({ id: 'org-add-member', file: 'org/add-member.png', url: '/my-organization', js: click('Add Member'), after: 2000, title: 'Add Member window', purpose: 'Adds one registered farmer to your organization.',
     callouts: [
-      { find: { text: 'Search Farmer', tag: 'label', up: 1 }, label: 'Search Farmer', desc: 'Required. Type a name or RSBSA number and choose the farmer. Only registered farmers can be added.' },
-      { find: { text: 'Date Joined', tag: 'label', up: 1 }, label: 'Date Joined', desc: 'Required. The day the farmer joined. It cannot be in the future.' },
+      { find: { text: 'Search Farmer', tag: 'th', up: 1 }, label: 'Search Farmer', desc: 'Required. Type a name or RSBSA number and choose the farmer. Only registered farmers can be added.' },
+      { find: { text: 'Date Joined', tag: 'th', up: 1 }, label: 'Date Joined', desc: 'Required. The day the farmer joined. It cannot be in the future.' },
       { find: { text: 'Add Member', tag: 'button', last: true }, label: 'Add Member', desc: 'Saves the membership.' },
       { find: { text: 'Cancel', tag: 'button', exact: true, last: true }, label: 'Cancel', desc: 'Closes the window; nothing is saved.' },
     ] }),
