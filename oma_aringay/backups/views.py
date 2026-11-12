@@ -4,6 +4,8 @@ import tempfile
 
 from django.core.files.storage import default_storage
 from django.http import FileResponse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -230,6 +232,51 @@ def recognise(local):
     if record is None:
         raise service.RestoreError('That file is not one of the backups in the list, so it cannot be restored. Choose a file this system downloaded for a backup.')
     return record
+
+
+class BackupImportView(APIView):
+    """Admin only. Import backup file: a backup made elsewhere (or whose entry is not in the list) is checked and added to the history, so that the Restore
+    window accepts its file. Answers like every import of the system: `dry_run=true` previews ({created: 0, summary, rows}) and changes nothing; otherwise the
+    entry is added (kind Imported, the file's fingerprint and counts; the file itself is not kept online). A file that is already in the list is not added
+    twice. Importing never changes a record."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if service.is_busy():
+            return busy_response()
+        upload = request.FILES.get('file')
+        if upload is None:
+            return refuse('Choose the backup file from your computer.')
+        if upload.size > service.import_limit():
+            return refuse(f'That file is too large to import (the limit is {service.import_limit() / (1024 * 1024):,.0f} MB).')
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('true', '1', 'yes')
+        local = keep_upload(upload)
+        try:
+            info = service.inspect_backup_file(local)
+            with open(local, 'rb') as f:
+                checksum = service.checksum_of(f)
+        except service.RestoreError as exc:
+            return refuse(str(exc))
+        finally:
+            os.remove(local)
+        existing = (BackupRecord.objects.filter(checksum=checksum, status=BackupRecord.Status.DONE)
+                    .exclude(kind=BackupRecord.Kind.RESTORE).order_by('-id').first())
+        rows, summary = service.describe_import(info, upload.name, upload.size, existing)
+        created = 0
+        if not dry_run and existing is None:
+            manifest = info['manifest']
+            when = parse_datetime(str(manifest.get('created_at')))
+            made = timezone.localtime(when) if when else None
+            now = timezone.now()
+            record = BackupRecord.objects.create(
+                created_by=request.user, made_by=request.user.username, kind=BackupRecord.Kind.IMPORTED, status=BackupRecord.Status.DONE,
+                name=(service.default_name(made) if made else f'Imported {upload.name}')[:120], file_name=os.path.basename(upload.name)[:120],
+                checksum=checksum, size_bytes=upload.size, records_count=int(manifest.get('records') or 0), files_count=int(manifest.get('files') or 0),
+                files_skipped=int(manifest.get('files_skipped') or 0), remarks=f'Imported from a file{f" made {made:%b %d, %Y %I:%M %p}" if made else ""}.'[:255],
+                finished_at=now)
+            created = 1
+        return Response({'created': created, 'summary': summary, 'rows': rows})
 
 
 class BackupSummaryView(APIView):

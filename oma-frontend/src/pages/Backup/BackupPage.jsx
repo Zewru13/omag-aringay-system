@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, HardDriveDownload, History, Loader2, Pencil } from 'lucide-react'
+import { Download, HardDriveDownload, History, Loader2, Pencil, Upload } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
@@ -8,28 +9,25 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import PillTabs from '../../components/UI/PillTabs.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { CycleField, CycleRow, CycleRows, CycleSection } from '../Monitoring/CycleFormTable.jsx'
 import BackupGroups from './BackupGroups.jsx'
-import RestoreTab from './RestoreTab.jsx'
+import RestoreModal from './RestoreModal.jsx'
 import {
   backupSummary, fileNote, formatBytes, formatDate, formatTime, nextAutoDownload, notesProblem, runningMessage,
 } from './backupFormat.js'
 
-// Admin > Backup & Restore, in two modes. CREATE BACKUP: a backup is one file (.zip) with the whole database (and, if the Admin ticks it, the activity log
-// and notifications) and every uploaded file. It is made only when the Admin presses Download backup, and it is made for download: when it is done the page
+// Admin > Backup & Restore, one page with three buttons. DOWNLOAD BACKUP: a backup is one file (.zip) with the whole database (and, if the Admin ticks it, the
+// activity log and notifications) and every uploaded file. It is made only when the Admin presses it, and it is made for download: when it is done the page
 // saves it to the computer and the online copy is removed. The history keeps every backup ever made (nothing is deleted) with its name, date, time and the
-// place the Admin says the file is kept; those notes can be edited. RESTORE: the Admin drops a backup's file, sees what it would change and confirms with
-// their password (RestoreTab.jsx); a safety backup of how things are now is made first. While a backup or a restore is running, nothing else can be done here.
-const TABS = [
-  { id: 'create', label: 'Create backup', icon: HardDriveDownload },
-  { id: 'restore', label: 'Restore', icon: History },
-]
-const TONES = { done: 'green', running: 'amber', failed: 'red' }
+// place the Admin says the file is kept; those notes can be edited. RESTORE opens a table form: the Admin drops a backup's file, sees what it would change
+// and confirms with their password (RestoreModal.jsx); a safety backup of how things are now is made first. IMPORT BACKUP FILE is the shared import window
+// (Upload File, Preview, Done) pointed at /backups/import/: a backup made elsewhere is checked and added to the history so that Restore accepts it.
+// While a backup or a restore is running, nothing else can be done here.
+const TONES = { done: 'green', running: 'teal', failed: 'rose' }
 const COLUMNS = [
   { key: 'name', label: 'NAME' },
   { key: 'date', label: 'DATE' },
@@ -128,10 +126,10 @@ function BackupNotesModal({ backup, onClose, onSubmit }) {
 
 export default function BackupPage() {
   const { showToast } = useToast()
-  const [mode, setMode] = useState('create')      // 'create' (Create backup) or 'restore' (Restore)
+  const [restoring, setRestoring] = useState(null)   // null = closed, {} = Restore from any file, a row = the backup whose file was asked for
+  const [importing, setImporting] = useState(false)
   const [groups, setGroups] = useState(null)      // what a backup holds, from the server (null while loading)
   const [includeAudit, setIncludeAudit] = useState(false)   // the activity log and notifications go in the backup only when the Admin ticks it
-  const [restoreHint, setRestoreHint] = useState(null)      // the backup of the history whose file the Admin wants to restore from
   const [rows, setRows] = useState(null)          // null while loading
   const [busy, setBusy] = useState(false)         // a backup or a restore is running (the server says so)
   const [error, setError] = useState('')
@@ -231,7 +229,6 @@ export default function BackupPage() {
 
   const list = rows || []
   const locked = busy || savingId !== null
-  const waiting = list.filter((r) => r.status === 'done' && r.has_file).length
   const data = list.map((row) => ({
     id: row.id,
     name: (
@@ -259,74 +256,68 @@ export default function BackupPage() {
     status: (
       <div>
         <StatusPill tone={TONES[row.status] || 'slate'}>{row.status_label}</StatusPill>
-        {fileNote(row) && <p className={`mt-1 whitespace-nowrap ${row.has_file ? 'text-[12px] font-medium text-amber-700' : muted}`}>{fileNote(row)}</p>}
+        {fileNote(row) && <p className={`mt-1 whitespace-nowrap ${row.has_file ? 'text-[12px] font-medium text-[#1B4D2E]' : muted}`}>{fileNote(row)}</p>}
       </div>
     ),
     actions: (
       <RowActions alwaysMenu actions={[
         row.has_file && { key: 'download', label: savingId === row.id ? 'Saving…' : 'Download', icon: Download, onClick: () => download(row), disabled: locked, disabledReason: LOCKED_REASON },
         row.status !== 'running' && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setNotes(row), disabled: locked, disabledReason: LOCKED_REASON },
-        row.can_restore && { key: 'restore', label: 'Restore', icon: History, onClick: () => { setRestoreHint(row); setMode('restore') }, disabled: locked, disabledReason: LOCKED_REASON, group: 'restore' },
+        row.can_restore && { key: 'restore', label: 'Restore', icon: History, onClick: () => setRestoring(row), disabled: locked, disabledReason: LOCKED_REASON, group: 'restore' },
       ]} />
     ),
   }))
 
   return (
-    <PageLayout title="Backup & Restore" subtitle="Save a copy of the whole system to your computer, and put a copy back">
+    <PageLayout title="Backup & Restore" subtitle="Save a copy of the whole system, or put one back">
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <PillTabs ariaLabel="Backup and restore" tabs={TABS} value={mode} onChange={setMode} />
-        </div>
+        <section aria-label="Backup" className="space-y-4 rounded-xl border border-[#E2E8E2] bg-white p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="min-w-0 flex-1 basis-64 text-[13px] text-[#4A5E4A]">One file (.zip) with every record below and every uploaded photo and file.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" icon={Download} disabled={locked || rows === null} onClick={() => setNotes({})}>
+                {busy ? 'Please wait…' : 'Download backup'}
+              </Button>
+              <Button type="button" variant="outline" icon={History} disabled={locked} onClick={() => setRestoring({})}>Restore</Button>
+              <Button type="button" variant="outline" icon={Upload} disabled={locked} onClick={() => setImporting(true)}>Import backup file</Button>
+            </div>
+          </div>
+          <BackupGroups groups={groups} includeAudit={includeAudit} onIncludeAudit={setIncludeAudit} disabled={locked} />
+        </section>
 
         {busy && (
-          <div role="status" className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-            <Loader2 size={18} className="mt-0.5 shrink-0 animate-spin" aria-hidden="true" />
-            <p>
-              <span className="font-semibold">{runningMessage(list) || 'A backup or a restore is running.'}</span>{' '}
-              Nothing else can be done on this page until it is finished. Keep this page open; it can take a few minutes.
-            </p>
+          <div role="status" className="flex items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3 text-[13px] text-[#4A5E4A]">
+            <Loader2 size={18} className="shrink-0 animate-spin text-[#1B4D2E]" aria-hidden="true" />
+            <p><span className="font-semibold text-[#1A2B1A]">{runningMessage(list) || 'A backup or a restore is running.'}</span> Please wait: nothing else can be done here until it is finished.</p>
           </div>
         )}
         {error && <ErrorMessage message={error} />}
 
-        {mode === 'restore' ? (
-          <RestoreTab locked={locked} hint={restoreHint} onStarted={restoreStarted} />
-        ) : (
-          <>
-            <section aria-label="Create backup" className="space-y-4 rounded-xl border border-[#E2E8E2] bg-white p-4">
-              <p className="text-[13px] text-[#4A5E4A]">
-                Saves one file (.zip) holding every record below and every uploaded photo and file. You choose where it goes: keep it somewhere off this computer
-                and write where in its Location.
-              </p>
-              <BackupGroups groups={groups} includeAudit={includeAudit} onIncludeAudit={setIncludeAudit} disabled={locked} />
-              <Button type="button" icon={Download} disabled={locked || rows === null} onClick={() => setNotes({})}>
-                {busy ? 'Please wait…' : 'Download backup'}
-              </Button>
-            </section>
-
-            {!busy && waiting > 0 && (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-                {waiting === 1 ? 'One backup file is' : `${waiting} backup files are`} still online, waiting to be downloaded. Download {waiting === 1 ? 'it' : 'them'} to
-                keep {waiting === 1 ? 'it' : 'them'}; the online copy is removed once the file is on your computer.
-              </p>
-            )}
-
-            <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <CardHeader title="Backup history" count={list.length} />
-              <DataTable bare columns={COLUMNS} data={data} isLoading={rows === null} phoneTitleKey="name" phoneSubtitleKey="date"
-                emptyState={<p className="px-5 py-8 text-center text-sm text-slate-500">No backup yet. Press Download backup to make the first one.</p>} />
-            </div>
-
-            <p className={muted}>
-              Backups are made only when you press Download backup. An entry is never removed from this list. To restore, open the Restore tab and add the
-              backup&apos;s file, or choose Restore on a finished backup here.
-            </p>
-          </>
-        )}
+        <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <CardHeader title="Backup history" count={list.length} />
+          <DataTable bare columns={COLUMNS} data={data} isLoading={rows === null} phoneTitleKey="name" phoneSubtitleKey="date"
+            emptyState={<p className="px-5 py-8 text-center text-sm text-slate-500">No backup yet. Press Download backup to make the first one.</p>} />
+        </div>
       </div>
 
       {notes && !notes.id && <BackupNotesModal onClose={() => setNotes(null)} onSubmit={startBackup} />}
       {notes?.id && <BackupNotesModal backup={notes} onClose={() => setNotes(null)} onSubmit={saveNotes} />}
+      {restoring && <RestoreModal hint={restoring.id ? restoring : null} locked={locked} onClose={() => setRestoring(null)} onStarted={restoreStarted} />}
+      {importing && (
+        <ImportFileModal
+          title="Import Backup File"
+          subtitle="Check a backup file made elsewhere and add it to the history. No record is changed."
+          importUrl="/backups/import/"
+          accept=".zip,application/zip,application/x-zip-compressed"
+          chooseText="Click to choose a backup file (.zip)"
+          fileHint="The .zip file saved from Backup & Restore, on this or another copy of the system"
+          rowWord="Check"
+          createdText={(r) => (r.created ? 'Added to the Backup history as an Imported entry' : 'Nothing was added: the file is already in the history')}
+          icon={Upload}
+          onClose={() => setImporting(false)}
+          onImported={load}
+        />
+      )}
     </PageLayout>
   )
 }

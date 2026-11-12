@@ -1,7 +1,5 @@
-import { AlertTriangle } from 'lucide-react'
-
 // What a backup holds (Backup & Restore > Create backup): one card for each group of records with how many there are now, the optional tick for the
-// activity log and the notifications, and a note on what the file cannot protect. `groups` comes from GET /backups/summary/ (null while loading).
+// activity log and the notifications. `groups` comes from GET /backups/summary/ (null while loading).
 const plural = (n, word) => `${Number(n).toLocaleString('en-US')} ${word}${Number(n) === 1 ? '' : 's'}`
 
 export default function BackupGroups({ groups, includeAudit, onIncludeAudit, disabled }) {
@@ -26,24 +24,11 @@ export default function BackupGroups({ groups, includeAudit, onIncludeAudit, dis
           <span className="min-w-0">
             <span className="block text-[13px] font-medium text-[#1A2B1A]">Include the audit trail and notification history</span>
             <span className="block text-[12px] leading-snug text-[#7A8E7A]">
-              {audit.description} {plural(audit.count, 'record')} now. Leave it unticked for a smaller, quicker backup: restoring such a file keeps the activity log
-              and notifications that are already in the system.
+              The activity log and the notifications ({plural(audit.count, 'record')}). Left unticked, the backup is smaller and quicker.
             </span>
           </span>
         </label>
       )}
-
-      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-900">
-        <AlertTriangle size={16} className="mt-0.5 flex-none" aria-hidden="true" />
-        <div>
-          <p className="font-semibold">Two things to know about this file</p>
-          <p>
-            <span className="font-semibold">It is not encrypted.</span> It holds personal records and the login accounts with their scrambled passwords: keep it
-            somewhere safe, off this computer. <span className="font-semibold">It holds rows and files only.</span> The database structure (tables and rules) comes from the
-            system&apos;s own update scripts, not from a backup.
-          </p>
-        </div>
-      </div>
     </div>
   )
 }
