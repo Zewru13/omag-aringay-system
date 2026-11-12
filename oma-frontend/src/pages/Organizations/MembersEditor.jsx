@@ -7,6 +7,7 @@ import ImportFileAttach from './ImportFileAttach.jsx'
 import MembersPickerModal from './MembersPickerModal.jsx'
 import { heldPositions, positionLabel, takenForLine } from './positionRules.js'
 import { MEMBER_POSITIONS, addMemberLine } from './registrationMembers.js'
+import Button from '../../components/UI/Button.jsx'
 
 // The members of an organization, as lines on its registration or edit form: "Add Members" opens a table of the registered farmers / fisherfolk who
 // are not members yet (search, select, choose each one's position), and/or a members file is attached (registration only: `onImportFile`). The form
@@ -41,10 +42,9 @@ export default function MembersEditor({ type, lines, onChange, registered, organ
   return (
     <div className="space-y-3">
       <div>
-        <button type="button" onClick={() => setShowPicker(true)}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 text-[13px] font-semibold text-white hover:bg-[#235E38]">
+        <Button type="button" onClick={() => setShowPicker(true)} variant="primary">
           <Plus size={15} aria-hidden="true" /> Add Members
-        </button>
+        </Button>
       </div>
 
       {lines.length === 0 ? (

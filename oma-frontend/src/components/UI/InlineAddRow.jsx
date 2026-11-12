@@ -81,14 +81,9 @@ export function DraftActions({ onSave, onCancel, isSaving }) {
 export function AddRowFooter({ onClick, disabled = false, label = 'Add row' }) {
   return (
     <div className="border-t border-[#E2E8E2] px-4 py-3">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3.5 text-[13px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="button" onClick={onClick} disabled={disabled} variant="outline">
         <Plus size={14} aria-hidden="true" /> {label}
-      </button>
+      </Button>
     </div>
   )
 }

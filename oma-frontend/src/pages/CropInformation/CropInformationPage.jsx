@@ -161,17 +161,12 @@ function AddRemarkModal({ record, onClose, onSuccess }) {
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              form="add-remark-form"
-              disabled={isSubmitting || !content.trim()}
-              className="flex items-center gap-2 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] disabled:opacity-60 transition-colors"
-            >
+            <Button type="submit" form="add-remark-form" disabled={isSubmitting || !content.trim()} variant="primary">
               {isSubmitting && (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
               )}
               Save Remark
-            </button>
+            </Button>
           </>
         }
       >
@@ -306,13 +301,9 @@ function RemarksModal({ record, onClose }) {
               <p className="text-[13px] font-semibold text-[#1A2B1A]">
                 Remarks History
               </p>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors"
-              >
+              <Button type="button" onClick={() => setShowAddModal(true)} variant="primary" size="sm">
                 <Plus size={12} /> Add Remark
-              </button>
+              </Button>
             </div>
 
             {isLoading ? (

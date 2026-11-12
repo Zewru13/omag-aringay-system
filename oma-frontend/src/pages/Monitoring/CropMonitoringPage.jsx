@@ -200,13 +200,9 @@ function DisasterResponsesModal({ record, onClose, onApply }) {
                             If the crop has recovered, mark this disaster as recovered. You can leave it active if you're still monitoring recovery.
                           </p>
                           <div className="flex gap-2 mt-2.5">
-                            <button
-                              onClick={() => handleMarkRecovered(disaster.disaster_id)}
-                              disabled={recovering === disaster.disaster_id}
-                              className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
-                            >
+                            <Button onClick={() => handleMarkRecovered(disaster.disaster_id)} disabled={recovering === disaster.disaster_id} variant="primary" size="sm">
                               Mark as Recovered
-                            </button>
+                            </Button>
                             <button
                               onClick={() => dismissPrompt(disaster.disaster_id)}
                               className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
@@ -285,13 +281,9 @@ function DisasterResponsesModal({ record, onClose, onApply }) {
                             className={`${baseInputClasses} text-xs`}
                           />
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => handleMarkRecovered(disaster.disaster_id, manualNotes[disaster.disaster_id])}
-                              disabled={recovering === disaster.disaster_id || !(manualNotes[disaster.disaster_id] || '').trim()}
-                              className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
-                            >
+                            <Button onClick={() => handleMarkRecovered(disaster.disaster_id, manualNotes[disaster.disaster_id])} disabled={recovering === disaster.disaster_id || !(manualNotes[disaster.disaster_id] || '').trim()} variant="primary" size="sm">
                               {recovering === disaster.disaster_id ? 'Marking…' : 'Confirm Recovery'}
-                            </button>
+                            </Button>
                             <button
                               onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: false }))}
                               className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"

@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import useEquipmentOptions from '../../hooks/useEquipmentOptions.js'
 import ParcelCropsImportModal from './ParcelCropsImportModal.jsx'
 import { MACHINERY_FALLBACK, OWNERSHIP_OPTIONS, addImportedMachinery, makeMachineryRow } from './parcelRows.js'
+import Button from '../../components/UI/Button.jsx'
 
 // The machinery a farmer has: the lines of Register Farmer and of the profile's Add Machinery window. The page owns the list (rows
 // made by makeMachineryRow, checked by machineryProblem, sent through machineryPayload); this draws it and its Add / Import buttons.
@@ -29,13 +30,12 @@ export default function MachineryEditor({ machinery, onChange }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-        <button type="button" onClick={() => setIsImporting(true)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
+        <Button type="button" onClick={() => setIsImporting(true)} variant="outline" size="sm">
           <Upload size={13} aria-hidden="true" /> Import machinery
-        </button>
-        <button type="button" onClick={() => onChange([...machinery, makeMachineryRow(Date.now() + nextUid.current++)])}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
+        </Button>
+        <Button type="button" onClick={() => onChange([...machinery, makeMachineryRow(Date.now() + nextUid.current++)])} variant="primary" size="sm">
           <Plus size={13} aria-hidden="true" /> Add machinery
-        </button>
+        </Button>
       </div>
       {machinery.length === 0 ? (
         <p className="rounded-lg border border-dashed border-[#C8D5C8] px-4 py-3 text-[13px] text-[#7A8E7A]">No machinery added. Leave it empty if the farmer has none.</p>

@@ -320,14 +320,9 @@ function SuggestionsSection({ cropId }) {
           rows={2}
           className={`${baseInputClasses} resize-none`}
         />
-        <button
-          type="button"
-          onClick={handleAddStage}
-          disabled={addingStage}
-          className="w-full bg-[#1B4D2E] hover:bg-[#235E38] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
-        >
+        <Button type="button" onClick={handleAddStage} disabled={addingStage} variant="primary" className="w-full">
           {addingStage ? 'Adding...' : '+ Add Stage'}
-        </button>
+        </Button>
         {stageError && (
           <p className="text-xs text-rose-600">{stageError}</p>
         )}

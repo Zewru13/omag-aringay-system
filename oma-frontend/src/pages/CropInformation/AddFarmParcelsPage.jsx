@@ -78,12 +78,12 @@ function ParcelCrops({ row, lookups, onAdd, onImport, onUpdate, onRemove }) {
               {used} of {parcelArea} ha planted{over && ' — too much for this parcel'}
             </p>
           )}
-          <button type="button" onClick={onImport} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
+          <Button type="button" onClick={onImport} variant="outline" size="sm">
             <Upload size={13} aria-hidden="true" /> Import crops
-          </button>
-          <button type="button" onClick={() => onAdd(knownParcel)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
+          </Button>
+          <Button type="button" onClick={() => onAdd(knownParcel)} variant="primary" size="sm">
             <Plus size={13} aria-hidden="true" /> Add crop
-          </button>
+          </Button>
         </div>
       </div>
       {records.length > 0 && (
@@ -423,11 +423,9 @@ export default function AddFarmParcelsPage() {
             <FarmerSearchInput onSelect={setFarmerInfo} selected={farmerInfo} />
           </div>
           <div className="mt-3">
-            <button type="button" onClick={() => setIsImportingParcels(true)} disabled={!farmerInfo.farmer_id}
-              title={farmerInfo.farmer_id ? undefined : 'Choose the farmer first'}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50">
+            <Button type="button" onClick={() => setIsImportingParcels(true)} disabled={!farmerInfo.farmer_id} title={farmerInfo.farmer_id ? undefined : 'Choose the farmer first'} variant="outline" size="sm">
               <Upload size={13} aria-hidden="true" /> Import Farm Parcels
-            </button>
+            </Button>
             <p className="mt-1 text-[11px] text-[#7A8E7A]">
               {farmerInfo.farmer_id ? `Add many parcels of ${farmerInfo.farmer_full_name} at once from a spreadsheet.` : 'Choose the farmer first, then import their parcels from a spreadsheet.'}
             </p>
@@ -483,9 +481,9 @@ export default function AddFarmParcelsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button type="button" onClick={addRow} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3.5 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors">
+          <Button type="button" onClick={addRow} variant="primary">
             <Plus size={14} /> Add Parcel
-          </button>
+          </Button>
           <span className="text-[12.5px] text-[#7A8E7A]">{rows.length} parcel{rows.length === 1 ? '' : 's'}</span>
         </div>
 
@@ -493,9 +491,9 @@ export default function AddFarmParcelsPage() {
 
         <div className="flex justify-end gap-3 border-t border-[#F0F4F0] pt-4">
           <button type="button" onClick={goBack} className="rounded-lg border border-[#C8D5C8] px-5 py-2 text-sm font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">Cancel</button>
-          <button type="submit" disabled={isSubmitting} className="rounded-lg bg-[#1B4D2E] px-5 py-2 text-sm font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-60">
+          <Button type="submit" disabled={isSubmitting} variant="primary">
             {isSubmitting ? 'Submitting…' : `Submit ${rows.length > 1 ? `${rows.length} Parcels` : 'Parcel'}`}
-          </button>
+          </Button>
         </div>
       </form>
 

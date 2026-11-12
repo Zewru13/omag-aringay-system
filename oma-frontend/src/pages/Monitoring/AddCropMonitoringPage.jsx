@@ -391,13 +391,9 @@ export default function AddCropMonitoringPage() {
         />
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={addRecord}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3.5 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          >
+          <Button type="button" onClick={addRecord} variant="primary">
             <Plus size={14} /> Add Row
-          </button>
+          </Button>
           <span className="text-[12.5px] text-[#7A8E7A]">{records.length} row{records.length === 1 ? '' : 's'}</span>
         </div>
 
@@ -412,10 +408,9 @@ export default function AddCropMonitoringPage() {
             className="rounded-lg border border-[#C8D5C8] px-5 py-2 text-sm font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
             Cancel
           </button>
-          <button type="submit" disabled={isSubmitting}
-            className="rounded-lg bg-[#1B4D2E] px-5 py-2 text-sm font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-60">
+          <Button type="submit" disabled={isSubmitting} variant="primary">
             {isSubmitting ? 'Submitting…' : `Submit ${records.length > 1 ? `${records.length} Records` : 'Record'}`}
-          </button>
+          </Button>
         </div>
       </form>
 

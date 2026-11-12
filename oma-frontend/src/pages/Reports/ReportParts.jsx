@@ -1,6 +1,7 @@
 import { Download, Printer } from 'lucide-react'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { SIGNATORY_ROLES, meSignatory, signatoryOptions } from '../../utils/signatories.js'
+import Button from '../../components/UI/Button.jsx'
 
 export const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -52,15 +53,10 @@ export function ActionButtons({ onPrint, onDownload, isDownloading }) {
         <Printer className="w-4 h-4" aria-hidden="true" />
         Print Report
       </button>
-      <button
-        type="button"
-        onClick={onDownload}
-        disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-60"
-      >
+      <Button type="button" onClick={onDownload} disabled={isDownloading} variant="primary">
         <Download className="w-4 h-4" aria-hidden="true" />
         Download Report
-      </button>
+      </Button>
     </div>
   )
 }

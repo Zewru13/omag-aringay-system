@@ -28,6 +28,7 @@ import { countdownText, daysUntil, fmtShortDate } from '../../utils/forecastDate
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import Button from '../../components/UI/Button.jsx'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -207,14 +208,9 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
             placeholder="Add remarks or observations..."
           />
           <div className="mt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSaveRemarks}
-              disabled={isSaving || !hasChanges}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50"
-            >
+            <Button type="button" onClick={handleSaveRemarks} disabled={isSaving || !hasChanges} variant="primary">
               {isSaving ? 'Saving…' : 'Save remarks'}
-            </button>
+            </Button>
           </div>
         </div>}
       </div>
@@ -265,13 +261,9 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
           >
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          >
+          <Button type="button" onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })} variant="primary">
             {isPdf ? 'Generate PDF' : 'Generate Excel'}
-          </button>
+          </Button>
         </>
       }
     >
@@ -370,15 +362,10 @@ function YAActionButtons({ onPdf, onExcel, isDownloading }) {
         <FileText className="h-4 w-4" />
         Preview PDF
       </button>
-      <button
-        type="button"
-        onClick={onExcel}
-        disabled={isDownloading}
-        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
-      >
+      <Button type="button" onClick={onExcel} disabled={isDownloading} variant="primary" className="whitespace-nowrap">
         <Download className="h-4 w-4" />
         Download Excel
-      </button>
+      </Button>
     </>
   )
 }

@@ -18,6 +18,7 @@ import {
   STAFF_ROLE_OPTIONS, STAFF_STATUS_OPTIONS, TYPE_OPTIONS, USER_TABS,
   buildUserQuery, defaultFilters, filterCount, tabFromParam,
 } from './userTabs.js'
+import Button from '../../components/UI/Button.jsx'
 
 const filterSelectCls =
   'border border-[#E2E8E2] rounded-lg px-3 py-[7px] text-[13px] bg-[#F9FAF9] text-[#1A2B1A] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
@@ -322,13 +323,9 @@ export default function UserManagementPage() {
         <UsersTable
           key={tab} tab={tab} reloadKey={reloadKey} onEdit={setEditUser}
           actions={
-            <button
-              type="button"
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-              onClick={() => setShowCreateModal(true)}
-            >
+            <Button type="button" onClick={() => setShowCreateModal(true)} variant="primary" className="whitespace-nowrap">
               <Plus size={15} /> Create User
-            </button>
+            </Button>
           }
         />
       </div>

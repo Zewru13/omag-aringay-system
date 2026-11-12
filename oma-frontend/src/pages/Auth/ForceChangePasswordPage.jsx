@@ -5,6 +5,7 @@ import PasswordRequirementChecklist from '../../components/UI/PasswordRequiremen
 import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import logo from '../../assets/LOGO OMAg-small.png'
+import Button from '../../components/UI/Button.jsx'
 
 function ForceChangePasswordPage() {
   const { user, logout } = useAuth()
@@ -137,14 +138,10 @@ function ForceChangePasswordPage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading || !currentPassword || !passwordMeetsRules(newPassword) || !confirmPassword}
-            className="w-full bg-[#1B4D2E] hover:bg-[#235E38] text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
+          <Button type="submit" disabled={loading || !currentPassword || !passwordMeetsRules(newPassword) || !confirmPassword} variant="primary" className="w-full">
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Set New Password
-          </button>
+          </Button>
         </form>
 
         <p className="text-center text-xs text-slate-300 mt-6">You cannot access the system until this is done.</p>
