@@ -11,6 +11,7 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFarmerModal from './AddFarmerModal.jsx'
 import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
+import Button from '../../components/UI/Button.jsx'
 
 function calcAge(birthdate) {
   if (!birthdate) return ''
@@ -175,14 +176,10 @@ function FarmersPage({ asTab = false }) {
         <Upload size={16} />
         Import Farmers
       </button>
-      <button
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-        onClick={() => setIsAddModalOpen(true)}
-        type="button"
-      >
+      <Button onClick={() => setIsAddModalOpen(true)} type="button" variant="primary">
         <Plus size={16} />
         Register Farmer
-      </button>
+      </Button>
     </div>
   ) : null
 

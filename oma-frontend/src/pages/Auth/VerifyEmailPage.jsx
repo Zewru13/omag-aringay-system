@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, MailWarning, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import logo from '../../assets/LOGO OMAg-small.png'
 import EmailInput from '../../components/UI/EmailInput.jsx'
+import Button from '../../components/UI/Button.jsx'
 
 function VerifyEmailPage() {
   const navigate = useNavigate()
@@ -60,13 +61,9 @@ function VerifyEmailPage() {
             <p className="text-[13px] text-slate-500 mt-2">
               You can now log in with the temporary password from your email.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="mt-5 w-full bg-[#1B4D2E] hover:bg-[#235E38] text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
-            >
+            <Button type="button" onClick={() => navigate('/login')} variant="primary" className="mt-5 w-full">
               Go to Login
-            </button>
+            </Button>
           </>
         )}
 
@@ -100,13 +97,9 @@ function VerifyEmailPage() {
                       placeholder="you@example.com"
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#1B4D2E] focus:border-[#1B4D2E] transition-colors"
                     />
-                    <button
-                      type="submit"
-                      disabled={resendState === 'sending'}
-                      className="w-full bg-[#1B4D2E] hover:bg-[#235E38] text-white font-semibold py-2 rounded-xl text-sm transition-colors disabled:opacity-60"
-                    >
+                    <Button type="submit" disabled={resendState === 'sending'} variant="primary" className="w-full">
                       {resendState === 'sending' ? 'Sending…' : 'Resend verification email'}
-                    </button>
+                    </Button>
                     {resendState === 'error' && (
                       <p className="mt-1.5 text-xs text-red-600 text-center">Could not resend. Please try again shortly.</p>
                     )}

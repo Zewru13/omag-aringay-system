@@ -95,10 +95,9 @@ export default function FarmerMachineryCard({ farmerId, machinery, canEdit, onCh
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Agricultural Machinery</h2>
         {canEdit && (
-          <button type="button" onClick={() => setIsAdding(true)}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
+          <Button type="button" onClick={() => setIsAdding(true)} variant="primary" size="sm">
             <Plus size={13} aria-hidden="true" /> Add machinery
-          </button>
+          </Button>
         )}
       </div>
       {machinery.length === 0 ? (

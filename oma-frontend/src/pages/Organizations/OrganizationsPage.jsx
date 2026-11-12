@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { assistanceLink } from './organizationContact.js'
 import CreateOrganizationModal from './CreateOrganizationModal.jsx'
 import EditOrganizationModal from './EditOrganizationModal.jsx'
+import Button from '../../components/UI/Button.jsx'
 
 const columns = [
   { key: 'name',           label: 'ORGANIZATION NAME' },
@@ -105,13 +106,10 @@ function OrganizationsPage({ asTab = false }) {
         <Upload size={16} />
         Import Organizations
       </button>
-      <button
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-        onClick={() => setShowCreateModal(true)}
-      >
+      <Button onClick={() => setShowCreateModal(true)} variant="primary">
         <Plus size={16} />
         Add Organization
-      </button>
+      </Button>
     </div>
   ) : null
 

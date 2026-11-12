@@ -5,6 +5,7 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import useEquipmentOptions from '../../hooks/useEquipmentOptions.js'
 import { localToday } from '../../utils/inputGuards.js'
 import { equipmentChoicesFor, makeEquipmentLine } from './registrationEquipment.js'
+import Button from '../../components/UI/Button.jsx'
 
 // The equipment an organization has, as lines on its registration form. The form owns the list (lines made by makeEquipmentLine, checked
 // by equipmentLinesProblem, sent through equipmentLinePayload); this draws each line as a small card and the Add equipment button.
@@ -57,10 +58,9 @@ export default function EquipmentLinesEditor({ type, lines, onChange }) {
           </div>
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...lines, makeEquipmentLine(Date.now() + nextUid.current++)])}
-        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
+      <Button type="button" onClick={() => onChange([...lines, makeEquipmentLine(Date.now() + nextUid.current++)])} variant="primary" size="sm">
         <Plus size={13} aria-hidden="true" /> Add equipment
-      </button>
+      </Button>
     </div>
   )
 }

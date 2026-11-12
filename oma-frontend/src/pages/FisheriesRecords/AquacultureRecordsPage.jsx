@@ -15,6 +15,7 @@ import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.j
 import {
   EMPTY_FILTERS, PAGE_SIZE, RECORD_COLUMNS, activeFilterCount, applyProblem, countLabel, filtersChanged, recordRow, recordsParams,
 } from './aquacultureRecords.js'
+import Button from '../../components/UI/Button.jsx'
 
 // Aquaculture Records (Fisheries Management > Aquaculture Records), laid out like Crop Records: a search bar with the Filters button and
 // the Start Production Cycle button, the production cycles in a table, and pagination. Production cycles are made here (the same
@@ -151,14 +152,9 @@ export default function AquacultureRecordsPage() {
             >
               Reset Filters
             </button>
-            <button
-              type="button"
-              onClick={apply}
-              disabled={Boolean(problem)}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-[40px] max-md:flex-1"
-            >
+            <Button type="button" onClick={apply} disabled={Boolean(problem)} variant="primary" className="max-md:flex-1">
               Apply Filters
-            </button>
+            </Button>
           </div>
         </FilterPanel>
 

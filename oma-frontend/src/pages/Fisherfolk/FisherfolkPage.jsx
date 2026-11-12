@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import AddFisherfolkModal from './AddFisherfolkModal.jsx'
 import { displayFisherfolkType } from '../../utils/fisherfolkType.js'
 import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
+import Button from '../../components/UI/Button.jsx'
 
 function calcAge(birthdate) {
   if (!birthdate) return ''
@@ -164,14 +165,10 @@ function FisherfolkPage({ asTab = false }) {
         <Upload size={16} />
         Import Fisherfolk
       </button>
-      <button
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-        onClick={() => setShowAdd(true)}
-        type="button"
-      >
+      <Button onClick={() => setShowAdd(true)} type="button" variant="primary">
         <Plus size={16} />
         Register Fisherfolk
-      </button>
+      </Button>
     </div>
   ) : null
 

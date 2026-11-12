@@ -1,5 +1,6 @@
 import logo from '../../assets/LOGO OMAg-small.png'
 import { individualFrom, rowRefsOf, selectedReport, signatureSlots } from './reportPaper.js'
+import Button from '../../components/UI/Button.jsx'
 
 // The two things the Reports page shows under a report's filters: the Selected report box, and the print-ready paper preview.
 // The paper is an on-screen copy of the printed report (the same letterhead, title, period, tables and signature lines); Print and
@@ -163,9 +164,9 @@ export function IndividualBar({ doc, picked, onShowAll }) {
         {!individual.picked && <p className="text-[12px] text-[#4A5E4A]">Your search matched one record. Clear the search to see all records.</p>}
       </div>
       {individual.picked && (
-        <button type="button" onClick={onShowAll} className="rounded-lg border border-[#1B4D2E] bg-white px-3 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F5F7F5] max-md:min-h-[40px]">
+        <Button type="button" onClick={onShowAll} variant="outline">
           Show all records
-        </button>
+        </Button>
       )}
     </div>
   )

@@ -192,14 +192,9 @@ export default function SeedSourcePage({ asTab = false }) {
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
         {!isLoading && (
           <div className="border-t border-[#E2E8E2] px-4 py-3">
-            <button
-              type="button"
-              onClick={startRow}
-              disabled={draft !== null}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3.5 text-[13px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button type="button" onClick={startRow} disabled={draft !== null} variant="outline">
               <Plus size={14} aria-hidden="true" /> Add Seed Source
-            </button>
+            </Button>
           </div>
         )}
       </div>

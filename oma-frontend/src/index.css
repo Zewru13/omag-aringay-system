@@ -408,6 +408,11 @@
    - a cell that directly holds a date box may shrink (min-width: 0);
    - a full-width date box contributes no intrinsic width to its cell (contain: inline-size) and never exceeds it. */
 @layer base {
+  /* In the base layer so a text size or weight set by a class on a button / field wins (an unlayered rule would beat every utility). */
+  button, input, select, textarea {
+    font: inherit;
+  }
+
   /* Every table heading is shown in capitals, however the table was written (a utility such as normal-case can still opt out). */
   thead th {
     text-transform: uppercase;
@@ -474,10 +479,6 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-button, input, select, textarea {
-  font: inherit;
 }
 
 :focus-visible {

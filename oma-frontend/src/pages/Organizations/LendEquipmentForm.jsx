@@ -8,6 +8,7 @@ import { todayISO } from '../../utils/localDate.js'
 import { unitsSummary } from '../../utils/equipmentLoans.js'
 import { ActionForm } from './EquipmentActionDialogs.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import Button from '../../components/UI/Button.jsx'
 
 // "Lend equipment" on the Borrowed tab: the organization reports that members borrowed equipment, for the members who have no account to
 // request it themselves. Each section is one kind of equipment with the members who borrowed it (each with their own number of units); add
@@ -146,10 +147,9 @@ export default function LendEquipmentForm({ type, organizationId, lines, members
             )
           })}
 
-          <button type="button" onClick={addKind} disabled={freeLines.length === 0}
-            className="inline-flex min-h-10 items-center gap-1.5 self-start rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[13px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50">
+          <Button type="button" onClick={addKind} disabled={freeLines.length === 0} variant="outline" className="self-start">
             <Plus size={14} aria-hidden="true" /> Lend another equipment
-          </button>
+          </Button>
           {freeLines.length === 0 && kinds.length > 1 && <p className="text-[12px] text-[#7A8E7A]">Every available equipment is already in this form.</p>}
 
           {anyPicked && <p className="text-[12px] text-[#7A8E7A]">{people} member{people === 1 ? '' : 's'} in all.</p>}
