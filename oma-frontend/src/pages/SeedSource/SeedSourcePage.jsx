@@ -7,8 +7,9 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
@@ -55,7 +56,7 @@ function SeedSourceModal({ source, onClose, onSaved }) {
       subtitle={`Update details for ${source.name}`}
       icon={Droplets}
       onClose={onClose}
-      maxWidth="max-w-xs"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -65,9 +66,10 @@ function SeedSourceModal({ source, onClose, onSaved }) {
         </>
       }
     >
-      <form id="seed-source-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="seed-source-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Seed Source Name" required>
+        <SettingsFields title="Seed Source">
+        <SettingsField label="Seed Source Name" required>
           <input
             className={baseInputClasses}
             value={form.name}
@@ -75,7 +77,8 @@ function SeedSourceModal({ source, onClose, onSaved }) {
             autoFocus
             placeholder="e.g. DA, Local Market"
           />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

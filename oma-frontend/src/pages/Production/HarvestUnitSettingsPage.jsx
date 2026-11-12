@@ -10,8 +10,9 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import MultiSelectDropdown from '../../components/UI/MultiSelectDropdown.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetHarvestUnitWeights } from '../Monitoring/useHarvestUnitWeights.js'
@@ -70,7 +71,7 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
       subtitle={`${weight.unit} · ${cropsText(weight)}`}
       icon={Scale}
       onClose={onClose}
-      maxWidth="max-w-md"
+      maxWidth="max-w-xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -80,25 +81,27 @@ function WeightModal({ weight, cropTypes, unitSuggestions, onClose, onSaved }) {
         </>
       )}
     >
-      <form id="harvest-unit-weight-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form id="harvest-unit-weight-form" onSubmit={handleSubmit} className="space-y-3" noValidate>
         <DraftBanner draft={draft} />
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
-        <FormField label="Unit" required error={errors.unit}>
+        <SettingsFields title="Unit Weight">
+        <SettingsField label="Unit" required error={errors.unit}>
           <input className={baseInputClasses} list="harvest-unit-names" value={form.unit} autoFocus placeholder="e.g. Sack" onChange={(e) => set('unit', e.target.value)} />
           <datalist id="harvest-unit-names">{unitSuggestions.map((u) => <option key={u} value={u} />)}</datalist>
-        </FormField>
-        <FormField label="Crops" error={errors.crop_types}>
+        </SettingsField>
+        <SettingsField label="Crops" error={errors.crop_types}>
           <MultiSelectDropdown ariaLabel="Crops" emptyLabel="Every crop" value={form.crop_types} onChange={(v) => set('crop_types', v)}
             options={cropTypes.map((c) => ({ value: c.id, label: c.name }))} />
           <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Choose one or more crops, or none for every crop. A weight for a crop is used for that crop instead of the weight for every crop.</p>
-        </FormField>
-        <FormField label="Kg per unit" error={errors.kg_per_unit}>
+        </SettingsField>
+        <SettingsField label="Kg per unit" error={errors.kg_per_unit}>
           <DecimalInput decimals={4} className={baseInputClasses} value={form.kg_per_unit} placeholder="e.g. 50" onChange={(v) => set('kg_per_unit', v)} />
           <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Leave empty when the unit has no standard weight: the harvest form then asks for the total kg.</p>
-        </FormField>
-        <FormField label="Note">
+        </SettingsField>
+        <SettingsField label="Note">
           <input className={baseInputClasses} value={form.note} maxLength={200} placeholder="Where this weight comes from" onChange={(e) => set('note', e.target.value)} />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

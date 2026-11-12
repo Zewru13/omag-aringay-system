@@ -7,9 +7,10 @@ import CardHeader from '../../components/UI/CardHeader.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -73,7 +74,7 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
       subtitle="Offered in the signature block of the printed reports."
       icon={PenLine}
       onClose={onClose}
-      maxWidth="max-w-md"
+      maxWidth="max-w-xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -83,29 +84,33 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
         </>
       )}
     >
-      <form id="signatory-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form id="signatory-form" onSubmit={handleSubmit} className="space-y-3" noValidate>
         <DraftBanner draft={draft} />
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
-        <FormField label="Name" required error={errors.name}>
+        <SettingsFields title="Signatory">
+        <SettingsField label="Name" required error={errors.name}>
           <input className={baseInputClasses} value={form.name} maxLength={150} autoFocus placeholder="e.g. Ana R. Cruz" onChange={(e) => set('name', e.target.value)} />
-        </FormField>
-        <FormField label="Position">
+        </SettingsField>
+        <SettingsField label="Position">
           <input className={baseInputClasses} value={form.position} maxLength={150} placeholder="e.g. Municipal Agriculturist" onChange={(e) => set('position', e.target.value)} />
           <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Printed under the name.</p>
-        </FormField>
-        <FormField label="Signing role" required error={errors.role}>
+        </SettingsField>
+        <SettingsField label="Signing role" required error={errors.role}>
           <select className={baseInputClasses} value={form.role} onChange={(e) => set('role', e.target.value)}>
             {SIGNATORY_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
-        </FormField>
-        <FormField label="Order" error={errors.sort_order}>
+        </SettingsField>
+        <SettingsField label="Order" error={errors.sort_order}>
           <input className={baseInputClasses} type="number" min="0" inputMode="numeric" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value)} />
           <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Smaller numbers come first in that role's list.</p>
-        </FormField>
-        <label className="flex min-h-[40px] items-center gap-2 text-[13px] text-[#1A2B1A]">
-          <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)} className="h-4 w-4 accent-[#1B4D2E]" />
-          Active (offered in the Reports pages)
-        </label>
+        </SettingsField>
+          <SettingsField label="Active">
+            <label className="flex min-h-[40px] items-center gap-2 text-[13px] text-[#1A2B1A]">
+              <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)} className="h-4 w-4 accent-[#1B4D2E]" />
+              Offered in the Reports pages
+            </label>
+          </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

@@ -3,6 +3,7 @@ import { A, F, click, clickIncl, wait, rowMenu, SEARCH, FILTERS, PRINT, DOWNLOAD
 
 const H = '[class*="rounded-xl"]'
 const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
+const thl = (label) => ({ text: label, tag: 'th', up: 1, last: true })
 const REPORT_TYPE = { find: { css: '#report-type' }, label: 'Report type', desc: 'Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report.' }
 const REPORT_SELECTED = { find: { css: '[aria-label="Selected report"]' }, label: 'Selected report', desc: 'Repeats the report you chose, what it covers, the period and the filters applied right now.' }
 const REPORT_PAPER = { find: { css: '[aria-label="Print-ready report preview template"]' }, label: 'Print-ready preview', desc: 'The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers.' }
@@ -124,10 +125,10 @@ export const STAFF5 = [
     ] }),
   A({ id: 'admin-crop-settings-edit', file: 'admin/crop-settings-edit.png', url: '/crop-settings', js: `${rowMenu}; ${wait(600)}; ${click('Edit')}`, after: 2500, height: 1900, title: 'Edit Crop window', purpose: 'Everything about one crop: its growth, units, stages and suggested activities.',
     callouts: [
-      { find: [field('Crop Name'), field('Category'), field('Subcategory')], label: 'Name, category and subcategory', desc: 'The crop name is required; the category and subcategory are optional.' },
-      { find: [field('Growth Duration'), field('Planted As'), field('Yield Per Hectare')], label: 'Growth, Planted As, Yield', desc: 'Growth duration in days and Planted As are required; the yield per hectare in kg is optional.' },
-      { find: { text: 'Allowed Units of Measure', tag: 'label', up: 1 }, label: 'Allowed Units of Measure', desc: 'The units a harvest of this crop may be counted in (for example Cavan (50kg)). Type a unit and press Add.' },
-      { find: [field('Vegetative'), field('Flowering'), field('Fruiting'), field('Maturity')], label: 'Growth stages (days)', desc: 'Optional. The day each stage starts. The Log Activity window uses them to show the stage the crop is in.' },
+      { find: [thl('Crop Name'), thl('Category'), thl('Subcategory')], label: 'Name, category and subcategory', desc: 'The crop name is required; the category and subcategory are optional.' },
+      { find: [thl('Growth Duration'), thl('Planted As'), thl('Yield Per Hectare')], label: 'Growth, Planted As, Yield', desc: 'Growth duration in days and Planted As are required; the yield per hectare in kg is optional.' },
+      { find: thl('Allowed Units of Measure'), label: 'Allowed Units of Measure', desc: 'The units a harvest of this crop may be counted in (for example Cavan (50kg)). Type a unit and press Add.' },
+      { find: [thl('Vegetative'), thl('Flowering'), thl('Fruiting'), thl('Maturity')], label: 'Growth stages (days)', desc: 'Optional. The day each stage starts. The Log Activity window uses them to show the stage the crop is in.' },
       { find: { text: '+ Add Stage', tag: 'button' }, label: 'Add Stage', desc: 'Adds a stage with its suggested activity: the activity name, the day number, the priority (High, Medium or Low) and a recommendation text. These are the suggestions the Log Activity form fills in.' },
       { find: { text: 'Update Crop', tag: 'button' }, label: 'Update Crop', desc: 'Saves the changes.' },
     ] }),

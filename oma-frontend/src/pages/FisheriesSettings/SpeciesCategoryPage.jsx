@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -53,7 +54,7 @@ function CategoryModal({ category, onClose, onSaved }) {
       subtitle={`Update details for ${category.name}`}
       icon={Fish}
       onClose={onClose}
-      maxWidth="max-w-xs"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -63,9 +64,10 @@ function CategoryModal({ category, onClose, onSaved }) {
         </>
       }
     >
-      <form id="species-category-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="species-category-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Category Name *">
+        <SettingsFields title="Category">
+        <SettingsField label="Category Name *">
           <input
             className={baseInputClasses}
             value={name}
@@ -73,7 +75,8 @@ function CategoryModal({ category, onClose, onSaved }) {
             autoFocus
             placeholder="e.g. Finfish"
           />
-        </FormField>
+        </SettingsField>
+        </SettingsFields>
       </form>
     </ModalShell>
   )

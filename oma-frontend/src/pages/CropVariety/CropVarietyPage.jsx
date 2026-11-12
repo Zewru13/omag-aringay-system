@@ -9,8 +9,9 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
 import { newestFirst } from '../../utils/listOrder.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { SettingsFields, SettingsField, SettingsCell, FormRow } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -115,7 +116,7 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
       subtitle={`Update details for ${variety.name}`}
       icon={Sprout}
       onClose={onClose}
-      maxWidth="max-w-sm"
+      maxWidth="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -125,65 +126,72 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
         </>
       }
     >
-      <form id="crop-variety-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-variety-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <FormField label="Variety Name" required error={nameError}>
-          <input
-            className={baseInputClasses}
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            autoFocus
-            placeholder="e.g. NSIC Rc222"
-          />
-        </FormField>
-        <FormField label="Crop">
-          <select className={baseInputClasses} value={form.crop_type} onChange={e => set('crop_type', e.target.value)}>
-            <option value="">— General (not crop-specific) —</option>
-            {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </FormField>
-        <FormField
-          label="Growth Duration Override (Days)"
-          hint="Leave blank to use the crop's own growth duration unchanged. Only set this when this specific variety genuinely matures faster or slower."
-        >
-          <input
-            className={baseInputClasses}
-            type="number"
-            min="1"
-            value={form.days_to_harvest}
-            onChange={e => set('days_to_harvest', e.target.value)}
-            placeholder="e.g. 70"
-          />
-        </FormField>
+        <SettingsFields title="Variety">
+          <SettingsField label="Variety Name" required error={nameError}>
+            <input
+              className={baseInputClasses}
+              value={form.name}
+              onChange={e => set('name', e.target.value)}
+              autoFocus
+              placeholder="e.g. NSIC Rc222"
+            />
+          </SettingsField>
+          <SettingsField label="Crop">
+            <select className={baseInputClasses} value={form.crop_type} onChange={e => set('crop_type', e.target.value)}>
+              <option value="">— General (not crop-specific) —</option>
+              {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </SettingsField>
+          <SettingsField
+            label="Growth Duration Override (Days)"
+            hint="Leave blank to use the crop's own growth duration unchanged. Only set this when this specific variety genuinely matures faster or slower."
+          >
+            <input
+              className={baseInputClasses}
+              type="number"
+              min="1"
+              value={form.days_to_harvest}
+              onChange={e => set('days_to_harvest', e.target.value)}
+              placeholder="e.g. 70"
+            />
+          </SettingsField>
+        </SettingsFields>
 
-        <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
-          <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Growth Stage Days Override (for input recommendation)</p>
-          <p className="mb-2 text-[11px] text-[#7A8E7A]">
-            Overrides the crop type's own growth-stage days for this variety. Leave all four blank to use the
-            crop type's own thresholds unchanged.
-          </p>
-          <p className="mb-2 text-[11px] leading-[1.5] text-[#7A8E7A] italic">
-            {GROWTH_STAGE_SOURCES_NOTE}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <FormField label="Vegetative">
-              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 10"
+        <SettingsFields
+          title="Growth Stage Days Override"
+          note={(
+            <>
+              <p>
+                Overrides the crop type's own growth-stage days for this variety (used for the input recommendation). Leave all four blank to use the
+                crop type's own thresholds unchanged.
+              </p>
+              <p className="italic">{GROWTH_STAGE_SOURCES_NOTE}</p>
+            </>
+          )}
+        >
+          <FormRow>
+            <SettingsCell label="Vegetative">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 10" aria-label="Vegetative"
                 value={form.vegetative_start_day} onChange={e => set('vegetative_start_day', e.target.value)} />
-            </FormField>
-            <FormField label="Flowering">
-              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 40"
+            </SettingsCell>
+            <SettingsCell label="Flowering">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 40" aria-label="Flowering"
                 value={form.flowering_start_day} onChange={e => set('flowering_start_day', e.target.value)} />
-            </FormField>
-            <FormField label="Fruiting">
-              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 60"
+            </SettingsCell>
+          </FormRow>
+          <FormRow>
+            <SettingsCell label="Fruiting">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 60" aria-label="Fruiting"
                 value={form.fruiting_start_day} onChange={e => set('fruiting_start_day', e.target.value)} />
-            </FormField>
-            <FormField label="Maturity">
-              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 80"
+            </SettingsCell>
+            <SettingsCell label="Maturity">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 80" aria-label="Maturity"
                 value={form.maturity_start_day} onChange={e => set('maturity_start_day', e.target.value)} />
-            </FormField>
-          </div>
-        </div>
+            </SettingsCell>
+          </FormRow>
+        </SettingsFields>
       </form>
     </ModalShell>
   )
