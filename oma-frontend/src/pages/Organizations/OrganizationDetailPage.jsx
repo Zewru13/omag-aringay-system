@@ -12,6 +12,7 @@ import ModalShell from "../../components/UI/ModalShell.jsx";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import { baseInputClasses } from "../../components/UI/FormField.jsx";
+import { DetailTable, FormCell, FormRow, FormRows, FormSection } from "../../components/UI/FormTable.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useSuggestSearch from "../../hooks/useSuggestSearch.js";
@@ -46,8 +47,6 @@ function formatDate(value) {
     year: "numeric",
   }).format(new Date(value));
 }
-
-const labelCls = "block text-[13px] font-medium text-[#4A5E4A] mb-1.5";
 
 const POSITIONS = [
   "President",
@@ -171,7 +170,7 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, h
         maxWidth="max-w-xl"
         footer={
           <>
-            <Button onClick={() => setMainChoice(null)} disabled={isSubmitting} type="button" variant="secondary">
+            <Button onClick={() => setMainChoice(null)} disabled={isSubmitting} type="button" variant="outline">
               Cancel
             </Button>
             <Button onClick={() => submitMember(false)} isLoading={isSubmitting && submittedIsMain === false} disabled={isSubmitting} type="button" variant="outline">
@@ -184,10 +183,17 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, h
         }
       >
         <div className="space-y-3">
+          <DetailTable
+            title="Main Organization"
+            columns={1}
+            fields={[
+              { label: "Member", value: selected.full_name },
+              { label: "Already in", value: mainChoice.otherNames.join(", ") },
+              { label: "Adding to", value: organizationName },
+            ]}
+          />
           <p className="text-[14px] leading-relaxed text-[#1A2B1A]">
-            <span className="font-semibold">{selected.full_name}</span> is already in{" "}
-            <span className="font-semibold">{mainChoice.otherNames.join(", ")}</span> but has no
-            main organization. Should <span className="font-semibold">{organizationName}</span> be
+            {selected.full_name} has no main organization yet. Should {organizationName} be
             their main?
           </p>
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
@@ -201,10 +207,11 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, h
   return (
     <ModalShell
       title="Add Member"
+      maxWidth="max-w-2xl"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose} type="button" variant="secondary">
+          <Button onClick={onClose} type="button" variant="outline">
             Cancel
           </Button>
           <Button isLoading={isSubmitting} type="submit" form="add-member-form" variant="primary">
@@ -213,104 +220,106 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, h
         </>
       }
     >
-      <form id="add-member-form" className="space-y-5" onSubmit={handleSubmit}>
+      <form id="add-member-form" className="space-y-3" onSubmit={handleSubmit}>
         <DraftBanner draft={draft} />
-        {/* Search */}
-        <div>
-          <label className={labelCls}>
-            Search {type === "farmers" ? "Farmer" : "Fisherfolk"}
-          </label>
-          <input
-            className={`${baseInputClasses} mt-1`}
-            placeholder="Name or ID number..."
-            autoComplete="off"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
-            onKeyDown={(e) => {
-              // Enter picks the first suggestion instead of submitting the form.
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (results[0]) setSelected(results[0]);
-              }
-            }}
-          />
-          <p className="mt-1.5 text-[12px] text-[#7A8E7A]">
-            Only registered {type === "farmers" ? "farmers" : "fisherfolk"} can be added — pick one from the list.
-          </p>
-        </div>
+        <FormSection title="Member">
+          <FormRows label="Member">
+            <FormRow>
+              <FormCell label={`Search ${type === "farmers" ? "Farmer" : "Fisherfolk"}`} required wide>
+                <input
+                  className={baseInputClasses}
+                  placeholder="Name or ID number..."
+                  aria-label={`Search ${type === "farmers" ? "Farmer" : "Fisherfolk"}`}
+                  autoComplete="off"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+                  onKeyDown={(e) => {
+                    // Enter picks the first suggestion instead of submitting the form.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (results[0]) setSelected(results[0]);
+                    }
+                  }}
+                />
+                <p className="mt-1.5 text-[12px] text-[#7A8E7A]">
+                  Only registered {type === "farmers" ? "farmers" : "fisherfolk"} can be added — pick one from the list.
+                </p>
 
-        {/* Results */}
-        {results.length > 0 && (
-          <div className={`max-h-48 overflow-y-auto rounded-xl border border-[#E2E8E2] transition-opacity duration-150 ${isSearching ? "opacity-60" : ""}`}>
-            {results.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSelected(item)}
-                className={`w-full rounded-lg p-2 text-left text-[13px] transition-colors ${
-                  selected?.id === item.id
-                    ? "bg-[#EBF5EE] font-semibold text-[#1B4D2E]"
-                    : "hover:bg-[#F9FAF9]"
-                }`}
-              >
-                <span className="font-medium text-[#1A2B1A]">
-                  {item.full_name}
-                </span>
-                <span className="ml-2 text-[#7A8E7A]">
-                  {idDisplayLabel}: {idOf(item)}
-                </span>
-                {own && item.current_organizations?.length > 0 && (
-                  <span className="mt-0.5 block text-[11px] text-[#7A8E7A]">
-                    Also in: {item.current_organizations.map((o) => o.name).join(", ")}
-                  </span>
+                {/* Results */}
+                {results.length > 0 && (
+                  <div className={`mt-2 max-h-48 overflow-y-auto rounded-xl border border-[#E2E8E2] transition-opacity duration-150 ${isSearching ? "opacity-60" : ""}`}>
+                    {results.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelected(item)}
+                        className={`w-full rounded-lg p-2 text-left text-[13px] transition-colors ${
+                          selected?.id === item.id
+                            ? "bg-[#EBF5EE] font-semibold text-[#1B4D2E]"
+                            : "hover:bg-[#F9FAF9]"
+                        }`}
+                      >
+                        <span className="font-medium text-[#1A2B1A]">
+                          {item.full_name}
+                        </span>
+                        <span className="ml-2 text-[#7A8E7A]">
+                          {idDisplayLabel}: {idOf(item)}
+                        </span>
+                        {own && item.current_organizations?.length > 0 && (
+                          <span className="mt-0.5 block text-[11px] text-[#7A8E7A]">
+                            Also in: {item.current_organizations.map((o) => o.name).join(", ")}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </button>
-            ))}
-          </div>
-        )}
 
-        {hasSearched && results.length === 0 && (
-          <p className="text-[13px] text-[#7A8E7A]">
-            No results. Try a different name or ID.
-          </p>
-        )}
+                {hasSearched && results.length === 0 && (
+                  <p className="mt-2 text-[13px] text-[#7A8E7A]">
+                    No results. Try a different name or ID.
+                  </p>
+                )}
 
-        {selected && (
-          <p className="rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
-            Selected: {selected.full_name} ({idOf(selected)})
-          </p>
-        )}
-
-        {/* Position (an organization adds a plain member; officers are assigned from the Officers table) */}
-        {!own && (
-          <div>
-            <label className={labelCls}>Position</label>
-            <select
-              className={`${baseInputClasses} mt-1`}
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            >
-              {POSITIONS.map((p) => (
-                <option key={p} value={p} disabled={p !== "Member" && held.has(p)}>
-                  {positionLabel(p, held)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Date Joined */}
-        <div>
-          <label className={labelCls}>Date Joined <span className="text-rose-500">*</span></label>
-          <input
-            className={`${baseInputClasses} mt-1`}
-            required
-            type="date"
-            value={dateJoined}
-            max={localToday()}
-            onChange={(e) => setDateJoined(e.target.value)}
-          />
-        </div>
+                {selected && (
+                  <p className="mt-2 rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
+                    Selected: {selected.full_name} ({idOf(selected)})
+                  </p>
+                )}
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              {/* Position (an organization adds a plain member; officers are assigned from the Officers table) */}
+              {!own && (
+                <FormCell label="Position">
+                  <select
+                    className={baseInputClasses}
+                    aria-label="Position"
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                  >
+                    {POSITIONS.map((p) => (
+                      <option key={p} value={p} disabled={p !== "Member" && held.has(p)}>
+                        {positionLabel(p, held)}
+                      </option>
+                    ))}
+                  </select>
+                </FormCell>
+              )}
+              <FormCell label="Date Joined" required wide={own}>
+                <input
+                  className={baseInputClasses}
+                  required
+                  type="date"
+                  aria-label="Date Joined"
+                  value={dateJoined}
+                  max={localToday()}
+                  onChange={(e) => setDateJoined(e.target.value)}
+                />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {error && (
           <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
@@ -382,7 +391,7 @@ function MemberSearchInput({ type, organizationId, onSelect, selected, holders =
         />
       </div>
       {showDrop && (
-        <div className={`absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto transition-opacity ${searching && results.length > 0 ? "opacity-60" : ""}`}>
+        <div className={`mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white max-h-52 overflow-y-auto transition-opacity ${searching && results.length > 0 ? "opacity-60" : ""}`}>
           {results.length === 0 ? (
             <p className="px-4 py-3 text-xs text-[#7A8E7A]">
               {!active ? "Type at least 2 characters." : searching ? "Searching…" : failed ? "Search failed — please try again." : "No matching members in this organization."}
@@ -462,10 +471,11 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
   return (
     <ModalShell
       title="Assign Officer"
+      maxWidth="max-w-2xl"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose} type="button" variant="secondary">
+          <Button onClick={onClose} type="button" variant="outline">
             Cancel
           </Button>
           <Button
@@ -480,51 +490,54 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
         </>
       }
     >
-      <form id="assign-officer-form" className="space-y-5" onSubmit={handleSubmit}>
+      <form id="assign-officer-form" className="space-y-3" onSubmit={handleSubmit}>
         <DraftBanner draft={draft} />
-        <div>
-          <label className={labelCls}>Position</label>
-          <select
-            className={`${baseInputClasses} mt-1`}
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-          >
-            {OFFICER_POSITIONS.map((p) => (
-              <option key={p} value={p} disabled={taken.has(p)}>
-                {positionLabel(p, taken)}
-              </option>
-            ))}
-          </select>
-          {positionFilled && (
-            <p className="mt-1 text-[11px] text-amber-600">
-              {own
-                ? "Every position is taken. End an officer's term first (open the officer and choose End term early), then assign the new officer."
-                : "Every position is taken. End an officer's term first, then assign the new officer."}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className={labelCls}>Member</label>
-          <div className="mt-1">
-            <MemberSearchInput
-              type={type}
-              organizationId={organizationId}
-              onSelect={setSelected}
-              selected={selected}
-              holders={holders}
-            />
-          </div>
-          <p className="mt-1 text-[11px] text-[#7A8E7A]">
-            Only people already a member of this organization can be assigned as an officer.
-          </p>
-        </div>
-
-        {selected && (
-          <p className="rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
-            Selected: {selected.full_name}
-          </p>
-        )}
+        <FormSection title="Officer">
+          <FormRows label="Officer">
+            <FormRow>
+              <FormCell label="Position" required wide>
+                <select
+                  className={baseInputClasses}
+                  aria-label="Position"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                >
+                  {OFFICER_POSITIONS.map((p) => (
+                    <option key={p} value={p} disabled={taken.has(p)}>
+                      {positionLabel(p, taken)}
+                    </option>
+                  ))}
+                </select>
+                {positionFilled && (
+                  <p className="mt-1 text-[11px] text-amber-600">
+                    {own
+                      ? "Every position is taken. End an officer's term first (open the officer and choose End term early), then assign the new officer."
+                      : "Every position is taken. End an officer's term first, then assign the new officer."}
+                  </p>
+                )}
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Member" required wide>
+                <MemberSearchInput
+                  type={type}
+                  organizationId={organizationId}
+                  onSelect={setSelected}
+                  selected={selected}
+                  holders={holders}
+                />
+                <p className="mt-1 text-[11px] text-[#7A8E7A]">
+                  Only people already a member of this organization can be assigned as an officer.
+                </p>
+                {selected && (
+                  <p className="mt-2 rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
+                    Selected: {selected.full_name}
+                  </p>
+                )}
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {error && (
           <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
@@ -575,10 +588,11 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
   return (
     <ModalShell
       title="End Term Early"
+      maxWidth="max-w-2xl"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose} type="button" variant="secondary">
+          <Button onClick={onClose} type="button" variant="outline">
             Cancel
           </Button>
           <Button
@@ -593,27 +607,39 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
         </>
       }
     >
-      <form id="end-term-form" className="space-y-5" onSubmit={handleSubmit}>
+      <form id="end-term-form" className="space-y-3" onSubmit={handleSubmit}>
         <DraftBanner draft={draft} />
+        <DetailTable
+          title="Officer"
+          fields={[
+            { label: "Name", value: officer.name },
+            { label: "Position", value: officer.position },
+          ]}
+        />
         <p className="text-[13px] text-[#4A5E4A]">
           End {officer.name}'s term as {officer.position}? This does not remove their organization
           membership — the position becomes vacant and can be assigned to someone new. Their term
           is kept as a permanent historical record, not deleted.
         </p>
 
-        <div>
-          <label className={labelCls}>Reason <span className="text-rose-500">*</span></label>
-          <ComboboxWithOther
-            options={END_TERM_REASONS}
-            value={reason}
-            otherValue={reasonOther}
-            otherLabel={END_TERM_OTHER_LABEL}
-            onChange={(v) => { setReason(v); setError(""); }}
-            onOtherChange={setReasonOther}
-            placeholder="Select a reason"
-            required
-          />
-        </div>
+        <FormSection title="Term">
+          <FormRows label="Term">
+            <FormRow>
+              <FormCell label="Reason" required wide>
+                <ComboboxWithOther
+                  options={END_TERM_REASONS}
+                  value={reason}
+                  otherValue={reasonOther}
+                  otherLabel={END_TERM_OTHER_LABEL}
+                  onChange={(v) => { setReason(v); setError(""); }}
+                  onOtherChange={setReasonOther}
+                  placeholder="Select a reason"
+                  required
+                />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {error && (
           <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
@@ -754,10 +780,11 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   return (
     <ModalShell
       title="Add Equipment"
+      maxWidth="max-w-2xl"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose} type="button" variant="secondary">
+          <Button onClick={onClose} type="button" variant="outline">
             Cancel
           </Button>
           <Button isLoading={isSubmitting} type="submit" form="add-equipment-form" variant="primary">
@@ -766,63 +793,57 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
         </>
       }
     >
-      <form id="add-equipment-form" className="space-y-4" onSubmit={handleSubmit}>
+      <form id="add-equipment-form" className="space-y-3" onSubmit={handleSubmit}>
         <DraftBanner draft={draft} />
-        {/* Equipment Name */}
-        <div>
-          <label className={labelCls}>Equipment Name</label>
-          <ComboboxWithOther
-            options={equipmentChoices}
-            value={form.equipment_name}
-            otherValue={form.equipment_name_other}
-            onChange={(v) => updateField("equipment_name", v)}
-            onOtherChange={(v) => updateField("equipment_name_other", v)}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Quantity */}
-          <div>
-            <label className={labelCls}>Quantity <span className="text-rose-500">*</span></label>
-            <input
-              className={`${baseInputClasses} mt-1`}
-              min={1}
-              required
-              type="number"
-              value={form.quantity}
-              onChange={(e) => updateField("quantity", e.target.value)}
-            />
-          </div>
-
-          {/* Acquisition Date */}
-          <div>
-            <label className={labelCls}>
-              Acquisition Date{" "}
-              <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span>
-            </label>
-            <input
-              className={`${baseInputClasses} mt-1`}
-              type="date"
-              value={form.acquisition_date}
-              max={new Date().toISOString().split("T")[0]}
-              onChange={(e) => updateField("acquisition_date", e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Remarks */}
-        <div>
-          <label className={labelCls}>
-            Remarks{" "}
-            <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span>
-          </label>
-          <textarea
-            className={`${baseInputClasses} mt-1 resize-none h-auto py-2`}
-            rows={2}
-            value={form.remarks}
-            onChange={(e) => updateField("remarks", e.target.value)}
-          />
-        </div>
+        <FormSection title="Equipment">
+          <FormRows label="Equipment">
+            <FormRow>
+              <FormCell label="Equipment Name" required wide>
+                <ComboboxWithOther
+                  options={equipmentChoices}
+                  value={form.equipment_name}
+                  otherValue={form.equipment_name_other}
+                  onChange={(v) => updateField("equipment_name", v)}
+                  onOtherChange={(v) => updateField("equipment_name_other", v)}
+                />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Quantity" required>
+                <input
+                  className={baseInputClasses}
+                  min={1}
+                  required
+                  type="number"
+                  aria-label="Quantity"
+                  value={form.quantity}
+                  onChange={(e) => updateField("quantity", e.target.value)}
+                />
+              </FormCell>
+              <FormCell label="Acquisition Date">
+                <input
+                  className={baseInputClasses}
+                  type="date"
+                  aria-label="Acquisition Date"
+                  value={form.acquisition_date}
+                  max={localToday()}
+                  onChange={(e) => updateField("acquisition_date", e.target.value)}
+                />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Remarks" wide>
+                <textarea
+                  className={`${baseInputClasses} resize-none h-auto py-2`}
+                  rows={2}
+                  aria-label="Remarks"
+                  value={form.remarks}
+                  onChange={(e) => updateField("remarks", e.target.value)}
+                />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {error && (
           <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
