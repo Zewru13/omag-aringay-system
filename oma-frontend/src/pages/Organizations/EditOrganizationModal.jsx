@@ -5,43 +5,20 @@ import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import EmailInput from '../../components/UI/EmailInput.jsx'
-import PhoneInput from '../../components/UI/PhoneInput.jsx'
-import { localToday, tidyPhone } from '../../utils/inputGuards.js'
+import { FormSection } from '../../components/UI/FormTable.jsx'
+import { localToday } from '../../utils/inputGuards.js'
+import OrganizationFormSections from './OrganizationFormSections.jsx'
+import { changeOrganization, organizationBody, organizationFormFrom, organizationProblems } from './organizationForm.js'
 import { agencyLabel, agencyOptionsFor } from './agencyOptions.js'
-import { contactFullName } from './organizationContact.js'
 import MembersEditor from './MembersEditor.jsx'
 import { memberLinesProblem, memberOutcome, memberPayload, memberRefusal } from './registrationMembers.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
-const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
-
-const validateContact = (value) => {
-  if (!value) return ''
-  const digits = value.replace(/\D/g, '')
-  if (digits.length !== 11) return 'Contact number must be exactly 11 digits.'
-  if (!digits.startsWith('09')) return 'Contact number must start with 09.'
-  return ''
-}
-
 export default function EditOrganizationModal({ organization, type, onClose, onSuccess }) {
   const { showToast } = useToast()
 
-  const originalForm = {
-    name:                 organization.name || '',
-    barangay:             organization.barangay || '',
-    street_address:       organization.street_address || '',
-    date_organized:       organization.date_organized || '',
-    date_registered:      organization.date_registered || '',
-    registration_number:  organization.registration_number || '',
-    registration_agency:  organization.registration_agency || '',
-    email_address:        organization.email_address || '',
-    contact_person:       contactFullName(organization.contact_person),
-    contact_number:       tidyPhone(organization.contact_number || ''),   // an older number with dashes opens in the plain format
-  }
+  const originalForm = organizationFormFrom(organization)
 
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`edit-organization:${type}:${organization.id}`)
@@ -49,7 +26,6 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
 
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
-  const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [members, setMembers] = useDraftField(draft, 'members', [])   // registered people to add to this organization, saved with the update
   const [showConfirm,  setShowConfirm]  = useState(false)
@@ -60,38 +36,13 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
   const typeLabel = type === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
 
   const set = (field, value) => {
-    if (field === 'contact_number') {
-      const digits = value.replace(/\D/g, '').slice(0, 11)
-      setForm(f => ({ ...f, contact_number: digits }))
-      setContactError(validateContact(digits))
-      setFormErrors(e => { const n = { ...e }; delete n.contact_number; return n })
-      return
-    }
-    if (field === 'date_organized') {
-      // a registered date earlier than the new organized date is no longer valid, so it is cleared
-      setForm(f => ({ ...f, date_organized: value, date_registered: value && f.date_registered && f.date_registered < value ? '' : f.date_registered }))
-      setFormErrors(e => { const n = { ...e }; delete n.date_organized; delete n.date_registered; return n })
-      return
-    }
-    setForm(f => ({ ...f, [field]: value }))
-    setFormErrors(e => { const n = { ...e }; delete n[field]; return n })
+    setForm((f) => changeOrganization(f, field, value))
+    setFormErrors((e) => { const n = { ...e }; delete n[field]; if (field === 'date_organized') delete n.date_registered; return n })
   }
 
   const validate = () => {
-    const errs = {}
-    if (!form.name.trim())   errs.name = 'Required'
-    if (!form.barangay)      errs.barangay = 'Required'
-    if (!form.contact_person.trim()) errs.contact_person = 'Required'
-    if (!form.contact_number.trim()) errs.contact_number = 'Required'
-    const contactErr = validateContact(form.contact_number)
-    if (contactErr) { setContactError(contactErr) }
-    if (!form.date_organized)             errs.date_organized = 'Required'
-    if (!form.date_registered)            errs.date_registered = 'Required'
-    else if (datesChanged && form.date_organized && form.date_registered < form.date_organized) errs.date_registered = 'Date registered cannot be before the date organized.'
-    if (!form.registration_number.trim()) errs.registration_number = 'Required'
-    if (!form.registration_agency)        errs.registration_agency = 'Required'
-    if (!form.email_address.trim())       errs.email_address = 'Required'
-    if (Object.keys(errs).length > 0 || contactErr) {
+    const errs = organizationProblems(form, { datesChanged })
+    if (Object.keys(errs).length > 0) {
       setFormErrors(errs)
       setError('Please fill in all required fields.')
       return false
@@ -115,18 +66,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      await api.patch(`/organizations/${type}/${organization.id}/`, {
-        name:                form.name,
-        barangay:            form.barangay,
-        street_address:      form.street_address,
-        ...(form.date_organized !== originalForm.date_organized && { date_organized: form.date_organized || null }),
-        ...(form.date_registered !== originalForm.date_registered && { date_registered: form.date_registered || null }),
-        registration_number: form.registration_number,
-        registration_agency: form.registration_agency,
-        email_address:       form.email_address,
-        contact_person:      form.contact_person.trim(),
-        contact_number:      form.contact_number,
-      })
+      await api.patch(`/organizations/${type}/${organization.id}/`, organizationBody(form, { isEdit: true, original: originalForm }))
       // New members are added after the update, one by one, through the same rules as the Add Member window of the organization's page.
       const registered = form.date_registered || organization.date_registered
       const failures = []
@@ -152,6 +92,11 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     }
   }
 
+  // Never show a stored value as a blank select: if the record already holds a code this type doesn't list, keep it visible.
+  const listed = agencyOptionsFor(type)
+  const agencyOptions = form.registration_agency && !listed.some((o) => o.value === form.registration_agency)
+    ? [...listed, { value: form.registration_agency, label: agencyLabel(form.registration_agency) }] : listed
+
   return (
     <>
       <ModalShell
@@ -159,130 +104,25 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
         subtitle={organization.name}
         icon={Pencil}
         onClose={onClose}
-        maxWidth="max-w-lg"
+        maxWidth="max-w-4xl"
         footer={
           <>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+            <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
             <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit" form="edit-organization-form">Update Organization</Button>
           </>
         }
       >
-        <form id="edit-organization-form" className="space-y-4" onSubmit={handleSubmitClick}>
+        <form id="edit-organization-form" className="space-y-3" onSubmit={handleSubmitClick}>
           <DraftBanner draft={draft} />
-          {/* Organization Name */}
-          <div>
-            <label className={labelCls}>
-              Organization Name <span className="text-rose-500">*</span>
-            </label>
-            <input className={baseInputClasses} required value={form.name}
-              onChange={e => set('name', e.target.value)} />
-          </div>
-
-          {/* Barangay */}
-          <BarangaySelect
-            label="Barangay"
-            value={form.barangay}
-            onChange={e => set('barangay', e.target.value)}
-            required
-          />
-
-          {/* Street Address */}
-          <div>
-            <label className={labelCls}>
-              Street Address <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span>
-            </label>
-            <input className={baseInputClasses} placeholder="e.g. Purok 3, San Antonio St."
-              value={form.street_address} onChange={e => set('street_address', e.target.value)} />
-          </div>
-
-          {/* Date Organized + Date Registered */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3 [&>*]:min-w-0 [&_input[type=date]]:min-w-0 [&_input[type=date]]:max-w-full">
-            <div>
-              <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
-              <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}
-                max={localToday()}
-                onChange={e => set('date_organized', e.target.value)} />
-              {formErrors.date_organized && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_organized}</p>}
-            </div>
-            <div>
-              <label className={labelCls}>Date Registered <span className="text-rose-500">*</span></label>
-              <input type="date" className={`${baseInputClasses}${formErrors.date_registered ? ' border-rose-400' : ''}`} value={form.date_registered}
-                min={datesChanged ? (form.date_organized || undefined) : undefined}
-                max={localToday()}
-                onChange={e => set('date_registered', e.target.value)} />
-              {formErrors.date_registered && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_registered}</p>}
-            </div>
-          </div>
-
-          {/* Registration Number */}
-          <div>
-            <label className={labelCls}>Registration Number <span className="text-rose-500">*</span></label>
-            <input className={`${baseInputClasses}${formErrors.registration_number ? ' border-rose-400' : ''}`} placeholder="e.g. CN200626622" maxLength={15}
-              value={form.registration_number}
-              onChange={e => set('registration_number', e.target.value.toUpperCase().slice(0, 15))} />
-            {formErrors.registration_number
-              ? <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_number}</p>
-              : (
-                <div className="mt-1.5 bg-slate-50 rounded-lg px-3 py-2">
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Format: <span className="font-mono text-slate-700">CN200626622</span>
-                    <span className="text-slate-400 ml-1">— CN = prefix · 2006 = year · 26622 = unique identifier</span>
-                  </p>
-                </div>
-              )
-            }
-          </div>
-
-          {/* Registration Agency */}
-          <div>
-            <label className={labelCls}>Registration Agency <span className="text-rose-500">*</span></label>
-            <select className={`${baseInputClasses}${formErrors.registration_agency ? ' border-rose-400' : ''}`} value={form.registration_agency}
-              onChange={e => set('registration_agency', e.target.value)}>
-              <option value="">Select agency</option>
-              {agencyOptionsFor(type).map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-              {/* Never show a stored value as a blank select: if the record
-                  already holds a code this type doesn't list, keep it visible. */}
-              {form.registration_agency && !agencyOptionsFor(type).some((o) => o.value === form.registration_agency) && (
-                <option value={form.registration_agency}>{agencyLabel(form.registration_agency)}</option>
-              )}
-            </select>
-            {formErrors.registration_agency && <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_agency}</p>}
-          </div>
-
-          {/* Email Address */}
-          <div>
-            <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
-            <EmailInput className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. organization@email.com"
-              value={form.email_address} onChange={v => set('email_address', v)} />
-            {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
-          </div>
-
-          {/* Contact Person */}
-          <div>
-            <label className={labelCls}>Contact Person Full Name <span className="text-rose-500">*</span></label>
-            <input className={`${baseInputClasses}${formErrors.contact_person ? ' border-rose-400' : ''}`} value={form.contact_person}
-              placeholder="e.g. Juan Dela Cruz" onChange={e => set('contact_person', e.target.value)} />
-            {formErrors.contact_person && <p className="mt-1 text-[12px] text-rose-600">{formErrors.contact_person}</p>}
-          </div>
-
-          {/* Contact Number */}
-          <div>
-            <label className={labelCls}>
-              Contact Number <span className="text-rose-500">*</span>
-            </label>
-            <PhoneInput className={baseInputClasses} required
-              value={form.contact_number} onChange={v => set('contact_number', v)} />
-            {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
-          </div>
+          <OrganizationFormSections form={form} onChange={set} errors={formErrors} agencyOptions={agencyOptions} datesChanged={datesChanged} idPrefix="edit_" />
 
           {/* Members: the same Add Members table as the registration form, for the people who are not members yet */}
-          <div className="border-t border-[#F0F4F0] pt-4">
-            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Members</h3>
-            <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. Add registered {type === 'farmers' ? 'farmers' : 'fisherfolk'} who are not members yet, with their positions. They are added when you press Update.</p>
+          <FormSection title="Members">
+            <div className="space-y-3 p-3">
+            <p className="text-[12px] text-[#7A8E7A]">Optional. Add registered {type === 'farmers' ? 'farmers' : 'fisherfolk'} who are not members yet, with their positions. They are added when you press Update.</p>
             <MembersEditor type={type} lines={members} onChange={setMembers} registered={form.date_registered || organization.date_registered} organizationId={organization.id} />
-          </div>
+            </div>
+          </FormSection>
 
           {error && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">

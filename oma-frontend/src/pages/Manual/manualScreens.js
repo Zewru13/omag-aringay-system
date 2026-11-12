@@ -901,7 +901,7 @@ export default {
    {
     "n": 6,
     "label": "Email, contact person and number",
-    "desc": "Required. One box for the full name of the contact person, then the organization's email and a mobile number (09XXXXXXXXX). The report papers use them."
+    "desc": "Required. The organization's email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them."
    },
    {
     "n": 7,
@@ -961,7 +961,7 @@ export default {
    {
     "n": 6,
     "label": "Email, contact person and number",
-    "desc": "Required. One box for the full name of the contact person, then the organization's email and a mobile number (09XXXXXXXXX). The report papers use them."
+    "desc": "Required. The organization's email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them."
    },
    {
     "n": 7,
