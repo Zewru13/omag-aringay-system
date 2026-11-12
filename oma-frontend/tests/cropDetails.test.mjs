@@ -28,7 +28,8 @@ eq(val(summaryRows({ ...record, farm_location_barangay: '' }), 'Farm location'),
 eq(val(summaryRows({ ...record, parcel_number: '' }), 'Farm parcel'), '—', 'no parcel')
 eq(val(summaryRows({ ...record, quantity_of_seeds: null, seed_source: '' }), 'Seeds'), '—', 'no seed info')
 eq(val(summaryRows({ ...record, seed_source: 'Other', seed_source_other_specify: 'Neighbour' }), 'Seeds'), '40.00 kg · Neighbour', 'other seed source')
-eq(val(summaryRows({ ...record, date_planted_is_estimated: true }), 'Date planted').endsWith('(estimated)'), true, 'estimated planting date is flagged')
+eq(val(summaryRows({ ...record, date_planted_is_estimated: true }), 'Date planted'), 'May 1, 2026 (estimated)', 'estimated planting date is flagged')
+eq([val(rows, 'Date planted'), val(rows, 'Expected harvest')], ['May 1, 2026', 'Aug 19, 2026'], 'dates read like Nov 1, 2026')
 eq(val(summaryRows({ ...record, has_pcic_insurance: false }), 'PCIC insurance'), 'No', 'no pcic')
 // crop ownership, with the land owner of a tenant or lessee crop; trees instead of seeds
 eq(val(rows, 'Crop status'), '—', 'no status saved'); eq(val(rows, 'Crop owner'), undefined, 'no owner row without a tenant')
@@ -54,11 +55,11 @@ eq(pestLine({ pest_disease_name: 'Stem borer', report_date: '2026-06-10', severi
 eq(harvestRows(null), [], 'no harvest')
 eq(harvestRows({ harvest_start_date: '2026-08-10', harvest_end_date: '2026-08-12', volume_kg: '8000.00', unit_of_measure: 'kg', area_harvested_hectares: '1.50',
   yield_per_hectare_kg: '5333.33', harvest_variance_days: -9, early_late_reason: 'Upcoming storm' }), [
-  ['Harvested date', '2026-08-10 to 2026-08-12'], ['Volume', '8,000 kg'], ['Area harvested (ha)', '1.50'], ['Yield per hectare (kg)', '5,333.33'],
+  ['Harvested date', 'Aug 10, 2026 to Aug 12, 2026'], ['Volume', '8,000 kg'], ['Area harvested (ha)', '1.50'], ['Yield per hectare (kg)', '5,333.33'],
   ['Timing', '9 days early'], ['Reason', 'Upcoming storm']], 'early harvest')
 eq(harvestRows({ harvest_start_date: '2026-08-10', volume_kg: '100', unit_of_measure: 'kg', area_harvested_hectares: '1', harvest_variance_days: -9,
   force_harvest_reason: 'drought', early_late_reason: 'Forced harvest due to early harvest: Drought' }).slice(0, 2),
-  [['Harvest type', 'FORCED HARVEST (harvested before it was ready)'], ['Harvested date', '2026-08-10']], 'a forced harvest is labelled')
+  [['Harvest type', 'FORCED HARVEST (harvested before it was ready)'], ['Harvested date', 'Aug 10, 2026']], 'a forced harvest is labelled')
 eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '1000.00', quantity_harvested: '20.00', unit_of_measure: 'Sack', area_harvested_hectares: '1', harvest_variance_days: 0 })
   .find(([k]) => k === 'Volume')[1], '20 Sack (1,000 kg)', 'a harvest counted in sacks shows the quantity and the kg')
 eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '100', unit_of_measure: 'cavan', area_harvested_hectares: '1', harvest_variance_days: 0 })

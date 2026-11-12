@@ -1,6 +1,7 @@
 // The read-only "View Crop Details" window of Crop Monitoring: pure helpers for what it lists, with no screen and no network, so
 // they can be tested on their own.
 
+import { formatDate } from '../../utils/dateFormat.js'
 import { harvestAmountText } from './harvestUnits.js'
 
 export const dash = (value) => (value === undefined || value === null || value === '' ? '—' : String(value))
@@ -32,8 +33,8 @@ export function summaryRows(record) {
     ['Area planted (ha)', dash(record.area_planted_ha)],
     [record.planting_material === 'Tree' ? 'Trees' : 'Seeds', dash(seeds)],
     ['PCIC insurance', record.has_pcic_insurance ? 'Yes' : 'No'],
-    ['Date planted', `${dash(record.date_planted)}${record.date_planted_is_estimated ? ' (estimated)' : ''}`],
-    ['Expected harvest', dash(record.expected_harvest_date)],
+    ['Date planted', `${formatDate(record.date_planted)}${record.date_planted_is_estimated ? ' (estimated)' : ''}`],
+    ['Expected harvest', formatDate(record.expected_harvest_date)],
     ['Status', dash(record.status)],
     ['Growth stage', dash(record.growth_stage)],
     ['Estimated yield (kg)', number(record.estimated_yield_kg, 0)],
@@ -74,10 +75,10 @@ const timing = (days) => {
 // The harvest record of a harvested crop (none when it is not harvested yet).
 export function harvestRows(harvest) {
   if (!harvest) return []
-  const end = harvest.harvest_end_date && harvest.harvest_end_date !== harvest.harvest_start_date ? ` to ${harvest.harvest_end_date}` : ''
+  const end = harvest.harvest_end_date && harvest.harvest_end_date !== harvest.harvest_start_date ? ` to ${formatDate(harvest.harvest_end_date)}` : ''
   return [
     ...(harvest.force_harvest_reason ? [['Harvest type', 'FORCED HARVEST (harvested before it was ready)']] : []),
-    ['Harvested date', `${dash(harvest.harvest_start_date)}${end}`],
+    ['Harvested date', `${formatDate(harvest.harvest_start_date)}${end}`],
     ['Volume', harvestAmountText(harvest)],
     ['Area harvested (ha)', dash(harvest.area_harvested_hectares)],
     ['Yield per hectare (kg)', number(harvest.yield_per_hectare_kg, 2)],

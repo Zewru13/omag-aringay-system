@@ -5,6 +5,9 @@ import Button from '../../components/UI/Button.jsx'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { DetailTable, FormSection } from '../../components/UI/FormTable.jsx'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
+import { formatDate } from '../../utils/dateFormat.js'
 import { cycleProgress } from '../../utils/cycleActivity.js'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import { todayISO } from '../../utils/localDate.js'
@@ -19,45 +22,41 @@ const STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'bl
 const FIRST = 5
 
 const asList = (response) => (Array.isArray(response.data) ? response.data : (response.data?.results || []))
-const fmtDate = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${String(v).slice(0, 10)}T00:00:00`)) : '')
+const asFields = (rows) => rows.map(([label, value]) => ({ label, value }))
 
-function Section({ title, count, action = null, children }) {
-  return (
-    <section className="rounded-xl border border-[#E2E8E2]">
-      <div className="flex items-center justify-between bg-[#EBF5EE]/60 px-4 py-2.5">
-        <h3 className="text-[13px] font-bold text-[#1A2B1A]">{title}</h3>
-        {count !== undefined && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#4A5E4A]">{count}</span>}
-        {action}
-      </div>
-      <div className="px-4 py-3">{children}</div>
-    </section>
-  )
-}
-
-function Lines({ items, empty }) {
+// One history list of the crop as a table: a Date column, then the headings given in `heads` ([what it is, then up to two more]); only the
+// first FIRST rows until "Show all" is pressed. `heads[1]` reads each line's `meta`, `heads[2]` its `note`.
+function HistoryTable({ title, items, empty, heads, testId }) {
   const [all, setAll] = useState(false)
-  if (items.length === 0) return <p className="text-[13px] italic text-[#7A8E7A]">{empty}</p>
   const shown = all ? items : items.slice(0, FIRST)
+  const columns = ['Date', ...heads]
   return (
-    <>
-      <ul className="divide-y divide-[#F0F4F0]">
-        {shown.map((line, i) => (
-          <li key={i} className="py-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <p className="text-[13px] font-medium text-[#1A2B1A]">{line.title}</p>
-              <p className="text-[12px] text-[#7A8E7A]">{fmtDate(line.date)}</p>
+    <FormSection title={`${title} (${items.length})`}>
+      {items.length === 0 ? (
+        <p className="px-3 py-3 text-[13px] italic text-[#7A8E7A]">{empty}</p>
+      ) : (
+        <>
+          <EntryTable bare label={title} testId={testId}>
+            <EntryHead>{columns.map((c) => <EntryTh key={c}>{c}</EntryTh>)}</EntryHead>
+            <tbody>
+              {shown.map((line, i) => (
+                <EntryRow key={i}>
+                  <EntryCell label="Date" className="whitespace-nowrap">{formatDate(line.date)}</EntryCell>
+                  <EntryCell label={heads[0]} className="break-words font-medium text-[#1A2B1A]">{line.title || '—'}</EntryCell>
+                  {heads[1] && <EntryCell label={heads[1]} className="break-words">{line.meta || '—'}</EntryCell>}
+                  {heads[2] && <EntryCell label={heads[2]} className="break-words">{line.note || '—'}</EntryCell>}
+                </EntryRow>
+              ))}
+            </tbody>
+          </EntryTable>
+          {items.length > FIRST && (
+            <div className="border-t border-[#F0F4F0] px-3 py-1.5">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setAll((v) => !v)}>{all ? 'Show fewer' : `Show all ${items.length}`}</Button>
             </div>
-            {line.meta && <p className="text-[12px] text-[#4A5E4A]">{line.meta}</p>}
-            {line.note && <p className="mt-0.5 break-words text-[12px] text-[#7A8E7A]">{line.note}</p>}
-          </li>
-        ))}
-      </ul>
-      {items.length > FIRST && (
-        <button type="button" onClick={() => setAll((v) => !v)} className="mt-1 min-h-[36px] text-[12px] font-semibold text-[#1B4D2E] hover:underline">
-          {all ? 'Show fewer' : `Show all ${items.length}`}
-        </button>
+          )}
+        </>
       )}
-    </>
+    </FormSection>
   )
 }
 
@@ -96,7 +95,7 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
       maxWidth="max-w-3xl"
       footer={(
         <>
-          <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
+          <Button type="button" variant="outline" onClick={onClose}>Close</Button>
           {actions.map((a) => (
             <Button key={a.key} type="button" variant={a.key === 'disaster' ? 'outline' : 'primary'} onClick={() => onAction(a.key)}>{a.label}</Button>
           ))}
@@ -111,53 +110,31 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
         </div>
         {record.status !== 'Harvested' && record.status !== 'Total Loss' && cycle && <CycleDayBanner progress={cycle} stage={record.growth_stage} />}
 
-        <dl className="grid gap-x-6 sm:grid-cols-2">
-          {summaryRows(record).map(([label, value]) => (
-            <div key={label} className="flex justify-between gap-3 border-b border-[#F0F4F0] py-1.5 text-[13px]">
-              <dt className="shrink-0 text-[#7A8E7A]">{label}</dt>
-              <dd className="min-w-0 break-words text-right font-medium text-[#1A2B1A]">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {record.notes && <p className="rounded-lg bg-[#F9FAF9] px-3 py-2 text-[12.5px] text-[#4A5E4A]"><span className="font-semibold">Notes: </span>{record.notes}</p>}
+        <DetailTable
+          title="Crop Details"
+          fields={[...asFields(summaryRows(record)), ...(record.notes ? [{ label: 'Notes', value: record.notes, wide: true }] : [])]}
+        />
 
         {isLoading ? (
           <p className="py-6 text-center text-[13px] italic text-[#7A8E7A]">Loading the crop's history…</p>
         ) : (
           <>
             {harvest.length > 0 && (
-              <Section
-                title="Harvest"
-                action={manageHarvest.length > 0 ? (
-                  <div className="flex gap-2">
+              <div className="space-y-2">
+                {manageHarvest.length > 0 && (
+                  <div className="flex justify-end gap-2">
                     {manageHarvest.map((a) => (
-                      <Button key={a.key} type="button" size="sm" variant="outline" icon={a.key === 'edit-harvest' ? Pencil : Trash2} onClick={() => onAction(a.key)}>{a.label}</Button>
+                      <Button key={a.key} type="button" size="sm" variant="outline" icon={a.key === 'edit-harvest' ? Pencil : Trash2} onClick={() => onAction(a.key)}>{a.label} Harvest</Button>
                     ))}
                   </div>
-                ) : null}
-              >
-                <dl>
-                  {harvest.map(([label, value]) => (
-                    <div key={label} className="flex justify-between gap-3 border-b border-[#F0F4F0] py-1.5 text-[13px] last:border-0">
-                      <dt className="shrink-0 text-[#7A8E7A]">{label}</dt>
-                      <dd className="min-w-0 break-words text-right font-medium text-[#1A2B1A]">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </Section>
+                )}
+                <DetailTable title="Harvest" fields={asFields(harvest)} />
+              </div>
             )}
-            <Section title="Activities" count={data.logs.length}>
-              <Lines items={data.logs.map(activityLine)} empty="No activities recorded yet." />
-            </Section>
-            <Section title="Pest and disease reports" count={data.pests.length}>
-              <Lines items={data.pests.map(pestLine)} empty="No pest or disease reports." />
-            </Section>
-            <Section title="Disasters" count={data.disasters.length}>
-              <Lines items={data.disasters.map(disasterLine)} empty="No disasters reported." />
-            </Section>
-            <Section title="Remarks" count={data.remarks.length}>
-              <Lines items={data.remarks.map((r) => ({ title: r.content, date: r.date_created, meta: r.created_by_name || '' }))} empty="No remarks." />
-            </Section>
+            <HistoryTable title="Activities" items={data.logs.map(activityLine)} empty="No activities recorded yet." heads={['Activity', 'Plant Condition', 'Notes']} testId="crop-details-activities" />
+            <HistoryTable title="Pest and Disease Reports" items={data.pests.map(pestLine)} empty="No pest or disease reports." heads={['Pest / Disease', 'Severity', 'Action Taken']} testId="crop-details-pests" />
+            <HistoryTable title="Disasters" items={data.disasters.map(disasterLine)} empty="No disasters reported." heads={['Disaster', 'Details']} testId="crop-details-disasters" />
+            <HistoryTable title="Remarks" items={data.remarks.map((r) => ({ title: r.content, date: r.date_created, meta: r.created_by_name || '' }))} empty="No remarks." heads={['Remark', 'Added By']} testId="crop-details-remarks" />
           </>
         )}
       </div>
