@@ -3,7 +3,8 @@ import { AlertTriangle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
-import FormField, { FormLabel, baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
@@ -86,72 +87,67 @@ export default function MultiFisherfolkDisasterModal({ onClose, onSaved }) {
         </Button>
       </>}
     >
-      <form id="multi-fisherfolk-disaster-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form id="multi-fisherfolk-disaster-form" onSubmit={handleSubmit} className="space-y-3" noValidate>
         <DraftBanner draft={draft} />
 
-        <FormField label="Fisherfolk" required>
-          <FisherfolkMultiSelect selected={people} max={MAX_FISHERFOLK}
-            onToggle={togglePersonChoice} />
-        </FormField>
+        <FormSection title="Fisherfolk">
+          <FormRows label="Fisherfolk">
+            <FormRow>
+              <FormCell label="Fisherfolk" required wide>
+                <FisherfolkMultiSelect selected={people} max={MAX_FISHERFOLK}
+                  onToggle={togglePersonChoice} />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {/* The event: filled in once, the same for every fisherfolk. */}
-        <section className="space-y-4" aria-label="The disaster">
-          <h3 className="text-sm font-semibold text-slate-800">The disaster</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-4">
-              <FormField label="Date of Occurrence" required>
+        <FormSection title="The Disaster">
+          <FormRows label="The disaster">
+            <FormRow>
+              <FormCell label="Date of Occurrence" required>
                 <input type="date" className={baseInputClasses} required value={form.date_of_occurrence} max={todayLocal()}
                   onChange={(e) => set('date_of_occurrence', e.target.value)} />
-              </FormField>
-              <FormField label="Disaster Type" required>
+              </FormCell>
+              <FormCell label="Disaster Type" required>
                 <select className={baseInputClasses} value={form.disaster_type} onChange={(e) => set('disaster_type', e.target.value)}>
                   {FISHERFOLK_DISASTER_TYPES.map((d) => <option key={d}>{d}</option>)}
                 </select>
-                {form.disaster_type === 'Other' && (
-                  <input className={`${baseInputClasses} mt-2`} value={form.disaster_type_other_specify} maxLength={150} required
+              </FormCell>
+            </FormRow>
+            {form.disaster_type === 'Other' && (
+              <FormRow>
+                <FormCell label="Specify Disaster Type" required wide>
+                  <input className={baseInputClasses} value={form.disaster_type_other_specify} maxLength={150} required
                     onChange={(e) => set('disaster_type_other_specify', e.target.value)} placeholder="Specify disaster type" />
-                )}
-              </FormField>
-            </div>
-            <div className="flex flex-col">
-              <FormLabel>Description of Damage</FormLabel>
-              <textarea rows={5} className="min-h-[8rem] w-full flex-1 resize-none rounded-lg border border-[#E2E8E2] bg-white px-3 py-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] transition-colors focus:border-[#1B4D2E] focus:outline-none"
-                value={form.estimated_damage} onChange={(e) => set('estimated_damage', e.target.value)}
-                placeholder="Describe the damage to the stock, pond/cage and equipment" />
-            </div>
-          </div>
-          <p className="text-xs text-slate-500">The date, type and description are saved on every fisherfolk's own disaster log. Photos, stocks and equipment are entered per fisherfolk, in the table below.</p>
-        </section>
+                </FormCell>
+              </FormRow>
+            )}
+            <FormRow>
+              <FormCell label="Description of Damage" wide>
+                <textarea rows={3} className={`${baseInputClasses} min-h-[5rem] resize-none`}
+                  value={form.estimated_damage} onChange={(e) => set('estimated_damage', e.target.value)}
+                  placeholder="Describe the damage to the stock, pond/cage and equipment" />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+          <p className="border-t border-[#F0F4F0] px-3 py-2 text-[11.5px] text-[#7A8E7A]">The date, type and description are saved on every fisherfolk's own disaster log. Photos, stocks and equipment are entered per fisherfolk, below.</p>
+        </FormSection>
 
-        {/* Each fisherfolk's own part: one row per fisherfolk, with their own photos. */}
+        {/* Each fisherfolk's own part: their stocks and losses, equipment, volume lost and their own photos. */}
         {people.length > 0 && (
-          <section className="space-y-3" aria-label="Each fisherfolk">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800">Affected stocks, equipment, losses and photos per fisherfolk</h3>
-              <p className="text-xs text-slate-500">Photos are optional (up to 10 per fisherfolk, JPG, PNG or WEBP, 5 MB each) and are saved only on that fisherfolk's log. Removing a fisherfolk removes their photos.</p>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white">
-              <table className="w-full text-sm max-md:block">
-                <thead className="bg-[#F0F4F0] text-[#4A5E4A] max-md:hidden">
-                  <tr>
-                    {['Fisherfolk', 'Affected stock', 'Photo documentation'].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em]">{h}</th>
-                    ))}
-                    <th className="w-10 px-2 py-2.5"><span className="sr-only">Remove</span></th>
-                  </tr>
-                </thead>
-                {people.map((person) => (
-                  <FisherfolkDisasterPanel
-                    key={person.id}
-                    ref={(handle) => { if (handle) panels.current[person.id] = handle; else delete panels.current[person.id] }}
-                    person={person}
-                    showErrors={submitted}
-                    onRemove={() => removeChosen(person.id)}
-                  />
-                ))}
-              </table>
-            </div>
-          </section>
+          <div className="space-y-3" aria-label="Each fisherfolk">
+            <p className="text-[11.5px] text-[#7A8E7A]">Photos are optional (up to 10 per fisherfolk, JPG, PNG or WEBP, 5 MB each) and are saved only on that fisherfolk's log. Removing a fisherfolk removes their photos.</p>
+            {people.map((person) => (
+              <FisherfolkDisasterPanel
+                key={person.id}
+                ref={(handle) => { if (handle) panels.current[person.id] = handle; else delete panels.current[person.id] }}
+                person={person}
+                showErrors={submitted}
+                onRemove={() => removeChosen(person.id)}
+              />
+            ))}
+          </div>
         )}
       </form>
     </ModalShell>
