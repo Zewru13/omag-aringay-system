@@ -4,7 +4,9 @@ import {
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import { DetailTable, FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
@@ -1418,7 +1420,8 @@ function HarvestUnitsTable({
   }
   const unitLabel = forced ? 'Pond/Cage' : unitWord
   return (
-    <LogTable label={forced ? 'Ponds or cages to harvest' : `${unitLabel}s to harvest`} testId="unit-harvest-table-wrap">
+    <FormSection title={forced ? 'Affected Ponds and Cages' : `${unitLabel}s to Harvest`}>
+    <LogTable bare label={forced ? 'Ponds or cages to harvest' : `${unitLabel}s to harvest`} testId="unit-harvest-table-wrap">
       <LogHead>
         <LogTh className="w-9">
           {!forced && (
@@ -1476,17 +1479,57 @@ function HarvestUnitsTable({
         </tr>
       </tfoot>
     </LogTable>
+    </FormSection>
   )
 }
 
-// `reason`: { label, content } - the Reason row of the details table (forced: filled in from the Health Log; normal early/late harvest: a choice), or null.
-function HarvestTables({
-  forced, unitWord, units, cycleLabel, expectedHarvestDate, daysFromNowToExpected, harvestVarianceDays, timingLabel, isEarly, isLate,
-  harvestDate, onHarvestDate, reason, notes, onNotes, selectedIds, onSelect, values, errors, onChange, estimates, unitMortality, footerNote,
-}) {
+// The harvest timing against the Harvest Date typed below (it defaults to today): an early harvest is still an Early Harvest.
+function HarvestTiming({ expectedHarvestDate, daysFromNowToExpected, harvestVarianceDays, timingLabel, isEarly, isLate }) {
+  if (!expectedHarvestDate) return null
   const timingDifference = harvestVarianceDays === null ? '—'
     : harvestVarianceDays === 0 ? '0 days'
     : `${days(Math.abs(harvestVarianceDays))} ${harvestVarianceDays < 0 ? 'earlier' : 'later'} than estimated`
+  return (
+    <div data-testid="harvest-timing">
+      <DetailTable title="Harvest Timing" fields={[
+        { label: 'Estimated Harvest Date', value: fmtDate(expectedHarvestDate) },
+        { label: 'Days Until or Since Estimated Harvest', value: daysFromNowToExpected >= 0 ? `${days(daysFromNowToExpected)} from now` : `${days(Math.abs(daysFromNowToExpected))} ago` },
+        { label: 'Harvest Timing', value: <span className={`font-semibold ${isEarly || isLate ? 'text-amber-700' : 'text-emerald-700'}`}>{timingLabel || '—'}</span> },
+        { label: 'Timing Difference', value: timingDifference },
+      ]} />
+    </div>
+  )
+}
+
+// The Harvest Date, the reason (forced: filled in from the Health Log; normal early/late harvest: a choice, and the typed reason for
+// "Other") and the notes, as one section. `reason`: { label, required, content } or null; `reasonOther`: { content, error } or null.
+function HarvestDetailRows({ harvestDate, onHarvestDate, reason, reasonOther, children }) {
+  return (
+    <div data-testid="harvest-details-table">
+      <FormSection title="Harvest Details">
+        <FormRows label="Harvest details">
+          <FormRow>
+            <FormCell label="Harvest Date" required wide={!reason}>
+              <input type="date" className={`${baseInputClasses} w-full`} value={harvestDate} max={todayISO()} aria-label="Harvest Date" onChange={e => onHarvestDate(e.target.value)} />
+            </FormCell>
+            {reason && <FormCell label={reason.label} required={reason.required}>{reason.content}</FormCell>}
+          </FormRow>
+          {reasonOther && (
+            <FormRow>
+              <FormCell label="Other Reason" required wide error={reasonOther.error}>{reasonOther.content}</FormCell>
+            </FormRow>
+          )}
+          {children}
+        </FormRows>
+      </FormSection>
+    </div>
+  )
+}
+
+function HarvestTables({
+  forced, unitWord, units, cycleLabel, expectedHarvestDate, daysFromNowToExpected, harvestVarianceDays, timingLabel, isEarly, isLate,
+  harvestDate, onHarvestDate, reason, reasonOther, notes, onNotes, selectedIds, onSelect, values, errors, onChange, estimates, unitMortality, footerNote,
+}) {
   return (
     <div className="space-y-3">
       {forced && (
@@ -1496,55 +1539,17 @@ function HarvestTables({
         </div>
       )}
 
-      {expectedHarvestDate && (
-        // Live against the Harvest Date below (it defaults to today): an early harvest is still an Early Harvest.
-        <LogTable label="Harvest timing" testId="harvest-timing">
-          <LogHead><LogTh className="md:w-[38%]">Detail</LogTh><LogTh>Value</LogTh></LogHead>
-          <tbody>
-            <LogRow>
-              <LogCell className="font-medium text-slate-700 md:w-[38%]">Estimated Harvest Date</LogCell>
-              <LogCell>{fmtDate(expectedHarvestDate)}</LogCell>
-            </LogRow>
-            <LogRow>
-              <LogCell className="font-medium text-slate-700 md:w-[38%]">Days Until or Since Estimated Harvest</LogCell>
-              <LogCell>{daysFromNowToExpected >= 0 ? `${days(daysFromNowToExpected)} from now` : `${days(Math.abs(daysFromNowToExpected))} ago`}</LogCell>
-            </LogRow>
-            <LogRow>
-              <LogCell className="font-medium text-slate-700 md:w-[38%]">Harvest Timing</LogCell>
-              <LogCell className={`font-semibold ${isEarly || isLate ? 'text-amber-700' : 'text-emerald-700'}`}>{timingLabel || '—'}</LogCell>
-            </LogRow>
-            <LogRow>
-              <LogCell className="font-medium text-slate-700 md:w-[38%]">Timing Difference</LogCell>
-              <LogCell>{timingDifference}</LogCell>
-            </LogRow>
-          </tbody>
-        </LogTable>
-      )}
+      <HarvestTiming expectedHarvestDate={expectedHarvestDate} daysFromNowToExpected={daysFromNowToExpected}
+        harvestVarianceDays={harvestVarianceDays} timingLabel={timingLabel} isEarly={isEarly} isLate={isLate} />
 
-      <LogTable label="Harvest details" testId="harvest-details-table">
-        <LogHead><LogTh className="md:w-[38%]">Detail</LogTh><LogTh>Value</LogTh></LogHead>
-        <tbody>
-          <LogRow>
-            <LogCell className="font-medium text-slate-700 md:w-[38%]">Harvest Date <span className="text-red-500">*</span></LogCell>
-            <LogCell>
-              <input type="date" className={`${baseInputClasses} w-full`} value={harvestDate} max={todayISO()} aria-label="Harvest Date" onChange={e => onHarvestDate(e.target.value)} />
-            </LogCell>
-          </LogRow>
-          {reason && (
-            <LogRow>
-              <LogCell className="font-medium text-slate-700 md:w-[38%]">{reason.label}</LogCell>
-              <LogCell>{reason.content}</LogCell>
-            </LogRow>
-          )}
-          <LogRow>
-            <LogCell className="font-medium text-slate-700 md:w-[38%]">Notes</LogCell>
-            <LogCell>
-              <textarea rows={2} className={`${baseInputClasses} w-full resize-none`} value={notes} aria-label="Notes"
-                onChange={e => onNotes(e.target.value)} placeholder="Optional" />
-            </LogCell>
-          </LogRow>
-        </tbody>
-      </LogTable>
+      <HarvestDetailRows harvestDate={harvestDate} onHarvestDate={onHarvestDate} reason={reason} reasonOther={reasonOther}>
+        <FormRow>
+          <FormCell label="Notes" wide>
+            <textarea rows={2} className={`${baseInputClasses} w-full resize-none`} value={notes} aria-label="Notes"
+              onChange={e => onNotes(e.target.value)} placeholder="Optional" />
+          </FormCell>
+        </FormRow>
+      </HarvestDetailRows>
 
       {units.length === 0 ? (
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" data-testid="no-units-available">
@@ -1678,9 +1683,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   const isLate = harvestVarianceDays !== null && harvestVarianceDays > 0
   const isOnTime = harvestVarianceDays === 0
   const timingLabel = isEarly ? 'Early Harvest' : isLate ? 'Late Harvest' : isOnTime ? 'On-Time Harvest' : null
-  const timingDetail = isEarly
-    ? `${Math.abs(harvestVarianceDays)} day${Math.abs(harvestVarianceDays) !== 1 ? 's' : ''} earlier than expected.`
-    : isLate ? `${harvestVarianceDays} day${harvestVarianceDays !== 1 ? 's' : ''} later than expected.` : ''
   // Normal harvest: any early or late harvest needs a reason; on time needs none. A Force Harvest's
   // reason comes from the Health Log automatically, so it is never asked for again.
   const showReason = !unitMode && (isEarly || isLate)
@@ -1756,27 +1758,25 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
     return true
   }
 
-  // The early/late reason: the option list, and the typed reason for "Other". Used by the table (a row of the details table) and by the
-  // layout of a cycle without ponds/cages.
+  // The early/late reason: the option list (a cell of the details table), and the typed reason for "Other" (a row of its own).
   const reasonControl = (
     <div data-testid="harvest-reason-block">
       <select className={baseInputClasses} value={selectedReason} onChange={e => chooseReason(e.target.value)} data-testid="harvest-reason" aria-label="Reason for harvest">
         <option value="">Select a reason</option>
         {reasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
       </select>
-      {reasonIsOther && (
-        <div className="mt-2">
-          <label className="mb-1 block text-xs font-medium text-slate-700">Other Reason *</label>
-          <input
-            type="text" maxLength={255} className={`${baseInputClasses} ${reasonOtherError ? 'border-rose-400' : ''}`}
-            value={earlyLateOther} onChange={e => { setEarlyLateOther(e.target.value); setReasonOtherError('') }}
-            placeholder="Enter reason" data-testid="harvest-reason-other" aria-invalid={Boolean(reasonOtherError)}
-          />
-          {reasonOtherError && <p className="mt-1 text-xs text-rose-600">{reasonOtherError}</p>}
-        </div>
-      )}
     </div>
   )
+  const reasonOtherField = showReason && reasonIsOther ? {
+    error: reasonOtherError,
+    content: (
+      <input
+        type="text" maxLength={255} className={`${baseInputClasses} ${reasonOtherError ? 'border-rose-400' : ''}`}
+        value={earlyLateOther} onChange={e => { setEarlyLateOther(e.target.value); setReasonOtherError('') }}
+        placeholder="Enter reason" data-testid="harvest-reason-other" aria-label="Other reason" aria-invalid={Boolean(reasonOtherError)}
+      />
+    ),
+  } : null
 
   const handleSubmitClick = () => {
     if (!harvestDate) { showToast('Harvest date is required.', 'error'); return }
@@ -1850,18 +1850,14 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
     } finally { setIsSubmitting(false) }
   }
 
-  const actionButtons = (
-    <div className={tableMode ? 'flex justify-end gap-3' : 'flex justify-end gap-3 border-t border-slate-100 pt-4'}>
-      <button type="button" onClick={onClose}
-        className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-        Cancel
-      </button>
-      <button type="button" onClick={handleSubmitClick}
-        disabled={isSubmitting || (reasonRequired && !finalReason) || (unitSelect && selectedUnits.length === 0)}
-        className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-        {isSubmitting ? 'Saving…' : 'Record Harvest'}
-      </button>
-    </div>
+  const footer = (
+    <>
+      <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+      <Button type="button" onClick={handleSubmitClick} isLoading={isSubmitting}
+        disabled={(reasonRequired && !finalReason) || (unitSelect && selectedUnits.length === 0)}>
+        Record Harvest
+      </Button>
+    </>
   )
 
   return (
@@ -1873,8 +1869,8 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
         iconBg="bg-amber-100"
         iconColor="text-amber-600"
         onClose={onClose}
-        maxWidth={tableMode ? 'max-w-3xl' : 'max-w-md'}
-        footer={tableMode ? actionButtons : undefined}
+        maxWidth={tableMode ? 'max-w-3xl' : 'max-w-2xl'}
+        footer={footer}
       >
         <div className="space-y-3">
           <DraftBanner draft={draft} />
@@ -1888,48 +1884,19 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
           )}
           {visibleResolvableDisasters.map(d => (
             <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs text-emerald-800 mb-2">
+              <p className="mb-2 text-xs text-emerald-800">
                 This stock has an active <span className="font-semibold">{d.disaster_type}</span> with all recommended responses completed. Mark it recovered now?
               </p>
               <div className="flex gap-2">
-                <button type="button" disabled={recoveringId === d.disaster_id}
-                  onClick={() => handleMarkRecovered(d.disaster_id)}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {recoveringId === d.disaster_id ? 'Marking…' : 'Mark Recovered'}
-                </button>
-                <button type="button"
-                  onClick={() => setDismissedDisasterIds(prev => new Set(prev).add(d.disaster_id))}
-                  className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">
+                <Button type="button" size="sm" isLoading={recoveringId === d.disaster_id} onClick={() => handleMarkRecovered(d.disaster_id)}>
+                  Mark Recovered
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setDismissedDisasterIds(prev => new Set(prev).add(d.disaster_id))}>
                   Keep Active
-                </button>
+                </Button>
               </div>
             </div>
           ))}
-
-          {expectedHarvestDate && !tableMode && (
-            // Harvest timing, live against the Harvest Date below (it defaults to today, so this shows on open).
-            // Shown for Force Harvest too: an early Force Harvest is still an Early Harvest.
-            <div data-testid="harvest-timing" className={`rounded-xl border px-3 py-2 text-xs ${
-              harvestVarianceDays === null
-                ? 'border-slate-200 bg-slate-50 text-slate-600'
-                : isOnTime
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-amber-200 bg-amber-50 text-amber-800'
-            }`}>
-              <p>
-                Estimated harvest: <span className="font-medium">{expectedHarvestDate}</span>{' '}
-                ({daysFromNowToExpected >= 0
-                  ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
-                  : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
-              </p>
-              {timingLabel && (
-                <p className="mt-1">
-                  <span className="font-semibold">{timingLabel}</span>
-                  {timingDetail && <span className="font-medium"> — {timingDetail}</span>}
-                </p>
-              )}
-            </div>
-          )}
 
           {tableMode ? (
             <HarvestTables
@@ -1941,127 +1908,46 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               harvestDate={harvestDate} onHarvestDate={setHarvestDate}
               reason={unitMode
                 // A force harvest's reason comes from the Health Log: filled in, never asked again.
-                ? { label: isLate ? 'Reason for Late Harvest' : isEarly ? 'Reason for Early Harvest' : 'Reason for Harvest', content: <span className="font-medium text-slate-800" data-testid="force-reason">{forceReason}</span> }
-                : showReason ? { label: `Reason for ${isEarly ? 'Early' : 'Late'} Harvest *`, content: reasonControl } : null}
+                ? { label: isLate ? 'Reason for Late Harvest' : isEarly ? 'Reason for Early Harvest' : 'Reason for Harvest', content: <span className="block py-1 text-[13px] font-medium text-slate-800" data-testid="force-reason">{forceReason}</span> }
+                : showReason ? { label: `Reason for ${isEarly ? 'Early' : 'Late'} Harvest`, required: true, content: reasonControl } : null}
+              reasonOther={reasonOtherField}
               notes={notes} onNotes={setNotes}
               selectedIds={selectedUnitIds} onSelect={setSelectedUnitIds}
               values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} estimates={unitEstimates} unitMortality={unitMortality}
               footerNote={unitSelect && record.estimated_harvest_kg != null ? <EstimateNote record={record} enteredKg={enteredKg} /> : null}
             />
-          ) : (<>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Date *</label>
-            <input type="date" className={baseInputClasses} value={harvestDate}
-              max={todayISO()}
-              onChange={e => setHarvestDate(e.target.value)} />
-          </div>
-
-          {unitMode && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Reason for Early Harvest</label>
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800" data-testid="force-reason">
-                {forceReason}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">Filled in automatically from the Health Log.</p>
-            </div>
+          ) : (
+            // A cycle without ponds or cages (a fishpen, an older record): one quantity for the whole cycle.
+            <>
+              <HarvestTiming expectedHarvestDate={expectedHarvestDate} daysFromNowToExpected={daysFromNowToExpected}
+                harvestVarianceDays={harvestVarianceDays} timingLabel={timingLabel} isEarly={isEarly} isLate={isLate} />
+              <HarvestDetailRows harvestDate={harvestDate} onHarvestDate={setHarvestDate} reasonOther={reasonOtherField}
+                reason={showReason ? { label: `Reason for ${isEarly ? 'Early' : 'Late'} Harvest`, required: true, content: reasonControl } : null}>
+                <FormRow>
+                  <FormCell label="Actual Harvest (kg)" required wide error={quantityError}
+                    hint={record.estimated_harvest_kg != null ? <EstimateNote record={record} enteredKg={enteredKg} /> : null}>
+                    <input type="number" step="0.01"
+                      className={`${baseInputClasses} ${quantityError ? 'border-rose-400' : ''}`}
+                      value={quantityKg}
+                      onChange={e => { setQuantityKg(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
+                      placeholder="e.g. 500" />
+                  </FormCell>
+                </FormRow>
+                <FormRow>
+                  <FormCell label="Area / Units Harvested" wide>
+                    <input type="text" className={baseInputClasses} value={areaOrUnits}
+                      onChange={e => setAreaOrUnits(e.target.value)} placeholder="e.g. Pond 2, 3 cages" />
+                  </FormCell>
+                </FormRow>
+                <FormRow>
+                  <FormCell label="Notes" wide>
+                    <textarea rows={2} className={`${baseInputClasses} resize-none`} value={notes}
+                      onChange={e => setNotes(e.target.value)} placeholder="Any additional harvest notes or observations (optional)" />
+                  </FormCell>
+                </FormRow>
+              </HarvestDetailRows>
+            </>
           )}
-
-          {showReason && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="harvest-reason-block">
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Reason for {isEarly ? 'Early' : 'Late'} Harvest *
-              </label>
-              <select
-                className={baseInputClasses}
-                value={selectedReason}
-                onChange={e => chooseReason(e.target.value)}
-                data-testid="harvest-reason"
-              >
-                <option value="">Select a reason</option>
-                {reasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              {reasonIsOther && (
-                <div className="mt-2">
-                  <label className="mb-1 block text-xs font-medium text-slate-700">Other Reason *</label>
-                  <input
-                    type="text"
-                    maxLength={255}
-                    className={`${baseInputClasses} ${reasonOtherError ? 'border-rose-400' : ''}`}
-                    value={earlyLateOther}
-                    onChange={e => { setEarlyLateOther(e.target.value); setReasonOtherError('') }}
-                    placeholder="Enter reason"
-                    data-testid="harvest-reason-other"
-                    aria-invalid={Boolean(reasonOtherError)}
-                  />
-                  {reasonOtherError && <p className="mt-1 text-xs text-rose-600">{reasonOtherError}</p>}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div>
-            {!unitSelect && <label className="mb-1 block text-xs font-medium text-slate-700">Actual Harvest (kg) *</label>}
-            {unitSelect ? null : (<>
-              <input type="number" step="0.01"
-                className={`${baseInputClasses} ${quantityError ? 'border-rose-400' : ''}`}
-                value={quantityKg}
-                onChange={e => { setQuantityKg(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
-                placeholder="e.g. 500" />
-              {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
-            </>)}
-            {/* Estimated harvest (species.default_avg_body_weight_kg ×
-                survival-adjusted fingerling count, computed server-side and
-                already on the record) — same live "meeting the estimate or
-                not" comparison as the harvest date above. With units it compares
-                the calculated total of the selected units. */}
-            {record.estimated_harvest_kg != null && !unitMode && (
-              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
-                !(enteredKg > 0)
-                  ? 'border-slate-200 bg-slate-50 text-slate-600'
-                  : enteredKg >= parseFloat(record.estimated_harvest_kg)
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-amber-200 bg-amber-50 text-amber-700'
-              }`}>
-                <p>
-                  Estimated harvest: <span className="font-medium">
-                    {Number(record.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-                  </span>
-                </p>
-                {enteredKg > 0 && (
-                  <p className="mt-1 font-medium">
-                    {(() => {
-                      const diff = enteredKg - parseFloat(record.estimated_harvest_kg)
-                      const pct = record.estimated_harvest_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_harvest_kg)) * 100) : 0
-                      if (Math.abs(diff) < 0.01) return '✓ Right at the estimated harvest.'
-                      return diff > 0
-                        ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
-                        : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
-                    })()}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {!unitSelect && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Area / Units Harvested</label>
-              <input type="text" className={baseInputClasses}
-                value={areaOrUnits}
-                onChange={e => setAreaOrUnits(e.target.value)}
-                placeholder="e.g. Pond 2, 3 cages" />
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Notes (optional)</label>
-            <textarea rows={2} className={`${baseInputClasses} resize-none`} value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Any additional harvest notes or observations" />
-          </div>
-          </>)}
-
-          {!tableMode && actionButtons}
         </div>
       </ModalShell>
 
