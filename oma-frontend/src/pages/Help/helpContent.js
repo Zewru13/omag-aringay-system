@@ -76,7 +76,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record that a crop has PCIC insurance?',
-        a: 'In the crop form, press the round Insured button of the crop (the PCIC column of the crop table shows it as a round check: green when insured). A window asks for photos of the PCIC insurance form, one for each page, up to 5 (JPG, PNG or WEBP, up to 5 MB each); the crop cannot be saved insured without at least one. Cancel the window without a photo and the button goes back to an empty circle. In fisheries, insurance is recorded once for the whole production cycle: press Insured beside the number of ponds when you start it and upload the photo of the form (the PCIC INSURED column of Aquaculture Monitoring shows it), or change it in the Edit form of the cycle. In Aquaculture Monitoring, click a row to open its ponds or cages; each shows its PCIC Insured round check. To read the uploaded form, press View form beside a round check (crops, ponds and cages alike, or the PCIC insured tag on a record): the form opens in a window inside the system, one page at a time with zoom, and Close brings you back; it never opens another browser tab. The pond table on a fisherfolk profile has the same column.',
+        a: 'In the crop form, press the round Insured button of the crop (the PCIC column of the crop table shows it as a round check: green when insured). A window asks for photos of the PCIC insurance form, one for each page, up to 5 (JPG, PNG or WEBP, up to 5 MB each); the crop cannot be saved insured without at least one. Cancel the window without a photo and the button goes back to an empty circle. In fisheries, insurance is recorded once for the whole production cycle: press Insured beside the number of ponds when you start it and upload the photo of the form (the PCIC INSURED column of Aquaculture Records shows it), or change it in the Edit form of the cycle. Cycle Details, from the row menu of Aquaculture Monitoring, lists each pond or cage with its PCIC Insured round check. To read the uploaded form, press View form beside a round check (crops, ponds and cages alike, or the PCIC insured tag on a record): the form opens in a window inside the system, one page at a time with zoom, and Close brings you back; it never opens another browser tab. The pond table on a fisherfolk profile has the same column.',
       },
       {
         q: 'Why can\'t I add more area to a parcel?',
@@ -88,7 +88,7 @@ export const SECTIONS = [
       },
       {
         q: 'What do the rows of Group by show?',
-        a: 'Crop Records and Crop Monitoring can group their rows (Filters > Group by). A group row has columns just like the table. A farmer group shows the farmer\'s RSBSA No., Barangay and Contact No. with its totals (parcels, area and crops in Crop Records; records, area planted and near harvest in Crop Monitoring). A barangay, land ownership or crop group shows how many farmers it holds with its totals. Click a row to open what is inside it. Forecasting\'s Group by farmer and Group by fisherfolk views show the RSBSA No., Barangay and Contact No. as well. On a phone the same facts are stacked inside the row.',
+        a: 'Crop Records and Crop Monitoring can group their rows (Filters > Group by). A group row has columns just like the table. A farmer group shows the farmer\'s RSBSA No., Barangay and Contact No. with its totals (parcels, area and crops in Crop Records; records, area planted and near harvest in Crop Monitoring). A land ownership or crop group shows how many farmers it holds with its totals. Click a row to open what is inside it. Forecasting\'s Group by farmer and Group by fisherfolk views show the RSBSA No., Barangay and Contact No. as well. On a phone the same facts are stacked inside the row.',
       },
     ],
   },
@@ -109,7 +109,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where are my harvested crops?',
-        a: 'Crop Monitoring and a farmer\'s Crop Monitoring Records open on Planted. A crop leaves that view once it is harvested. Use the status filter (Near Harvest, Due Harvest, Ready for Harvest, Overdue, Harvested, Total Loss, All Status) to see the others.',
+        a: 'Crop Monitoring and a farmer\'s Crop Monitoring Records open on Planted. A crop leaves that view once it is harvested. Use the status filter (Near Harvest, Due Harvest, Ready for Harvest, Overdue, Harvested, Total Loss, Every Status) to see the others.',
       },
       {
         q: 'How do I record a harvest?',

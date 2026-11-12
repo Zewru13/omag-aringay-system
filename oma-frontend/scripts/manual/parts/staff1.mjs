@@ -65,8 +65,6 @@ export const STAFF1 = [
     callouts: [
       SEARCH_ROW('a farmer by name, RSBSA number or barangay'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: barangay, sex, farmer type, senior citizen, ICC/IP, PWD, 4Ps and the Registered From / To dates.' },
-      PRINT_ROW,
-      DOWNLOAD_ROW,
       { find: { text: 'Import Farmers', tag: 'button' }, label: 'Import Farmers', desc: 'Registers many farmers from a spreadsheet (xlsx or csv). You see a preview first; rows that cannot be added are listed with the reason, and a recent import can be undone.' },
       { find: { text: 'Register Farmer', tag: 'button', exact: true }, label: 'Register Farmer', desc: 'Opens the form to register one new farmer.' },
       { find: COLS, label: 'Columns', desc: 'RSBSA number, full name, barangay, age, farmer type (Farm Operator and so on) and the date registered.' },
@@ -76,7 +74,7 @@ export const STAFF1 = [
   F({ id: 'focal-farmers', file: 'focal/farmers.png', url: '/farmers?tab=registry', title: 'Registration > Farmers (Focal Person)', purpose: 'A Focal Person registers and updates farmers like an Admin.',
     callouts: [
       SEARCH_ROW('a farmer by name, RSBSA number or barangay'),
-      FILTERS_ROW, PRINT_ROW, DOWNLOAD_ROW,
+      FILTERS_ROW,
       { find: { text: 'Import Farmers', tag: 'button' }, label: 'Import Farmers', desc: 'Registers many farmers from a spreadsheet, with a preview first.' },
       { find: { text: 'Register Farmer', tag: 'button', exact: true }, label: 'Register Farmer', desc: 'Opens the form to register a new farmer.' },
       { find: ROW1, label: 'A farmer row', desc: 'Click a row to open the farmer\'s profile.' },

@@ -555,26 +555,31 @@ export default {
    },
    {
     "n": 7,
+    "label": "Regenerate Password",
+    "desc": "Makes a new random password for the farmer's login account and shows it once on screen, to be read to the farmer. Until an account exists this button says Set Up Account."
+   },
+   {
+    "n": 8,
     "label": "Personal and reference information",
     "desc": "The name, birthdate, contact number, barangay, civil status, education, date registered and the organization the farmer belongs to (marked Main when it is the main one)."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Agricultural Machinery",
     "desc": "The farmer's machinery: what, how many and whose it is. Add machinery adds a line; the red trash button of a line removes it."
    },
    {
-    "n": 9,
+    "n": 10,
     "label": "Farm Parcels",
     "desc": "Each parcel with its number, area, ownership and commodity. Edit changes the parcel; Details opens its crops."
    },
    {
-    "n": 10,
+    "n": 11,
     "label": "Crop Monitoring Records",
     "desc": "The farmer's crops with season, dates, status and the estimated and actual yield. The box at the top right chooses the stage to show: Planted is the default, and every other status is in the list."
    },
    {
-    "n": 11,
+    "n": 12,
     "label": "Visit History",
     "desc": "The visits made to the farm. Record Farm Visit writes a new one: the date, what was seen or done, and the next visit."
    }
@@ -725,21 +730,26 @@ export default {
    },
    {
     "n": 5,
+    "label": "Regenerate Password",
+    "desc": "Makes a new random password for the fisherfolk's login account and shows it once, to be read to them. Until an account exists it says Set Up Account."
+   },
+   {
+    "n": 6,
     "label": "Stocking Records",
     "desc": "Each production cycle: species, culture type, date stocked, expected harvest, estimated and actual harvest (kg), pond barangay and status."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Bulk Add Ponds",
     "desc": "Adds several ponds or cages at once."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Add Pond",
     "desc": "Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance (with up to 5 photos of the insurance form)."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Ponds table",
     "desc": "Each pond with its barangay, area, water source, stocking history and the PCIC Insured round check. The Actions menu of a pond edits or removes it."
    }
@@ -985,36 +995,41 @@ export default {
    },
    {
     "n": 2,
+    "label": "Regenerate Password",
+    "desc": "Makes a new random password for the organization's login account and shows it once, to be read to its officer. Until an account exists it says Set Up Account."
+   },
+   {
+    "n": 3,
     "label": "Tabs",
     "desc": "Members, Equipment Inventory and Confirmed for Members (the next pictures show the last two)."
    },
    {
-    "n": 3,
+    "n": 4,
     "label": "Import Members",
     "desc": "Adds many members from a spreadsheet, with a preview first."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Add Member",
     "desc": "Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Members table",
     "desc": "Full name, RSBSA number, position, date joined and Main (marks the organization that is this member's main one when they belong to several). A member's menu changes the position or removes them."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Organization Officers",
     "desc": "The president, vice president, secretary, treasurer, auditor, board members and the other positions, with the term of each."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Officer History",
     "desc": "Every officer who held a position before, with the term dates and why it ended."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Assign Officer",
     "desc": "Choose a position and one of the organization's members, then Assign Officer. Positions that are held are grayed out, and a member who already holds a position cannot be given another: end that term first (open the officer, End term early, give the reason)."
    }
@@ -1046,7 +1061,7 @@ export default {
    {
     "n": 4,
     "label": "Columns",
-    "desc": "Equipment, quantity, condition (Good, Needs Repair, Not Operational, Broken or Lost), date acquired and remarks."
+    "desc": "Equipment, quantity, condition (Good, Needs Repair, Not Operational, Broken or Lost), date acquired and remarks. A line that was entered by mistake has a Remove button at its end."
    }
   ]
  },
@@ -1141,7 +1156,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row: Barangay, PCIC insured, Planted From / To and Group by (Farmer, Barangay, Land ownership or No grouping). Each group row has its own columns (next picture)."
+    "desc": "Opens the filter row: Barangay, PCIC insurance, Planted From / To and Group by (Farmer, Land ownership or No grouping). A filter works as soon as you pick it; Reset Filters at the bottom of the row clears them all. Each group row has its own columns (next picture)."
    },
    {
     "n": 3,
@@ -1420,8 +1435,8 @@ export default {
   "title": "Crop Management > Crop Monitoring",
   "purpose": "Follows every crop from planting to harvest.",
   "image": "/manual/admin/crop-monitoring.png",
-  "width": 1280,
-  "height": 800,
+  "width": 1700,
+  "height": 1000,
   "legend": [
    {
     "n": 1,
@@ -1431,7 +1446,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row (next picture): group by, crop, status, PCIC, season, year and the date planted."
+    "desc": "Opens the filter row (next picture): group by, crop, status, PCIC insurance, season, year and the date planted. A filter works as soon as you pick it; Reset Filters clears them all."
    },
    {
     "n": 3,
@@ -1442,6 +1457,21 @@ export default {
     "n": 4,
     "label": "PCIC Insured check",
     "desc": "A round check: green with a white check when the crop has PCIC insurance, an empty circle when it has none. View form opens the uploaded PCIC form in a window inside the system (a PDF or photo, with zoom) and Close brings you back. The insurance is changed in the crop's Edit form (photos of the form are asked for)."
+   },
+   {
+    "n": 5,
+    "label": "Record Harvest",
+    "desc": "The wheat button records the harvest. It is grayed out until at least half of the crop growing time has passed: hold the pointer on it to see why, and use Force Harvest in the menu instead."
+   },
+   {
+    "n": 6,
+    "label": "Actions menu",
+    "desc": "The three dots of a crop: Log Activity, Crop Details, Force Harvest and Report Disaster (next picture)."
+   },
+   {
+    "n": 7,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
@@ -1493,15 +1523,30 @@ export default {
  "admin-crop-menu": {
   "audience": "admin",
   "title": "The menu of a crop",
-  "purpose": "The actions of one crop.",
+  "purpose": "The actions of one crop. Record Harvest is the separate wheat button beside the menu.",
   "image": "/manual/admin/crop-row-menu.png",
-  "width": 1280,
-  "height": 800,
+  "width": 1700,
+  "height": 1000,
   "legend": [
    {
     "n": 1,
     "label": "Log Activity",
     "desc": "Logs work done on the crop (fertilizing, spraying, irrigation and so on). The form opens already filled in from the schedule."
+   },
+   {
+    "n": 2,
+    "label": "Crop Details",
+    "desc": "Opens everything about the crop: activities, pest and disease reports, disasters and remarks."
+   },
+   {
+    "n": 3,
+    "label": "Force Harvest",
+    "desc": "Harvests crops that are not ready, because of something coming such as a typhoon."
+   },
+   {
+    "n": 4,
+    "label": "Report Disaster",
+    "desc": "Reports damage on this one crop."
    }
   ]
  },
@@ -1580,6 +1625,31 @@ export default {
    },
    {
     "n": 4,
+    "label": "Activity",
+    "desc": "Required. Choose the activity from the list kept in Activity Settings. Land Preparation and Planting are never offered, because a crop is already planted when it is added."
+   },
+   {
+    "n": 5,
+    "label": "Date",
+    "desc": "Required. When it was done. Days with activities already logged are marked on the calendar."
+   },
+   {
+    "n": 6,
+    "label": "Plant Condition",
+    "desc": "Optional: Good, Fair or Poor."
+   },
+   {
+    "n": 7,
+    "label": "Recommendations",
+    "desc": "Optional notes: advice given or things to do next."
+   },
+   {
+    "n": 8,
+    "label": "Save",
+    "desc": "Saves the activity on the crop."
+   },
+   {
+    "n": 9,
     "label": "Activity History",
     "desc": "Opens or closes the list of activities already logged on this crop, with disaster reports shown in the same list."
    }
@@ -1792,7 +1862,43 @@ export default {
   "image": "/manual/admin/disaster-detail.png",
   "width": 1280,
   "height": 1000,
-  "legend": []
+  "legend": [
+   {
+    "n": 1,
+    "label": "Disaster log",
+    "desc": "The reference number, the date it was logged and its status (Active or Recovered)."
+   },
+   {
+    "n": 2,
+    "label": "Farmer",
+    "desc": "The name, barangay and organization of the farmer."
+   },
+   {
+    "n": 3,
+    "label": "Affected crop",
+    "desc": "The crop, its season, date planted, area planted, location and crop status."
+   },
+   {
+    "n": 4,
+    "label": "Disaster details",
+    "desc": "The date it occurred, the type of disaster and the area affected."
+   },
+   {
+    "n": 5,
+    "label": "Description of damage",
+    "desc": "What was damaged, with the photos that were attached."
+   },
+   {
+    "n": 6,
+    "label": "Print Disaster Log",
+    "desc": "Prints this one disaster log."
+   },
+   {
+    "n": 7,
+    "label": "Download Disaster Log",
+    "desc": "Saves this disaster log as a PDF."
+   }
+  ]
  },
  "admin-log-crop-disaster": {
   "audience": "admin",
@@ -1810,7 +1916,7 @@ export default {
    {
     "n": 2,
     "label": "Affected parcels and crops",
-    "desc": "Tick the parcels that were hit, for any farmers. Open a parcel with its arrow to tick only some of its crops; a total loss ticked on a parcel or crop ends it."
+    "desc": "Tick the parcels that were hit, for any farmers. Open a parcel with its arrow to tick only some of its crops; a total loss ticked on a parcel or crop ends it. Photos are added per farmer, in the Photo documentation per farmer table that appears under the parcels once a farmer's crop is ticked (Take Photo uses the camera, Add More Photos chooses files)."
    },
    {
     "n": 3,
@@ -1820,7 +1926,7 @@ export default {
    {
     "n": 4,
     "label": "Filters",
-    "desc": "Narrow the parcels by barangay and the other parcel filters."
+    "desc": "Narrow the parcels by farmer or barangay, and sort them."
    },
    {
     "n": 5,
@@ -1835,7 +1941,7 @@ export default {
    {
     "n": 7,
     "label": "Cancel",
-    "desc": "Leaves the screen without saving."
+    "desc": "Closes the window without saving. What was typed is kept as a draft for next time."
    },
    {
     "n": 8,
@@ -1850,7 +1956,7 @@ export default {
   "purpose": "Follows every production cycle of ponds and cages, from stocking to harvest.",
   "image": "/manual/admin/aquaculture.png",
   "width": 2000,
-  "height": 800,
+  "height": 1200,
   "legend": [
    {
     "n": 1,
@@ -1860,7 +1966,7 @@ export default {
    {
     "n": 2,
     "label": "Filters",
-    "desc": "Opens the filter row: pond or cage name, status, species, season, year and the Stocked From / To dates."
+    "desc": "Opens the filter row: pond or cage name, status, species, PCIC insurance, season, year and the Stocked From / To dates. A filter works as soon as you pick it; Reset Filters clears them all. A new cycle is started in Aquaculture Records."
    },
    {
     "n": 3,
@@ -1869,8 +1975,18 @@ export default {
    },
    {
     "n": 4,
+    "label": "Ponds or cages",
+    "desc": "Click a row to open its ponds or cages: the unit, its fingerlings, dimensions, area, estimated and actual harvest and the date harvested. The PCIC insurance of each pond or cage is shown in Aquaculture Records and Cycle Details, and changed in the cycle's Edit form."
+   },
+   {
+    "n": 5,
     "label": "Harvest / Actions",
     "desc": "The harvest button of a row is grayed out until at least half of the expected time has passed. The three dots next to it open the menu of the cycle."
+   },
+   {
+    "n": 6,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
@@ -1951,7 +2067,53 @@ export default {
   "image": "/manual/admin/start-cycle.png",
   "width": 1280,
   "height": 1500,
-  "legend": []
+  "legend": [
+   {
+    "n": 1,
+    "label": "Fisherfolk",
+    "desc": "Required. Search by name or registration number and choose the fisherfolk (Aquaculture type)."
+   },
+   {
+    "n": 2,
+    "label": "Organization",
+    "desc": "Optional. The organization the production counts for, if the fisherfolk belongs to one."
+   },
+   {
+    "n": 3,
+    "label": "Culture Phase",
+    "desc": "Required: Nursery, Stocking, Grow-out and the other phases."
+   },
+   {
+    "n": 4,
+    "label": "Species and Culture System",
+    "desc": "Required. The species (the list is in Fisheries Settings) and Fishpond or Fishcage."
+   },
+   {
+    "n": 5,
+    "label": "Water and fingerling source",
+    "desc": "Required. River, spring, rain-fed, deep well or other; and where the fingerlings came from (BFAR, own production, private hatchery... from Fisheries Settings)."
+   },
+   {
+    "n": 6,
+    "label": "Pond location and ownership",
+    "desc": "Required. The barangay of the pond or cage, and whether it is Tenant, Lease or Owner."
+   },
+   {
+    "n": 7,
+    "label": "Stocking date, season, target harvest",
+    "desc": "Required. The day the fingerlings were stocked; the season is detected from it; and the date the harvest is planned. The harvest button opens once half of this time has passed."
+   },
+   {
+    "n": 8,
+    "label": "Number of Ponds",
+    "desc": "Required. How many ponds or cages are in this cycle. A line for each opens below, to give its size and fingerlings. PCIC Insured, beside it, is for the whole cycle: tick it and upload the photo of the insurance form."
+   },
+   {
+    "n": 9,
+    "label": "Start Cycle",
+    "desc": "Saves the production cycle with its ponds."
+   }
+  ]
  },
  "admin-cycle-details": {
   "audience": "admin",
@@ -1963,21 +2125,26 @@ export default {
   "legend": [
    {
     "n": 1,
+    "label": "Date",
+    "desc": "Required. The day of the feeding; it starts as today and can be changed."
+   },
+   {
+    "n": 2,
     "label": "Feed Type",
     "desc": "Required. The system suggests a feed type from how far along the culture is; choose another if that is not what was used."
    },
    {
-    "n": 2,
+    "n": 3,
     "label": "Notes",
     "desc": "Optional. Anything worth remembering about this feeding."
    },
    {
-    "n": 3,
+    "n": 4,
     "label": "Feed Quantity (kg)",
     "desc": "Required for at least one pond or cage: the feed given to each one, in kg. The total adds up below."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Save",
     "desc": "Adds the feeding log to the cycle and its ponds or cages. A Health Log is entered the same way from Log Activity, with a row to tick for each pond or cage."
    }
@@ -2043,6 +2210,36 @@ export default {
   "legend": [
    {
     "n": 1,
+    "label": "Fisherfolk",
+    "desc": "Required. Search by name or RSBSA number: only Capture or Inland Fishery fisherfolk are listed."
+   },
+   {
+    "n": 2,
+    "label": "Trip Date and Return Date",
+    "desc": "The trip date is required; the return date is optional. The hours at sea come from them."
+   },
+   {
+    "n": 3,
+    "label": "Fishing Ground and Gear Used",
+    "desc": "Required. Choose from the lists (the gear list is in Fisheries Settings > Fishing Gear)."
+   },
+   {
+    "n": 4,
+    "label": "Catch lines",
+    "desc": "One line per species: choose the species, then the volume in kg and optional notes. Add Species adds another line."
+   },
+   {
+    "n": 5,
+    "label": "Add Species",
+    "desc": "Adds another species line. The remove button of a line deletes it."
+   },
+   {
+    "n": 6,
+    "label": "Remarks",
+    "desc": "Optional notes about the trip."
+   },
+   {
+    "n": 7,
     "label": "Save Log",
     "desc": "Saves the trip and its catch."
    }
@@ -2058,6 +2255,16 @@ export default {
   "legend": [
    {
     "n": 1,
+    "label": "Barangay",
+    "desc": "Only one barangay, or All Barangays."
+   },
+   {
+    "n": 2,
+    "label": "Fisherfolk Type",
+    "desc": "All Types, Capture or Aquaculture."
+   },
+   {
+    "n": 3,
     "label": "Timeline table",
     "desc": "For each season and year: the total catch in kg, the number of trips and how many fisherfolk were active."
    }
@@ -2069,7 +2276,7 @@ export default {
   "purpose": "The harvest expected from the crops that are planted.",
   "image": "/manual/admin/crop-forecast.png",
   "width": 1280,
-  "height": 800,
+  "height": 1300,
   "legend": [
    {
     "n": 1,
@@ -2088,13 +2295,23 @@ export default {
    },
    {
     "n": 4,
+    "label": "Group by",
+    "desc": "Group by: none lists each crop. Group by farmer groups them under each farmer: a row shows the farmer's RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance."
+   },
+   {
+    "n": 5,
     "label": "Columns",
     "desc": "Crop, farmer, area planted, the estimated yield in kg (area times the crop's yield per hectare), the expected harvest date, the status and Details."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "View",
     "desc": "Opens the forecast details of the crop, with a box for your remarks and notes."
+   },
+   {
+    "n": 7,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
@@ -2129,7 +2346,7 @@ export default {
   "purpose": "How the actual harvest compared with the estimate.",
   "image": "/manual/admin/yield-analysis.png",
   "width": 1280,
-  "height": 800,
+  "height": 1300,
   "legend": [
    {
     "n": 1,
@@ -2158,6 +2375,11 @@ export default {
    },
    {
     "n": 6,
+    "label": "Group by",
+    "desc": "Group by: none lists each harvested crop. Group by farmer adds up the same figures under each farmer. Date Planted From and To keep only the crops planted in that period."
+   },
+   {
+    "n": 7,
     "label": "Columns",
     "desc": "Crop, farmer, barangay, estimated and actual yield (kg), the variance (how far the actual is above or below the estimate), the activities recorded and the possible factors (such as disasters) that may explain the difference."
    }
@@ -2169,7 +2391,7 @@ export default {
   "purpose": "The harvest expected from the production cycles.",
   "image": "/manual/admin/fisheries-forecast.png",
   "width": 1280,
-  "height": 800,
+  "height": 1300,
   "legend": [
    {
     "n": 1,
@@ -2188,8 +2410,18 @@ export default {
    },
    {
     "n": 4,
+    "label": "Group by",
+    "desc": "Group by: none lists each cycle; Group by fisherfolk groups them under each fisherfolk: a row shows their RSBSA No., Barangay and Contact No., how many records there are, how many are harvested and the average variance. Status and Date Stocked From and To narrow the list."
+   },
+   {
+    "n": 5,
     "label": "Columns",
     "desc": "Species, fisherfolk, culture type, date stocked, fingerlings, the estimated harvest yield (kg), the actual harvest, the estimated and actual harvest dates and the status."
+   },
+   {
+    "n": 6,
+    "label": "Page bar",
+    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
@@ -2471,15 +2703,30 @@ export default {
  "admin-log-fisheries-disaster": {
   "audience": "admin",
   "title": "Log Fisheries Disaster: choose the fisherfolk",
-  "purpose": "Step 1: find the fisherfolk whose pond, cage or stock was hit.",
+  "purpose": "Choose the fisherfolk whose pond, cage or stock was hit (one or several) and fill in the event once.",
   "image": "/manual/admin/log-fisheries-disaster.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
+    "label": "Window title",
+    "desc": "One disaster for one fisherfolk or for several at once. The X (or Cancel) closes the window; what was typed is kept as a draft for next time."
+   },
+   {
+    "n": 2,
     "label": "Search box",
-    "desc": "Type the fisherfolk's name. The matches appear under the box."
+    "desc": "Type a fisherfolk name or registration number. The matches appear under the box: tick each fisherfolk the disaster hit, and each one is added to the window with a part of their own. Someone with no pond, cage or stock on record cannot be chosen."
+   },
+   {
+    "n": 3,
+    "label": "The disaster",
+    "desc": "Filled in once for everyone chosen: the date of occurrence, the disaster type (Typhoon, Flooding, Storm Surge, El Nino, Drought, Red Tide or Other) and the description of damage."
+   },
+   {
+    "n": 4,
+    "label": "Log Disaster",
+    "desc": "Saves one disaster log for each fisherfolk chosen, all together or not at all."
    }
   ]
  },
@@ -2489,12 +2736,47 @@ export default {
   "purpose": "Step 2: the stock that was hit, the disaster and the damage.",
   "image": "/manual/admin/fisheries-disaster-form.png",
   "width": 1280,
-  "height": 1100,
+  "height": 1800,
   "legend": [
    {
     "n": 1,
+    "label": "Fisherfolk",
+    "desc": "The fisherfolk chosen are listed here. Remove takes one back out, with everything entered for them."
+   },
+   {
+    "n": 2,
+    "label": "The disaster",
+    "desc": "Date of occurrence, disaster type and description of damage: entered once and saved on the log of every fisherfolk chosen. Typhoon, Flooding, Storm Surge, El Nino, Drought, Red Tide or Other."
+   },
+   {
+    "n": 3,
+    "label": "Part of one fisherfolk",
+    "desc": "Each fisherfolk chosen has a part of their own, with a summary line and the rows below. The arrow shows or hides its details."
+   },
+   {
+    "n": 4,
+    "label": "Affected Stock",
+    "desc": "One or more stocks: tick the affected stocks in the list (a search box finds them by species, cycle or location) and give the fingerlings lost in each pond or cage. Or Not linked to a stock, for pond, cage or equipment damage only."
+   },
+   {
+    "n": 5,
+    "label": "Equipment Damaged",
+    "desc": "Optional. Tick the pond, cage, feeding, water-quality or power equipment that was damaged; Feeds, Fingerlings and Other are in the list too."
+   },
+   {
+    "n": 6,
+    "label": "Volume Lost (kg)",
+    "desc": "Optional. The kg of fish lost, if known."
+   },
+   {
+    "n": 7,
+    "label": "Photo Documentation",
+    "desc": "Optional photos of this fisherfolk (JPG, PNG or WEBP, up to 5 MB each, up to 10): Take Photo uses the camera, Add More Photos chooses files. They are saved only on this fisherfolk log."
+   },
+   {
+    "n": 8,
     "label": "Log Disaster",
-    "desc": "Saves the disaster log of this fisherfolk; the log opens so you can print or download it."
+    "desc": "Saves one disaster log for each fisherfolk chosen; with one fisherfolk the log opens so you can print or download it."
    }
   ]
  },
@@ -3114,7 +3396,7 @@ export default {
   "purpose": "Who changed what, and when. Open it from the account menu at the top right.",
   "image": "/manual/admin/audit-log.png",
   "width": 1280,
-  "height": 1500,
+  "height": 1900,
   "legend": [
    {
     "n": 1,
@@ -3125,6 +3407,11 @@ export default {
     "n": 2,
     "label": "Columns",
     "desc": "The date and time, the user, the action (Create, Update or Delete), the model (what kind of record) and a description of the change."
+   },
+   {
+    "n": 3,
+    "label": "Previous / Next",
+    "desc": "Moves through the pages of the log, newest first."
    }
   ]
  },
@@ -3169,7 +3456,7 @@ export default {
    {
     "n": 2,
     "label": "Backups list",
-    "desc": "Every backup, newest first: its name, date, time, location (where you keep its file), kind, who made it, size and status (Running, Done or Failed). Nothing is removed from this list. The file holds personal records and is not encrypted: keep it somewhere safe."
+    "desc": "Every backup, newest first: its name, date, time, location (where you keep its file), kind, who made it, size and status (Running, Done or Failed). Nothing is removed from this list. The file holds personal records and is not encrypted: keep it somewhere safe. The three dots at the end of a row open its menu. Download saves the file while it is still online. Edit changes the name, the location and the remarks (not the date or the time). Restore puts that backup back: choose the file that was downloaded for it and type your password; a safety backup of how things are now is made first."
    }
   ]
  },
@@ -3330,6 +3617,41 @@ export default {
     "n": 2,
     "label": "Filters",
     "desc": "Opens the filter row: status, season and the other filters."
+   },
+   {
+    "n": 3,
+    "label": "Parcel columns",
+    "desc": "Each row is one of your farm parcels: its number, you, the barangay, the area (ha), the ownership (Owner, Lessee or Tenant) and how many records it holds."
+   },
+   {
+    "n": 4,
+    "label": "A parcel row",
+    "desc": "The arrow at the end of the row opens or closes the crops planted on that parcel."
+   },
+   {
+    "n": 5,
+    "label": "Crop columns",
+    "desc": "Under an open parcel: the crop, its variety, the organization, barangay, date planted, expected harvest, how many activities were logged, whether it is PCIC insured and its status (Planted, Near Harvest, Harvested...)."
+   },
+   {
+    "n": 6,
+    "label": "Log Activity",
+    "desc": "Logs what you did on the crop (for example watering, fertilizing or spraying). The form opens already filled in from the crop's schedule and you can change it."
+   },
+   {
+    "n": 7,
+    "label": "Crop Details",
+    "desc": "Opens everything about the crop: activities, pest and disease reports, disasters and remarks."
+   },
+   {
+    "n": 8,
+    "label": "Record Harvest",
+    "desc": "The wheat button beside the menu records the harvest once at least half of the crop's growing time has passed: the date, the area harvested, the unit and the quantity."
+   },
+   {
+    "n": 9,
+    "label": "Report Disaster",
+    "desc": "Reports damage on this crop: the type, the date, the area affected, a description, whether it is a total loss, and photos."
    }
   ]
  },
@@ -3434,7 +3756,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current is what is scheduled for a later date, what waits for you to confirm it, and what you reported as not received (until the office resolves it). History is what you received and confirmed, or that was resolved."
+    "desc": "Current is what is scheduled for a later date, what waits for you to confirm it, and what you reported as not received (until the office resolves it). History is what you received and confirmed, or that was resolved. Each assistance shows its type and date: click it to open the details (the source agency, the quantity, the status, and a button to confirm that you received it, or that you did not, when it asks you to)."
    },
    {
     "n": 2,
@@ -3528,6 +3850,46 @@ export default {
   "legend": [
    {
     "n": 1,
+    "label": "Fisherfolk",
+    "desc": "You, already filled in."
+   },
+   {
+    "n": 2,
+    "label": "Organization",
+    "desc": "Optional. Your organization, if you belong to one."
+   },
+   {
+    "n": 3,
+    "label": "Culture Phase",
+    "desc": "Required: Nursery, Stocking, Grow-out and the other phases."
+   },
+   {
+    "n": 4,
+    "label": "Species and Culture System",
+    "desc": "Required. The species, and Fishpond or Fishcage."
+   },
+   {
+    "n": 5,
+    "label": "Water and fingerling source",
+    "desc": "Required. River, spring, rain-fed, deep well or other; and where the fingerlings came from (BFAR, own production, private hatchery)."
+   },
+   {
+    "n": 6,
+    "label": "Pond location and ownership",
+    "desc": "Required. The barangay of the pond or cage, and Tenant, Lease or Owner."
+   },
+   {
+    "n": 7,
+    "label": "Stocking date, season, target harvest",
+    "desc": "Required. The day you stocked; the season is detected from it; and the date you plan to harvest. The harvest button opens when half of this time has passed."
+   },
+   {
+    "n": 8,
+    "label": "Number of Ponds",
+    "desc": "Required. How many ponds or cages: a line for each opens, to give its size, the fingerlings and whether it has PCIC insurance."
+   },
+   {
+    "n": 9,
     "label": "Start Cycle",
     "desc": "Saves the production cycle."
    }
@@ -3564,7 +3926,7 @@ export default {
   "purpose": "Report a disaster that hurt your ponds, cages or stocks.",
   "image": "/manual/fisherfolk/disaster.png",
   "width": 1280,
-  "height": 1200,
+  "height": 1700,
   "legend": [
    {
     "n": 1,
@@ -3578,8 +3940,38 @@ export default {
    },
    {
     "n": 3,
+    "label": "Date of Occurrence",
+    "desc": "Required. The day it happened."
+   },
+   {
+    "n": 4,
+    "label": "Disaster Type",
+    "desc": "Required: Typhoon, Flooding, Storm Surge, El Niño, Drought, Red Tide, Fish Kill or Other."
+   },
+   {
+    "n": 5,
+    "label": "Volume Lost (kg)",
+    "desc": "Optional. The kg of fish lost, if known."
+   },
+   {
+    "n": 6,
+    "label": "Equipment Damaged",
+    "desc": "Optional. Tick the pond, cage, feeding, water-quality or power equipment that was damaged."
+   },
+   {
+    "n": 7,
+    "label": "Description of Damage",
+    "desc": "Optional notes about what was damaged."
+   },
+   {
+    "n": 8,
     "label": "Photos",
     "desc": "Take Photo uses the camera; Add More Photos chooses files (JPG, PNG or WEBP, up to 5 MB each, up to 10)."
+   },
+   {
+    "n": 9,
+    "label": "Log Disaster",
+    "desc": "Sends the report. The office is notified."
    }
   ]
  },
@@ -3699,7 +4091,7 @@ export default {
    {
     "n": 9,
     "label": "Shortcuts (2)",
-    "desc": "Equipment opens the equipment you own; Borrowed equipment opens who borrowed what; Confirm for members opens the confirmations."
+    "desc": "Equipment opens the equipment you own; Borrowed equipment opens who borrowed what; Confirm for members opens the confirmations. When members are waiting for a confirmation, a card on this page says so: members who have no working account of their own cannot confirm that they received an assistance, so you confirm for them (Confirm for members)."
    }
   ]
  },
@@ -3845,6 +4237,11 @@ export default {
     "n": 4,
     "label": "Filters",
     "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
+   },
+   {
+    "n": 5,
+    "label": "A borrower",
+    "desc": "Click a borrower to open their items. A request made by a member with an account shows Needs action: Approve or Reject it. For an item that came back, choose Mark returned and say what happened: Returned, Damaged (and how) or Not returned (the unit is recorded as Lost). An item past its return-by date shows Overdue."
    }
   ]
  },
@@ -3976,11 +4373,22 @@ export default {
  "org-confirm-members": {
   "audience": "org",
   "title": "Confirm for Members",
-  "purpose": "Confirms, for members without a working account, that they received an assistance.",
+  "purpose": "Confirms, for members without a working account, that they received an assistance. When members are waiting, Select all ticks every member in the list, each row has a tick box, the columns are the date given, the member, the assistance type, the quantity and the status (the Actions menu of a row confirms one member), and Confirm for members confirms the ticked ones: you add proof photos and the confirmation is final, no staff approval is needed.",
   "image": "/manual/org/confirm-members.png",
   "width": 1280,
   "height": 800,
-  "legend": []
+  "legend": [
+   {
+    "n": 1,
+    "label": "Back to Current",
+    "desc": "Returns to the Current list of assistance."
+   },
+   {
+    "n": 2,
+    "label": "Filters",
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
+   }
+  ]
  },
  "org-profile": {
   "audience": "org",
@@ -4265,7 +4673,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed."
+    "desc": "Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed. Tap an assistance to open its details and to confirm that you received it when it asks you to."
    },
    {
     "n": 2,
@@ -4311,6 +4719,41 @@ export default {
    },
    {
     "n": 2,
+    "label": "Welcome banner",
+    "desc": "Your name, the kind of account and the date."
+   },
+   {
+    "n": 3,
+    "label": "Totals",
+    "desc": "Your active cycles, ponds and cages, harvested cycles and open disasters."
+   },
+   {
+    "n": 4,
+    "label": "My cycles by stage",
+    "desc": "How many of your cycles are growing, near harvest or harvested."
+   },
+   {
+    "n": 5,
+    "label": "Harvest vs estimate",
+    "desc": "Your latest harvests against the estimate."
+   },
+   {
+    "n": 6,
+    "label": "Disasters by type",
+    "desc": "The disasters you reported, by type."
+   },
+   {
+    "n": 7,
+    "label": "Open cycle",
+    "desc": "Opens that production cycle."
+   },
+   {
+    "n": 8,
+    "label": "Report disaster",
+    "desc": "Starts a disaster report for that cycle."
+   },
+   {
+    "n": 9,
     "label": "Bottom menu",
     "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
    }
@@ -4539,7 +4982,7 @@ export default {
    {
     "n": 1,
     "label": "Borrowed History tab",
-    "desc": "Everything that was lent and has come back, on its own page. What is still out is in the Borrowed tab."
+    "desc": "Everything that was lent and has come back, on its own page. What is still out is in the Borrowed tab. With a search box and filters above it, the list has these columns: who borrowed it, the equipment, how many units, when it went out and when it came back, and the condition the units came back in (Returned late if it came back after its return-by date)."
    }
   ]
  },
