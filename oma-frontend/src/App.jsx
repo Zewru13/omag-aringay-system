@@ -30,7 +30,6 @@ const CropMonitoringPage = lazy(() => import("./pages/Monitoring/CropMonitoringP
 const FisheriesMonitoringPage = lazy(() => import("./pages/Monitoring/FisheriesMonitoringPage.jsx"));
 const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
 const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
-const ProductionPage = lazy(() => import("./pages/Production/ProductionPage.jsx"));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
 const ReportsPage = lazy(() => import("./pages/Reports/ReportsPage.jsx"));
 const ForecastingPage = lazy(() => import("./pages/Forecasting/ForecastingPage.jsx"));
@@ -320,14 +319,6 @@ function App() {
             }
           />
           <Route
-            path="/production"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <ProductionPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/reports"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
@@ -479,6 +470,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* An address that does not exist (an old bookmark, the removed /production page) goes home, which sends each account to its own start page. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
       </InactivityMonitor>
