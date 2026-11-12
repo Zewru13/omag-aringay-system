@@ -1470,31 +1470,26 @@ export default {
    },
    {
     "n": 3,
-    "label": "Land ownership",
-    "desc": "Required: Owner, Tenant or Lessee. This is also the status of every crop grown on the parcel."
-   },
-   {
-    "n": 4,
-    "label": "Land owner",
-    "desc": "For a Tenant or Lessee parcel the owner's name is required; the owner's RSBSA number is optional."
-   },
-   {
-    "n": 5,
-    "label": "Tax declaration number",
-    "desc": "Optional."
-   },
-   {
-    "n": 6,
     "label": "Farm type and Cropping schedule",
     "desc": "Optional here: Irrigated, Rainfed and the other farm types; Single, Double or Triple Cropping (more crop area is allowed on a double or triple cropping parcel)."
    },
    {
-    "n": 7,
+    "n": 4,
+    "label": "Land ownership and land owner",
+    "desc": "Land ownership is required: Owner, Tenant or Lessee. It is also the status of every crop grown on the parcel. For a Tenant or Lessee parcel the land owner name is required and the owner RSBSA number is optional."
+   },
+   {
+    "n": 5,
+    "label": "Tax Dec No.",
+    "desc": "Optional. The tax declaration number."
+   },
+   {
+    "n": 6,
     "label": "Classifications",
     "desc": "Tick Agrarian Reform Beneficiary, Organic Farm and Within Ancestral Domain if they apply. The list is kept in Classification Settings."
    },
    {
-    "n": 8,
+    "n": 7,
     "label": "Save Changes",
     "desc": "Saves the parcel."
    }

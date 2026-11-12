@@ -10,11 +10,12 @@ import {
   Plus,
   Printer,
   Upload,
-  User,
   Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
+import BARANGAYS from "../../constants/barangays.js";
+import { DetailTable, FormCell, FormRow, FormRows, FormSection, FormValue } from "../../components/UI/FormTable.jsx";
+import { formatDate } from "../../utils/dateFormat.js";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
@@ -381,7 +382,6 @@ function RemarksModal({ record, onClose }) {
 
 // ─── Edit Crop Modal ──────────────────────────────────────────────────────────
 
-const editLabelCls = "block text-[13px] font-medium text-[#4A5E4A] mb-1.5";
 
 function EditCropModal({ record, onClose, onSaved }) {
   const { showToast } = useToast();
@@ -540,296 +540,209 @@ function EditCropModal({ record, onClose, onSaved }) {
       subtitle="Update crop record details."
       icon={Pencil}
       onClose={onClose}
-      maxWidth="max-w-lg"
+      maxWidth="max-w-3xl"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="edit-crop-record-form"
-            disabled={isSubmitting || !isDirty}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? "Saving…" : "Save Changes"}
-          </button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="edit-crop-record-form" isLoading={isSubmitting} disabled={isSubmitting || !isDirty}>Save Changes</Button>
         </>
       }
     >
-      <form id="edit-crop-record-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="edit-crop-record-form" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        {/* Farmer: shown, never changed */}
-        <div>
-          <label className={editLabelCls}>Farmer</label>
-          <div className="relative">
-            <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none" aria-hidden="true" />
-            <input
-              type="text"
-              className={`${baseInputClasses} pl-8 disabled:cursor-not-allowed disabled:bg-[#F5F7F5] disabled:text-[#4A5E4A]`}
-              value={record.farmer_name || ""}
-              disabled
-              readOnly
-              aria-label="Farmer"
-              title="The farmer of a crop record cannot be changed"
-            />
-          </div>
-          <p className="mt-1 text-[11px] text-[#7A8E7A]">The farmer of a crop record cannot be changed.</p>
-        </div>
 
-        {/* Crop Type — read-only */}
-        <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">
-            Crop Type (Read-Only)
-          </p>
-          <p className="text-[14px] font-semibold text-[#1A2B1A]">
-            {record.crop_type_name}
-          </p>
-          {cropType && (
-            <p className="text-[12px] text-[#7A8E7A] mt-0.5">
-              {cropType.days_to_harvest
-                ? `${cropType.days_to_harvest} days to harvest`
-                : ""}
-              {cropType.yield_per_ha_kg
-                ? ` · ${Number(cropType.yield_per_ha_kg).toLocaleString()} kg/ha yield`
-                : ""}
-            </p>
-          )}
-        </div>
+        <FormSection title="Crop Information">
+          <FormRows label="Crop information">
+            <FormRow>
+              <FormCell label="Farmer" hint={<p className="mt-1 text-[11.5px] text-[#7A8E7A]">The farmer of a crop record cannot be changed.</p>}>
+                <FormValue>{record.farmer_name}</FormValue>
+              </FormCell>
+              <FormCell
+                label="Crop Type"
+                hint={cropType ? (
+                  <p className="mt-1 text-[11.5px] text-[#7A8E7A]">
+                    {cropType.days_to_harvest ? `${cropType.days_to_harvest} days to harvest` : ""}
+                    {cropType.yield_per_ha_kg ? ` · ${Number(cropType.yield_per_ha_kg).toLocaleString()} kg/ha yield` : ""}
+                  </p>
+                ) : null}
+              >
+                <FormValue>{record.crop_type_name}</FormValue>
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Farm Location (Barangay)" required error={fieldErrors.farm_location_barangay}>
+                <select
+                  className={baseInputClasses}
+                  value={form.farm_location_barangay}
+                  aria-label="Farm Location (Barangay)"
+                  onChange={(e) => set("farm_location_barangay", e.target.value)}
+                >
+                  <option value="" disabled>Select barangay...</option>
+                  {BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </FormCell>
+              <FormCell label="Variety Used">
+                <input
+                  type="text"
+                  className={baseInputClasses}
+                  placeholder="e.g. RC9, PSB Rc18"
+                  value={form.variety_used}
+                  aria-label="Variety Used"
+                  onChange={(e) => set("variety_used", e.target.value)}
+                />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Crop Status" required error={fieldErrors.land_status} wide={!needsLandOwner(form.land_status)}>
+                <ComboboxWithOther
+                  options={CROP_OWNERSHIP_OPTIONS}
+                  value={form.land_status}
+                  otherValue={form.land_status_other_specify}
+                  onChange={(v) => setForm((f) => ({ ...f, ...chooseCropOwnership(f, v) }))}
+                  onOtherChange={(v) => set("land_status_other_specify", v)}
+                  placeholder="Select…"
+                  required
+                />
+              </FormCell>
+              {needsLandOwner(form.land_status) && (
+                <FormCell label="Crop Owner" required error={fieldErrors.land_owner_name}>
+                  <input
+                    type="text"
+                    maxLength={200}
+                    className={`${baseInputClasses} ${fieldErrors.land_owner_name ? "border-rose-400" : ""}`}
+                    placeholder="Owner's full name"
+                    title={form.land_owner_name || undefined}
+                    value={form.land_owner_name}
+                    aria-label="Crop Owner"
+                    onChange={(e) => set("land_owner_name", e.target.value)}
+                  />
+                </FormCell>
+              )}
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
-        {/* Farm Location + Crop Status (+ the Crop Owner's name beside it for a Tenant / Lessee crop) */}
-        <div className={`grid gap-3 ${needsLandOwner(form.land_status) ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-          <BarangaySelect
-            label="Farm Location (Barangay)"
-            required
-            value={form.farm_location_barangay}
-            onChange={(e) => set("farm_location_barangay", e.target.value)}
-            error={fieldErrors.farm_location_barangay}
-          />
-          <div>
-            <label className={editLabelCls}>
-              Crop Status <span className="text-rose-500">*</span>
-            </label>
-            <ComboboxWithOther
-              options={CROP_OWNERSHIP_OPTIONS}
-              value={form.land_status}
-              otherValue={form.land_status_other_specify}
-              onChange={(v) => setForm((f) => ({ ...f, ...chooseCropOwnership(f, v) }))}
-              onOtherChange={(v) => set("land_status_other_specify", v)}
-              placeholder="Select…"
-              required
-              error={fieldErrors.land_status}
-            />
-          </div>
-          {needsLandOwner(form.land_status) && (
-            <div>
-              <label className={editLabelCls}>
-                Crop Owner <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                maxLength={200}
-                className={`${baseInputClasses} ${fieldErrors.land_owner_name ? "border-rose-400" : ""}`}
-                placeholder="Owner's full name"
-                title={form.land_owner_name || undefined}
-                value={form.land_owner_name}
-                onChange={(e) => set("land_owner_name", e.target.value)}
-              />
-              {fieldErrors.land_owner_name && <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.land_owner_name}</p>}
-            </div>
-          )}
-        </div>
+        <FormSection title="Planting Details">
+          <FormRows label="Planting details">
+            <FormRow>
+              <FormCell
+                label="Date Planted"
+                required
+                hint={record.date_planted_is_estimated ? (
+                  <p className="mt-1 text-[11.5px] text-amber-700">
+                    This date is an estimate imported from a registry record. Saving this form confirms it as the real planting date and unblocks Record Harvest for this crop.
+                  </p>
+                ) : null}
+              >
+                <input
+                  type="date"
+                  className={baseInputClasses}
+                  value={form.date_planted}
+                  max={new Date().toISOString().split("T")[0]}
+                  aria-label="Date Planted"
+                  onChange={(e) => set("date_planted", e.target.value)}
+                />
+              </FormCell>
+              <FormCell label="Season">
+                <FormValue>
+                  <span data-testid="season-auto">
+                    {seasonOf(form.date_planted) ? `${seasonOf(form.date_planted)} season` : "Chosen from the date planted"}
+                  </span>
+                </FormValue>
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Area Planted (ha)" required>
+                <DecimalInput
+                  decimals={2}
+                  className={baseInputClasses}
+                  placeholder="e.g. 2.50"
+                  value={form.area_planted_ha}
+                  aria-label="Area Planted (ha)"
+                  onChange={(v) => set("area_planted_ha", v)}
+                />
+              </FormCell>
+              <FormCell label="Seed Source">
+                <ComboboxWithOther
+                  options={["Own Seeds", "DA/LGU Provided", "Commercial", "Organization"]}
+                  value={form.seed_source}
+                  otherValue={form.seed_source_other_specify}
+                  onChange={(v) => set("seed_source", v)}
+                  onOtherChange={(v) => set("seed_source_other_specify", v)}
+                  placeholder="Select…"
+                />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              {canChoosePlanting(cropType) && (
+                <FormCell label="Planted As">
+                  <select className={baseInputClasses} value={plantedAs} aria-label="Planted As" onChange={(e) => set("planting_material", e.target.value)}>
+                    {PLANTING_MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </FormCell>
+              )}
+              {plantedAs === "Tree" ? (
+                <FormCell label="Quantity of Trees" wide={!canChoosePlanting(cropType)}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    className={baseInputClasses}
+                    placeholder="e.g. 100"
+                    value={form.quantity_of_trees}
+                    aria-label="Quantity of Trees"
+                    onChange={(e) => set("quantity_of_trees", e.target.value.replace(/[^0-9]/g, ""))}
+                  />
+                </FormCell>
+              ) : (
+                <FormCell label="Quantity of Seeds" wide={!canChoosePlanting(cropType)}>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className={baseInputClasses}
+                      placeholder="e.g. 25"
+                      value={form.quantity_of_seeds}
+                      aria-label="Quantity of Seeds"
+                      onChange={(e) => set("quantity_of_seeds", e.target.value)}
+                    />
+                    <select
+                      className={`${baseInputClasses} max-w-[9rem]`}
+                      aria-label="Unit"
+                      value={form.seed_quantity_unit}
+                      onChange={(e) => set("seed_quantity_unit", e.target.value)}
+                    >
+                      {seedUnitOptions(unitWeights, form.seed_quantity_unit).map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </FormCell>
+              )}
+            </FormRow>
+            <FormRow>
+              <FormCell label="PCIC Insured" wide>
+                <PcicInsuranceField compact value={pcic} onChange={setPcic} subject="planting" />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
-        {/* Date Planted + Area */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className={editLabelCls}>
-              Date Planted <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="date"
-              className={baseInputClasses}
-              value={form.date_planted}
-              max={new Date().toISOString().split("T")[0]}
-              onChange={(e) => set("date_planted", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className={editLabelCls}>
-              Area Planted (ha) <span className="text-rose-500">*</span>
-            </label>
-            <DecimalInput
-              decimals={2}
-              className={baseInputClasses}
-              placeholder="e.g. 2.50"
-              value={form.area_planted_ha}
-              onChange={(v) => set("area_planted_ha", v)}
-            />
-            {record.date_planted_is_estimated && (
-              <p className="mt-1.5 text-[11px] text-amber-700">
-                This date is an estimate imported from a registry record. Saving this form
-                confirms it as the real planting date and unblocks Record Harvest for this crop.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Harvest Preview */}
         {(harvestDate || estimatedYield != null) && (
-          <div className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E] mb-2">
-              Harvest Preview
-            </p>
-            <div className="flex flex-wrap gap-x-6 gap-y-1">
-              {harvestDate && (
-                <div>
-                  <p className="text-[11px] text-[#4A5E4A]">
-                    Est. Harvest Date
-                  </p>
-                  <p className="text-[13px] font-semibold text-[#1A2B1A]">
-                    {harvestDate.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-              )}
-              {estimatedYield != null && (
-                <div>
-                  <p className="text-[11px] text-[#4A5E4A]">Est. Yield</p>
-                  <p className="text-[13px] font-semibold text-[#1A2B1A]">
-                    {estimatedYield.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    kg
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+          <DetailTable
+            title="Harvest Preview"
+            fields={[
+              { label: "Est. Harvest Date", value: harvestDate ? formatDate(harvestDate.toISOString().slice(0, 10)) : "", hidden: !harvestDate },
+              { label: "Est. Yield", value: estimatedYield != null ? `${estimatedYield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : "", hidden: estimatedYield == null },
+            ]}
+          />
         )}
 
-        {/* Season: follows the Date Planted */}
-        <div>
-          <label className={editLabelCls}>Season</label>
-          <p className="rounded-lg border border-[#E2E8E2] bg-[#F5F7F5] px-3 py-2 text-[13px] text-[#4A5E4A]" data-testid="season-auto">
-            {seasonOf(form.date_planted) ? `${seasonOf(form.date_planted)} season` : "Chosen from the date planted"}
-          </p>
-        </div>
-
-        {/* Variety Used */}
-        <div>
-          <label className={editLabelCls}>
-            Variety Used{" "}
-            <span className="text-[12px] font-normal text-[#7A8E7A]">
-              (optional)
-            </span>
-          </label>
-          <input
-            type="text"
-            className={baseInputClasses}
-            placeholder="e.g. RC9, PSB Rc18"
-            value={form.variety_used}
-            onChange={(e) => set("variety_used", e.target.value)}
-          />
-        </div>
-
-        {/* Seed Source */}
-        <div>
-          <label className={editLabelCls}>
-            Seed Source{" "}
-            <span className="text-[12px] font-normal text-[#7A8E7A]">
-              (optional)
-            </span>
-          </label>
-          <ComboboxWithOther
-            options={["Own Seeds", "DA/LGU Provided", "Commercial", "Organization"]}
-            value={form.seed_source}
-            otherValue={form.seed_source_other_specify}
-            onChange={(v) => set("seed_source", v)}
-            onOtherChange={(v) => set("seed_source_other_specify", v)}
-            placeholder="Select…"
-          />
-        </div>
-
-        {/* Quantity: seeds (with a unit) or trees, by how the crop is planted (Crop Settings); a crop that is both can be switched */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          {canChoosePlanting(cropType) && (
-            <div>
-              <label className={editLabelCls}>Planted As</label>
-              <select
-                className={baseInputClasses}
-                value={plantedAs}
-                onChange={(e) => set("planting_material", e.target.value)}
-              >
-                {PLANTING_MATERIALS.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          {plantedAs === "Tree" ? (
-            <div>
-              <label className={editLabelCls}>
-                Quantity of Trees{" "}
-                <span className="text-[12px] font-normal text-[#7A8E7A]">(optional)</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                inputMode="numeric"
-                className={baseInputClasses}
-                placeholder="e.g. 100"
-                value={form.quantity_of_trees}
-                onChange={(e) => set("quantity_of_trees", e.target.value.replace(/[^0-9]/g, ""))}
-              />
-            </div>
-          ) : (
-            <div>
-              <label className={editLabelCls}>
-                Quantity of Seeds{" "}
-                <span className="text-[12px] font-normal text-[#7A8E7A]">
-                  (optional)
-                </span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className={baseInputClasses}
-                  placeholder="e.g. 25"
-                  value={form.quantity_of_seeds}
-                  onChange={(e) => set("quantity_of_seeds", e.target.value)}
-                />
-                <select
-                  className={`${baseInputClasses} max-w-[9rem]`}
-                  aria-label="Unit"
-                  value={form.seed_quantity_unit}
-                  onChange={(e) => set("seed_quantity_unit", e.target.value)}
-                >
-                  {seedUnitOptions(unitWeights, form.seed_quantity_unit).map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <PcicInsuranceField value={pcic} onChange={setPcic} subject="planting" />
-
         {error && (
-          <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">
+          <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]" role="alert">
             {error}
           </p>
         )}
-
       </form>
     </ModalShell>
   );
