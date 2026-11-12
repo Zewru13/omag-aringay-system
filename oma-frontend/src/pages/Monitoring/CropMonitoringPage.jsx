@@ -8,6 +8,7 @@ import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import Button from '../../components/UI/Button.jsx'
 import HarvestFormRows from './HarvestFormRows.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import useIsPhone from '../../hooks/useIsPhone.js'
@@ -1366,17 +1367,11 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
         iconBg="bg-rose-100"
         iconColor="text-rose-600"
         onClose={onClose}
-        maxWidth="max-w-md"
+        maxWidth="max-w-2xl"
         footer={
           <>
-            <button type="button" onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-              Cancel
-            </button>
-            <button type="button" onClick={handleSubmitClick} disabled={isSubmitting}
-              className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              {isSubmitting ? 'Saving…' : 'Report Disaster'}
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="danger" onClick={handleSubmitClick} isLoading={isSubmitting} disabled={isSubmitting}>Report Disaster</Button>
           </>
         }
       >
@@ -1387,82 +1382,88 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
             startDate={record.date_planted}
             expectedHarvestDate={record.expected_harvest_date}
           />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Disaster Type *</label>
-            <ComboboxWithOther
-              options={['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak']}
-              value={disasterType}
-              otherValue={disasterTypeOtherSpecify}
-              onChange={setDisasterType}
-              onOtherChange={setDisasterTypeOtherSpecify}
-              placeholder="Select type"
-            />
-          </div>
+          <FormSection title="Disaster Details">
+            <FormRows label="Disaster details">
+              <FormRow>
+                <FormCell label="Disaster Type" required>
+                  <ComboboxWithOther
+                    options={['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak']}
+                    value={disasterType}
+                    otherValue={disasterTypeOtherSpecify}
+                    onChange={setDisasterType}
+                    onOtherChange={setDisasterTypeOtherSpecify}
+                    placeholder="Select type"
+                  />
+                </FormCell>
+                <FormCell label="Date of Occurrence" required error={dateError}
+                  hint={datePlanted && !dateError ? <p className="mt-1 text-xs text-slate-400">Must be between {datePlanted} and today.</p> : null}>
+                  <input type="date" className={`${baseInputClasses} ${dateError ? 'border-rose-400' : ''}`} aria-label="Date of Occurrence"
+                    value={dateOfOccurrence}
+                    max={todayISO()}
+                    min={datePlanted || undefined}
+                    onChange={e => { setDateOfOccurrence(e.target.value); setDateError(validateDate(e.target.value)) }} />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Area Affected (ha)" required wide error={areaError}
+                  hint={!areaError && maxArea ? <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area planted)</p> : null}>
+                  <div className="md:max-w-[16rem]">
+                    <DecimalInput decimals={4} max={maxArea} aria-label="Area Affected (ha)"
+                      className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
+                      value={areaAffectedHa}
+                      onChange={v => {
+                        setAreaAffectedHa(v)
+                        setAreaError(validateArea(v))
+                        // Total Loss needs the whole area: typing anything else switches it off
+                        if (isTotalLoss && maxArea !== null && !(Math.abs(parseFloat(v) - maxArea) < 0.00005)) setIsTotalLoss(false)
+                      }}
+                      placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 2.50'} />
+                  </div>
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Damage Description" wide>
+                  <textarea rows={3} className={`${baseInputClasses} h-auto resize-none py-2`} value={estimatedDamage} aria-label="Damage Description"
+                    onChange={e => setEstimatedDamage(e.target.value)}
+                    placeholder="Describe the damage observed (crops, infrastructure, etc.)" />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Estimated Production Loss" wide>
+                  <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={productionLoss} aria-label="Estimated Production Loss"
+                    onChange={e => setProductionLoss(e.target.value)}
+                    placeholder="Describe or estimate production loss" />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Total Loss" wide>
+                  <label className={`flex items-start gap-2 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isTotalLoss && isWholeArea}
+                      disabled={!isWholeArea}
+                      onChange={e => setIsTotalLoss(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-rose-800">Total loss — crop completely destroyed</span>
+                      <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
+                      {!isWholeArea && (
+                        <p className="mt-1 text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</p>
+                      )}
+                    </div>
+                  </label>
+                </FormCell>
+              </FormRow>
+            </FormRows>
+          </FormSection>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Date of Occurrence *</label>
-            <input type="date" className={`${baseInputClasses} ${dateError ? 'border-rose-400' : ''}`}
-              value={dateOfOccurrence}
-              max={todayISO()}
-              min={datePlanted || undefined}
-              onChange={e => { setDateOfOccurrence(e.target.value); setDateError(validateDate(e.target.value)) }} />
-            {dateError && <p className="mt-1 text-xs text-rose-600">{dateError}</p>}
-            {datePlanted && !dateError && (
-              <p className="mt-1 text-xs text-slate-400">Must be between {datePlanted} and today.</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Area Affected (ha) *</label>
-            <DecimalInput decimals={4} max={maxArea}
-              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
-              value={areaAffectedHa}
-              onChange={v => {
-                setAreaAffectedHa(v)
-                setAreaError(validateArea(v))
-                // Total Loss needs the whole area: typing anything else switches it off
-                if (isTotalLoss && maxArea !== null && !(Math.abs(parseFloat(v) - maxArea) < 0.00005)) setIsTotalLoss(false)
-              }}
-              placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 2.50'} />
-            {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
-            {!areaError && maxArea && (
-              <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area planted)</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Damage Description (optional)</label>
-            <textarea rows={3} className={`${baseInputClasses} resize-none`} value={estimatedDamage}
-              onChange={e => setEstimatedDamage(e.target.value)}
-              placeholder="Describe the damage observed (crops, infrastructure, etc.)" />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Estimated Production Loss (optional)</label>
-            <textarea rows={2} className={`${baseInputClasses} resize-none`} value={productionLoss}
-              onChange={e => setProductionLoss(e.target.value)}
-              placeholder="Describe or estimate production loss" />
-          </div>
-
-          <label className={`flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-            <input
-              type="checkbox"
-              checked={isTotalLoss && isWholeArea}
-              disabled={!isWholeArea}
-              onChange={e => setIsTotalLoss(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
-            />
-            <div>
-              <span className="text-sm font-medium text-rose-800">Total loss — crop completely destroyed</span>
-              <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
-              {!isWholeArea && (
-                <p className="mt-1 text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</p>
-              )}
+          <FormSection title="Photos">
+            <div className="p-3">
+              <PhotoListField photosState={photosState} title="Photos (optional)"
+                hint="Up to 10 photos showing the damage." altPrefix="Damage photo" />
             </div>
-          </label>
-
-          <PhotoListField photosState={photosState} title="Photos (optional)"
-            hint="Up to 10 photos showing the damage." altPrefix="Damage photo" />
+          </FormSection>
         </div>
       </ModalShell>
 

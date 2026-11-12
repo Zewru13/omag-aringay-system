@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import useIsPhone from '../../hooks/useIsPhone.js'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -145,20 +146,16 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
         footer={step === 'review' ? (
           <>
             <p className="mr-auto self-center text-[12.5px] text-[#4A5E4A]" role="status">{countLine(rows.length)} · {fmtTotal(rowsTotalKg(rows, weights))} kg in all</p>
-            <Button type="button" variant="ghost" onClick={() => setStep('form')} disabled={isSubmitting}>Back</Button>
-            <button type="button" onClick={confirmed} disabled={isSubmitting}
-              className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
-              {isSubmitting ? 'Saving…' : 'Confirm Force Harvest'}
-            </button>
+            <Button type="button" variant="outline" onClick={() => setStep('form')} disabled={isSubmitting}>Back</Button>
+            <Button type="button" variant="danger" onClick={confirmed} isLoading={isSubmitting} disabled={isSubmitting}>Confirm Force Harvest</Button>
           </>
         ) : (
           <>
             <p className="mr-auto self-center text-[12.5px] text-[#4A5E4A]" role="status">{countLine(rows.length)}</p>
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <button type="button" onClick={submitClick} disabled={isSubmitting || records === null}
-              className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="danger" onClick={submitClick} disabled={isSubmitting || records === null}>
               Review Force Harvest{rows.length > 1 ? ` (${rows.length} crops)` : ''}
-            </button>
+            </Button>
           </>
         )}
       >
@@ -221,33 +218,33 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
           <DraftBanner draft={draft} />
           {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="force-date">Harvested date *</label>
-              <input id="force-date" type="date" className={baseInputClasses} value={date} max={today} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="force-reason">Forced harvest due to early harvest: reason *</label>
-              <select id="force-reason" className={`${baseInputClasses} ${showErrors && !code ? 'border-rose-400' : ''}`} value={code}
-                onChange={(e) => { setCode(e.target.value); setError('') }}>
-                <option value="">Choose a reason</option>
-                {FORCED_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
-            </div>
-            {code && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="force-detail">
-                  {code === FORCED_OTHER ? 'Describe the reason *' : 'Details (optional)'}
-                </label>
-                <input id="force-detail" type="text" className={baseInputClasses} value={detail} maxLength={200} onChange={(e) => setDetail(e.target.value)}
-                  placeholder={code === FORCED_OTHER ? 'What made you harvest early?' : 'e.g. signal no. 3 expected on Friday'} />
-              </div>
-            )}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="force-remarks">Remarks (optional)</label>
-              <input id="force-remarks" type="text" className={baseInputClasses} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-            </div>
-          </div>
+          <FormSection title="Force Harvest Details">
+            <FormRows label="Force harvest details">
+              <FormRow>
+                <FormCell label="Harvested Date" required>
+                  <input id="force-date" type="date" className={baseInputClasses} value={date} max={today} aria-label="Harvested Date" onChange={(e) => setDate(e.target.value)} />
+                </FormCell>
+                <FormCell label="Reason" required>
+                  <select id="force-reason" className={`${baseInputClasses} ${showErrors && !code ? 'border-rose-400' : ''}`} value={code} aria-label="Reason for forced harvest"
+                    onChange={(e) => { setCode(e.target.value); setError('') }}>
+                    <option value="">Choose a reason</option>
+                    {FORCED_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                {code ? (
+                  <FormCell label="Reason Details" required={code === FORCED_OTHER}>
+                    <input id="force-detail" type="text" className={baseInputClasses} value={detail} maxLength={200} aria-label="Reason details" onChange={(e) => setDetail(e.target.value)}
+                      placeholder={code === FORCED_OTHER ? 'What made you harvest early?' : 'e.g. signal no. 3 expected on Friday'} />
+                  </FormCell>
+                ) : null}
+                <FormCell label="Remarks" wide={!code}>
+                  <input id="force-remarks" type="text" className={baseInputClasses} value={remarks} aria-label="Remarks" onChange={(e) => setRemarks(e.target.value)} />
+                </FormCell>
+              </FormRow>
+            </FormRows>
+          </FormSection>
 
           {records === null ? <p className="text-sm text-slate-500">Loading the crops of {where}…</p>
             : records === false ? <p className="text-sm text-rose-600">Could not load the crops of {where}. Close this window and try again.</p>
