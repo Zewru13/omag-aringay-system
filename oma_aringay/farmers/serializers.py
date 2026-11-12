@@ -335,6 +335,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'gender',
             'birthdate',
             'contact_number',
+            'email',
             'barangay',
             'municipality',
             'province',

@@ -451,7 +451,7 @@ export default {
   "purpose": "Records a new farmer once, with their RSBSA number.",
   "image": "/manual/admin/register-farmer.png",
   "width": 1280,
-  "height": 1750,
+  "height": 2300,
   "legend": [
    {
     "n": 1,
@@ -485,61 +485,51 @@ export default {
    },
    {
     "n": 7,
-    "label": "Contact Number",
-    "desc": "Optional. A Philippine mobile number, 09XXXXXXXXX."
+    "label": "Contact number and barangay",
+    "desc": "The mobile number is optional (09XXXXXXXXX); the barangay is required: choose the barangay of Aringay where the farmer lives."
    },
    {
     "n": 8,
-    "label": "Barangay",
-    "desc": "Required. Choose the barangay of Aringay where the farmer lives."
+    "label": "RSBSA and PhilSys numbers",
+    "desc": "The RSBSA number is required: type the digits only, the dashes are added as you type. It identifies the farmer in every list and report, so a number that is already registered is refused. The PhilSys national ID number is optional."
    },
    {
     "n": 9,
-    "label": "RSBSA Number",
-    "desc": "Required. Type the digits only; the dashes are added as you type. It identifies the farmer in every list and report, so a number that is already registered is refused."
-   },
-   {
-    "n": 10,
-    "label": "PhilSys / National ID No.",
-    "desc": "Optional. The national ID number."
-   },
-   {
-    "n": 11,
     "label": "RSBSA classification",
     "desc": "Tick Person with Disability (PWD), 4Ps Beneficiary and ICC/IP Member if they apply. Senior Citizen cannot be ticked: it is set automatically when the birthdate makes the farmer 60 or older."
    },
    {
-    "n": 12,
+    "n": 10,
     "label": "Farmer Organization",
     "desc": "Optional. Click the box and type part of the organization's name: the list narrows as you type. Pick it (or Not a member) and the farmer becomes one of its members from the start. It can be changed later from the profile."
    },
    {
-    "n": 13,
+    "n": 11,
     "label": "Import machinery",
     "desc": "Reads the farmer's machinery lines from a spreadsheet."
    },
    {
-    "n": 14,
+    "n": 12,
     "label": "Add machinery",
     "desc": "Adds one machinery line: choose the machinery, how many, and whether it is Owned, Borrowed, Rented or Organization-Owned. Machinery belongs to the farmer, not to a parcel. Leave it empty if there is none."
    },
    {
-    "n": 15,
+    "n": 13,
     "label": "Save Farmer & Add Farm Parcels",
     "desc": "Saves the farmer and opens the Add Farm Parcels table straight away, to record their parcels and the crops planted on each. When the parcels are saved you come back to the farmer's profile."
    },
    {
-    "n": 16,
+    "n": 14,
     "label": "Email",
     "desc": "Optional. It is only kept on the record. The farmer's login account is set up later, in person, with Set Up Account on the farmer's profile."
    },
    {
-    "n": 17,
+    "n": 15,
     "label": "Cancel",
     "desc": "Closes the form; nothing is saved."
    },
    {
-    "n": 18,
+    "n": 16,
     "label": "Save Farmer",
     "desc": "Saves the farmer and returns to the list."
    }
