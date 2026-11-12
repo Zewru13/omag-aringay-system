@@ -2181,7 +2181,7 @@ export default {
    {
     "n": 2,
     "label": "Edit",
-    "desc": "Changes the cycle (dates, ownership, the number of fingerlings, PCIC insurance of each pond or cage)."
+    "desc": "Opens the Start Production Cycle form filled in with the cycle: change the organization, culture phase, species (until anything is recorded for the cycle), water source, fingerling source, pond location, the stocking and target harvest dates, ownership, and the survival rate, body weight and seed cost. The fisherfolk and the ponds or cages are shown, not edited (PCIC insurance is changed per pond or cage)."
    },
    {
     "n": 3,

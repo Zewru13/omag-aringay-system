@@ -11,6 +11,7 @@ from accounts.utils import citizen_account_info
 from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
 from core.idnumbers import by_id_key, id_key
+from core.seasons import season_for_date
 from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image, validate_contact_number
 from monitoring.models import AquacultureProductionUnit
 
@@ -1178,6 +1179,14 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
     area_hectares          = serializers.DecimalField(max_digits=10, decimal_places=4, required=False, allow_null=True)
     survival_rate_pct      = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
     avg_body_weight_kg     = serializers.DecimalField(max_digits=8, decimal_places=3, required=False, allow_null=True)
+    # Edit Production Cycle: the cycle's own fields, written together with the record in one save (see update()). Write-only; the cycle is read from
+    # /api/monitoring/aquaculture-cycles/<id>/. `cycle_name` is the culture phase (Start Production Cycle's "Culture Phase").
+    cycle_name                      = serializers.CharField(max_length=150, write_only=True, required=False)
+    cycle_organization              = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    cycle_target_harvest_date       = serializers.DateField(write_only=True, required=False, allow_null=True)
+    cycle_ownership                 = serializers.CharField(max_length=10, write_only=True, required=False, allow_blank=True)
+    cycle_owner_name                = serializers.CharField(max_length=150, write_only=True, required=False, allow_blank=True)
+    cycle_owner_registration_number = serializers.CharField(max_length=50, write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model  = StockingRecord
@@ -1204,6 +1213,7 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
             'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
             'has_pcic_insurance', 'pcic_form_photo', 'pcic_form_photos',
+            'cycle_name', 'cycle_organization', 'cycle_target_harvest_date', 'cycle_ownership', 'cycle_owner_name', 'cycle_owner_registration_number',
         ]
         read_only_fields = [
             'id', 'pcic_form_photo', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',
@@ -1375,7 +1385,37 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
         validate_not_future_date(value, 'Date stocked')
         return value
 
+    # --- Edit Production Cycle -------------------------------------------------------------------------------------------------------------
+    CYCLE_FIELDS = {
+        'cycle_name': 'cycle_name', 'cycle_organization': 'organization', 'cycle_target_harvest_date': 'target_harvest_date',
+        'cycle_ownership': 'ownership', 'cycle_owner_name': 'owner_name', 'cycle_owner_registration_number': 'owner_registration_number',
+    }
+
+    @staticmethod
+    def _first_activity_date(record):
+        """The earliest date of anything recorded against this stocking and its production cycle: activity logs, health and feeding logs of the
+        cycle, disaster reports and harvests. None when nothing is recorded yet."""
+        dates = list(record.logs.values_list('date_of_activity', flat=True))
+        dates += list(record.disaster_reports.values_list('date_of_occurrence', flat=True))
+        dates += list(record.harvests.values_list('harvest_date', flat=True))
+        cycle = record.production_cycle
+        if cycle is not None:
+            dates += list(cycle.health_logs.values_list('log_date', flat=True))
+            dates += list(cycle.feeding_logs.values_list('feeding_date', flat=True))
+        return min(dates) if dates else None
+
     def validate(self, data):
+        instance = self.instance
+        if instance is not None:
+            first = self._first_activity_date(instance)
+            new_date = data.get('date_stocked')
+            if new_date and new_date != instance.date_stocked and first is not None and new_date > first:
+                raise serializers.ValidationError({'date_stocked': f'The stocking date cannot be after {first:%b} {first.day}, {first.year}, the first activity recorded for this cycle.'})
+            species = data.get('species')
+            if species is not None and species.pk != instance.species_id and first is not None:
+                raise serializers.ValidationError({'species': 'The species cannot be changed once the cycle has activity logs, a disaster report or a harvest.'})
+            if any(key in data for key in self.CYCLE_FIELDS) and instance.production_cycle_id is None:
+                raise serializers.ValidationError({'cycle_name': 'This record has no production cycle, so its cycle details cannot be changed.'})
         for field_name, specify_name, label in [
             ('land_status', 'land_status_other_specify', 'land status'),
             ('water_source', 'water_source_other_specify', 'water source'),
@@ -1391,6 +1431,51 @@ class StockingRecordSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
             if fisherfolk is None or cycle.fisherfolk_id != fisherfolk.id:
                 raise serializers.ValidationError({'production_cycle': 'This production cycle belongs to a different fisherfolk.'})
         return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """The record and its production cycle change together, so their copies of the stocking date, species, culture phase and count never
+        drift apart. Anything the cycle refuses (an organization the fisherfolk is not in, a Tenant without the owner's details, a target date
+        before the stocking date) is reported under its `cycle_*` name and nothing is saved."""
+        cycle_changes = {cycle_key: validated_data.pop(key) for key, cycle_key in self.CYCLE_FIELDS.items() if key in validated_data}
+        cycle = instance.production_cycle
+        new_date = validated_data.get('date_stocked')
+        species = validated_data.get('species')
+
+        if new_date and new_date != instance.date_stocked:
+            validated_data['season'] = season_for_date(new_date)
+            validated_data['year'] = new_date.year
+        if 'cycle_name' in cycle_changes:
+            name = cycle_changes['cycle_name'].strip()
+            cycle_changes['cycle_name'] = name
+            phases = [value for value, _ in StockingRecord.CULTURE_PHASE_CHOICES if value != 'Other']
+            validated_data['culture_phase'] = name if name in phases else 'Other'
+            validated_data['culture_phase_other_specify'] = '' if name in phases else name
+
+        if cycle is not None:
+            if new_date and new_date != cycle.stocking_date:
+                cycle_changes['stocking_date'] = new_date
+            if species is not None and species.pk != instance.species_id:
+                cycle_changes['species_farmed'] = species.species_name
+            if not cycle.units.exists() and validated_data.get('number_of_fingerlings') is not None:
+                cycle_changes['stocking_count'] = validated_data['number_of_fingerlings']   # with ponds/cages the count is their total, never typed
+            elif cycle.units.exists():
+                validated_data.pop('number_of_fingerlings', None)
+                validated_data.pop('area_hectares', None)
+            if cycle_changes:
+                self._save_cycle(cycle, cycle_changes)
+        return super().update(instance, validated_data)
+
+    def _save_cycle(self, cycle, changes):
+        from monitoring.serializers import AquacultureProductionCycleSerializer
+        serializer = AquacultureProductionCycleSerializer(cycle, data=changes, partial=True, context=self.context)
+        if not serializer.is_valid():
+            mapped = {}
+            reverse = {cycle_key: key for key, cycle_key in self.CYCLE_FIELDS.items()}
+            for field, message in serializer.errors.items():
+                mapped[reverse.get(field, 'detail' if field == 'non_field_errors' else field)] = message
+            raise serializers.ValidationError(mapped)
+        serializer.save()
 
 
 class StockingRecordDetailSerializer(StockingRecordSerializer):

@@ -35,7 +35,7 @@ export const STAFF4 = [
   A({ id: 'admin-aquaculture-menu', file: 'admin/aquaculture-menu.png', url: '/fisheries-monitoring?tab=stocking', width: 2000, js: lastRowMenu(), after: 800, title: 'The menu of a production cycle', purpose: 'The actions of one cycle.',
     callouts: [
       { find: { text: 'View Details', tag: 'button' }, label: 'View Details', desc: 'Shows the cycle\'s details: fisherfolk, species, dates, ponds, fingerlings, estimated and actual harvest.' },
-      { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Changes the cycle (dates, ownership, the number of fingerlings, PCIC insurance of each pond or cage).' },
+      { find: { text: 'Edit', tag: 'button', exact: true }, label: 'Edit', desc: 'Opens the Start Production Cycle form filled in with the cycle: change the organization, culture phase, species (until anything is recorded for the cycle), water source, fingerling source, pond location, the stocking and target harvest dates, ownership, and the survival rate, body weight and seed cost. The fisherfolk and the ponds or cages are shown, not edited (PCIC insurance is changed per pond or cage).' },
       { find: { text: 'Activity Logs', tag: 'button' }, label: 'Activity Logs', desc: 'Lists every Feeding Log and Health Log saved for the cycle: the date, the activity, the pond or cage and the details. Filter it with All, Feeding Log or Health Log.' },
       { find: { text: 'Force Harvest', tag: 'button' }, label: 'Force Harvest', desc: 'Harvests the cycle before it is ready, for a reason such as an upcoming typhoon.' },
     ] }),
