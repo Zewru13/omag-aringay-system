@@ -12,6 +12,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicCell from '../../components/UI/PcicCell.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import AssistanceHistoryModal from '../../components/AssistanceHistoryModal.jsx'
+import { formatDate as formatSharedDate } from '../../utils/dateFormat.js'
 import { displayFisherfolkType } from '../../utils/fisherfolkType.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -49,12 +50,7 @@ const POND_COLUMNS = [
   { key: 'actions_cell',    label: 'ACTIONS' },
 ]
 
-function formatDate(value) {
-  if (!value) return ''
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long', day: 'numeric', year: 'numeric',
-  }).format(new Date(value))
-}
+const formatDate = (value) => formatSharedDate(value, { empty: '' })
 
 function fmtShort(v) {
   if (!v) return '—'

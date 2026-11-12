@@ -2,12 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, CircleHelp, History, LogOut, Menu, BookOpen } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { formatDate } from '../../utils/dateFormat.js'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
 import NotificationBell from './NotificationBell.jsx'
 
-function formatDate(d) {
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-}
 
 function Navbar({ onToggleSidebar, isCollapsed }) {
   const navigate = useNavigate()

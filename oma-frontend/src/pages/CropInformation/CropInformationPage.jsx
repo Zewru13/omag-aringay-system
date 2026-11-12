@@ -55,13 +55,12 @@ import {
 import DraftBanner from "../../components/UI/DraftBanner.jsx";
 import { seasonOf } from "../Monitoring/cropRecordForm.js";
 import useDraftForm, { useDraftField } from "../../hooks/useDraftForm.js";
+import { formatDate as formatSharedDate } from "../../utils/dateFormat.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function fmtShort(v) {
-  if (!v) return "—";
-  const d = new Date(v + "T00:00:00");
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  return formatSharedDate(v);
 }
 
 function fmtLong(v) {

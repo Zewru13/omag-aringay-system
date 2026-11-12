@@ -21,7 +21,7 @@ const rec = {
 }
 eq(recordRow(rec), {
   ownership: 'Tenant', ownerLine: 'Owner: Juan Dela Cruz', cycle: 'Grow-out Phase', cycleNo: '#2', species: 'Bangus', fisherfolk: 'Pedro Cruz', barangay: 'Samara', pondLocation: 'Basca', cultureType: 'Pond',
-  organization: 'Samara Fishers', dateStocked: '10/5/2026', insured: true,
+  organization: 'Samara Fishers', dateStocked: 'Oct 5, 2026', insured: true,
 }, 'a full row')
 const bare = recordRow({ id: 8, ownership: '', species_name: 'Tilapia', date_stocked: '2026-01-02' })
 eq([bare.ownership, bare.cycle, bare.cycleNo, bare.fisherfolk, bare.barangay, bare.pondLocation, bare.cultureType, bare.organization, bare.insured],

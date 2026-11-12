@@ -39,7 +39,7 @@ function PaperTable({ headers, rows, empty, refs, onPick }) {
   return (
     <table className="w-full border-collapse text-[11px] text-slate-800">
       <thead>
-        <tr>{headers.map((h, i) => <th key={i} className="border border-[#14703C] bg-[#16813F] px-2 py-1.5 text-left font-semibold text-white">{h}</th>)}</tr>
+        <tr>{headers.map((h, i) => <th key={i} className="border border-[#14703C] bg-[#16813F] px-2 py-1.5 text-left font-semibold normal-case text-white">{h}</th>)}</tr>
       </thead>
       <tbody>
         {rows.map((row, i) => (

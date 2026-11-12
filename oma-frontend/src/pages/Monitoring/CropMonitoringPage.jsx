@@ -37,6 +37,7 @@ import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
 import { groupActivityOptions, overdueStepDay } from '../../utils/activityPicker.js'
 import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.js'
+import { formatDate } from '../../utils/dateFormat.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import CropDetailsModal from './CropDetailsModal.jsx'
@@ -103,10 +104,7 @@ const PRIORITY_BADGE = {
   LOW:    'bg-[#2D7A4F] text-white',
 }
 
-const fmtDate = (v) => {
-  if (!v) return '—'
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
-}
+const fmtDate = (v) => formatDate(v)
 
 function getGrowthStageLabel(datePlanted) {
   if (!datePlanted) return null
@@ -622,7 +620,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     <>
       <ModalShell
         title="Log Activity"
-        subtitle={`${record.crop_type_name ?? 'Crop'} · ${assocLabel} · Planted: ${record.date_planted || '—'}${cycle ? ` · Day ${cycle.day}${cycle.total ? ` of ${cycle.total}` : ''}` : ''}`}
+        subtitle={`${record.crop_type_name ?? 'Crop'} · ${assocLabel} · Planted: ${formatDate(record.date_planted)}${cycle ? ` · Day ${cycle.day}${cycle.total ? ` of ${cycle.total}` : ''}` : ''}`}
         icon={ClipboardList}
         onClose={onClose}
         maxWidth="max-w-5xl"
@@ -1314,7 +1312,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
   const validateDate = (val) => {
     if (!val) return 'Date of occurrence is required.'
     if (val > todayISO()) return 'Date cannot be in the future.'
-    if (datePlanted && val < datePlanted) return `Date cannot be before planting date (${datePlanted}).`
+    if (datePlanted && val < datePlanted) return `Date cannot be before planting date (${formatDate(datePlanted)}).`
     return ''
   }
 
@@ -1396,7 +1394,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
                   />
                 </FormCell>
                 <FormCell label="Date of Occurrence" required error={dateError}
-                  hint={datePlanted && !dateError ? <p className="mt-1 text-xs text-slate-400">Must be between {datePlanted} and today.</p> : null}>
+                  hint={datePlanted && !dateError ? <p className="mt-1 text-xs text-slate-400">Must be between {formatDate(datePlanted)} and today.</p> : null}>
                   <input type="date" className={`${baseInputClasses} ${dateError ? 'border-rose-400' : ''}`} aria-label="Date of Occurrence"
                     value={dateOfOccurrence}
                     max={todayISO()}
@@ -2071,7 +2069,7 @@ export default function CropMonitoringPage() {
     organization_col: rec.organization_name || '—',
     date_planted: rec.date_planted_is_estimated ? (
       <span className="flex flex-col gap-0.5">
-        <span>{rec.date_planted}</span>
+        <span>{formatDate(rec.date_planted)}</span>
         <span
           className="inline-flex w-fit items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
           title="Imported from a registry record-creation date, not a confirmed field date."
@@ -2079,8 +2077,8 @@ export default function CropMonitoringPage() {
           <HelpCircle className="w-2.5 h-2.5" /> Estimated
         </span>
       </span>
-    ) : (rec.date_planted || '—'),
-    expected_harvest_cell: rec.expected_harvest_date || '—',
+    ) : formatDate(rec.date_planted),
+    expected_harvest_cell: formatDate(rec.expected_harvest_date),
     location_col: (rec.farm_location_barangay || rec.farmer_barangay)
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,

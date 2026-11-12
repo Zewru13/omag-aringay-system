@@ -39,6 +39,12 @@ export function formatDateLong(value, { empty = '—', timeZone } = {}) {
   return parsed ? show(parsed, LONG, timeZone) : empty
 }
 
+// "Thursday, Nov 12, 2026": a welcome line or page heading that says the day too.
+export function formatDateWithWeekday(value, { empty = '—', timeZone } = {}) {
+  const parsed = read(value)
+  return parsed ? show(parsed, { weekday: 'long', ...SHORT }, timeZone) : empty
+}
+
 export function formatDateTime(value, { empty = '—', timeZone } = {}) {
   const parsed = read(value)
   if (!parsed) return empty

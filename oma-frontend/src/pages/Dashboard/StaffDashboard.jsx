@@ -5,6 +5,7 @@ import api from '../../api/axiosInstance.js'
 import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
+import { formatDate, formatDateWithWeekday } from '../../utils/dateFormat.js'
 import DashPanel from './DashPanel.jsx'
 import DisasterTrendsCard from './DisasterTrendsCard.jsx'
 import YieldVarianceCard from './YieldVarianceCard.jsx'
@@ -126,9 +127,7 @@ export default function StaffDashboard({ user }) {
     }
   }
 
-  const today = new Date().toLocaleDateString('en-PH', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  })
+  const today = formatDateWithWeekday(new Date())
   const roleLabel = user?.role === 'ADMIN' ? 'Administrator view' : 'Focal Person view'
   const rows = board?.[tableDomain]?.by_barangay || []
   const variance = board?.yield_variance || []
@@ -291,7 +290,7 @@ export default function StaffDashboard({ user }) {
                       {r.record_label || r.requested_by_name || `Request #${r.id}`}
                     </p>
                     <span className="shrink-0 text-[12px] tabular-nums text-text-muted">
-                      {r.requested_at ? new Date(r.requested_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                      {formatDate(r.requested_at, { empty: '' })}
                     </span>
                   </div>
                   <p className="mt-1 text-[13px] capitalize text-[color:var(--color-semantic-info)]">

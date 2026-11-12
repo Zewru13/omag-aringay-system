@@ -9,6 +9,7 @@ import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
 import { DonutCard, MonthlyBarsCard } from './HomeChartCards.jsx'
 import { assistanceTypeSlices, memberSlices, monthlyCounts } from './homeCharts.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
+import { formatDateWithWeekday } from '../../utils/dateFormat.js'
 
 // Home of the organization account: charts, an attention card for members waiting on a
 // confirmation, and quick actions, laid out like the farmer and fisherfolk phone Homes. Presentation only: it reads
@@ -84,7 +85,7 @@ export default function OrgPhoneHome() {
         className="mb-3"
         theme={isFisherfolkOrg ? 'fisheries' : 'crop'}
         title={user?.linked_record?.label ? `Welcome, ${user.linked_record.label}` : 'Welcome'}
-        subtitle={`${isFisherfolkOrg ? 'Fisherfolk' : 'Farmers'} organization account · ${new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`}
+        subtitle={`${isFisherfolkOrg ? 'Fisherfolk' : 'Farmers'} organization account · ${formatDateWithWeekday(new Date())}`}
       />
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your organization…</p>

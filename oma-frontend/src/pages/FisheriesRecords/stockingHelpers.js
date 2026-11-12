@@ -1,5 +1,6 @@
 // Small pure helpers shared by FisheriesRecordsPage.jsx (the list view and EditStockingModal) and
 // StartProductionCycleModal.jsx.
+import { formatDate } from '../../utils/dateFormat.js'
 
 // Whole calendar days from YYYY-MM-DD `a` to `b` (UTC arithmetic, so no timezone/DST drift).
 function daysBetween(a, b) {
@@ -30,9 +31,7 @@ export function harvestGateStatus(dateStocked, expectedHarvestDate, today = toda
 }
 
 export function fmtShort(v) {
-  if (!v) return '—'
-  const d = new Date(v + 'T00:00:00')
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
+  return formatDate(v)
 }
 
 export function fmtLong(v) {
