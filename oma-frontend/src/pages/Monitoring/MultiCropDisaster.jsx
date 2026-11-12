@@ -6,6 +6,8 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import usePhotoList from '../../hooks/usePhotoList.js'
@@ -156,91 +158,102 @@ export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess, inli
         inline={inline}
         footer={(
           <>
-            <button type="button" onClick={onBack || onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-100">
-              {onBack ? 'Back' : 'Cancel'}
-            </button>
-            <button type="button" onClick={handleSubmitClick} disabled={isSubmitting}
-              className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
-              {isSubmitting ? 'Saving…' : `Report Disaster${rows.length > 1 ? ` (${rows.length} crops)` : ''}`}
-            </button>
+            <Button type="button" variant="outline" onClick={onBack || onClose}>{onBack ? 'Back' : 'Cancel'}</Button>
+            <Button type="button" onClick={handleSubmitClick} isLoading={isSubmitting}>
+              {`Report Disaster${rows.length > 1 ? ` (${rows.length} crops)` : ''}`}
+            </Button>
           </>
         )}
       >
         <div className="space-y-3">
           <DraftBanner draft={draft} />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Disaster Type *</label>
-            <ComboboxWithOther options={DISASTER_TYPES} value={disasterType} otherValue={other}
-              onChange={setDisasterType} onOtherChange={setOther} placeholder="Select type" />
-          </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Date of Occurrence *</label>
-            <input type="date" className={`${baseInputClasses} ${showErrors && dateError ? 'border-rose-400' : ''}`}
-              value={date} max={today} onChange={(e) => setDate(e.target.value)} />
-            {showErrors && dateError && <p className="mt-1 text-xs text-rose-600">{dateError}</p>}
-          </div>
+          <FormSection title="Disaster Details">
+            <FormRows label="Disaster details">
+              <FormRow>
+                <FormCell label="Disaster Type" required>
+                  <ComboboxWithOther options={DISASTER_TYPES} value={disasterType} otherValue={other}
+                    onChange={setDisasterType} onOtherChange={setOther} placeholder="Select type" />
+                </FormCell>
+                <FormCell label="Date of Occurrence" required error={showErrors ? dateError : ''}>
+                  <input type="date" className={`${baseInputClasses} ${showErrors && dateError ? 'border-rose-400' : ''}`}
+                    value={date} max={today} onChange={(e) => setDate(e.target.value)} />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Damage Description" wide>
+                  <textarea rows={3} className={`${baseInputClasses} resize-none`} value={damage} onChange={(e) => setDamage(e.target.value)}
+                    placeholder="Describe the damage observed (crops, infrastructure, etc.)" />
+                </FormCell>
+              </FormRow>
+              <FormRow>
+                <FormCell label="Estimated Production Loss" wide>
+                  <textarea rows={2} className={`${baseInputClasses} resize-none`} value={loss} onChange={(e) => setLoss(e.target.value)}
+                    placeholder="Describe or estimate production loss" />
+                </FormCell>
+              </FormRow>
+            </FormRows>
+          </FormSection>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Damage Description (optional)</label>
-            <textarea rows={3} className={`${baseInputClasses} resize-none`} value={damage} onChange={(e) => setDamage(e.target.value)}
-              placeholder="Describe the damage observed (crops, infrastructure, etc.)" />
+          <div data-testid="crop-rows">
+            <FormSection title="Affected Crops">
+              {rows.length > 1 && (
+                <label className="flex min-h-[44px] cursor-pointer items-start gap-2 border-b border-[#F0F4F0] bg-rose-50 px-3 py-2 text-xs">
+                  <input type="checkbox" className="mt-0.5 h-4 w-4 flex-none rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                    checked={allTotal(rows)} onChange={(e) => setRows((prev) => withAllTotal(prev, e.target.checked))} />
+                  <span>
+                    <span className="font-medium text-rose-800">Mark all {rows.length} crops as total loss</span>
+                    <span className="block text-rose-500">Every crop is completely destroyed: the area affected is set to the whole planted area.</span>
+                  </span>
+                </label>
+              )}
+              <EntryTable bare label="Affected crops">
+                <EntryHead>
+                  <EntryTh>Crop</EntryTh>
+                  <EntryTh required>Area Affected (ha)</EntryTh>
+                  <EntryTh>Total Loss</EntryTh>
+                </EntryHead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <EntryRow key={row.id}>
+                      <EntryCell label="Crop" className="break-words font-medium text-[#1A2B1A]">{row.label}</EntryCell>
+                      <EntryCell label="Area Affected (ha) *">
+                        <DecimalInput decimals={4} max={row.plantedHa ?? undefined}
+                          className={`${baseInputClasses} ${showErrors && rowErrors[i] ? 'border-rose-400' : ''}`}
+                          value={row.area} onChange={(v) => updateRow(row.id, (r) => withArea(r, v))}
+                          placeholder={row.plantedHa ? `0.01 – ${row.plantedHa}` : 'e.g. 2.50'} />
+                        {showErrors && rowErrors[i]
+                          ? <p className="mt-1 text-xs text-rose-600">{rowErrors[i]}</p>
+                          : row.plantedHa !== null && <p className="mt-1 text-[11px] text-[#7A8E7A]">Planted: {row.plantedHa} ha</p>}
+                      </EntryCell>
+                      <EntryCell label="Total Loss">
+                        <label className={`flex min-h-[44px] items-start gap-2 text-xs ${row.total || isWholeArea(row) ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                          <input type="checkbox" className="mt-0.5 h-4 w-4 flex-none rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                            checked={row.total} disabled={!isWholeArea(row)}
+                            onChange={(e) => updateRow(row.id, (r) => withTotal(r, e.target.checked))} />
+                          <span>
+                            <span className="font-medium text-rose-800">Total loss</span>
+                            <span className="block text-rose-500">{isWholeArea(row) ? 'Crop completely destroyed.' : 'Only when the whole area is affected.'}</span>
+                          </span>
+                        </label>
+                      </EntryCell>
+                    </EntryRow>
+                  ))}
+                </tbody>
+              </EntryTable>
+            </FormSection>
           </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Estimated Production Loss (optional)</label>
-            <textarea rows={2} className={`${baseInputClasses} resize-none`} value={loss} onChange={(e) => setLoss(e.target.value)}
-              placeholder="Describe or estimate production loss" />
-          </div>
-
-          <fieldset className="space-y-2" data-testid="crop-rows">
-            <legend className="mb-1 text-xs font-medium text-slate-700">Affected crops: area affected for each</legend>
-            {rows.length > 1 && (
-              <label className="flex min-h-[44px] cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs">
-                <input type="checkbox" className="mt-0.5 h-4 w-4 flex-none rounded border-rose-300 text-rose-600 focus:ring-rose-500"
-                  checked={allTotal(rows)} onChange={(e) => setRows((prev) => withAllTotal(prev, e.target.checked))} />
-                <span>
-                  <span className="font-medium text-rose-800">Mark all {rows.length} crops as total loss</span>
-                  <span className="block text-rose-500">Every crop is completely destroyed: the area affected is set to the whole planted area.</span>
-                </span>
-              </label>
-            )}
-            {rows.map((row, i) => (
-              <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 break-words text-sm font-medium text-slate-800">{row.label}</p>
-                <div className="grid gap-2 sm:grid-cols-2 sm:items-start">
-                  <div>
-                    <label className="mb-1 block text-[11px] font-medium text-slate-600">Area affected (ha) *</label>
-                    <DecimalInput decimals={4} max={row.plantedHa ?? undefined}
-                      className={`${baseInputClasses} ${showErrors && rowErrors[i] ? 'border-rose-400' : ''}`}
-                      value={row.area} onChange={(v) => updateRow(row.id, (r) => withArea(r, v))}
-                      placeholder={row.plantedHa ? `0.01 – ${row.plantedHa}` : 'e.g. 2.50'} />
-                    {showErrors && rowErrors[i]
-                      ? <p className="mt-1 text-xs text-rose-600">{rowErrors[i]}</p>
-                      : row.plantedHa !== null && <p className="mt-1 text-[11px] text-slate-400">Planted: {row.plantedHa} ha</p>}
-                  </div>
-                  <label className={`flex min-h-[44px] items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs ${row.total || isWholeArea(row) ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-                    <input type="checkbox" className="mt-0.5 h-4 w-4 flex-none rounded border-rose-300 text-rose-600 focus:ring-rose-500"
-                      checked={row.total} disabled={!isWholeArea(row)}
-                      onChange={(e) => updateRow(row.id, (r) => withTotal(r, e.target.checked))} />
-                    <span>
-                      <span className="font-medium text-rose-800">Total loss</span>
-                      <span className="block text-rose-500">{isWholeArea(row) ? 'Crop completely destroyed.' : 'Only when the whole area is affected.'}</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-            ))}
-          </fieldset>
           {totalLossCount > 0 && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
               {totalLossCount === 1 ? '1 crop is' : `${totalLossCount} crops are`} marked as a total loss: that ends {totalLossCount === 1 ? 'its' : 'their'} production cycle and no harvest can be recorded.
             </p>
           )}
 
-          <PhotoListField photosState={photosState} title="Photos (optional)"
-            hint="Up to 10 photos showing the damage. Each crop's report keeps a copy." altPrefix="Damage photo" />
+          <FormSection title="Photos">
+            <div className="px-3 py-2.5">
+              <PhotoListField photosState={photosState} title="" hint="Optional: up to 10 photos showing the damage. Each crop's report keeps a copy." altPrefix="Damage photo" />
+            </div>
+          </FormSection>
         </div>
       </ModalShell>
 

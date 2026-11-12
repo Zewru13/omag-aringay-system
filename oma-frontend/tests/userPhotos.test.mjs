@@ -94,6 +94,6 @@ const modal = read('../src/pages/Monitoring/MultiFisherfolkDisasterModal.jsx')
 eq(modal.includes('useDamagePhotos'), false, 'the fisheries modal no longer holds a shared photo list')
 eq(modal.includes('photosByUser'), true, 'the fisheries modal sends per-fisherfolk photos')
 const panel = read('../src/pages/Monitoring/FisherfolkDisasterPanel.jsx')
-eq(panel.includes('useDamagePhotos') && panel.includes('DamagePhotosField') && panel.includes('<tbody'), true, 'a fisherfolk row owns its photos and is a table body')
+eq(panel.includes('useDamagePhotos') && panel.includes('DamagePhotosField') && panel.includes('data-testid="fisherfolk-panel"'), true, 'a fisherfolk part owns its photos and is its own section')
 
 console.log(`ok - ${n} assertions`)

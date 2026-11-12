@@ -7,6 +7,7 @@ import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import CropDisasterEventReport from './CropDisasterEventReport.jsx'
@@ -234,33 +235,32 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
 
           <div>
             <div className="space-y-5">
-              <section className="rounded-xl border border-[#E2E8E2] bg-white p-4">
-                <h3 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Disaster details</h3>
-                <p className="mb-3 text-xs text-[#7A8E7A]">The same for every farmer in this report. Photos are added per farmer, below the parcels.</p>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Type of disaster *</label>
-                    <ComboboxWithOther options={DISASTER_TYPES} value={disasterType} otherValue={other}
-                      onChange={setDisasterType} onOtherChange={setOther} placeholder="Select type" />
-                    {showErrors && typeError && <p className="mt-1 text-xs text-rose-600">{typeError}</p>}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Date of occurrence *</label>
-                    <input type="date" className={`${baseInputClasses} ${showErrors && dateError ? 'border-rose-400' : ''}`} value={date} max={today} onChange={(e) => setDate(e.target.value)} />
-                    {showErrors && dateError && <p className="mt-1 text-xs text-rose-600">{dateError}</p>}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Damage description (optional)</label>
-                    <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={damage} onChange={(e) => setDamage(e.target.value)}
-                      placeholder="Describe the damage observed" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Estimated production loss (optional)</label>
-                    <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={loss} onChange={(e) => setLoss(e.target.value)}
-                      placeholder="Describe or estimate production loss" />
-                  </div>
-                </div>
-              </section>
+              <FormSection title="Disaster Details">
+                <FormRows label="Disaster details">
+                  <FormRow>
+                    <FormCell label="Type of Disaster" required error={showErrors ? typeError : ''}>
+                      <ComboboxWithOther options={DISASTER_TYPES} value={disasterType} otherValue={other}
+                        onChange={setDisasterType} onOtherChange={setOther} placeholder="Select type" />
+                    </FormCell>
+                    <FormCell label="Date of Occurrence" required error={showErrors ? dateError : ''}>
+                      <input type="date" className={`${baseInputClasses} ${showErrors && dateError ? 'border-rose-400' : ''}`} value={date} max={today} onChange={(e) => setDate(e.target.value)} />
+                    </FormCell>
+                  </FormRow>
+                  <FormRow>
+                    <FormCell label="Damage Description" wide>
+                      <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={damage} onChange={(e) => setDamage(e.target.value)}
+                        placeholder="Describe the damage observed" />
+                    </FormCell>
+                  </FormRow>
+                  <FormRow>
+                    <FormCell label="Estimated Production Loss" wide>
+                      <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={loss} onChange={(e) => setLoss(e.target.value)}
+                        placeholder="Describe or estimate production loss" />
+                    </FormCell>
+                  </FormRow>
+                </FormRows>
+                <p className="border-t border-[#F0F4F0] px-3 py-2 text-[11.5px] text-[#7A8E7A]">The same for every farmer in this report. Photos are added per farmer, below the parcels.</p>
+              </FormSection>
 
               <section className="space-y-3">
                 <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Affected parcels and crops</h3>
@@ -375,11 +375,10 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
             <p className={`mr-auto text-[12.5px] ${tooMany ? 'font-medium text-rose-600' : 'text-[#4A5E4A]'}`} role="status">
               {tooMany ? `Choose at most ${MAX_CROPS} crops at a time.` : `${summaryLine(stats)}${totalCount ? ` · ${totalCount} total loss` : ''}`}
             </p>
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <button type="button" onClick={handleSubmitClick} disabled={isSubmitting}
-              className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
-              {isSubmitting ? 'Saving…' : `Report Disaster${cropCount > 1 ? ` (${cropCount} crops)` : ''}`}
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" onClick={handleSubmitClick} isLoading={isSubmitting}>
+              {`Report Disaster${cropCount > 1 ? ` (${cropCount} crops)` : ''}`}
+            </Button>
           </footer>
       </section>
 
