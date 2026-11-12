@@ -5,6 +5,10 @@
 //   cycle    its production cycle (GET /monitoring/aquaculture-cycles/<id>/: with its units, health_logs and feeding_logs)
 import { OWNERSHIP_OPTIONS, chooseOwnership, needsOwnerDetails, ownershipFrom, ownershipPayload, ownershipProblem } from '../../utils/ownership.js'
 import { formatDate } from '../../utils/dateFormat.js'
+import { pcicChanged, pcicStateFrom } from '../../utils/pcic.js'
+
+// The cycle's own status. Harvested follows the harvest records; Failed and Abandoned are set here.
+export const CYCLE_STATUSES = ['Active', 'Harvested', 'Failed', 'Abandoned']
 
 export const CULTURE_PHASES = ['Nursery Phase', 'Stocking Phase', 'Grow-out Phase', 'Harvest Phase', 'Post-Harvest Phase', 'Other']
 
@@ -62,6 +66,12 @@ export function cycleEditFormFrom({ record, cycle, barangays = [] }) {
     avg_fingerling_size: text(record?.avg_fingerling_size),
     land_status: text(record?.land_status),
     land_status_other: text(record?.land_status_other_specify),
+    // the cycle's own status and harvest summary (saved on the cycle, not the stocking record)
+    cycle_status: text(cycle?.status) || 'Active',
+    actual_harvest_date: text(cycle?.actual_harvest_date).slice(0, 10),
+    harvest_volume_kg: text(cycle?.harvest_volume_kg),
+    area_cage_harvested: text(cycle?.area_cage_harvested),
+    cycle_notes: text(cycle?.notes),
   }
 }
 
@@ -90,6 +100,9 @@ export function cycleEditProblem(form, { record, cycle, today }) {
   if (form.avg_body_weight_kg !== '' && !(parseFloat(form.avg_body_weight_kg) >= 0)) return 'Average body weight cannot be negative.'
   if (form.seed_cost_php !== '' && !(parseFloat(form.seed_cost_php) >= 0)) return 'Seed cost cannot be negative.'
   if (!locks.ponds && !(parseInt(form.number_of_fingerlings, 10) >= 1)) return 'Number of fingerlings is required.'
+  if (form.harvest_volume_kg !== '' && !(parseFloat(form.harvest_volume_kg) >= 0)) return 'Harvest volume cannot be negative.'
+  if (form.actual_harvest_date && form.actual_harvest_date < form.stocking_date) return 'Actual harvest date cannot be earlier than the stocking date.'
+  if (form.actual_harvest_date && today && form.actual_harvest_date > today) return 'Actual harvest date cannot be in the future.'
   return ''
 }
 
@@ -134,6 +147,30 @@ export function cycleEditPayload(form, { record, cycle, barangays = [] }) {
     body.land_status_other_specify = form.land_status === 'Other' ? form.land_status_other.trim() : ''
   }
   return body
+}
+
+// What is sent to the CYCLE (PATCH /monitoring/aquaculture-cycles/<id>/): only the status and harvest fields that changed. Nothing when the record has no cycle.
+export function cycleOutcomePayload(form, { record, cycle, barangays = [] }) {
+  if (!cycle) return {}
+  const original = cycleEditFormFrom({ record, cycle, barangays })
+  const body = {}
+  if (form.cycle_status !== original.cycle_status) body.status = form.cycle_status
+  if (form.actual_harvest_date !== original.actual_harvest_date) body.actual_harvest_date = form.actual_harvest_date || null
+  if (form.harvest_volume_kg !== original.harvest_volume_kg) body.harvest_volume_kg = number(form.harvest_volume_kg)
+  if (form.area_cage_harvested !== original.area_cage_harvested) body.area_cage_harvested = form.area_cage_harvested.trim()
+  if (form.cycle_notes !== original.cycle_notes) body.notes = form.cycle_notes
+  return body
+}
+
+// Each pond / cage's PCIC insurance as the state the form changes (pcic.js), by unit id.
+export const unitPcicStates = (cycle) => Object.fromEntries((cycle?.units || []).map((u) => [u.id, pcicStateFrom(u)]))
+
+// Did anything change: a box ticked or cleared, a photo added or removed.
+export function unitPcicChanged(cycle, states) {
+  return (cycle?.units || []).some((u) => {
+    const next = states?.[u.id]
+    return Boolean(next) && (next.insured !== Boolean(u.has_pcic_insurance) || pcicChanged(next))
+  })
 }
 
 export { chooseOwnership, needsOwnerDetails }

@@ -10,16 +10,14 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PcicCheck from '../../components/UI/PcicCheck.jsx'
 import PcicFormButton from '../../components/UI/PcicFormButton.jsx'
-import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import { DetailTable, FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
+import { DetailTable, FormSection } from '../../components/UI/FormTable.jsx'
 import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { cycleProgress } from '../../utils/cycleActivity.js'
 import { formatDate } from '../../utils/dateFormat.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
-import { OWNERSHIP_OPTIONS, chooseOwnership, needsOwnerDetails, ownershipChanged, ownershipFrom, ownershipPayload, ownershipProblem, ownershipRows } from '../../utils/ownership.js'
-import { pcicError, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
+import { ownershipRows } from '../../utils/ownership.js'
 import { pcicDocumentsFrom } from '../../utils/pcicDocuments.js'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { ForcedHarvestedStatus } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
@@ -215,177 +213,10 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
   )
 }
 
-// Each pond/cage's saved PCIC insurance as the form state ({ insured, file, url }) the edit form changes, by unit id.
-function unitPcicStates(cycle) {
-  return Object.fromEntries((cycle.units || []).map(u => [u.id, pcicStateFrom(u)]))
-}
-
-function CycleInfoTab({ cycle, onRefresh }) {
-  const { showToast } = useToast()
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`cycle-info:${cycle.id}`)
-  const [editMode, setEditMode] = useDraftField(draft, 'editMode', false)
-  const [form, setForm] = useDraftField(draft, 'form', {
-    status: cycle.status,
-    actual_harvest_date: cycle.actual_harvest_date || '',
-    harvest_volume_kg: cycle.harvest_volume_kg || '',
-    area_cage_harvested: cycle.area_cage_harvested || '',
-    notes: cycle.notes || '',
-  })
-  // Ownership and PCIC insurance load from the saved cycle each time the form opens, and are only sent when they were changed,
-  // so editing anything else never erases the owner details, the insurance or its document.
-  const [owner, setOwner] = useDraftField(draft, 'owner', () => ownershipFrom(cycle))
-  const [unitPcic, setUnitPcic] = useDraftField(draft, 'unitPcic', () => unitPcicStates(cycle))
-  const [isSaving, setIsSaving] = useState(false)
-  const units = cycle.units || []
-  const unitNoun = units[0]?.unit_type === 'cage' ? 'Cage' : 'Pond'
-  const unitName = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
-  const openEdit = () => { setOwner(ownershipFrom(cycle)); setUnitPcic(unitPcicStates(cycle)); setEditMode(true) }
-
-  const handleSave = async (e) => {
-    e.preventDefault()
-    const ownerChanged = ownershipChanged(owner, cycle)
-    if (ownerChanged) {
-      const problem = ownershipProblem(owner)
-      if (problem) { showToast(problem, 'error'); return }
-    }
-    // A document is asked for when a pond/cage's insurance is newly ticked (as when a cycle is started); an older insured pond/cage
-    // without one can still be edited.
-    for (const u of units) {
-      if (unitPcic[u.id]?.insured && !u.has_pcic_insurance) {
-        const problem = pcicError(unitPcic[u.id])
-        if (problem) { showToast(`${unitName(u)}: ${problem[0].toLowerCase()}${problem.slice(1)}`, 'error'); return }
-      }
-    }
-    setIsSaving(true)
-    try {
-      await api.patch(`/monitoring/aquaculture-cycles/${cycle.id}/`, {
-        ...form,
-        harvest_volume_kg: form.harvest_volume_kg ? parseFloat(form.harvest_volume_kg) : null,
-        actual_harvest_date: form.actual_harvest_date || null,
-        area_cage_harvested: form.area_cage_harvested || '',
-        ...(ownerChanged ? ownershipPayload(owner) : {}),
-      })
-      // Each pond/cage keeps its own insurance: save the boxes that changed, then upload a newly chosen form photo.
-      const failed = []
-      for (const u of units) {
-        const next = unitPcic[u.id]
-        if (!next) continue
-        try {
-          if (next.insured !== !!u.has_pcic_insurance) await api.patch(`/monitoring/aquaculture-units/${u.id}/`, { has_pcic_insurance: next.insured })
-          await uploadPcicForm(api, 'unit', u.id, next)
-        } catch {
-          failed.push(unitName(u))
-        }
-      }
-      if (failed.length) showToast(`Cycle updated, but the PCIC insurance could not be saved for ${failed.join(', ')}. Try again.`, 'error')
-      else showToast('Cycle updated.', 'success')
-      draft.clear()
-      setEditMode(false)
-      onRefresh()
-    } catch (err) {
-      const data = err?.response?.data
-      const first = data && typeof data === 'object' ? Object.values(data)[0] : null
-      showToast((Array.isArray(first) ? first[0] : first) || 'Failed to save.', 'error')
-    }
-    finally { setIsSaving(false) }
-  }
-
-  if (editMode) {
-    return (
-      <form onSubmit={handleSave} className="space-y-3">
-        <DraftBanner draft={draft} />
-        <FormSection title="Cycle Status and Harvest">
-          <FormRows label="Cycle status and harvest">
-            <FormRow>
-              <FormCell label="Status">
-                <select className={baseInputClasses} value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}>
-                  {['Active','Harvested','Failed','Abandoned'].map(s => <option key={s}>{s}</option>)}
-                </select>
-              </FormCell>
-              <FormCell label="Actual Harvest Date">
-                <input type="date" className={baseInputClasses} value={form.actual_harvest_date} onChange={e => setForm(f => ({...f, actual_harvest_date: e.target.value}))} />
-              </FormCell>
-            </FormRow>
-            <FormRow>
-              <FormCell label="Harvest Volume (kg)">
-                <input type="number" step="0.01" className={baseInputClasses} value={form.harvest_volume_kg} onChange={e => setForm(f => ({...f, harvest_volume_kg: e.target.value}))} />
-              </FormCell>
-              <FormCell label="Area / Cage Harvested">
-                <input className={baseInputClasses} value={form.area_cage_harvested} onChange={e => setForm(f => ({...f, area_cage_harvested: e.target.value}))} placeholder="e.g. Pond 1 & 2, Cage A" />
-              </FormCell>
-            </FormRow>
-            <FormRow>
-              <FormCell label="Notes" wide>
-                <textarea className={`${baseInputClasses} h-auto resize-none py-2`} rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />
-              </FormCell>
-            </FormRow>
-          </FormRows>
-        </FormSection>
-        <FormSection title="Ownership">
-          <FormRows label="Ownership">
-            <FormRow>
-              <FormCell label="Ownership" required>
-                <select className={baseInputClasses} required value={owner.ownership} onChange={(e) => setOwner(chooseOwnership(owner, e.target.value))}>
-                  <option value="" disabled>Select Ownership</option>
-                  {OWNERSHIP_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </FormCell>
-              {needsOwnerDetails(owner.ownership) ? (
-                <FormCell label="Owner Name" required>
-                  <input type="text" className={baseInputClasses} required maxLength={150} value={owner.ownerName}
-                    onChange={(e) => setOwner({ ...owner, ownerName: e.target.value })} placeholder="Full name of the owner" />
-                </FormCell>
-              ) : <FormCell label="" />}
-            </FormRow>
-            {needsOwnerDetails(owner.ownership) && (
-              <FormRow>
-                <FormCell label="RSBSA / FishR No. of Owner" required>
-                  <input type="text" className={baseInputClasses} required maxLength={50} inputMode="text" value={owner.ownerNo}
-                    onChange={(e) => setOwner({ ...owner, ownerNo: e.target.value })} placeholder="Registration number of the owner" />
-                </FormCell>
-                <FormCell label="" />
-              </FormRow>
-            )}
-          </FormRows>
-        </FormSection>
-        {units.length > 0 && (
-          <FormSection title={`PCIC Insurance of Each ${unitNoun}`}>
-            <EntryTable bare label={`PCIC insurance of each ${unitNoun.toLowerCase()}`} testId="cycle-edit-pcic-table">
-              <EntryHead>
-                <EntryTh>{unitNoun}</EntryTh>
-                <EntryTh>PCIC Insurance</EntryTh>
-              </EntryHead>
-              <tbody>
-                {units.map(u => (
-                  <EntryRow key={u.id}>
-                    <EntryCell label={unitNoun} className="font-medium text-[#1A2B1A]">{unitName(u)}</EntryCell>
-                    <EntryCell label="PCIC Insurance">
-                      <PcicInsuranceField compact value={unitPcic[u.id] || { insured: false, file: null, url: '' }}
-                        onChange={(next) => setUnitPcic(prev => ({ ...prev, [u.id]: next }))} subject={unitNoun.toLowerCase()} />
-                    </EntryCell>
-                  </EntryRow>
-                ))}
-              </tbody>
-            </EntryTable>
-          </FormSection>
-        )}
-        <div className="flex gap-2 justify-end">
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditMode(false)}>Cancel</Button>
-          <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
-        </div>
-      </form>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button size="sm" variant="outline" onClick={openEdit}>Edit</Button>
-      </div>
-      <CycleInfoSummary cycle={cycle} />
-    </div>
-  )
+// Cycle Info is read-only: a cycle is edited in Edit Production Cycle (the row menu of Aquaculture Monitoring), which holds the status, harvest
+// summary, ownership and each pond / cage's PCIC insurance too.
+function CycleInfoTab({ cycle }) {
+  return <CycleInfoSummary cycle={cycle} />
 }
 // formOnly: the Log Activity window - just the form (open at once, today's date), no history list; onSaved() after a save, onCancel() on Cancel.
 export function FeedingLogTab({ cycleId, units = [], cycle, formOnly = false, onSaved, onCancel }) {
@@ -1105,7 +936,7 @@ export function HealthLogTab({ cycleId, units = [], onChanged, formOnly = false,
   )
 }
 
-function AquacultureCycleDetailModal({ cycle, onClose, onRefresh, onHealthChanged }) {
+function AquacultureCycleDetailModal({ cycle, onClose, onHealthChanged }) {
   const [innerTab, setInnerTab] = useState('info')
 
   const INNER_TABS = [
@@ -1124,13 +955,7 @@ function AquacultureCycleDetailModal({ cycle, onClose, onRefresh, onHealthChange
       )}
       <InnerTabs tabs={INNER_TABS} active={innerTab} onChange={setInnerTab} />
 
-      {innerTab === 'info' && (
-        <CycleInfoTab
-          key={[cycle.status, cycle.actual_harvest_date, cycle.harvest_volume_kg, cycle.area_cage_harvested, cycle.notes].join('|')}
-          cycle={cycle}
-          onRefresh={onRefresh}
-        />
-      )}
+      {innerTab === 'info' && <CycleInfoTab cycle={cycle} />}
       {innerTab === 'feeding' && <FeedingLogTab cycleId={cycle.id} units={cycle.units || []} cycle={cycle} />}
       {innerTab === 'health' && <HealthLogTab cycleId={cycle.id} units={cycle.units || []} onChanged={onHealthChanged} />}
     </ModalShell>

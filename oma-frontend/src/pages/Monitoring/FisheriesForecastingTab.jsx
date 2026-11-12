@@ -960,16 +960,6 @@ export default function ForecastingTab({ asTab = false }) {
   // The cycle-details action lives in Fisheries Monitoring's expanded row only; nothing on this page opens
   // these two modals at present (state kept so the existing modal wiring below stays intact).
   const [fcCycle, setFcCycle] = useState(null)
-  const refreshFcCycle = async () => {
-    if (!fcCycle) return
-    try {
-      const r = await api.get(`/monitoring/aquaculture-cycles/${fcCycle.id}/`)
-      setFcCycle(r.data)
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to refresh production cycle.', 'error')
-    }
-  }
-
   // ── existing "Yield Analysis" state (UNCHANGED below this point) ─────────
   const [speciesList, setSpeciesList] = useState([])
   const [records, setRecords] = useState([])
@@ -1424,7 +1414,6 @@ export default function ForecastingTab({ asTab = false }) {
         <AquacultureCycleDetailModal
           cycle={fcCycle}
           onClose={() => setFcCycle(null)}
-          onRefresh={refreshFcCycle}
           onHealthChanged={() => fetchForecastRecords(fcPage)}
         />
       )}

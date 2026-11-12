@@ -10,6 +10,8 @@ import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../compo
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { FormCell, FormRow, FormRows, FormSection, FormValue } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { pcicError, uploadPcicForm } from '../../utils/pcic.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
@@ -17,7 +19,7 @@ import { formatDate } from '../../utils/dateFormat.js'
 import { todayISO } from '../../utils/localDate.js'
 import { OWNERSHIP_OPTIONS, chooseOwnership, needsOwnerDetails } from '../../utils/ownership.js'
 import { organizationHint, organizationPlaceholder } from '../Monitoring/cycleOrganization.js'
-import { CULTURE_PHASES, cycleEditFormFrom, cycleEditPayload, cycleEditProblem, cycleLocks } from './cycleEditForm.js'
+import { CULTURE_PHASES, CYCLE_STATUSES, cycleEditFormFrom, cycleEditPayload, cycleEditProblem, cycleLocks, cycleOutcomePayload, unitPcicChanged, unitPcicStates } from './cycleEditForm.js'
 import { computeHarvestPreview, detectSeason, fmtLong } from './stockingHelpers.js'
 
 const hint = (message) => <p className="mt-1 text-[11.5px] text-[#7A8E7A]">{message}</p>
@@ -112,7 +114,10 @@ function EditForm({
   const locks = cycleLocks({ record, cycle })
   const original = useMemo(() => cycleEditFormFrom(ctx), [ctx])
   const payload = cycleEditPayload(form, ctx)
-  const isDirty = Object.keys(payload).length > 0
+  const outcome = cycleOutcomePayload(form, ctx)
+  // Each pond / cage's PCIC insurance (its photos are files, so this is kept here and not in the saved draft).
+  const [unitPcic, setUnitPcic] = useState(() => unitPcicStates(cycle))
+  const isDirty = Object.keys(payload).length > 0 || Object.keys(outcome).length > 0 || unitPcicChanged(cycle, unitPcic)
   const set = (field, value) => { setForm((f) => ({ ...f, [field]: value })); setError('') }
   const units = cycle?.units || []
   const unitWord = cycle?.culture_system === 'Fishcage' ? 'Cage' : 'Pond'
@@ -130,10 +135,31 @@ function EditForm({
     e.preventDefault()
     const problem = cycleEditProblem(form, ctx)
     if (problem) { setError(problem); return }
+    // A pond / cage newly ticked as PCIC insured needs a photo of the form (an older insured one without a photo can still be edited).
+    for (const u of units) {
+      if (unitPcic[u.id]?.insured && !u.has_pcic_insurance) {
+        const issue = pcicError(unitPcic[u.id])
+        if (issue) { setError(`${unitWord} ${u.unit_number}: ${issue[0].toLowerCase()}${issue.slice(1)}`); return }
+      }
+    }
     setIsSubmitting(true)
     try {
-      await api.patch(`/fisheries/stocking/${record.id}/`, payload)
-      showToast('Production cycle updated.', 'success')
+      if (Object.keys(payload).length > 0) await api.patch(`/fisheries/stocking/${record.id}/`, payload)
+      // The cycle's own status and harvest summary, then each pond / cage's insurance.
+      if (Object.keys(outcome).length > 0) await api.patch(`/monitoring/aquaculture-cycles/${cycle.id}/`, outcome)
+      const failed = []
+      for (const u of units) {
+        const next = unitPcic[u.id]
+        if (!next) continue
+        try {
+          if (next.insured !== !!u.has_pcic_insurance) await api.patch(`/monitoring/aquaculture-units/${u.id}/`, { has_pcic_insurance: next.insured })
+          await uploadPcicForm(api, 'unit', u.id, next)
+        } catch {
+          failed.push(`${unitWord} ${u.unit_number}`)
+        }
+      }
+      if (failed.length) showToast(`Production cycle updated, but the PCIC insurance could not be saved for ${failed.join(', ')}. Open Edit again to retry.`, 'error')
+      else showToast('Production cycle updated.', 'success')
       draft.clear()
       onSaved()
     } catch (err) {
@@ -339,7 +365,7 @@ function EditForm({
           <FormSection title="Pond/Cage Details">
             <FormRows label="Pond or cage details">
               <FormRow>
-                <FormCell label={`Number of ${unitWord}s`} hint={units.length ? hint(`The ${unitWord.toLowerCase()}s of a started cycle are not edited here. PCIC insurance is changed per ${unitWord.toLowerCase()} from the units panel.`) : null}>
+                <FormCell label={`Number of ${unitWord}s`} hint={units.length ? hint(`The ${unitWord.toLowerCase()}s of a started cycle are not edited here; PCIC insurance is changed per ${unitWord.toLowerCase()} in the table below.`) : null}>
                   <FormValue>{units.length || record.number_of_units || ''}</FormValue>
                 </FormCell>
                 <FormCell label="PCIC Insured"><FormValue>{record.has_pcic_insurance ? 'Yes' : 'No'}</FormValue></FormCell>
@@ -354,6 +380,7 @@ function EditForm({
                     <EntryTh>Width (m)</EntryTh>
                     <EntryTh>Area (m²)</EntryTh>
                     <EntryTh>Fingerlings</EntryTh>
+                    <EntryTh>PCIC Insurance</EntryTh>
                   </EntryHead>
                   <tbody>
                     {units.map((u) => (
@@ -363,6 +390,10 @@ function EditForm({
                         <EntryCell label="Width (m)">{u.width_m ?? '—'}</EntryCell>
                         <EntryCell label="Area (m²)">{Number(u.size_sqm).toFixed(2)}</EntryCell>
                         <EntryCell label="Fingerlings">{Number(u.fingerling_count).toLocaleString()}</EntryCell>
+                        <EntryCell label="PCIC Insurance">
+                          <PcicInsuranceField compact value={unitPcic[u.id] || { insured: false, files: [], photos: [], removed: [] }} subject={unitWord.toLowerCase()}
+                            onChange={(next) => { setUnitPcic((prev) => ({ ...prev, [u.id]: next })); setError('') }} />
+                        </EntryCell>
                       </EntryRow>
                     ))}
                     <EntryRow className="bg-slate-50 font-semibold">
@@ -371,6 +402,7 @@ function EditForm({
                       <EntryCell>—</EntryCell>
                       <EntryCell label="Total area (m²)">{totalArea.toFixed(2)}</EntryCell>
                       <EntryCell label="Total fingerlings">{totalFingerlings.toLocaleString()}</EntryCell>
+                      <EntryCell>—</EntryCell>
                     </EntryRow>
                   </tbody>
                 </EntryTable>
@@ -410,6 +442,39 @@ function EditForm({
               </FormRow>
             </FormRows>
           </FormSection>
+
+          {cycle && (
+            <FormSection title="Cycle Status and Harvest">
+              <FormRows label="Cycle status and harvest">
+                <FormRow>
+                  <FormCell label="Cycle Status">
+                    <select className={baseInputClasses} value={form.cycle_status} aria-label="Cycle Status" onChange={(e) => set('cycle_status', e.target.value)}>
+                      {CYCLE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </FormCell>
+                  <FormCell label="Actual Harvest Date">
+                    <input type="date" className={baseInputClasses} value={form.actual_harvest_date} max={todayISO()} aria-label="Actual Harvest Date"
+                      onChange={(e) => set('actual_harvest_date', e.target.value)} />
+                  </FormCell>
+                </FormRow>
+                <FormRow>
+                  <FormCell label="Harvest Volume (kg)">
+                    <DecimalInput decimals={2} className={baseInputClasses} value={form.harvest_volume_kg} aria-label="Harvest Volume (kg)" onChange={(v) => set('harvest_volume_kg', v)} />
+                  </FormCell>
+                  <FormCell label="Area / Cage Harvested">
+                    <input className={baseInputClasses} value={form.area_cage_harvested} aria-label="Area / Cage Harvested" placeholder="e.g. Pond 1 & 2, Cage A"
+                      onChange={(e) => set('area_cage_harvested', e.target.value)} />
+                  </FormCell>
+                </FormRow>
+                <FormRow>
+                  <FormCell label="Notes" wide>
+                    <textarea className={`${baseInputClasses} h-auto resize-none py-2`} rows={2} value={form.cycle_notes} aria-label="Notes"
+                      onChange={(e) => set('cycle_notes', e.target.value)} />
+                  </FormCell>
+                </FormRow>
+              </FormRows>
+            </FormSection>
+          )}
 
           {error && <p className="rounded-lg border border-[#FCA5A5] bg-[#FEE2E2] px-3 py-2 text-[13px] font-medium text-[#991B1B]" role="alert">{error}</p>}
 
