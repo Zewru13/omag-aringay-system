@@ -143,7 +143,7 @@ const ADMIN_GROUP = {
     { to: "/classification-settings", icon: ListChecks, label: "Classification Settings" },
     { to: "/harvest-unit-settings", icon: Scale, label: "Harvest Unit Settings" },
     { to: "/users", icon: UserCog, label: "User Management" },
-    { to: "/backup", icon: HardDriveDownload, label: "Backup" },
+    { to: "/backup", icon: HardDriveDownload, label: "Backup & Restore" },
     { to: "/signatories", icon: PenLine, label: "Signatories" },
   ],
 };

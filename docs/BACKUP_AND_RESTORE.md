@@ -1,14 +1,16 @@
-# Backup and restore
+# Backup & Restore
+
+Admin > **Backup & Restore** has two tabs: **Create backup** (make a backup and keep its history) and **Restore** (drop a backup file, see what it would change, then confirm).
 
 ## What a backup is
 
-Admin > Backup makes **one .zip file** of the whole system:
+Create backup makes **one .zip file** of the whole system:
 
 | In the zip | What it holds |
 |---|---|
 | `database.json` | Every record of every app (farmers, fisherfolk, organizations, crops, harvests, fisheries, assistance, disasters, users with their password **hashes**, audit log...). Sessions, permissions, content types, the Django admin log, the login-token blacklist and the Backup list itself are left out: the system rebuilds them. |
 | `media/...` | Every uploaded file (damage photos, PCIC forms, profile photos, documents), by its path in the file storage. Backups are never packed into a backup. |
-| `manifest.json` | When it was made, how many records and files, and any file that was left out. |
+| `manifest.json` | When it was made, how many records and files, whether the audit trail is in it (`audit_included`), and any file that was left out. |
 
 Files above the size limit (`BACKUP_MAX_MEDIA_BYTES`, 500 MB of uploads by default) are left out and named in the manifest and on the page.
 
@@ -16,30 +18,32 @@ The zip holds personal records and password hashes: **download it only on a trus
 
 ## Making a backup
 
-Backups are made **only by hand**: Admin > Backup > **Back up now**. There is no automatic or nightly backup.
+Backups are made **only by hand**: Admin > Backup & Restore > Create backup > **Download backup**. There is no automatic or nightly backup.
 
-1. Press **Back up now**. Type a name and the **Location** where the file will be kept (both can be left empty; an empty name becomes "Backup of <date and time>"), then **Start Backup**.
+The tab shows what a backup holds, in groups (accounts, farmers, crops, fisheries, cycles, organizations, assistance, other records) with how many records each has now (`GET /api/backups/summary/`). One group is optional: **Include the audit trail and notification history** (the activity log and the notifications). It is **unticked by default**: the backup is then smaller and quicker, and a restore of it keeps the activity log and notifications already in the system (an entry that names an account the restore removed names nobody afterwards, and a notification for a removed account is dropped). A request to the API that does not say anything (`include_audit` missing) still makes a full backup.
+
+1. Press **Download backup**. Type a name and the **Location** where the file will be kept (both can be left empty; an empty name becomes "Backup of <date and time>"), then **Start Backup**.
 2. It runs in the background (a few minutes for a large system). While it runs, the page is locked: no other backup, edit, download or restore can be started until it is done. Keep the page open.
 3. When it is done the page **saves the file to the computer** (`oma_backup_YYYYMMDD_HHMMSS.zip`, usually in Downloads) and the online copy is removed. The zip is **not kept online**. If the page was closed before the file arrived, the entry says *Waiting to be downloaded*: press **Download** in its row menu.
 
-## The Backups list
+## The Backup history
 
 - Every backup stays in the list with its name, date, time, location, kind, who made it, size and status. **Nothing can be deleted from it.**
 - **Edit** (row menu) changes the name, the location and the remarks. The date, the time and the result are facts and cannot be changed.
-- Kinds: *Manual* (Back up now), *Before restore* (the safety backup a restore makes), *Restore* (a restore that was run), *Automatic* (nightly backups made by an earlier version; none are made any more).
+- Kinds: *Manual* (Download backup), *Before restore* (the safety backup a restore makes), *Restore* (a restore that was run), *Automatic* (nightly backups made by an earlier version; none are made any more).
 - Each backup keeps the fingerprint (SHA-256) of its file, so that the same file can be recognised when it is chosen for a restore.
 
-## Restoring from the list
+## Restoring (the Restore tab)
 
 Restoring replaces data, so do it deliberately and when nobody else is using the system.
 
-1. Admin > Backup > the row menu of a finished backup > **Restore**.
-2. **Choose the backup file** from the computer: the file that was downloaded for that entry (its name is shown). A different file is refused. (If the file is still online, no file is asked for.)
-3. Type **your own password** and press **Restore**.
+1. Admin > Backup & Restore > **Restore** (or the row menu of a finished backup in the history > **Restore**, which opens this tab).
+2. **Drag the backup file** onto the tab, or press **Browse files**. The file is only read: the system recognises it by its fingerprint among the backups of the history (a file that is not one of them is refused) and shows, group by group, the records in the file next to the records now and what a restore would do (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
+3. Type **your own password** and press **Restore** (`POST /api/backups/restore/`).
 4. The system first makes a **safety backup** of how things are now (it appears as *Before restore* and is saved to the computer too). If the safety backup cannot be made, nothing is restored.
 5. Then the backup is put back: the uploaded files, and every record in one step. If anything fails, **no record is changed** and the entry says *Failed* with the reason.
 
-After a restore, the records, uploaded files, user accounts and passwords are those of the backup; everyone signs in again. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup.
+After a restore, the records, uploaded files, user accounts and passwords are those of the backup (the activity log and notifications too, unless the backup was made without them: those stay as they are); everyone signs in again. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup.
 
 A backup restores best into the same version of the system that made it. Fields or tables the system no longer has are skipped.
 

@@ -1,4 +1,4 @@
-// The Backup page's wording and rules: sizes, dates, what an entry says about itself, what the forms refuse, which file the page downloads by
+// The Backup & Restore page's wording and rules: sizes, dates, what an entry says about itself, what the forms refuse, which file the page downloads by
 // itself. No screen and no network, so it can be tested alone.
 
 export function formatBytes(bytes) {
@@ -45,12 +45,29 @@ export function runningMessage(rows) {
 
 export const notesProblem = (form) => ((form.name || '').trim() ? '' : 'Type a name for the backup.')
 
-export function restoreProblem({ row, file, password }) {
-  if (!row.has_file) {
-    if (!file) return 'Choose the backup file from your computer.'
-    if (!/\.zip$/i.test(file.name || '')) return 'The backup file is a .zip file.'
-  }
-  return password ? '' : 'Type your password.'
+// The Restore tab: the Admin drops the backup's file (a .zip), sees what it would change, then confirms with their password.
+export function restoreFileProblem(file) {
+  if (!file) return 'Choose the backup file from your computer.'
+  return /\.zip$/i.test(file.name || '') ? '' : 'The backup file is a .zip file.'
+}
+
+export function restoreConfirmProblem({ file, password }) {
+  return restoreFileProblem(file) || (password ? '' : 'Type your password.')
+}
+
+// What a restore would do to one group of records: the file's count next to the count now. A group the file leaves out (the audit trail of a backup
+// made without it) is kept as it is.
+export function restoreChange({ in_file: inFile, now, kept }) {
+  if (kept) return { text: 'Kept as it is', tone: 'kept' }
+  const diff = Number(inFile) - Number(now)
+  if (diff === 0) return { text: 'No change', tone: 'same' }
+  const n = Math.abs(diff).toLocaleString('en-US')
+  return diff > 0 ? { text: `${n} put back`, tone: 'added' } : { text: `${n} removed`, tone: 'removed' }
+}
+
+// The one line under the file's name: how much the file holds, and how much the system holds now.
+export function restoreHeadline({ records, files }) {
+  return `${plural(records.in_file, 'record')} and ${plural(files.in_file, 'file')} in this backup. The system holds ${plural(records.now, 'record')} now.`
 }
 
 // The file the page saves to the computer without being asked: the backup it has just made (`wanted.ids`) or the safety backup of the restore it

@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import posixpath
+import re
 import shutil
 import tempfile
 import threading
@@ -44,6 +45,30 @@ EXCLUDE = ['sessions', 'contenttypes', 'auth.permission', 'admin.logentry', 'tok
 # Left out of a backup, but they point at accounts: emptied by a restore so that no row is left pointing at an account that is no longer there.
 # (Everyone signs in again after a restore.)
 CLEARED_BY_RESTORE = ['admin.logentry', 'token_blacklist']
+# The activity log and the notifications. A backup can leave them out (they only grow, and a backup is smaller and quicker without them). They point at
+# accounts (an entry names who did something, a notification who it is for), so restoring a backup that has none keeps what is there and tidies those links.
+AUDIT_MODELS = ['auditlog.auditlogentry', 'core.notification']
+# What a backup holds, in groups the Backup & Restore page shows (the app of each model decides its group; the audit models are their own group).
+DATA_GROUPS = [
+    {'key': 'accounts', 'label': 'Accounts and logins', 'apps': ['accounts', 'auth'], 'optional': False,
+     'description': 'User accounts with their roles (passwords are kept scrambled, as they are in the system) and the links to farmer, fisherfolk and organization records.'},
+    {'key': 'farmers', 'label': 'Farmers and farm parcels', 'apps': ['farmers'], 'optional': False,
+     'description': 'Registered farmers, their farm parcels, classifications and machinery.'},
+    {'key': 'crops', 'label': 'Crop production and settings', 'apps': ['production'], 'optional': False,
+     'description': 'Crop records, harvests, activities, disasters and the crop settings lists.'},
+    {'key': 'fisheries', 'label': 'Fisherfolk, ponds and stocking', 'apps': ['fisheries'], 'optional': False,
+     'description': 'Registered fisherfolk, ponds, stocking records, harvests, catches, disaster logs and the fisheries settings lists.'},
+    {'key': 'cycles', 'label': 'Aquaculture cycles and farm visits', 'apps': ['monitoring'], 'optional': False,
+     'description': 'Production cycles with their ponds and cages, feeding and health logs, and farm visits.'},
+    {'key': 'organizations', 'label': 'Organizations, members and equipment', 'apps': ['associations'], 'optional': False,
+     'description': 'Farmers and fisherfolk organizations with their members, officers, equipment and loans.'},
+    {'key': 'assistance', 'label': 'Assistance and distributions', 'apps': ['interventions'], 'optional': False,
+     'description': 'Assistance given to farmers, fisherfolk and organizations, agencies, types and confirmations.'},
+    {'key': 'other', 'label': 'Signatories, imports and other records', 'apps': ['reports', 'core'], 'optional': False,
+     'description': 'Report signatories, import batches, PCIC form photos, record locks and profile change requests.'},
+    {'key': 'audit', 'label': 'Activity log and notifications', 'apps': [], 'optional': True,
+     'description': 'Who did what and when, and the notifications sent to users. Kept for the record; a backup is much smaller and quicker without them.'},
+]
 PREFIX = 'backups'
 STALE_AFTER_MINUTES = 30
 INSERT_BATCH = 500
@@ -59,16 +84,69 @@ def _setting(name, default):
 
 # ---------------------------------------------------------------------------------------------------------------------------------- what is backed up
 
-def backed_up_models(using='default'):
-    """Every model whose records are backed up (and replaced by a restore), in the order `manage.py dumpdata` writes them."""
+def audit_models():
+    """The models of the activity log and the notifications."""
+    return list(parse_apps_and_model_labels(AUDIT_MODELS)[0])
+
+
+def backed_up_models(using='default', include_audit=True):
+    """Every model whose records are backed up (and replaced by a restore), in the order `manage.py dumpdata` writes them. Without `include_audit` the
+    activity log and the notifications are not in it (and a restore leaves them as they are)."""
     excluded_models, excluded_apps = parse_apps_and_model_labels(EXCLUDE)
+    audit = set() if include_audit else set(audit_models())
     for app_config in apps.get_app_configs():
         if app_config.models_module is None or app_config in excluded_apps:
             continue
         for model in app_config.get_models():
-            if model in excluded_models or model._meta.proxy or not router.allow_migrate_model(using, model):
+            if model in excluded_models or model in audit or model._meta.proxy or not router.allow_migrate_model(using, model):
                 continue
             yield model
+
+
+def group_key(model):
+    """The group of DATA_GROUPS a model belongs to."""
+    if model in audit_models():
+        return 'audit'
+    for group in DATA_GROUPS:
+        if model._meta.app_label in group['apps']:
+            return group['key']
+    return 'other'
+
+
+def model_counts(using='default'):
+    """{'app.model': records now} for every model a full backup holds."""
+    return {model._meta.label_lower: model._default_manager.using(using).count() for model in backed_up_models(using)}
+
+
+MODEL_MARK = re.compile(rb'"model": "([A-Za-z0-9_]+\.[A-Za-z0-9_]+)"')
+
+
+def zip_counts(zip_path):
+    """{'app.model': records} of the backup at `zip_path`, counted in its database.json without changing anything."""
+    with zipfile.ZipFile(zip_path) as zf, zf.open('database.json') as f:
+        data = f.read()
+    counts = {}
+    for match in MODEL_MARK.finditer(data):
+        label = match.group(1).decode('ascii')
+        counts[label] = counts.get(label, 0) + 1
+    return counts
+
+
+def group_rows(now, in_file=None, audit_in_file=True):
+    """The groups of the Backup & Restore page, each with its records now and (for a file being restored) in the file. A group the file leaves out
+    (the audit trail of a backup made without it) has in_file None and is `kept`: a restore leaves it as it is."""
+    labels = {model._meta.label_lower: group_key(model) for model in backed_up_models()}
+    rows = []
+    for group in DATA_GROUPS:
+        keys = [label for label, key in labels.items() if key == group['key']]
+        row = {key: group[key] for key in ('key', 'label', 'description', 'optional')}
+        row['count'] = row['now'] = sum(now.get(label, 0) for label in keys)
+        if in_file is not None:
+            kept = group['key'] == 'audit' and not audit_in_file
+            row['in_file'] = None if kept else sum(in_file.get(label, 0) for label in keys)
+            row['kept'] = kept
+        rows.append(row)
+    return rows
 
 
 def link_tables(model):
@@ -76,13 +154,13 @@ def link_tables(model):
     return [f.remote_field.through for f in model._meta.many_to_many if f.remote_field.through._meta.auto_created]
 
 
-def objects_to_dump(using='default'):
+def objects_to_dump(using='default', include_audit=True):
     """Every record to back up, in the same order as `manage.py dumpdata` (app by app, by primary key), minus EXCLUDE.
 
     dumpdata asks the database once more for every record that has a many-to-many field. Over a network that is thousands of round trips
     (a run from GitHub to Supabase did not finish in 20 minutes), so the many-to-many values are prefetched a chunk at a time instead:
     the output is the same, in a handful of queries per model."""
-    for model in backed_up_models(using):
+    for model in backed_up_models(using, include_audit):
         queryset = model._default_manager.using(using).order_by(model._meta.pk.name)
         many = [f.name for f in model._meta.many_to_many if f.remote_field.through._meta.auto_created]
         if many:
@@ -90,11 +168,11 @@ def objects_to_dump(using='default'):
         yield from queryset.iterator(chunk_size=2000)
 
 
-def dump_database(path):
+def dump_database(path, include_audit=True):
     """Write every record to `path` as JSON (the format `manage.py loaddata` reads); returns how many records were written."""
     # Written as UTF-8 explicitly: dumpdata's own --output uses the server's default encoding, which cannot hold a peso sign on every host.
     with open(path, 'w', encoding='utf-8') as out:
-        serializers.serialize('json', objects_to_dump(), stream=out)
+        serializers.serialize('json', objects_to_dump(include_audit=include_audit), stream=out)
     count, tail = 0, b''
     needle = b'"model": "'
     with open(path, 'rb') as f:
@@ -195,14 +273,15 @@ def fingerprint_online_copy(record):
 
 # -------------------------------------------------------------------------------------------------------------------------------------- make a backup
 
-def run_backup(record_id):
-    """Build the zip for the BackupRecord and save it; the record ends Done or Failed (never left Running). Safe to call from a thread."""
+def run_backup(record_id, include_audit=True):
+    """Build the zip for the BackupRecord and save it; the record ends Done or Failed (never left Running). Safe to call from a thread.
+    Without `include_audit` the activity log and the notifications are left out (the manifest says so, so a restore knows)."""
     record = BackupRecord.objects.get(pk=record_id)
     workdir = tempfile.mkdtemp(prefix='oma_backup_')
     try:
         db_path = os.path.join(workdir, 'database.json')
         logger.info('Backup %s: dumping the database...', record_id)
-        records = dump_database(db_path)
+        records = dump_database(db_path, include_audit)
         logger.info('Backup %s: database dumped, %s records (%s bytes). Packing the uploaded files...', record_id, records, os.path.getsize(db_path))
         zip_path = os.path.join(workdir, 'backup.zip')
         started = timezone.now()
@@ -211,7 +290,7 @@ def run_backup(record_id):
             files, skipped, notes = add_media(zf, default_storage, _setting('BACKUP_MAX_MEDIA_BYTES', 500 * 1024 * 1024))
             zf.writestr('manifest.json', json.dumps({
                 'created_at': started.isoformat(), 'kind': record.kind, 'records': records, 'files': files, 'files_skipped': skipped,
-                'left_out': notes[:200],
+                'audit_included': include_audit, 'left_out': notes[:200],
             }, indent=2))
         name = f'{PREFIX}/oma_backup_{timezone.localtime(started):%Y%m%d_%H%M%S}.zip'
         logger.info('Backup %s: %s files packed, %s skipped. Saving %s (%s bytes)...', record_id, files, skipped, name, os.path.getsize(zip_path))
@@ -243,8 +322,8 @@ def in_background(name, work, *args):
     threading.Thread(target=run, name=name, daemon=True).start()
 
 
-def start_backup(record_id):
-    in_background(f'backup-{record_id}', run_backup, record_id)
+def start_backup(record_id, include_audit=True):
+    in_background(f'backup-{record_id}', run_backup, record_id, include_audit)
 
 
 # ------------------------------------------------------------------------------------------------------------------------------------------- restore
@@ -327,10 +406,27 @@ def insert_links(model, deserialized, using):
             through._base_manager.using(using).bulk_create(rows, batch_size=INSERT_BATCH)
 
 
-def restore_database(json_path, using='default'):
-    """Replace every backed-up record with the records of `json_path`, in ONE transaction: all of it or none of it. Returns how many records."""
+def keep_links_to_accounts(using):
+    """After a restore that left the activity log and the notifications as they were: an entry that names an account the restore removed names nobody now
+    (an entry that must have one, a notification, goes with the account)."""
+    User = get_user_model()
+    accounts = User._base_manager.using(using).values('pk')
+    for model in audit_models():
+        for field in model._meta.fields:
+            if not field.is_relation or field.related_model is not User:
+                continue
+            gone = model._base_manager.using(using).exclude(**{f'{field.name}__in': accounts})
+            if field.null:
+                gone.exclude(**{f'{field.name}__isnull': True}).update(**{field.attname: None})
+            else:
+                gone.delete()
+
+
+def restore_database(json_path, using='default', include_audit=True):
+    """Replace every backed-up record with the records of `json_path`, in ONE transaction: all of it or none of it. Returns how many records.
+    A backup made without the audit trail (`include_audit` False) leaves the activity log and the notifications as they are."""
     connection = connections[using]
-    models = list(backed_up_models(using))
+    models = list(backed_up_models(using, include_audit))
     by_model = {model: [] for model in models}
     with open(json_path, 'r', encoding='utf-8') as f:
         # A field or a model the system no longer has is skipped, so a backup of a slightly older version still goes back in.
@@ -360,16 +456,21 @@ def restore_database(json_path, using='default'):
             # The Backup list is not replaced; an entry made by an account that the backup does not have keeps its name (made_by) only.
             accounts = get_user_model()._base_manager.using(using).values('pk')
             BackupRecord.objects.using(using).exclude(created_by__isnull=True).exclude(created_by__in=accounts).update(created_by=None)
+            if not include_audit:
+                keep_links_to_accounts(using)
             with connection.cursor() as cursor:
                 for statement in connection.ops.sequence_reset_sql(no_style(), tables):
                     cursor.execute(statement)
         # every link between the restored records must hold, or the whole restore is undone
-        connection.check_constraints(table_names=[table._meta.db_table for table in tables])
+        checked = tables + ([] if include_audit else audit_models())
+        connection.check_constraints(table_names=[table._meta.db_table for table in checked])
     return total
 
 
 def restore_from_zip(zip_path):
     """Put the backup at `zip_path` back: the uploaded files, then the records. Returns (records, files written, files already there)."""
+    manifest = read_backup_zip(zip_path)
+    include_audit = manifest.get('audit_included', True) is not False       # a backup made before the choice existed holds everything
     workdir = tempfile.mkdtemp(prefix='oma_restore_')
     try:
         with zipfile.ZipFile(zip_path) as zf:
@@ -377,7 +478,7 @@ def restore_from_zip(zip_path):
             with zf.open('database.json') as src, open(db_path, 'wb') as dst:
                 shutil.copyfileobj(src, dst, 1 << 20)
             written, same = restore_media(zf, default_storage, workdir)
-        records = restore_database(db_path)
+        records = restore_database(db_path, include_audit=include_audit)
         return records, written, same
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
