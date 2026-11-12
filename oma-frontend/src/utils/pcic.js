@@ -80,16 +80,13 @@ export async function uploadPcicForm(api, kind, id, state) {
   return last
 }
 
-// The PCIC filter of the crop tables (Crop Records, Crop Monitoring): the value sent as ?pcic= and what the dropdown says.
+// The PCIC filter of the crop tables (Crop Records, Crop Monitoring) and the fisheries tables (Aquaculture Records, Aquaculture Monitoring):
+// the value sent as ?pcic= and what the dropdown says. With nothing picked it shows its own name, "PCIC insurance".
 export const PCIC_FILTER_OPTIONS = [
-  { value: '', label: 'All PCIC' },
-  { value: 'insured', label: 'PCIC insured' },
-  { value: 'not_insured', label: 'Not PCIC insured' },
+  { value: '', label: 'PCIC insurance' },
+  { value: 'insured', label: 'PCIC Insured' },
+  { value: 'not_insured', label: 'PCIC Uninsured' },
 ]
 
-// The PCIC Insured filter of Aquaculture Monitoring: sent as ?pcic= (the select has no label of its own, so each option names the filter).
-export const AQUACULTURE_PCIC_OPTIONS = [
-  { value: '', label: 'PCIC Insured: All' },
-  { value: 'insured', label: 'PCIC Insured: Insured' },
-  { value: 'not_insured', label: 'PCIC Insured: Not Insured' },
-]
+// The same filter for the fisheries pages: one list, so the two can never drift apart.
+export const AQUACULTURE_PCIC_OPTIONS = PCIC_FILTER_OPTIONS

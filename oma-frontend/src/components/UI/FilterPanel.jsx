@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, SlidersHorizontal } from 'lucide-react'
+import Button from './Button.jsx'
 import SearchBar from './SearchBar.jsx'
 
 // Search-first toolbar: the search input stays primary and always visible,
@@ -17,7 +18,10 @@ import SearchBar from './SearchBar.jsx'
 // `actions`: the page's own buttons (Register Farmer, Import, ...) shown at the right end of this same row, so a page
 // needs no separate title row for them. On a phone the search and Filters share the first line and the buttons share the
 // next one, equal width; on wider screens everything sits on one line (the buttons wrap below only if it cannot fit).
-function FilterPanel({ search, onSearchChange, searchPlaceholder, activeCount = 0, children, actions = null, defaultOpen = false, className = 'mb-4' }) {
+//
+// `onReset`: filters apply as they are picked, so the only button in the panel is Reset Filters (clears the filters, not the search). It
+// is greyed out while no filter is set.
+function FilterPanel({ search, onSearchChange, searchPlaceholder, activeCount = 0, children, actions = null, defaultOpen = false, className = 'mb-4', onReset = null }) {
   const [open, setOpen] = useState(defaultOpen)
   const hasFilters = Boolean(children)
   const hasSearch = Boolean(onSearchChange)
@@ -59,6 +63,11 @@ function FilterPanel({ search, onSearchChange, searchPlaceholder, activeCount = 
       {hasFilters && open && (
         <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-[#F0F4F0] pt-3">
           {children}
+          {onReset && (
+            <div className="flex w-full justify-end border-t border-[#F0F4F0] pt-3 max-md:[&>button]:w-full">
+              <Button type="button" variant="outline" onClick={onReset} disabled={activeCount === 0}>Reset Filters</Button>
+            </div>
+          )}
         </div>
       )}
     </div>

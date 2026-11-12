@@ -29,12 +29,11 @@ eq(directoryParams({ planted: {} }), { page: 1 }, 'no range sends nothing')
 eq(directoryParams({ barangay: 'Alaska', page: 3 }), { page: 3, barangay: 'Alaska' }, 'barangay only')
 
 // ── group by / sort by
-eq(GROUP_OPTIONS.map((o) => o.value), ['none', 'farmer', 'barangay', 'ownership'], 'group choices')
+eq(GROUP_OPTIONS.map((o) => o.value), ['none', 'farmer', 'ownership'], 'group choices (no grouping by barangay: the Barangay filter does that)')
 eq(DEFAULT_GROUP, 'none', 'no grouping by default')
 eq(groupChildParams('farmer', { key: 'f12', id: 12 }), { farmer: 12 }, 'a farmer group opens onto ?farmer=')
-eq(groupChildParams('barangay', { key: 'bAlaska', id: 'Alaska' }), { barangay: 'Alaska' }, 'a barangay group')
 eq(groupChildParams('ownership', { key: 'oTenant', id: 'Tenant' }), { land_ownership: 'Tenant' }, 'an ownership group')
-eq(groupChildParams('barangay', { key: 'b', id: '' }), null, 'a group with no value has nothing to open onto')
+eq(groupChildParams('ownership', { key: 'o', id: '' }), null, 'a group with no value has nothing to open onto')
 eq(groupChildParams('none', { id: 1 }), null, 'no grouping has no groups')
 
 // ── the request for the crops that have no parcel on file (only the filters that apply to them)

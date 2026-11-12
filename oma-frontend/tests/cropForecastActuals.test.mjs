@@ -76,11 +76,11 @@ eq(page.includes('/production/monitoring/'), true, 'the existing crop records ar
 
 // ── Aquaculture Monitoring: the PCIC Insured filter
 const aqua = read('../src/pages/FisheriesRecords/FisheriesRecordsPage.jsx')
-eq(aqua.includes('aria-label="PCIC insured"') && aqua.includes("params.set('pcic', pcicFilter)"), true, 'the filter is sent as ?pcic=')
+eq(aqua.includes('aria-label="PCIC insurance"') && aqua.includes("params.set('pcic', pcicFilter)"), true, 'the filter is sent as ?pcic=')
 eq(aqua.includes('pcicFilter') && /activeCount=\{\[[^\]]*Boolean\(pcicFilter\)/.test(aqua), true, 'it counts as an active filter')
 eq(/AQUACULTURE_PCIC_OPTIONS/.test(aqua), true, 'its options come from one list')
 const { AQUACULTURE_PCIC_OPTIONS } = await import(new URL('../src/utils/pcic.js', import.meta.url).href)
-eq(AQUACULTURE_PCIC_OPTIONS.map((o) => [o.value, o.label]), [['', 'PCIC Insured: All'], ['insured', 'PCIC Insured: Insured'], ['not_insured', 'PCIC Insured: Not Insured']], 'All / Insured / Not Insured')
+eq(AQUACULTURE_PCIC_OPTIONS.map((o) => [o.value, o.label]), [['', 'PCIC insurance'], ['insured', 'PCIC Insured'], ['not_insured', 'PCIC Uninsured']], 'PCIC insurance / Insured / Uninsured')
 eq(fs.readFileSync(new URL('../src/pages/FisheriesRecords/aquacultureRecords.js', import.meta.url), 'utf8').includes("label: 'PCIC INSURED'"), true, 'the PCIC INSURED column is in Aquaculture Records')
 
 console.log(`ok - ${n} assertions`)

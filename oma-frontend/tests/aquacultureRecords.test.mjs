@@ -7,7 +7,7 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 
 const {
-  EMPTY_FILTERS, RECORDS_STATUS, RECORD_COLUMNS, PAGE_SIZE, activeFilterCount, filtersChanged, recordRow, recordsParams, countLabel, applyProblem,
+  EMPTY_FILTERS, RECORDS_STATUS, RECORD_COLUMNS, PAGE_SIZE, activeFilterCount, recordRow, recordsParams, countLabel,
 } = await import(new URL('../src/pages/FisheriesRecords/aquacultureRecords.js', import.meta.url).href)
 
 // ── the columns, in the order asked for
@@ -31,7 +31,7 @@ eq([recordRow({ ...rec, ownership: 'Owner' }).ownerLine, recordRow({ ...rec, own
 eq(recordRow({ ...rec, production_cycle_name: null }).cycle, '#2', 'the cycle number stands in for a missing name')
 
 // ── filters
-eq(Object.keys(EMPTY_FILTERS).sort(), ['barangay', 'cultureType', 'cycle', 'fisherfolk', 'organization', 'ownership', 'pcic', 'pondLocation', 'species', 'stockedFrom', 'stockedTo'], 'every filter has an empty default')
+eq(Object.keys(EMPTY_FILTERS).sort(), ['barangay', 'cultureType', 'cycle', 'organization', 'ownership', 'pcic', 'species', 'stockedFrom', 'stockedTo'], 'every filter has an empty default')
 eq(Object.values(EMPTY_FILTERS).every((v) => v === ''), true, 'all of them default to All / empty')
 eq(activeFilterCount(EMPTY_FILTERS), 0, 'none active by default')
 eq(activeFilterCount({ ...EMPTY_FILTERS, species: '3', pcic: 'insured', stockedFrom: '2026-01-01' }), 3, 'counts what is chosen')
@@ -40,19 +40,16 @@ eq(PAGE_SIZE, 10, 'ten rows a page, like Crop Records')
 eq(RECORDS_STATUS, 'Stocked,Near Harvest,Harvested,Total Loss', 'every status, so a record is never hidden')
 eq(recordsParams({ filters: EMPTY_FILTERS, search: '', page: 1 }), { page: 1, status: RECORDS_STATUS }, 'nothing chosen: only the page and the status scope')
 eq(recordsParams({
-  filters: { ownership: 'Tenant', cycle: 'Alpha', species: '3', fisherfolk: '9', barangay: 'Samara', pondLocation: 'Basca', cultureType: 'Pond', organization: '4', stockedFrom: '2026-01-01', stockedTo: '2026-06-30', pcic: 'insured' },
+  filters: { ownership: 'Tenant', cycle: 'Alpha', species: '3', barangay: 'Samara', cultureType: 'Pond', organization: '4', stockedFrom: '2026-01-01', stockedTo: '2026-06-30', pcic: 'insured' },
   search: ' Pedro ', page: 2,
 }), {
-  page: 2, status: RECORDS_STATUS, search: 'Pedro', ownership: 'Tenant', cycle: 'Alpha', species: '3', fisherfolk: '9', fisherfolk_barangay: 'Samara', pond_location: 'Basca',
+  page: 2, status: RECORDS_STATUS, search: 'Pedro', ownership: 'Tenant', cycle: 'Alpha', species: '3', fisherfolk_barangay: 'Samara',
   culture_type: 'Pond', organization: '4', stocked_from: '2026-01-01', stocked_to: '2026-06-30', pcic: 'insured',
 }, 'every chosen filter and the search go in one request')
 eq(recordsParams({ filters: { ...EMPTY_FILTERS, stockedFrom: '2026-06-30', stockedTo: '2026-01-01' }, search: '', page: 1 }), { page: 1, status: RECORDS_STATUS }, 'a reversed date range is not sent')
 
-// Apply / Reset: what is picked is a draft until Apply
-eq(filtersChanged(EMPTY_FILTERS, EMPTY_FILTERS), false, 'nothing to apply')
-eq(filtersChanged({ ...EMPTY_FILTERS, pcic: 'insured' }, EMPTY_FILTERS), true, 'a pick waits for Apply')
-eq(applyProblem({ ...EMPTY_FILTERS, stockedFrom: '2026-06-30', stockedTo: '2026-01-01' }), '"To" cannot be before "From".', 'a reversed range cannot be applied')
-eq(applyProblem({ ...EMPTY_FILTERS, stockedFrom: '2026-01-01' }), '', 'a good filter can')
+// Filters apply as they are picked (no Apply button): a good range is sent at once, a reversed one is not (the page warns about it)
+eq(recordsParams({ filters: { ...EMPTY_FILTERS, stockedFrom: '2026-01-01' }, search: '', page: 1 }), { page: 1, status: RECORDS_STATUS, stocked_from: '2026-01-01' }, 'a good range is sent at once')
 
 eq([countLabel(0), countLabel(1), countLabel(12)], ['No production cycles', '1 production cycle', '12 production cycles'], 'the record count')
 
@@ -69,7 +66,7 @@ const page = read('../src/pages/FisheriesRecords/AquacultureRecordsPage.jsx')
 eq(page.includes("import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'"), true, 'the existing Start Production Cycle form, not a copy')
 eq(page.includes('Start Production Cycle'), true, 'the button')
 eq(page.includes("'/fisheries/stocking/filter-options/'") && page.includes("'/fisheries/stocking/'"), true, 'existing records and their option lists from the server')
-eq(page.includes('FilterPanel') && page.includes('PaginationBar') && page.includes('DataTable') && page.includes('Apply Filters') && page.includes('Reset Filters'), true, 'search + Filters panel, table, pagination, Apply and Reset')
+eq(page.includes('FilterPanel') && page.includes('PaginationBar') && page.includes('DataTable') && !page.includes('Apply Filters') && page.includes('onReset'), true, 'search + Filters panel, table, pagination, Reset only (filters apply as they are picked)')
 eq(page.includes('DateRangeFields'), true, 'the Date Stocked range')
 eq(page.includes('AQUACULTURE_PCIC_OPTIONS'), true, 'the PCIC Insured filter reuses its options')
 eq(page.includes('PcicCell'), true, 'the PCIC check is the same one the other tables show')
@@ -102,7 +99,7 @@ eq(fieldLabels, ['Production Unit', 'Species', 'Fingerlings Count|Fingerlings', 
 // PCIC is not deleted anywhere else it is needed: Cycle details / View Details and the stored data
 eq(monitoring.includes('PcicBadge') && monitoring.includes('CycleInfoSummary'), true, 'View Details still shows the cycle PCIC and its form')
 eq(monitoring.includes('CycleInfoSummary'), true, 'View Details is untouched')
-eq(monitoring.includes('aria-label="PCIC insured"'), true, 'the PCIC Insured filter stays')
+eq(monitoring.includes('aria-label="PCIC insurance"'), true, 'the PCIC insurance filter stays')
 eq(/<th key=\{col\.key\} className="whitespace-nowrap px-3 /.test(monitoring) && /<td key=\{col\.key\} className="whitespace-nowrap px-3 /.test(monitoring), true, 'the remaining columns are tighter so the table fits without scrolling')
 eq(cellSrc.includes('max-w-[10rem]') && cellSrc.includes('whitespace-normal'), true, 'a long owner name wraps instead of widening the column')
 

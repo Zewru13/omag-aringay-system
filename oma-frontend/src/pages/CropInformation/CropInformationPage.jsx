@@ -1245,6 +1245,15 @@ export default function CropInformationPage() {
     setter(value);
     setPage(1);
   };
+  // Reset Filters: every filter back to nothing and no grouping (the search text stays).
+  const resetFilters = () => {
+    setBarangay("");
+    setPcic("");
+    setPlantedFrom("");
+    setPlantedTo("");
+    setGroupBy(DEFAULT_GROUP);
+    setPage(1);
+  };
 
   const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, pcic, planted });
   const cropProps = { search: debouncedSearch, barangay, pcic, planted, version, handlers };
@@ -1292,6 +1301,7 @@ export default function CropInformationPage() {
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
           activeCount={[Boolean(barangay), Boolean(pcic), Boolean(plantedFrom), Boolean(plantedTo), grouped].filter(Boolean).length}
+          onReset={resetFilters}
           actions={
             <>
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
@@ -1302,14 +1312,14 @@ export default function CropInformationPage() {
           }
         >
           <select className={filterSelectCls} value={barangay} onChange={(e) => changeFilter(setBarangay)(e.target.value)} aria-label="Barangay">
-            <option value="">All Barangays</option>
+            <option value="">Barangay</option>
             {ARINGAY_BARANGAYS.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>
             ))}
           </select>
-          <select className={filterSelectCls} value={pcic} onChange={(e) => changeFilter(setPcic)(e.target.value)} aria-label="PCIC insured">
+          <select className={filterSelectCls} value={pcic} onChange={(e) => changeFilter(setPcic)(e.target.value)} aria-label="PCIC insurance">
             {PCIC_FILTER_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
