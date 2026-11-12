@@ -13,27 +13,27 @@ import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import { AQUACULTURE_PCIC_OPTIONS } from '../../utils/pcic.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import {
-  EMPTY_FILTERS, PAGE_SIZE, RECORD_COLUMNS, activeFilterCount, applyProblem, countLabel, filtersChanged, recordRow, recordsParams,
+  EMPTY_FILTERS, PAGE_SIZE, RECORD_COLUMNS, activeFilterCount, countLabel, recordRow, recordsParams,
 } from './aquacultureRecords.js'
-import Button from '../../components/UI/Button.jsx'
 
 // Aquaculture Records (Fisheries Management > Aquaculture Records), laid out like Crop Records: a search bar with the Filters button and
 // the Start Production Cycle button, the production cycles in a table, and pagination. Production cycles are made here (the same
 // Start Production Cycle form Aquaculture Monitoring used to open) and watched in Aquaculture Monitoring: both read the same records
 // (GET /fisheries/stocking/), so a new cycle shows in both. The filter lists come from the existing records
-// (GET /fisheries/stocking/filter-options/); what is picked is a draft until Apply Filters, Reset Filters clears it.
+// (GET /fisheries/stocking/filter-options/); a filter applies as soon as it is picked and Reset Filters clears them all.
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none max-md:w-full'
 
 const NO_OPTIONS = {
-  ownerships: [], cycles: [], species: [], fisherfolk: [], barangays: [], pond_locations: [], culture_types: [], organizations: [],
+  ownerships: [], cycles: [], species: [], barangays: [], culture_types: [], organizations: [],
 }
 
-function FilterSelect({ label, all, value, onChange, children }) {
+// A dropdown with nothing picked shows its own name.
+function FilterSelect({ label, value, onChange, children }) {
   return (
     <select className={filterSelectCls} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
-      <option value="">{all}</option>
+      <option value="">{label}</option>
       {children}
     </select>
   )
@@ -43,22 +43,20 @@ export default function AquacultureRecordsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search.trim())
-  const [draft, setDraft] = useState(EMPTY_FILTERS)        // what the panel shows
-  const [applied, setApplied] = useState(EMPTY_FILTERS)    // what the table uses
+  const [filters, setFilters] = useState(EMPTY_FILTERS)   // what the panel shows and the table uses
   const [options, setOptions] = useState(NO_OPTIONS)
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [reload, setReload] = useState(0)
 
-  const pick = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }))
-  const problem = applyProblem(draft)
+  const pick = (key) => (value) => { setFilters((f) => ({ ...f, [key]: value })); setPage(1) }   // a new filter starts from the first page
 
   // The table shows the answer to the request of the current page, search and applied filters. An answer to an older request is never
   // used (its key no longer matches), and "loading" is simply "no answer for the current key yet".
-  const key = useMemo(() => `${reload}|${JSON.stringify(recordsParams({ filters: applied, search: debouncedSearch, page }))}`, [applied, debouncedSearch, page, reload])
+  const key = useMemo(() => `${reload}|${JSON.stringify(recordsParams({ filters, search: debouncedSearch, page }))}`, [filters, debouncedSearch, page, reload])
   const [result, setResult] = useState({ key: null, records: [], count: 0, failed: false })
   useEffect(() => {
     let cancelled = false
-    api.get('/fisheries/stocking/', { params: recordsParams({ filters: applied, search: debouncedSearch, page }) })
+    api.get('/fisheries/stocking/', { params: recordsParams({ filters, search: debouncedSearch, page }) })
       .then((r) => {
         if (cancelled) return
         setResult({ key, records: Array.isArray(r.data) ? r.data : (r.data.results || []), count: typeof r.data?.count === 'number' ? r.data.count : 0, failed: false })
@@ -80,8 +78,7 @@ export default function AquacultureRecordsPage() {
     return () => { cancelled = true }
   }, [reload])
 
-  const apply = () => { if (problem) return; setApplied(draft); setPage(1) }
-  const reset = () => { setDraft(EMPTY_FILTERS); setApplied(EMPTY_FILTERS); setPage(1) }
+  const reset = () => { setFilters(EMPTY_FILTERS); setPage(1) }
 
   const rows = useMemo(() => records.map((rec) => {
     const row = recordRow(rec)
@@ -112,50 +109,32 @@ export default function AquacultureRecordsPage() {
           search={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}   // a new search starts from the first page
           searchPlaceholder="Search by fisherfolk, RSBSA no., species, or barangay..."
-          activeCount={activeFilterCount(applied)}
+          activeCount={activeFilterCount(filters)}
+          onReset={reset}
           actions={<AddButton onClick={() => setShowStartCycle(true)}>Start Production Cycle</AddButton>}
         >
-          <FilterSelect label="Ownership" all="All Ownerships" value={draft.ownership} onChange={pick('ownership')}>
+          <FilterSelect label="Ownership" value={filters.ownership} onChange={pick('ownership')}>
             {options.ownerships.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </FilterSelect>
-          <FilterSelect label="Cycle" all="All Cycles" value={draft.cycle} onChange={pick('cycle')}>
+          <FilterSelect label="Cycle" value={filters.cycle} onChange={pick('cycle')}>
             {options.cycles.map((c) => <option key={c} value={c}>{c}</option>)}
           </FilterSelect>
-          <FilterSelect label="Species" all="All Species" value={draft.species} onChange={pick('species')}>
+          <FilterSelect label="Species" value={filters.species} onChange={pick('species')}>
             {options.species.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </FilterSelect>
-          <FilterSelect label="Fisherfolk" all="All Fisherfolk" value={draft.fisherfolk} onChange={pick('fisherfolk')}>
-            {options.fisherfolk.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </FilterSelect>
-          <FilterSelect label="Barangay" all="All Barangays" value={draft.barangay} onChange={pick('barangay')}>
+          <FilterSelect label="Barangay" value={filters.barangay} onChange={pick('barangay')}>
             {options.barangays.map((b) => <option key={b} value={b}>{b}</option>)}
           </FilterSelect>
-          <FilterSelect label="Pond/Cage Location" all="All Pond/Cage Locations" value={draft.pondLocation} onChange={pick('pondLocation')}>
-            {options.pond_locations.map((b) => <option key={b} value={b}>{b}</option>)}
-          </FilterSelect>
-          <FilterSelect label="Culture Type" all="All Culture Types" value={draft.cultureType} onChange={pick('cultureType')}>
+          <FilterSelect label="Culture Type" value={filters.cultureType} onChange={pick('cultureType')}>
             {options.culture_types.map((c) => <option key={c} value={c}>{c}</option>)}
           </FilterSelect>
-          <FilterSelect label="Organization" all="All Organizations" value={draft.organization} onChange={pick('organization')}>
+          <FilterSelect label="Organization" value={filters.organization} onChange={pick('organization')}>
             {options.organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </FilterSelect>
-          <select className={filterSelectCls} value={draft.pcic} onChange={(e) => pick('pcic')(e.target.value)} aria-label="PCIC insured">
+          <select className={filterSelectCls} value={filters.pcic} onChange={(e) => pick('pcic')(e.target.value)} aria-label="PCIC insurance">
             {AQUACULTURE_PCIC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <DateRangeFields label="Stocked" from={draft.stockedFrom} to={draft.stockedTo} onFromChange={pick('stockedFrom')} onToChange={pick('stockedTo')} />
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-            {filtersChanged(draft, applied) && !problem && <span className="mr-auto text-[12px] text-[#7A8E7A]">Press Apply Filters to update the table.</span>}
-            <button
-              type="button"
-              onClick={reset}
-              className="rounded-lg border border-[#E2E8E2] bg-white px-4 py-2 text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F0F4F0] max-md:min-h-[40px] max-md:flex-1"
-            >
-              Reset Filters
-            </button>
-            <Button type="button" onClick={apply} disabled={Boolean(problem)} variant="primary" className="max-md:flex-1">
-              Apply Filters
-            </Button>
-          </div>
+          <DateRangeFields label="Stocked" from={filters.stockedFrom} to={filters.stockedTo} onFromChange={pick('stockedFrom')} onToChange={pick('stockedTo')} />
         </FilterPanel>
 
         {error && <ErrorMessage message={error} />}

@@ -235,11 +235,6 @@ function FarmerDisasterTab() {
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps
   const groups = useMemo(() => groupDisasterRows(data, { idKey: 'farmer_id', nameKey: 'farmer_name', barangayKey: 'location' }), [data])
 
-  // Log Disaster takes the place of the list inside the page (the sidebar and top bar stay).
-  if (step?.name === 'log') {
-    return <LogCropDisasterScreen onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />
-  }
-
   return (
     <div className="space-y-4" data-testid="farmer-disaster-tab">
       <div>
@@ -275,6 +270,7 @@ function FarmerDisasterTab() {
 
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
       {personReport && <DisasterPersonReportModal kind="crops" person={personReport} filters={filters} onClose={() => setPersonReport(null)} />}
+      {step?.name === 'log' && <LogCropDisasterScreen onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />}
     </div>
   )
 }

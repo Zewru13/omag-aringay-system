@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ChevronDown } from 'lucide-react'
+import { AlertTriangle, ChevronDown } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import CropDisasterEventReport from './CropDisasterEventReport.jsx'
@@ -24,8 +25,8 @@ import { MAX_CROPS, areaProblem, buildRequest, cropDisasterPayload, dateProblem,
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
-// Log Disaster (Crop Disaster page, staff): a full-page form for ONE disaster event over many parcels. It takes the place of the disaster
-// list inside the page, so the sidebar and the top bar stay in view. Fill the event once (type, date,
+// Log Disaster (Crop Disaster page, staff): a floating table-form window (like the Fisheries Log Disaster) for ONE disaster event over many
+// parcels; it opens over the disaster list. Fill the event once (type, date,
 // description, estimated loss), then tick the parcels it hit in the table of every parcel that has crops in the field - search,
 // filter by farmer or barangay and sort, all behind the Filters button of the search bar. Ticking a parcel ticks all its crops; its "Total loss"
 // box marks them all as lost; open a parcel to tick single crops, type each one's area affected and mark one as a total loss. Saves one
@@ -216,25 +217,25 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
 
   return (
     <>
-      <section aria-label="Log Disaster" className="space-y-4">
-          <header className="flex items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3">
-            <button type="button" onClick={onClose} aria-label="Back to Crop Disaster"
-              className="flex h-9 w-9 flex-none items-center justify-center rounded-md text-[#4A5E4A] hover:bg-[#F0F4F0]">
-              <ArrowLeft size={18} aria-hidden="true" />
-            </button>
-            <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-rose-100">
-              <AlertTriangle size={18} className="text-rose-600" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-[16px] font-semibold text-[#1A2B1A]">Log Disaster</h2>
-              <p className="text-[12px] text-[#7A8E7A] max-sm:line-clamp-1">One disaster event: tick the parcels and crops that were affected</p>
-            </div>
-          </header>
-
-          <DraftBanner draft={draft} />
-
+      <ModalShell
+        title="Log Disaster"
+        subtitle="Crop disaster · one event: tick the parcels and crops that were affected"
+        icon={AlertTriangle}
+        iconBg="bg-rose-100"
+        iconColor="text-rose-600"
+        onClose={onClose}
+        maxWidth="max-w-5xl"
+        footer={<>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="button" onClick={handleSubmitClick} isLoading={isSubmitting}>
+            {`Report Disaster${cropCount > 1 ? ` (${cropCount} crops)` : ''}`}
+          </Button>
+        </>}
+      >
           <div>
             <div className="space-y-5">
+              <DraftBanner draft={draft} />
+
               <FormSection title="Disaster Details">
                 <FormRows label="Disaster details">
                   <FormRow>
@@ -264,6 +265,9 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
 
               <section className="space-y-3">
                 <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Affected parcels and crops</h3>
+                <p className={`text-[12.5px] ${tooMany ? 'font-medium text-rose-600' : 'text-[#4A5E4A]'}`} role="status">
+                  {tooMany ? `Choose at most ${MAX_CROPS} crops at a time.` : `${summaryLine(stats)}${totalCount ? ` · ${totalCount} total loss` : ''}`}
+                </p>
 
                 <FilterPanel
                   className=""
@@ -370,17 +374,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
               )}
             </div>
           </div>
-
-          <footer className="sticky bottom-0 z-10 max-md:bottom-16 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-            <p className={`mr-auto text-[12.5px] ${tooMany ? 'font-medium text-rose-600' : 'text-[#4A5E4A]'}`} role="status">
-              {tooMany ? `Choose at most ${MAX_CROPS} crops at a time.` : `${summaryLine(stats)}${totalCount ? ` · ${totalCount} total loss` : ''}`}
-            </p>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="button" onClick={handleSubmitClick} isLoading={isSubmitting}>
-              {`Report Disaster${cropCount > 1 ? ` (${cropCount} crops)` : ''}`}
-            </Button>
-          </footer>
-      </section>
+      </ModalShell>
 
       {showConfirm && (
         <ConfirmDialog variant="primary"

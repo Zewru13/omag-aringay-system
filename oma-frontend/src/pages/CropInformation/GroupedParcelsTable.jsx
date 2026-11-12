@@ -6,11 +6,11 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { groupRowButtonClass } from '../../utils/groupColumns.js'
 import { groupChildParams } from './parcelRecords.js'
 
-// Crop Records grouped by farmer, barangay or land ownership. The groups come from the server (GET /farmers/parcels/directory/groups/,
+// Crop Records grouped by farmer or land ownership. The groups come from the server (GET /farmers/parcels/directory/groups/,
 // ten per page, with the page's filters and sort); opening a group loads that group's own parcels from the ordinary parcel list
 // (ten at a time, "Show more" for the rest). The page supplies renderRows(parcels) so a group's parcels look and act exactly like
 // the ones in the plain list (open for crops, the ⋮ menu).
-//   groupBy: 'farmer' | 'barangay' | 'ownership'    filters: the list's filters and sort without the page (groupFilterParams)
+//   groupBy: 'farmer' | 'ownership'    filters: the list's filters and sort without the page (groupFilterParams)
 //   version: bump to reload after an action
 
 const GROUP_PAGE_SIZE = 10

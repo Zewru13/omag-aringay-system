@@ -2119,6 +2119,19 @@ export default function CropMonitoringPage() {
   // Inside a group the grouping column is left out: its name is the group's heading.
   const groupedColumns = columns.filter(c => !(groupBy === 'farmer' && c.key === 'farmer_col') && !(groupBy === 'crop' && c.key === 'crop_cell'))
 
+  // Reset Filters: back to how the page opens (Planted crops, no grouping); the search text stays.
+  const resetFilters = () => {
+    setStatusFilter(DEFAULT_STATUS)
+    setSeasonFilter('')
+    setYearFilter('')
+    setBarangayFilter('')
+    setCropFilter('')
+    setPcicFilter('')
+    setPlantedFrom('')
+    setPlantedTo('')
+    setGroupBy(isFarmer ? FARMER_GROUP : DEFAULT_GROUP)
+  }
+
   return (
     <PageLayout title="Crop Monitoring" subtitle={isFarmer ? 'Track activities and progress for your crops.' : 'Track activities and progress for each crop.'}>
       <div className="space-y-4">
@@ -2127,6 +2140,7 @@ export default function CropMonitoringPage() {
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
           activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), Boolean(pcicFilter), Boolean(plantedFrom), Boolean(plantedTo), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          onReset={resetFilters}
         >
           {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
           {!isFarmer && (
@@ -2135,11 +2149,11 @@ export default function CropMonitoringPage() {
             </select>
           )}
           <select className={filterSelectCls} value={cropFilter} onChange={e => setCropFilter(e.target.value)} aria-label="Crop name">
-            <option value="">All Crops</option>
+            <option value="">Crop</option>
             {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="all">All Status</option>
+            <option value="all">Every Status</option>
             <option value="Planted">Planted</option>
             <option value="Near Harvest">Near Harvest</option>
             <option value="Due Harvest">Due Harvest</option>
@@ -2148,16 +2162,16 @@ export default function CropMonitoringPage() {
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
           </select>
-          <select className={filterSelectCls} value={pcicFilter} onChange={e => setPcicFilter(e.target.value)} aria-label="PCIC insured">
+          <select className={filterSelectCls} value={pcicFilter} onChange={e => setPcicFilter(e.target.value)} aria-label="PCIC insurance">
             {PCIC_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <select className={filterSelectCls} value={seasonFilter} onChange={e => setSeasonFilter(e.target.value)}>
-            <option value="">All Seasons</option>
+            <option value="">Season</option>
             <option value="Dry">Dry Season</option>
             <option value="Wet">Wet Season</option>
           </select>
           <select className={filterSelectCls} value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
-            <option value="">All Years</option>
+            <option value="">Year</option>
             {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}

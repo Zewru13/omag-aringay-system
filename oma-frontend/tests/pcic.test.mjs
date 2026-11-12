@@ -11,7 +11,7 @@ const file = (type = 'image/png', size = 1000, name = 'pcic.png') => ({ type, si
 eq([pcicLabel(true), pcicLabel(false), pcicLabel(undefined), pcicLabel(null)], ['PCIC insured', 'Not PCIC insured', 'Not PCIC insured', 'Not PCIC insured'], 'round check wording')
 
 // the PCIC filter of the crop tables: everything, insured, not insured
-eq(PCIC_FILTER_OPTIONS, [{ value: '', label: 'All PCIC' }, { value: 'insured', label: 'PCIC insured' }, { value: 'not_insured', label: 'Not PCIC insured' }], 'filter choices')
+eq(PCIC_FILTER_OPTIONS, [{ value: '', label: 'PCIC insurance' }, { value: 'insured', label: 'PCIC Insured' }, { value: 'not_insured', label: 'PCIC Uninsured' }], 'filter choices')
 
 // a new record starts uninsured
 eq(EMPTY_PCIC, { insured: false, files: [], photos: [], removed: [] }, 'empty state')
