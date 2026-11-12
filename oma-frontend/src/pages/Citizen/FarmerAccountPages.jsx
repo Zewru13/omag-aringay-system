@@ -4,7 +4,6 @@
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
-import UserManualTabs from '../Manual/UserManualTabs.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import { CROP_THEME } from './citizenUI.jsx'
 
@@ -84,10 +83,8 @@ export function FarmerProfilePage() {
 
 export function FarmerHelpPage() {
   return (
-    <PageLayout title="User Manual" subtitle="How to use your farmer account.">
-      <UserManualTabs>
-        <CitizenHelpScreen theme={CROP_THEME} L={FARMER_HELP_EN} bare />
-      </UserManualTabs>
+    <PageLayout title="Help" subtitle="Questions and answers about your farmer account.">
+      <CitizenHelpScreen theme={CROP_THEME} L={FARMER_HELP_EN} bare />
     </PageLayout>
   )
 }

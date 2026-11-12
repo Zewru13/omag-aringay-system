@@ -21,7 +21,7 @@ export default {
    {
     "n": 3,
     "label": "Account menu",
-    "desc": "Your name, the role and today's date. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
+    "desc": "Your name, the role and today's date. Open it for Help, the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
    },
    {
     "n": 4,
@@ -96,7 +96,7 @@ export default {
    {
     "n": 3,
     "label": "Account menu",
-    "desc": "Your name, the role and today's date. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
+    "desc": "Your name, the role and today's date. Open it for Help, the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
    },
    {
     "n": 4,
@@ -3646,7 +3646,7 @@ export default {
    {
     "n": 3,
     "label": "Bell and account menu",
-    "desc": "The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, the User Manual and Log out."
+    "desc": "The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, Help, the User Manual and Log out."
    },
    {
     "n": 4,
@@ -4221,7 +4221,7 @@ export default {
    {
     "n": 3,
     "label": "Bell and account menu",
-    "desc": "The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, the User Manual and Log out."
+    "desc": "The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, Help, the User Manual and Log out."
    },
    {
     "n": 4,
@@ -4683,7 +4683,7 @@ export default {
    {
     "n": 1,
     "label": "Bell and account",
-    "desc": "The bell shows your notices. Your initials open the account menu: your profile, the User Manual and Log out."
+    "desc": "The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out."
    },
    {
     "n": 2,
@@ -4733,11 +4733,16 @@ export default {
    },
    {
     "n": 2,
-    "label": "User Manual",
-    "desc": "Opens this manual and the quick guide and frequently asked questions."
+    "label": "Help",
+    "desc": "Opens the questions and answers about your account and the office to contact."
    },
    {
     "n": 3,
+    "label": "User Manual",
+    "desc": "Opens this manual: a picture of each screen with every button explained."
+   },
+   {
+    "n": 4,
     "label": "Log out",
     "desc": "Signs you out of this device."
    }
@@ -4890,7 +4895,7 @@ export default {
    {
     "n": 1,
     "label": "Bell and account",
-    "desc": "The bell shows your notices. Your initials open the account menu: your profile, the User Manual and Log out."
+    "desc": "The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out."
    },
    {
     "n": 2,
@@ -5045,7 +5050,7 @@ export default {
    {
     "n": 1,
     "label": "Bell and account",
-    "desc": "The bell shows your notices. Your initials open the account menu: your profile, the User Manual and Log out."
+    "desc": "The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out."
    },
    {
     "n": 2,

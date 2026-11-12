@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeftRight, ChevronDown, ChevronLeft, HelpCircle, Menu, User } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, ChevronDown, ChevronLeft, HelpCircle, Menu, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import omagLogo from '../../assets/LOGO OMAg-small.png'
 import { labels } from './labels.js'
@@ -18,7 +18,8 @@ import { labels } from './labels.js'
 // `button { font: inherit }` outside any layer, which discards font utilities
 // placed directly on a <button> (see the note at the top of citizenUI.jsx).
 
-function MenuPanel({ onProfile, onHelp, onLogout, onClose, className, menuLabels }) {
+// `onManual` (optional) adds the User Manual under Help: Help is the questions and answers, the User Manual is the screen guides.
+function MenuPanel({ onProfile, onHelp, onManual, onLogout, onClose, className, menuLabels }) {
   const M = menuLabels || labels.farmerChrome.menu
   const item = 'flex h-[36px] w-full items-center gap-3 px-4 text-left transition-colors hover:bg-cz-page'
   return (
@@ -34,6 +35,12 @@ function MenuPanel({ onProfile, onHelp, onLogout, onClose, className, menuLabels
         <HelpCircle size={15} className="shrink-0 text-cz-text-2" aria-hidden="true" />
         <span className="text-[13px] text-cz-text">{M.help}</span>
       </button>
+      {onManual && (
+        <button type="button" role="menuitem" className={item} onClick={() => { onClose(); onManual() }}>
+          <BookOpen size={15} className="shrink-0 text-cz-text-2" aria-hidden="true" />
+          <span className="text-[13px] text-cz-text">{M.manual || 'User Manual'}</span>
+        </button>
+      )}
       <div className="mx-1.5 my-0.5 border-t-[0.5px] border-cz-border" />
       <button type="button" role="menuitem" className={item} onClick={() => { onClose(); onLogout() }}>
         <ArrowLeftRight size={15} className="shrink-0 text-cz-danger-accent" aria-hidden="true" />
@@ -74,7 +81,7 @@ const CHROME_THEME = {
   fish: { header: 'bg-cz-fish-header', tabActive: 'text-cz-fish-deep' },
 }
 
-export function FarmerHeader({ initials, onProfile, onHelp, onLogout, theme = 'crop', menuLabels }) {
+export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, theme = 'crop', menuLabels }) {
   const [open, setOpen] = useMenuState()
   return (
     <header className={`sticky top-0 z-30 ${CHROME_THEME[theme].header}`}>
@@ -108,6 +115,7 @@ export function FarmerHeader({ initials, onProfile, onHelp, onLogout, theme = 'c
           <MenuPanel
             onProfile={onProfile}
             onHelp={onHelp}
+            onManual={onManual}
             onLogout={onLogout}
             onClose={() => setOpen(false)}
             className="absolute right-3.5 top-[53px] w-[196px]"

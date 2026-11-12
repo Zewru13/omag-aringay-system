@@ -41,6 +41,7 @@ const CropSettingsHub = lazy(() => import("./pages/CropSettings/CropSettingsHub.
 const ActivitySettingsHub = lazy(() => import("./pages/ActivitySettings/ActivitySettingsHub.jsx"));
 const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.jsx"));
 const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
+const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
 const CropAssistancePage = lazy(() => import("./pages/AssistanceManagement/CropAssistancePage.jsx"));
 const FisheriesAssistancePage = lazy(() => import("./pages/AssistanceManagement/FisheriesAssistancePage.jsx"));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
@@ -66,13 +67,6 @@ function HomeRedirect() {
   // Fisheries Monitoring (reused Admin page, scoped to their own records) by CitizenHomePage.
   if (isFisherfolk) return <Navigate to="/my-account" replace />;
   return <Navigate to={isCitizen ? "/my-account" : "/dashboard"} replace />;
-}
-
-// The User Manual lives inside each account's own User Manual (Help) page; /manual (the link of an earlier version) goes there.
-function ManualRedirect() {
-  const { isLoading, isFarmer, isFisherfolk, isOrg } = useAuth();
-  if (isLoading) return null;
-  return <Navigate to={isFarmer || isFisherfolk || isOrg ? "/my-help" : "/help"} replace />;
 }
 
 // Preserves :type/:id when redirecting the old /associations/:type/:id path
@@ -141,7 +135,15 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/manual" element={<ManualRedirect />} />
+          {/* The User Manual (screen guides) is one page for every kind of account; Help (quick guide and questions) is /help or /my-help. */}
+          <Route
+            path="/manual"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
+                <ManualPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/my-help"
             element={

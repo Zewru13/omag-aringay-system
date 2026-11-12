@@ -22,7 +22,7 @@ export const STEPS = [
   },
   {
     title: 'Add the crops that are planted',
-    desc: 'Add a crop from a parcel\'s ⋮ menu (Add crops), from Add Crop Records, or right inside the parcel form. They are the same form. Every crop recorded is planted and is monitored until it is harvested.',
+    desc: 'Add a crop from a parcel\'s ⋮ menu (Add crops), from Add Crop Records, or right inside the parcel form. They are the same form. A recorded crop counts as planted, and it stays in monitoring until its harvest.',
   },
   {
     title: 'Monitor, harvest and report disasters',
@@ -48,7 +48,7 @@ export const SECTIONS = [
       },
       {
         q: 'What is required when I add a farm parcel?',
-        a: 'Parcel Number (all 17 digits), Barangay, Area (ha), Land Ownership, Farm Type and Cropping Schedule. The tax declaration number is optional. Land Ownership is something you choose, it is never filled in for you. A Tenant or Lessee parcel also needs the land owner\'s name.',
+        a: 'Parcel Number (all 17 digits), Barangay, Area (ha), Land Ownership, Farm Type and Cropping Schedule. The tax declaration number is optional. Land Ownership is something you choose, it is never filled in for you. For a Tenant or Lessee parcel, type the land owner\'s name as well.',
       },
       {
         q: 'How do I add several parcels, or a parcel with its crops?',
@@ -60,7 +60,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where do I record a farmer\'s machinery?',
-        a: 'Machinery belongs to the farmer, not to a parcel. Enter it in the Agricultural Machinery section of Register Farmer (Add machinery, or Import machinery from a spreadsheet), or later from the farmer\'s profile with Add machinery. Each line has the machinery, how many, and whose it is (Owned, Borrowed, Rented or Organization-Owned). Remove a line from the profile\'s table.',
+        a: 'Machinery belongs to the farmer and not to any one parcel. Enter it in the Agricultural Machinery section of Register Farmer (Add machinery, or Import machinery from a spreadsheet), or later from the farmer\'s profile with Add machinery. Each line has the machinery, how many, and whose it is (Owned, Borrowed, Rented or Organization-Owned). Remove a line from the profile\'s table.',
       },
       {
         q: 'Why does a crop need a variety?',
@@ -113,7 +113,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record a harvest?',
-        a: 'In Crop Monitoring, press the wheat Record Harvest button beside the crop\'s ⋮ menu. It stays unavailable until half of the growing time of the crop has passed (planting date to expected harvest date); before that, use Force Harvest. Enter the harvest dates, the area harvested and the quantity in the unit it was counted in. Harvest Unit Settings turns that unit into kilograms. A harvest more than 7 days after the expected date asks for a reason.',
+        a: 'In Crop Monitoring, press the wheat Record Harvest button beside the crop\'s ⋮ menu. It stays unavailable until half of the growing time of the crop has passed (planting date to expected harvest date); before that, use Force Harvest. Enter the harvest dates, the area harvested and the quantity in the unit it was counted in. Harvest Unit Settings turns that unit into kilograms. If the harvest is more than 7 days late, you are asked why.',
       },
       {
         q: 'What is a forced harvest?',
@@ -187,7 +187,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I read the assistance table?',
-        a: 'Each row is one distribution, named after who it was given to: the organization, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Click a row to drop down the members who benefited, with their barangay and status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
+        a: 'Each row is one distribution, named after who it was given to: the organization, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Clicking a row lists the members who benefited under it, each with a barangay and a status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
       },
       {
         q: 'Why was a member blocked?',
@@ -216,7 +216,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I choose who signs a report?',
-        a: 'Above the Print Report and Download Report buttons, the Signatories block has four lists: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names are printed under their lines at the foot of the printed and downloaded report. What you choose is for that printout only, so choose again the next time. The names come from the list the Admin keeps.',
+        a: 'Above the Print Report and Download Report buttons, the Signatories block has four lists: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Pick a name in each list; None leaves that line empty. The names are printed under their lines at the foot of the printed and downloaded report. What you choose is for that printout only, so choose again the next time. The names come from the list the Admin keeps.',
       },
       {
         q: 'How do I force harvest crops before a typhoon?',
@@ -267,7 +267,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where do I keep the names that sign the reports?',
-        a: 'Admin > Signatories. Press Add Signatory under the table, type the name and the position that is printed under it in the new row, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then press Save. A person who signs in two roles is added twice. Turn off Active to stop offering a name without deleting it. The Reports pages offer these names in their Signatories block.',
+        a: 'Admin > Signatories. Press Add Signatory under the table, type the name and the position that is printed under it in the new row, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then press Save. Add a person once for each role they sign in. Turn off Active to stop offering a name without deleting it. These are the names offered in the Signatories block of the Reports pages.',
         roles: ADMIN,
       },
       {

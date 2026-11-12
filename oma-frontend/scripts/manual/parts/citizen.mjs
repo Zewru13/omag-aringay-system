@@ -5,8 +5,8 @@ const CARD = 'section, article, [class*="rounded-xl"], [class*="rounded-[1"]'
 const card = (text, tag = 'h2') => ({ text, tag, closest: CARD })
 const NAV = { css: 'nav', nth: 0 }
 const BOTTOM = (desc) => ({ find: NAV, label: 'Bottom menu', desc })
-const HEADER_BAR = (extra = '') => ({ find: { css: 'header' }, label: 'Top bar', desc: `The system name, the bell (notifications) and your initials, which open your account menu: your profile, the User Manual and Log out.${extra}` })
-const ACCOUNT_MENU = { find: [BELL, { css: 'button[aria-label="Open account menu"]', up: 1 }], label: 'Bell and account menu', desc: 'The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, the User Manual and Log out.' }
+const HEADER_BAR = (extra = '') => ({ find: { css: 'header' }, label: 'Top bar', desc: `The system name, the bell (notifications) and your initials, which open your account menu: your profile, Help, the User Manual and Log out.${extra}` })
+const ACCOUNT_MENU = { find: [BELL, { css: 'button[aria-label="Open account menu"]', up: 1 }], label: 'Bell and account menu', desc: 'The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, Help, the User Manual and Log out.' }
 const MENU_BTN = { find: MENU_TOGGLE, label: 'Menu button', desc: 'Hides the left menu to give the page more room, or shows it again.' }
 const crop = (up) => ({ text: up, tag: 'button, p, span, div' })
 const farmerCropMenu = "const b=[...document.querySelectorAll('button')].find(x=>/crops on/.test(x.getAttribute('aria-label')||'')||/01-33-02-005/.test(x.textContent))||document.querySelector('tbody tr button'); b&&b.click(); await new Promise(r=>setTimeout(r,1500)); const rows=[...document.querySelectorAll('tbody tr')]; const r=rows.find(x=>/Palay/.test(x.textContent)); if(r){const bs=r.querySelectorAll('button'); bs[bs.length-1].click()}"

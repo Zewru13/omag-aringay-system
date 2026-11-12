@@ -10,7 +10,7 @@ import { FarmerHeader, FarmerTabBar } from './FarmerChrome.jsx'
 //
 // English on purpose: the pages inside each tab are English, so the chrome matches them.
 
-const MENU = { viewProfile: 'My Profile', help: 'User Manual', logout: 'Log out' }
+const MENU = { viewProfile: 'My Profile', help: 'Help', manual: 'User Manual', logout: 'Log out' }
 
 const TABS_BY_ROLE = {
   fisherfolk: [
@@ -71,6 +71,7 @@ export default function CitizenPhoneShell({ title, action, children }) {
         initials={initials}
         onProfile={() => navigate('/my-profile')}
         onHelp={() => navigate('/my-help')}
+        onManual={() => navigate('/manual')}
         onLogout={handleLogout}
       />
 

@@ -4,7 +4,7 @@ import { FA, FI, O, click, wait } from './common.mjs'
 const CARD = 'section, article, [class*="rounded-xl"], [class*="rounded-[1"]'
 const card = (text, tag = 'h2') => ({ text, tag, closest: CARD })
 const NAV = { css: 'nav', nth: 0 }
-const HEAD = { find: [{ css: 'button[aria-label*="otification"]' }, { css: 'header button[aria-haspopup=menu]' }], label: 'Bell and account', desc: 'The bell shows your notices. Your initials open the account menu: your profile, the User Manual and Log out.' }
+const HEAD = { find: [{ css: 'button[aria-label*="otification"]' }, { css: 'header button[aria-haspopup=menu]' }], label: 'Bell and account', desc: 'The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out.' }
 const SEARCH = { find: { css: 'input[type=search]' }, label: 'Search box', desc: 'Type to find an item in the list.' }
 const BOTTOM = (items) => ({ find: NAV, label: 'Bottom menu', desc: `${items} Tap one to open it; the open one is highlighted.` })
 const phoneMenu = "document.querySelector('header button[aria-haspopup=menu]').click()"
@@ -40,7 +40,8 @@ export const PHONE = [
   FA({ id: 'farmer-p-menu', phone: true, file: 'farmer/phone-menu.png', url: '/my-account', wait: 6000, js: phoneMenu, after: 1000, title: 'Account menu on a phone (Farmer)', purpose: 'Opened with your initials at the top right.',
     callouts: [
       { find: { text: 'My Profile', tag: 'button, a' }, label: 'My Profile', desc: 'Opens your profile: your details, your photo and your password.' },
-      { find: { text: 'User Manual', tag: 'button, a' }, label: 'User Manual', desc: 'Opens this manual and the quick guide and frequently asked questions.' },
+      { find: { text: 'Help', tag: 'button, a', exact: true }, label: 'Help', desc: 'Opens the questions and answers about your account and the office to contact.' },
+      { find: { text: 'User Manual', tag: 'button, a' }, label: 'User Manual', desc: 'Opens this manual: a picture of each screen with every button explained.' },
       { find: { text: 'Log out', tag: 'button, a' }, label: 'Log out', desc: 'Signs you out of this device.' },
     ] }),
   FA({ id: 'farmer-p-crops', phone: true, file: 'farmer/phone-crops.png', url: '/crop-monitoring', wait: 5000, title: 'Crop Monitoring on a phone (Farmer)', purpose: 'Your parcels and crops as cards.',
