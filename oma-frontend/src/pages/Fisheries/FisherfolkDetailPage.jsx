@@ -6,31 +6,19 @@ import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccoun
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
-import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
-import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicCell from '../../components/UI/PcicCell.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
-import ListPrintButton from '../../components/ListPrintButton.jsx'
+import AssistanceHistoryModal from '../../components/AssistanceHistoryModal.jsx'
 import { displayFisherfolkType } from '../../utils/fisherfolkType.js'
-import { buildPersonHistorySpec } from '../AssistanceManagement/assistanceHistoryReport.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import EditFisherfolkModal from './EditFisherfolkModal.jsx'
 import PondModal from './PondModal.jsx'
 import BulkPondModal from './BulkPondModal.jsx'
-
-const HISTORY_COLUMNS = [
-  { key: 'assistance_type', label: 'Assistance Type' },
-  { key: 'source_agency', label: 'Source Agency' },
-  { key: 'quantity', label: 'Quantity' },
-  { key: 'season', label: 'Season' },
-  { key: 'year', label: 'Year' },
-  { key: 'date_given', label: 'Date Given' },
-]
 
 const STOCKING_STATUS_TONES = {
   Stocked: 'green',
@@ -89,21 +77,6 @@ function initialsOf(fullName) {
 }
 
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
-
-function AssistanceHistoryModal({ history, isLoading, error, onClose, person }) {
-  return (
-    <ModalShell title="Assistance History" onClose={onClose} maxWidth="max-w-3xl">
-      {isLoading ? <LoadingSpinner /> : error ? <ErrorMessage message={error} /> : (
-        <>
-          <div className="mb-3 flex flex-wrap justify-end gap-2">
-            <ListPrintButton disabled={history.length === 0} build={async () => buildPersonHistorySpec({ domain: 'fisheries', person, records: history })} />
-          </div>
-          <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
-        </>
-      )}
-    </ModalShell>
-  )
-}
 
 function AquacultureSection({ record }) {
   return (
@@ -556,6 +529,7 @@ function FisherfolkDetailPage() {
 
       {isHistoryModalOpen && (
         <AssistanceHistoryModal
+          domain="fisheries"
           error={historyError}
           history={history}
           isLoading={isLoadingHistory}

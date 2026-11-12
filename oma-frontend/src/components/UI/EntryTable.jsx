@@ -41,8 +41,8 @@ export function EntryRow({ children, tone = '', className = '', ...props }) {
 }
 
 // No `label`: the cell shows no column name on a phone (a key/value table, where the key cell already says what the value is).
-export function EntryCell({ label, children, className = '' }) {
+export function EntryCell({ label, children, className = '', ...props }) {
   return label
-    ? <td data-label={label} className={`${CELL} ${className}`}>{children}</td>
-    : <td className={`${CELL_PLAIN} ${className}`}>{children}</td>
+    ? <td data-label={label} className={`${CELL} ${className}`} {...props}>{children}</td>
+    : <td className={`${CELL_PLAIN} ${className}`} {...props}>{children}</td>
 }

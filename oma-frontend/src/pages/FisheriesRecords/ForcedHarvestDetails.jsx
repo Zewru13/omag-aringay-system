@@ -3,6 +3,8 @@ import { AlertTriangle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { DetailTable, FormSection } from '../../components/UI/FormTable.jsx'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
 import { estimateText, fmtKg } from './emergencyForceHarvest.js'
 import { fmtLong } from './stockingHelpers.js'
 
@@ -10,61 +12,43 @@ import { fmtLong } from './stockingHelpers.js'
 // Separate from the red HP / HC badges of the Health Log Force Harvest, which are unchanged. The window shows the SAVED record
 // (GET /fisheries/force-harvest/<id>/), never state kept in the page, and everything in it is a table.
 
-const HEAD = 'bg-[#1B4D2E] text-white'
-const TH = 'whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em]'
-
 // One saved Force Harvest as its two tables: the details, then each affected pond / cage with its estimate and actual kg.
 function ForcedHarvestTables({ d }) {
   const summary = [
-    ['Fisherfolk', d.fisherfolk_name || '—'],
-    ['Species', d.species || '—'],
-    ['Production Cycle', [d.cycle_number ? `Cycle ${d.cycle_number}` : null, d.cycle_name].filter(Boolean).join(' · ') || '—'],
-    ['Harvest Date', fmtLong(d.harvest_date)],
-    ['Reason for Force Harvest', d.reason_label || '—'],
-    ['Recorded By', d.recorded_by_name || '—'],
+    { label: 'Fisherfolk', value: d.fisherfolk_name },
+    { label: 'Species', value: d.species },
+    { label: 'Production Cycle', value: [d.cycle_number ? `Cycle ${d.cycle_number}` : null, d.cycle_name].filter(Boolean).join(' · ') },
+    { label: 'Harvest Date', value: fmtLong(d.harvest_date) },
+    { label: 'Reason for Force Harvest', value: d.reason_label, wide: true },
+    { label: 'Recorded By', value: d.recorded_by_name },
   ]
   return (
-    <div className="space-y-4" data-testid="forced-harvest-details">
-      <div className="overflow-x-auto rounded-xl border border-[#E2E8E2]">
-        <table className="min-w-full text-[13px]">
-          <thead className={HEAD}><tr><th className={TH}>Detail</th><th className={TH}>Value</th></tr></thead>
-          <tbody>
-            {summary.map(([label, value]) => (
-              <tr key={label} className="border-t border-[#F0F4F0] align-top">
-                <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium text-[#4A5E4A]">{label}</th>
-                <td className="px-3 py-2 font-semibold text-[#1A2B1A]">{value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="overflow-x-auto rounded-xl border border-[#E2E8E2]">
-        <table className="min-w-full text-[13px]" data-testid="forced-harvest-units">
-          <thead className={HEAD}>
-            <tr>
-              <th className={TH}>Production Unit</th>
-              <th className={`${TH} text-right`}>Estimated Harvest (kg)</th>
-              <th className={`${TH} text-right`}>Actual Harvest (kg)</th>
-            </tr>
-          </thead>
+    <div className="space-y-3" data-testid="forced-harvest-details">
+      <DetailTable title="Force Harvest Details" fields={summary} />
+      <FormSection title="Ponds and Cages">
+        <EntryTable bare label="Ponds and cages harvested" testId="forced-harvest-units">
+          <EntryHead>
+            <EntryTh>Production Unit</EntryTh>
+            <EntryTh className="md:text-right">Estimated Harvest (kg)</EntryTh>
+            <EntryTh className="md:text-right">Actual Harvest (kg)</EntryTh>
+          </EntryHead>
           <tbody>
             {d.units.map((u) => (
-              <tr key={u.id} className="border-t border-[#F0F4F0]">
-                <td className="px-3 py-2 font-semibold text-[#1A2B1A]">{u.label}</td>
-                <td className={`px-3 py-2 text-right tabular-nums ${u.estimated_harvest_kg == null ? 'italic text-[#7A8E7A]' : ''}`}>{estimateText(u.estimated_harvest_kg)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmtKg(u.actual_harvest_kg)}</td>
-              </tr>
+              <EntryRow key={u.id}>
+                <EntryCell label="Production Unit" className="font-semibold text-[#1A2B1A]">{u.label}</EntryCell>
+                <EntryCell label="Estimated Harvest (kg)" className={`tabular-nums md:text-right ${u.estimated_harvest_kg == null ? 'italic text-[#7A8E7A]' : ''}`}>{estimateText(u.estimated_harvest_kg)}</EntryCell>
+                <EntryCell label="Actual Harvest (kg)" className="tabular-nums md:text-right">{fmtKg(u.actual_harvest_kg)}</EntryCell>
+              </EntryRow>
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t border-[#E2E8E2] bg-[#F9FAF9] font-bold">
-              <td className="px-3 py-2" colSpan={2}>Total actual harvest (kg)</td>
-              <td className="px-3 py-2 text-right tabular-nums" data-testid="forced-harvest-total">{fmtKg(d.total_actual_kg)}</td>
-            </tr>
+            <EntryRow tone="bg-[#F9FAF9] font-bold">
+              <EntryCell colSpan={2}>Total actual harvest (kg)</EntryCell>
+              <EntryCell className="tabular-nums md:text-right" data-testid="forced-harvest-total">{fmtKg(d.total_actual_kg)}</EntryCell>
+            </EntryRow>
           </tfoot>
-        </table>
-      </div>
+        </EntryTable>
+      </FormSection>
     </div>
   )
 }
