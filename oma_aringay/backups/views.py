@@ -49,6 +49,14 @@ def get_record(pk, **filters):
         raise NotFound('That backup was not found.')
 
 
+def wants_audit(data):
+    """Whether the backup holds the activity log and the notifications: yes unless the Admin says no (the automatic backups say nothing)."""
+    value = data.get('include_audit', True)
+    if isinstance(value, str):
+        return value.strip().lower() not in ('false', '0', 'no', 'off', '')
+    return bool(value)
+
+
 def clean_notes(data, partial):
     """The Admin's own notes about a backup (name, location, remarks), trimmed. Returns (values, error)."""
     values = {}
@@ -65,7 +73,8 @@ def clean_notes(data, partial):
 
 
 class BackupListCreateView(APIView):
-    """Admin only. GET: the list, newest first, and whether one is running. POST: make a backup now (it runs in the background; the list shows it Running)."""
+    """Admin only. GET: the list, newest first, and whether one is running. POST: make a backup now (it runs in the background; the list shows it Running).
+    `include_audit` false leaves the activity log and the notifications out of it."""
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
@@ -83,7 +92,7 @@ class BackupListCreateView(APIView):
         if not record.name:
             record.name = service.default_name(record.created_at)
             record.save(update_fields=['name'])
-        start_backup(record.id)
+        start_backup(record.id, wants_audit(request.data))
         record.refresh_from_db()
         return Response(row(record), status=status.HTTP_201_CREATED)
 
@@ -178,16 +187,111 @@ class BackupRestoreView(APIView):
             os.remove(local)
             raise
 
-        who = request.user.username
-        safety = BackupRecord.objects.create(
-            created_by=request.user, made_by=who, kind=BackupRecord.Kind.SAFETY, name=f'Before restoring "{record.name or service.default_name(record.created_at)}"'[:120],
-            remarks='Made automatically before a restore.')
-        restore = BackupRecord.objects.create(
-            created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, name=f'Restore of "{record.name or service.default_name(record.created_at)}"'[:120])
-        start_restore(restore.id, safety.id, local)
-        restore.refresh_from_db()
-        return Response(row(restore), status=status.HTTP_202_ACCEPTED)
+        return begin_restore(request, record, local)
 
     @staticmethod
     def refuse(message):
         return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def begin_restore(request, record, local):
+    """Start the restore of `record` from the checked local copy of its file: a safety backup of how things are now first, in the same run."""
+    who = request.user.username
+    safety = BackupRecord.objects.create(
+        created_by=request.user, made_by=who, kind=BackupRecord.Kind.SAFETY, name=f'Before restoring "{record.name or service.default_name(record.created_at)}"'[:120],
+        remarks='Made automatically before a restore.')
+    restore = BackupRecord.objects.create(
+        created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, name=f'Restore of "{record.name or service.default_name(record.created_at)}"'[:120])
+    start_restore(restore.id, safety.id, local)
+    restore.refresh_from_db()
+    return Response(row(restore), status=status.HTTP_202_ACCEPTED)
+
+
+def refuse(message):
+    return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def keep_upload(upload):
+    """The chosen file, copied to a temporary local file; returns its path."""
+    handle, local = tempfile.mkstemp(prefix='oma_restore_', suffix='.zip')
+    with os.fdopen(handle, 'wb') as out:
+        for chunk in upload.chunks():
+            out.write(chunk)
+    return local
+
+
+def recognise(local):
+    """The finished backup of the list that this file is (by its fingerprint). Raises RestoreError with the message to show when it is none."""
+    service.read_backup_zip(local)
+    with open(local, 'rb') as f:
+        checksum = service.checksum_of(f)
+    record = (BackupRecord.objects.select_related('created_by')
+              .filter(checksum=checksum, status=BackupRecord.Status.DONE).exclude(kind=BackupRecord.Kind.RESTORE).order_by('-id').first())
+    if record is None:
+        raise service.RestoreError('That file is not one of the backups in the list, so it cannot be restored. Choose a file this system downloaded for a backup.')
+    return record
+
+
+class BackupSummaryView(APIView):
+    """Admin only. What a backup holds, in readable groups with the number of records in each now (the Create backup tab)."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        return Response({'groups': service.group_rows(service.model_counts())})
+
+
+class BackupRestorePreviewView(APIView):
+    """Admin only. The file the Admin drops on the Restore tab: which backup of the list it is and, group by group, how many records it holds next to how
+    many the system holds now. Changes nothing and starts nothing."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if service.is_busy():
+            return busy_response()
+        upload = request.FILES.get('file')
+        if upload is None:
+            return refuse('Choose the backup file from your computer.')
+        local = keep_upload(upload)
+        try:
+            record = recognise(local)
+            manifest = service.read_backup_zip(local)
+            in_file = service.zip_counts(local)
+        except service.RestoreError as exc:
+            return refuse(str(exc))
+        finally:
+            os.remove(local)
+        audit_in_file = manifest.get('audit_included', True) is not False
+        groups = service.group_rows(service.model_counts(), in_file, audit_in_file)
+        return Response({
+            'backup': row(record), 'file': {'name': upload.name, 'size_bytes': upload.size},
+            'made_at': manifest.get('created_at'), 'audit_included': audit_in_file, 'groups': groups,
+            'records': {'in_file': sum(in_file.values()), 'now': sum(g['now'] for g in groups if not g.get('kept'))},
+            'files': {'in_file': manifest.get('files', record.files_count)},
+        })
+
+
+class BackupRestoreFileView(APIView):
+    """Admin only. Restore from the file the Admin dropped on the Restore tab: the file is recognised by its fingerprint among the backups of the list,
+    the Admin types their own password, a safety backup of how things are now is made first, and then the records and files go back."""
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if service.is_busy():
+            return busy_response()
+        if not request.user.check_password(str(request.data.get('password') or '')):
+            return refuse('The password is not correct.')
+        upload = request.FILES.get('file')
+        if upload is None:
+            return refuse('Choose the backup file from your computer.')
+        local = keep_upload(upload)
+        try:
+            record = recognise(local)
+        except service.RestoreError as exc:
+            os.remove(local)
+            return refuse(str(exc))
+        except Exception:
+            os.remove(local)
+            raise
+        return begin_restore(request, record, local)

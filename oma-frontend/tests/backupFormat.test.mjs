@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const {
-  formatBytes, backupSummary, isRunning, formatDate, formatTime, fileNote, notesProblem, restoreProblem, nextAutoDownload, runningMessage,
+  formatBytes, backupSummary, isRunning, formatDate, formatTime, fileNote, notesProblem, restoreFileProblem, restoreConfirmProblem, restoreChange,
+  restoreHeadline, nextAutoDownload, runningMessage,
 } = await import(new URL('../src/pages/Backup/backupFormat.js', import.meta.url).href)
 
 let n = 0
@@ -46,13 +47,22 @@ eq(fileNote({ kind: 'manual', status: 'running' }), '', 'a running backup has no
 eq(notesProblem({ name: '  ', location: 'x' }), 'Type a name for the backup.', 'no name')
 eq(notesProblem({ name: 'October copy', location: '' }), '', 'a name is enough')
 
-// restore: the file is chosen only when the online copy is gone; the password always
-eq(restoreProblem({ row: { has_file: false }, file: null, password: 'x' }), 'Choose the backup file from your computer.', 'no file chosen')
-eq(restoreProblem({ row: { has_file: false }, file: { name: 'photo.png' }, password: 'x' }), 'The backup file is a .zip file.', 'not a zip')
-eq(restoreProblem({ row: { has_file: false }, file: { name: 'oma_backup_1.ZIP' }, password: '' }), 'Type your password.', 'no password')
-eq(restoreProblem({ row: { has_file: false }, file: { name: 'oma_backup_1.zip' }, password: 'x' }), '', 'file and password')
-eq(restoreProblem({ row: { has_file: true }, file: null, password: 'x' }), '', 'the online copy needs no file')
-eq(restoreProblem({ row: { has_file: true }, file: null, password: '' }), 'Type your password.', 'the online copy still needs the password')
+// restore: the file is dropped on the Restore tab (a .zip), then the password confirms
+eq(restoreFileProblem(null), 'Choose the backup file from your computer.', 'no file chosen')
+eq(restoreFileProblem({ name: 'photo.png' }), 'The backup file is a .zip file.', 'not a zip')
+eq(restoreFileProblem({ name: 'oma_backup_1.ZIP' }), '', 'a zip')
+eq(restoreConfirmProblem({ file: { name: 'oma_backup_1.zip' }, password: '' }), 'Type your password.', 'no password')
+eq(restoreConfirmProblem({ file: null, password: 'x' }), 'Choose the backup file from your computer.', 'no file')
+eq(restoreConfirmProblem({ file: { name: 'oma_backup_1.zip' }, password: 'x' }), '', 'file and password')
+
+// what a restore would change, group by group (records in the file next to the records now)
+eq(restoreChange({ in_file: 5, now: 5 }).text, 'No change', 'the same')
+eq(JSON.stringify(restoreChange({ in_file: 9, now: 5 })), JSON.stringify({ text: '4 put back', tone: 'added' }), 'more in the file than now')
+eq(JSON.stringify(restoreChange({ in_file: 3, now: 5 })), JSON.stringify({ text: '2 removed', tone: 'removed' }), 'more now than in the file')
+eq(restoreChange({ in_file: 1200, now: 1 }).text, '1,199 put back', 'big numbers have separators')
+eq(JSON.stringify(restoreChange({ in_file: null, now: 160, kept: true })), JSON.stringify({ text: 'Kept as it is', tone: 'kept' }), 'a group the file leaves out')
+eq(restoreHeadline({ records: { in_file: 1200, now: 1300 }, files: { in_file: 35 } }), '1,200 records and 35 files in this backup. The system holds 1,300 records now.', 'the headline')
+eq(restoreHeadline({ records: { in_file: 1, now: 1 }, files: { in_file: 1 } }), '1 record and 1 file in this backup. The system holds 1 record now.', 'singular')
 
 // the page downloads by itself the backup it just made, and the safety backup of the restore it just ran
 const rows = [
@@ -75,7 +85,21 @@ const page = readFileSync(new URL('../src/pages/Backup/BackupPage.jsx', import.m
 ok(!/Trash2|api\.delete|Delete Backup/.test(page), 'no Delete on the Backup page')
 ok(!/backup_system|automatically|every night/i.test(page), 'no automatic backup is promised')
 ok(page.includes('/downloaded/'), 'the page tells the server when the file has arrived')
-ok(page.includes('/restore/'), 'the page can restore')
+ok(page.includes('<RestoreTab'), 'the page can restore, in its Restore tab')
+ok(page.includes('title="Backup & Restore"'), 'the page is called Backup & Restore')
+ok(page.includes('PillTabs') && page.includes("label: 'Create backup'") && page.includes("label: 'Restore'"), 'two modes: Create backup and Restore')
+ok(page.includes("'/backups/summary/'"), 'the Create backup tab shows what a backup holds, from the server')
+const groupsFile = readFileSync(new URL('../src/pages/Backup/BackupGroups.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(groupsFile.includes('Include the audit trail and notification history') && page.includes('include_audit'), 'the audit trail is an optional tick')
+ok(page.includes('Download backup'), 'the button is Download backup')
+ok(!page.includes('RestoreModal') && !page.includes('Restore Backup'), 'the old Restore window is gone: Restore is a tab')
+const restoreTab = readFileSync(new URL('../src/pages/Backup/RestoreTab.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(restoreTab.includes("'/backups/restore/preview/'") && restoreTab.includes("'/backups/restore/'"), 'the Restore tab previews the dropped file, then restores it')
+ok(restoreTab.includes('Drag a backup file here') && restoreTab.includes('Browse files'), 'drag and drop, or browse for the file')
+ok(restoreTab.includes('Nothing is written until you confirm'), 'nothing is written before the Admin confirms')
+ok(restoreTab.includes('type="password"'), 'the Admin confirms with their password')
+const sidebar = readFileSync(new URL('../src/components/Layout/Sidebar.jsx', import.meta.url), 'utf8')
+ok(sidebar.includes('label: "Backup & Restore"') && !sidebar.includes('label: "Backup" }'), 'the menu entry is Backup & Restore')
 ok(/DataTable/.test(page), 'the list is a table')
 for (const label of ['NAME', 'DATE', 'TIME', 'LOCATION']) ok(page.includes(`label: '${label}'`), `the list has a ${label} column`)
 ok(/CycleField label="Name"/.test(page) && /CycleField label="Location"/.test(page) && /CycleField label="Remarks"/.test(page), 'the notes form is a table of labelled rows')

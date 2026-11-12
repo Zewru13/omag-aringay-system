@@ -173,7 +173,7 @@ class BackupTests(TransactionTestCase):
 
     # --- the Admin screen's endpoints
     def start(self, **body):
-        with mock.patch('backups.views.start_backup', side_effect=lambda record_id: service.run_backup(record_id)):
+        with mock.patch('backups.views.start_backup', side_effect=lambda *args: service.run_backup(*args)):
             return self.client.post(URL, body, format='json')
 
     def restore(self, record, password='pw', data=None):
@@ -280,6 +280,9 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(self.client.post(f'{URL}{record.id}/downloaded/').status_code, 403)
         self.assertEqual(self.client.patch(f'{URL}{record.id}/', {'name': 'x'}, format='json').status_code, 403)
         self.assertEqual(self.client.post(f'{URL}{record.id}/restore/', {'password': 'pw'}, format='multipart').status_code, 403)
+        self.assertEqual(self.client.get(f'{URL}summary/').status_code, 403)
+        self.assertEqual(self.client.post(f'{URL}restore/preview/', {}, format='multipart').status_code, 403)
+        self.assertEqual(self.client.post(f'{URL}restore/', {'password': 'pw'}, format='multipart').status_code, 403)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(URL).status_code, (401, 403))
         self.assertTrue(default_storage.exists(record.file_path))
@@ -459,3 +462,164 @@ class BackupTests(TransactionTestCase):
     def test_there_is_no_automatic_backup_command(self):
         from django.core.management import get_commands
         self.assertNotIn('backup_system', get_commands())
+
+    # --- Backup & Restore page: what a backup holds, the optional audit trail, and restoring by dropping the file
+    def make_audit_things(self, user=None):
+        from auditlog.models import AuditLogEntry
+        from core.models import Notification
+        user = user or self.admin
+        AuditLogEntry.objects.create(user=user, action='UPDATE', model_name='Farmer', object_repr='Test entry')
+        Notification.objects.create(recipient=user, verb='did something')
+
+    def audit_counts(self):
+        from auditlog.models import AuditLogEntry
+        from core.models import Notification
+        return AuditLogEntry.objects.count(), Notification.objects.count()
+
+    def make_without_audit(self):
+        record = BackupRecord.objects.create(created_by=self.admin)
+        service.run_backup(record.id, include_audit=False)
+        record.refresh_from_db()
+        self.assertEqual(record.status, 'done', record.detail)
+        return record
+
+    def models_in(self, record):
+        return {item['model'] for item in json.loads(self.open_zip(record).read('database.json'))}
+
+    def preview(self, data):
+        body = {} if data is None else {'file': SimpleUploadedFile('backup.zip', data, content_type='application/zip')}
+        return self.client.post(f'{URL}restore/preview/', body, format='multipart')
+
+    def restore_file(self, data, password='pw'):
+        body = {'password': password}
+        if data is not None:
+            body['file'] = SimpleUploadedFile('backup.zip', data, content_type='application/zip')
+        with mock.patch('backups.views.start_restore', side_effect=lambda *args: service.run_restore(*args)):
+            return self.client.post(f'{URL}restore/', body, format='multipart')
+
+    def downloaded(self, record):
+        data = self.download(record)
+        self.assertEqual(self.client.post(f'{URL}{record.id}/downloaded/').status_code, 200)
+        return data
+
+    def test_the_summary_lists_what_a_backup_holds_in_readable_groups(self):
+        self.make_audit_things()
+        record = self.make()
+        r = self.client.get(f'{URL}summary/')
+        self.assertEqual(r.status_code, 200, r.content)
+        groups = {g['key']: g for g in r.json()['groups']}
+        self.assertGreaterEqual(groups['farmers']['count'], 1)
+        self.assertGreaterEqual(groups['audit']['count'], 2)
+        self.assertTrue(groups['audit']['optional'])
+        self.assertFalse(groups['farmers']['optional'])
+        for group in groups.values():
+            self.assertTrue(group['label'] and group['description'])
+        self.assertEqual(sum(g['count'] for g in groups.values()), record.records_count)      # the groups add up to every record a backup writes
+
+    def test_a_backup_can_leave_out_the_audit_trail_and_the_notifications(self):
+        self.make_audit_things()
+        full, small = self.make(), self.make_without_audit()
+        optional = {'auditlog.auditlogentry', 'core.notification'}
+        self.assertTrue(optional <= self.models_in(full))
+        self.assertFalse(optional & self.models_in(small))
+        self.assertIn('farmers.farmer', self.models_in(small))
+        self.assertTrue(json.loads(self.open_zip(full).read('manifest.json'))['audit_included'])
+        self.assertFalse(json.loads(self.open_zip(small).read('manifest.json'))['audit_included'])
+        self.assertLess(small.records_count, full.records_count)
+
+    def test_the_admin_asks_for_a_backup_with_or_without_the_audit_trail(self):
+        self.make_audit_things()
+        r = self.start(include_audit=False)
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertNotIn('core.notification', self.models_in(BackupRecord.objects.get(pk=r.json()['id'])))
+        r = self.start(include_audit='false')
+        self.assertNotIn('core.notification', self.models_in(BackupRecord.objects.get(pk=r.json()['id'])))
+        r = self.start()                                   # nothing said: everything (a request that does not know the choice still gets a full backup)
+        self.assertIn('core.notification', self.models_in(BackupRecord.objects.get(pk=r.json()['id'])))
+
+    def test_restoring_a_backup_without_the_audit_trail_keeps_the_log_and_notifications_that_are_there(self):
+        from auditlog.models import AuditLogEntry
+        from core.models import Notification
+        record = self.make_without_audit()
+        later = get_user_model().objects.create_user(username='bk-later', password='pw', role='CITIZEN', email='bl@x.test')
+        self.make_audit_things(self.admin)
+        self.make_audit_things(later)
+        entries_before = AuditLogEntry.objects.count()
+        self.assertEqual(self.restore(record).status_code, 202)
+        done = BackupRecord.objects.get(kind='restore')
+        self.assertEqual(done.status, 'done', done.detail)
+        self.assertFalse(get_user_model().objects.filter(username='bk-later').exists())          # that account is not in the backup
+        self.assertEqual(AuditLogEntry.objects.count(), entries_before)                         # the log is kept as it was
+        self.assertTrue(AuditLogEntry.objects.filter(object_repr='Test entry', user__isnull=True).exists())   # ... the gone account's entry names nobody now
+        self.assertTrue(Notification.objects.filter(recipient=self.admin, verb='did something').exists())
+        self.assertFalse(Notification.objects.filter(verb='did something').exclude(recipient=self.admin).exists())   # a notification for a gone account goes
+
+    def test_restoring_a_full_backup_still_replaces_the_log_and_the_notifications(self):
+        self.make_audit_things()
+        record = self.make()
+        before = self.audit_counts()
+        self.make_audit_things()
+        self.assertNotEqual(self.audit_counts(), before)
+        self.assertEqual(self.restore(record).status_code, 202)
+        self.assertEqual(self.audit_counts(), before)
+
+    # --- the Restore tab: drop the file, see what would change, then restore
+    def test_the_preview_recognises_the_file_and_says_what_a_restore_would_change(self):
+        record = self.make(name='October copy')
+        data = self.downloaded(record)
+        self.change_things()                                # one farmer edited, one added
+        r = self.preview(data)
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertEqual((body['backup']['id'], body['backup']['name']), (record.id, 'October copy'))
+        farmers = {g['key']: g for g in body['groups']}['farmers']
+        self.assertEqual((farmers['in_file'], farmers['now']), (1, 2))
+        self.assertFalse(farmers['kept'])
+        self.assertTrue(body['audit_included'])
+        self.assertEqual(body['files']['in_file'], record.files_count)
+        self.assertEqual(body['records']['in_file'], record.records_count)
+        self.assertEqual(Farmer.objects.count(), 2)                         # nothing was changed ...
+        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())   # ... and no safety backup or restore was started
+
+    def test_the_preview_says_when_the_audit_trail_is_not_in_the_file(self):
+        record = self.make_without_audit()
+        body = self.preview(self.downloaded(record)).json()
+        self.assertFalse(body['audit_included'])
+        audit = {g['key']: g for g in body['groups']}['audit']
+        self.assertIsNone(audit['in_file'])
+        self.assertTrue(audit['kept'])
+
+    def test_a_file_that_is_not_one_of_the_listed_backups_is_refused(self):
+        record = self.make()
+        data = self.download(record)
+        BackupRecord.objects.filter(pk=record.pk).update(checksum='0' * 64)      # the list no longer knows this file
+        for answer in (self.preview(data), self.restore_file(data)):
+            self.assertEqual(answer.status_code, 400, answer.content)
+            self.assertIn('list', answer.json()['detail'].lower())
+        for answer in (self.preview(b'not a zip at all'), self.preview(None), self.restore_file(None)):
+            self.assertEqual(answer.status_code, 400, answer.content)
+        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
+
+    def test_dropping_the_file_restores_with_the_admins_password(self):
+        record = self.make()
+        data = self.downloaded(record)
+        self.change_things()
+        with mock.patch('backups.views.start_restore') as start:
+            for wrong in ('', 'not-it'):
+                r = self.client.post(f'{URL}restore/', {'password': wrong, 'file': SimpleUploadedFile('b.zip', data)}, format='multipart')
+                self.assertEqual(r.status_code, 400, r.content)
+            start.assert_not_called()
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+        r = self.restore_file(data)
+        self.assertEqual(r.status_code, 202, r.content)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+        self.assertFalse(Farmer.objects.filter(rsbsa_number='01-033-02-019-990002').exists())
+        self.assertEqual(BackupRecord.objects.get(kind='restore').status, 'done')
+        self.assertEqual(BackupRecord.objects.get(kind='safety').status, 'done')      # a safety backup of how things were, made first
+
+    def test_nothing_can_be_previewed_or_restored_while_one_is_running(self):
+        record = self.make()
+        data = self.download(record)
+        BackupRecord.objects.create(created_by=self.admin, kind='manual', status='running')
+        self.assertEqual(self.preview(data).status_code, 409)
+        self.assertEqual(self.restore_file(data).status_code, 409)
