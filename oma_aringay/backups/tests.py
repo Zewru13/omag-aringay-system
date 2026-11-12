@@ -283,6 +283,7 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(self.client.get(f'{URL}summary/').status_code, 403)
         self.assertEqual(self.client.post(f'{URL}restore/preview/', {}, format='multipart').status_code, 403)
         self.assertEqual(self.client.post(f'{URL}restore/', {'password': 'pw'}, format='multipart').status_code, 403)
+        self.assertEqual(self.client.post(f'{URL}import/', {}, format='multipart').status_code, 403)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(URL).status_code, (401, 403))
         self.assertTrue(default_storage.exists(record.file_path))
@@ -623,3 +624,110 @@ class BackupTests(TransactionTestCase):
         BackupRecord.objects.create(created_by=self.admin, kind='manual', status='running')
         self.assertEqual(self.preview(data).status_code, 409)
         self.assertEqual(self.restore_file(data).status_code, 409)
+
+    # --- Import backup file: a backup made elsewhere is checked, previewed and added to the history (no data changes)
+    def import_file(self, data, dry_run=True, name='backup.zip'):
+        body = {'dry_run': 'true' if dry_run else 'false'}
+        if data is not None:
+            body['file'] = SimpleUploadedFile(name, data, content_type='application/zip')
+        return self.client.post(f'{URL}import/', body, format='multipart')
+
+    def unknown_file(self):
+        """A genuine backup of this system that the history does not know (made elsewhere): returns its bytes."""
+        record = self.make(name='Made elsewhere')
+        data = self.download(record)
+        BackupRecord.objects.filter(pk=record.pk).delete()
+        return data
+
+    def zip_with(self, data, database=None, manifest=None, drop=()):
+        """The same zip with another database.json / manifest.json, or without some of its files."""
+        out = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(data)) as src, zipfile.ZipFile(out, 'w') as dst:
+            for info in src.infolist():
+                if info.filename in drop:
+                    continue
+                content = src.read(info.filename)
+                if info.filename == 'database.json' and database is not None:
+                    content = database
+                if info.filename == 'manifest.json' and manifest is not None:
+                    content = manifest
+                dst.writestr(info.filename, content)
+        return out.getvalue()
+
+    def test_the_preview_of_a_backup_made_elsewhere_changes_nothing(self):
+        data = self.unknown_file()
+        before = (BackupRecord.objects.count(), Farmer.objects.count())
+        r = self.import_file(data)
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertEqual((body['created'], body['summary']['ready']), (0, 1))
+        labels = [row['label'] for row in body['rows']]
+        for wanted in ('Backup file', 'Records', 'Uploaded files', 'History'):
+            self.assertIn(wanted, labels)
+        self.assertTrue(all(row['status'] == 'ready' for row in body['rows']), body['rows'])
+        self.assertEqual((BackupRecord.objects.count(), Farmer.objects.count()), before)       # nothing added, nothing changed
+
+    def test_confirming_adds_it_to_the_history_and_the_restore_then_accepts_it(self):
+        data = self.unknown_file()
+        self.change_things()
+        r = self.import_file(data, dry_run=False, name='october.zip')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['created'], 1)
+        entry = BackupRecord.objects.get(kind='imported')
+        self.assertEqual((entry.status, entry.made_by, entry.file_name), ('done', 'bk-admin', 'october.zip'))
+        self.assertEqual(len(entry.checksum), 64)
+        self.assertGreater(entry.records_count, 0)
+        self.assertEqual(entry.file_path, '')                                   # the file itself is not kept online
+        listed = {row['id']: row for row in self.client.get(URL).json()['results']}[entry.id]
+        self.assertEqual((listed['kind_label'], listed['can_restore']), ('Imported', True))
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')   # importing changed no record
+        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
+        self.assertEqual(self.restore_file(data).status_code, 202)              # ... and now the Restore window accepts that file
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+
+    def test_a_file_already_in_the_history_is_not_added_twice(self):
+        record = self.make()
+        data = self.download(record)
+        preview = self.import_file(data).json()
+        self.assertEqual((preview['summary']['ready'], preview['summary']['duplicate_in_database']), (0, 1))
+        done = self.import_file(data, dry_run=False).json()
+        self.assertEqual(done['created'], 0)
+        self.assertFalse(BackupRecord.objects.filter(kind='imported').exists())
+
+    def test_a_file_that_is_not_a_backup_of_this_system_is_refused(self):
+        data = self.unknown_file()
+        cases = {
+            'not a zip at all': b'not a zip at all',
+            'no database': self.zip_with(data, drop=('database.json',)),
+            'no manifest': self.zip_with(data, drop=('manifest.json',)),
+            'a manifest that is not one': self.zip_with(data, manifest=b'{"hello": 1}'),
+            'a database that is not json': self.zip_with(data, database=b'this is not json'),
+        }
+        for label, bad in cases.items():
+            for dry_run in (True, False):
+                r = self.import_file(bad, dry_run=dry_run)
+                self.assertEqual(r.status_code, 400, (label, r.content))
+        self.assertEqual(self.import_file(None).status_code, 400)
+        self.assertFalse(BackupRecord.objects.filter(kind='imported').exists())
+
+    def test_tables_this_system_no_longer_has_are_said_not_refused(self):
+        data = self.unknown_file()
+        records = json.loads(zipfile.ZipFile(io.BytesIO(data)).read('database.json'))
+        records.append({'model': 'oldapp.gone', 'pk': 1, 'fields': {}})
+        manifest = zipfile.ZipFile(io.BytesIO(data)).read('manifest.json')
+        odd = self.zip_with(data, database=json.dumps(records).encode('utf-8'), manifest=manifest)
+        body = self.import_file(odd).json()
+        self.assertEqual(body['summary']['ready'], 1)
+        self.assertTrue(any('oldapp.gone' in row['detail'] for row in body['rows']), body['rows'])
+
+    @override_settings(BACKUP_IMPORT_MAX_BYTES=100)
+    def test_a_file_over_the_size_limit_is_refused(self):
+        r = self.import_file(self.unknown_file())
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn('too large', r.json()['detail'].lower())
+
+    def test_nothing_can_be_imported_while_one_is_running(self):
+        data = self.unknown_file()
+        BackupRecord.objects.create(created_by=self.admin, kind='manual', status='running')
+        self.assertEqual(self.import_file(data).status_code, 409)
+        self.assertEqual(self.import_file(data, dry_run=False).status_code, 409)

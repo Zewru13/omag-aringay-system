@@ -3462,41 +3462,41 @@ export default {
  },
  "admin-backup": {
   "audience": "admin",
-  "title": "Admin > Backup & Restore: Create backup",
-  "purpose": "Makes a copy of the whole system and saves it to your computer.",
+  "title": "Admin > Backup & Restore",
+  "purpose": "Makes a copy of the whole system and saves it to your computer, puts one back, or brings in a backup made elsewhere.",
   "image": "/manual/admin/backup.png",
   "width": 1280,
   "height": 1500,
   "legend": [
    {
     "n": 1,
-    "label": "Create backup / Restore",
-    "desc": "Two modes. Create backup makes a copy; Restore (next picture) puts one back."
-   },
-   {
-    "n": 2,
-    "label": "What a backup holds",
-    "desc": "One card for each group of records, with how many there are now. A backup also holds every uploaded photo and file."
-   },
-   {
-    "n": 3,
-    "label": "Audit trail and notifications",
-    "desc": "Optional. Tick it to put the activity log and the notifications in the file too. Left unticked the backup is smaller and quicker, and a restore of it keeps the activity log and notifications already in the system."
-   },
-   {
-    "n": 4,
-    "label": "Two things to know",
-    "desc": "The file is not encrypted and holds personal records and login accounts with their scrambled passwords: keep it somewhere safe, off this computer. It holds rows and files only: the database structure comes from the system update scripts."
-   },
-   {
-    "n": 5,
     "label": "Download backup",
     "desc": "Opens Download Backup: type a name and the Location where you will keep the file (both can be left empty), then Start Backup. A backup is made only when you press this. When it is done, its file (.zip) is saved to your computer and is no longer kept online. While one runs, nothing else can be done on this page."
    },
    {
+    "n": 2,
+    "label": "Restore",
+    "desc": "Opens the Restore Backup form (next picture): drop a backup file, see what it would change, then confirm with your password."
+   },
+   {
+    "n": 3,
+    "label": "Import backup file",
+    "desc": "Opens the import window (the picture after next) to bring in a backup made on another computer or copy of the system, so that Restore accepts it."
+   },
+   {
+    "n": 4,
+    "label": "What a backup holds",
+    "desc": "One card for each group of records, with how many there are now. A backup also holds every uploaded photo and file."
+   },
+   {
+    "n": 5,
+    "label": "Audit trail and notifications",
+    "desc": "Optional. Tick it to put the activity log and the notifications in the file too. Left unticked the backup is smaller and quicker, and a restore of it keeps the activity log and notifications already in the system."
+   },
+   {
     "n": 6,
     "label": "Backup history",
-    "desc": "Every backup, newest first: its name, date, time, location (where you keep its file), kind, who made it, size and status (Running, Done or Failed). Nothing is removed from this list. The three dots at the end of a row open its menu: Download saves the file while it is still online, Edit changes the name, the location and the remarks (not the date or the time), and Restore takes you to the Restore tab."
+    "desc": "Every backup, newest first: its name, date, time, location (where you keep its file), kind (Manual, Imported, Before restore or Restore), who made it, size and status. Nothing is removed from this list. The three dots at the end of a row open its menu: Download saves the file while it is still online, Edit changes the name, the location and the remarks (not the date or the time), and Restore opens the Restore form."
    }
   ]
  },
@@ -5198,7 +5198,7 @@ export default {
  },
  "admin-restore": {
   "audience": "admin",
-  "title": "Admin > Backup & Restore: Restore",
+  "title": "Admin > Backup & Restore: Restore Backup",
   "purpose": "Drop a backup file, see what it would change, then confirm with your password.",
   "image": "/manual/admin/restore.png",
   "width": 1280,
@@ -5206,38 +5206,63 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Nothing is written yet",
-    "desc": "Adding a file only reads it. Nothing in the system changes until you type your password and press Restore."
+    "label": "Drag the file here, or Browse files",
+    "desc": "Drop the .zip file saved from this page, or press Browse files to choose it. Choose another file starts again. A file that is not one of the backups in the history is refused: add it with Import backup file first. Reading the file changes nothing."
    },
    {
     "n": 2,
-    "label": "Drag the file here, or Browse files",
-    "desc": "Drop the .zip file saved from this page, or press Browse files to choose it. A file that is not one of the backups in the history is refused."
+    "label": "Which backup it is",
+    "desc": "The name, when it was made and by whom, where it was kept, the file, and how many records and files it holds next to how many records the system holds now."
    },
    {
     "n": 3,
-    "label": "Which backup it is",
-    "desc": "The name, the date and time, who made it and where it was kept, and how many records and files the file holds next to how many records the system holds now."
-   },
-   {
-    "n": 4,
-    "label": "What a restore would change",
+    "label": "What a restore does",
     "desc": "Group by group: the records in the backup, the records now, and what a restore does (records put back, records removed, no change). A group the file leaves out, such as the activity log of a backup made without the audit trail, is kept as it is."
    },
    {
-    "n": 5,
-    "label": "What it replaces",
-    "desc": "Records, uploaded files, user accounts and passwords go back to what the backup holds. A safety backup of how things are now is made first and saved to this computer. Do it when nobody else is using the system; everyone signs in again afterwards."
-   },
-   {
-    "n": 6,
+    "n": 4,
     "label": "Your password",
     "desc": "Required. It confirms that you are the one restoring."
    },
    {
-    "n": 7,
+    "n": 5,
     "label": "Restore",
-    "desc": "Makes the safety backup, then puts the backup back. While it runs, nothing else can be done on the page: keep it open. Choose another file starts again with a different file."
+    "desc": "Makes a safety backup of how things are now and saves it to your computer, then puts the backup back: records, uploaded files, user accounts and passwords. While it runs, nothing else can be done on the page: keep it open."
+   }
+  ]
+ },
+ "admin-import-backup": {
+  "audience": "admin",
+  "title": "Admin > Backup & Restore: Import Backup File",
+  "purpose": "Checks a backup file made elsewhere and adds it to the history. No record is changed.",
+  "image": "/manual/admin/import-backup.png",
+  "width": 1280,
+  "height": 1400,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Preview only",
+    "desc": "Like every import of the system: Upload File, Preview, then Confirm Import. Nothing is added until you confirm."
+   },
+   {
+    "n": 2,
+    "label": "Summary",
+    "desc": "How many backups are ready to add, and how many are already in the history."
+   },
+   {
+    "n": 3,
+    "label": "The checks",
+    "desc": "What the file is (a backup of this system, and when it was made), how many records and files it holds, any tables the system no longer has (a restore skips them), and whether the history already has it. A file that is not a backup made by this page is refused. A file that is already in the history is not added twice."
+   },
+   {
+    "n": 4,
+    "label": "Upload a Different File",
+    "desc": "Goes back to choose another backup file."
+   },
+   {
+    "n": 5,
+    "label": "Confirm Import",
+    "desc": "Adds the backup to the history as an Imported entry. The file itself is not kept online and no record is changed. After that, the Restore form accepts the file."
    }
   ]
  }

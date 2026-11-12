@@ -36,6 +36,12 @@ const PAGE_SIZE = 25
 export default function ImportFileModal({
   title, subtitle, importUrl, templateUrl, templateFilename, helpText, onClose, onImported, undoType,
   initialFile = null,   // a file already chosen elsewhere (the organization form): the window opens with it ready to preview
+  // What the window says about the file it takes. The defaults are the Excel imports; another import (Backup & Restore > Import backup file) gives its own.
+  accept = '.xlsx,.xls,.csv', chooseText = 'Click to choose a .xlsx, .xls, or .csv file',
+  fileHint = 'Fill it in under the header row, using the same columns as the template',
+  rowWord = 'Row',                  // "Row 3" under each line of the preview
+  createdText = null,               // (result) => the line shown when the import is done; the default counts records
+  icon: HeaderIcon = FileSpreadsheet,
 }) {
   const { showToast } = useToast()
   const { isAdmin, isEvaluator } = useAuth()
@@ -135,7 +141,7 @@ export default function ImportFileModal({
   ) : null
 
   return (
-    <ModalShell title={title} subtitle={subtitle} icon={FileSpreadsheet} onClose={onClose} maxWidth="max-w-4xl" footer={footerContent}>
+    <ModalShell title={title} subtitle={subtitle} icon={HeaderIcon} onClose={onClose} maxWidth="max-w-4xl" footer={footerContent}>
       {step !== 'undo' && <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />}
 
       {step === 'undo' && (
@@ -148,22 +154,24 @@ export default function ImportFileModal({
         <div className="stagger-item mt-6 space-y-4">
           <div className="rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
             {helpText && <p className="mb-3 text-[13px] text-[#4A5A4C]">{helpText}</p>}
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              disabled={isDownloading}
-              className="mb-3 inline-flex items-center justify-center gap-1.5 rounded-lg text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50 max-sm:min-h-[44px] max-sm:w-full max-sm:border max-sm:border-[#C8D5C8] max-sm:bg-white"
-            >
-              <Download size={14} aria-hidden="true" />
-              {isDownloading ? 'Downloading…' : 'Download the Excel template'}
-            </button>
+            {templateUrl && (
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                disabled={isDownloading}
+                className="mb-3 inline-flex items-center justify-center gap-1.5 rounded-lg text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50 max-sm:min-h-[44px] max-sm:w-full max-sm:border max-sm:border-[#C8D5C8] max-sm:bg-white"
+              >
+                <Download size={14} aria-hidden="true" />
+                {isDownloading ? 'Downloading…' : 'Download the Excel template'}
+              </button>
+            )}
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#D8E2D8] bg-[#F9FAF9] px-4 py-8 text-center transition-colors hover:bg-[#F0F4F0] sm:px-6">
               <Upload size={22} className="text-[#7A8E7A]" aria-hidden="true" />
               <span className="text-[13px] font-medium text-[#1A2B1A]">
-                <span className="break-all">{file ? file.name : 'Click to choose a .xlsx, .xls, or .csv file'}</span>
+                <span className="break-all">{file ? file.name : chooseText}</span>
               </span>
-              <span className="text-[11px] text-[#7A8E7A]">Fill it in under the header row, using the same columns as the template</span>
-              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
+              <span className="text-[11px] text-[#7A8E7A]">{fileHint}</span>
+              <input type="file" accept={accept} className="hidden" onChange={handleFileChange} />
             </label>
           </div>
 
@@ -190,7 +198,7 @@ export default function ImportFileModal({
               <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-800" aria-hidden="true" />
               <div>
                 <p className="text-[13px] font-semibold text-emerald-800">
-                  {result.created} record{result.created === 1 ? '' : 's'} created
+                  {createdText ? createdText(result) : `${result.created} record${result.created === 1 ? '' : 's'} created`}
                 </p>
                 <p className="mt-0.5 text-[13px] text-emerald-700">
                   Duplicate and invalid rows below were not created — fix them and re-upload separately if needed.
@@ -273,7 +281,7 @@ export default function ImportFileModal({
                 <div key={r.row} className="flex flex-col items-start gap-1.5 px-4 py-3 sm:flex-row sm:gap-3 sm:px-5">
                   <div className="min-w-0 flex-1 max-sm:w-full">
                     <p className="break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">{r.label}</p>
-                    <p className="mt-0.5 text-[11px] text-[#7A8E7A]">Row {r.row}</p>
+                    <p className="mt-0.5 text-[11px] text-[#7A8E7A]">{rowWord} {r.row}</p>
                     <p className="mt-0.5 break-words text-[12px] text-[#4A5A4C]">
                       {r.detail}{r.activation?.email_sent ? ' Account activated; login details emailed.' : ''}
                     </p>

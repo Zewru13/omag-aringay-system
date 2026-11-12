@@ -1,10 +1,10 @@
 # Backup & Restore
 
-Admin > **Backup & Restore** has two tabs: **Create backup** (make a backup and keep its history) and **Restore** (drop a backup file, see what it would change, then confirm).
+Admin > **Backup & Restore** is one page with three buttons: **Download backup** (make a backup), **Restore** (a form: drop a backup file, see what it would change, then confirm) and **Import backup file** (bring in a backup made elsewhere). Below them are the cards of what a backup holds and the Backup history.
 
 ## What a backup is
 
-Create backup makes **one .zip file** of the whole system:
+Download backup makes **one .zip file** of the whole system:
 
 | In the zip | What it holds |
 |---|---|
@@ -18,9 +18,9 @@ The zip holds personal records and password hashes: **download it only on a trus
 
 ## Making a backup
 
-Backups are made **only by hand**: Admin > Backup & Restore > Create backup > **Download backup**. There is no automatic or nightly backup.
+Backups are made **only by hand**: Admin > Backup & Restore > **Download backup**. There is no automatic or nightly backup.
 
-The tab shows what a backup holds, in groups (accounts, farmers, crops, fisheries, cycles, organizations, assistance, other records) with how many records each has now (`GET /api/backups/summary/`). One group is optional: **Include the audit trail and notification history** (the activity log and the notifications). It is **unticked by default**: the backup is then smaller and quicker, and a restore of it keeps the activity log and notifications already in the system (an entry that names an account the restore removed names nobody afterwards, and a notification for a removed account is dropped). A request to the API that does not say anything (`include_audit` missing) still makes a full backup.
+The page shows what a backup holds, in groups (accounts, farmers, crops, fisheries, cycles, organizations, assistance, other records) with how many records each has now (`GET /api/backups/summary/`). One group is optional: **Include the audit trail and notification history** (the activity log and the notifications). It is **unticked by default**: the backup is then smaller and quicker, and a restore of it keeps the activity log and notifications already in the system (an entry that names an account the restore removed names nobody afterwards, and a notification for a removed account is dropped). A request to the API that does not say anything (`include_audit` missing) still makes a full backup.
 
 1. Press **Download backup**. Type a name and the **Location** where the file will be kept (both can be left empty; an empty name becomes "Backup of <date and time>"), then **Start Backup**.
 2. It runs in the background (a few minutes for a large system). While it runs, the page is locked: no other backup, edit, download or restore can be started until it is done. Keep the page open.
@@ -33,12 +33,12 @@ The tab shows what a backup holds, in groups (accounts, farmers, crops, fisherie
 - Kinds: *Manual* (Download backup), *Before restore* (the safety backup a restore makes), *Restore* (a restore that was run), *Automatic* (nightly backups made by an earlier version; none are made any more).
 - Each backup keeps the fingerprint (SHA-256) of its file, so that the same file can be recognised when it is chosen for a restore.
 
-## Restoring (the Restore tab)
+## Restoring (the Restore form)
 
 Restoring replaces data, so do it deliberately and when nobody else is using the system.
 
-1. Admin > Backup & Restore > **Restore** (or the row menu of a finished backup in the history > **Restore**, which opens this tab).
-2. **Drag the backup file** onto the tab, or press **Browse files**. The file is only read: the system recognises it by its fingerprint among the backups of the history (a file that is not one of them is refused) and shows, group by group, the records in the file next to the records now and what a restore would do (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
+1. Admin > Backup & Restore > **Restore** (or the row menu of a finished backup in the history > **Restore**, which opens the same form).
+2. **Drag the backup file** onto the form, or press **Browse files**. The file is only read: the system recognises it by its fingerprint among the backups of the history (a file that is not one of them is refused: add it with **Import backup file** first) and shows, group by group, the records in the file next to the records now and what a restore would do (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
 3. Type **your own password** and press **Restore** (`POST /api/backups/restore/`).
 4. The system first makes a **safety backup** of how things are now (it appears as *Before restore* and is saved to the computer too). If the safety backup cannot be made, nothing is restored.
 5. Then the backup is put back: the uploaded files, and every record in one step. If anything fails, **no record is changed** and the entry says *Failed* with the reason.
@@ -46,6 +46,15 @@ Restoring replaces data, so do it deliberately and when nobody else is using the
 After a restore, the records, uploaded files, user accounts and passwords are those of the backup (the activity log and notifications too, unless the backup was made without them: those stay as they are); everyone signs in again. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup.
 
 A backup restores best into the same version of the system that made it. Fields or tables the system no longer has are skipped.
+
+## Importing a backup file
+
+**Import backup file** is for a backup the history does not know: one made on another computer or copy of the system. It is the shared import window of the system (`ImportFileModal`): Upload File, Preview, Done (`POST /api/backups/import/`, `dry_run=true` to preview).
+
+- Only the Admin can import. Only a **.zip that is a genuine backup made by this page** is taken: it must hold `database.json` (a list of records) and a `manifest.json` that says when it was made and how many records it holds. Anything else is refused with the reason. A file over `BACKUP_IMPORT_MAX_BYTES` (1 GB by default) is refused.
+- **The preview changes nothing.** It says what the file is and when it was made, how many records it holds group by group, how many uploaded files, any tables this system no longer has (a restore skips them), and whether the history already has the file (by its fingerprint). A file already in the history is not added twice.
+- **Confirm Import** adds an entry of kind *Imported* (who imported it and when; the fingerprint and the counts of the file). **The file itself is not kept online and no record is changed.** From then on the Restore form accepts that file.
+- Migration `backups.0003_alter_backuprecord_kind` adds the *Imported* choice (a choices change only: no table or column changes).
 
 ## Restoring into an empty copy (disaster recovery)
 
