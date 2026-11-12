@@ -283,7 +283,6 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(self.client.get(f'{URL}summary/').status_code, 403)
         self.assertEqual(self.client.post(f'{URL}restore/preview/', {}, format='multipart').status_code, 403)
         self.assertEqual(self.client.post(f'{URL}restore/', {'password': 'pw'}, format='multipart').status_code, 403)
-        self.assertEqual(self.client.post(f'{URL}import/', {}, format='multipart').status_code, 403)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(URL).status_code, (401, 403))
         self.assertTrue(default_storage.exists(record.file_path))
@@ -590,14 +589,8 @@ class BackupTests(TransactionTestCase):
         self.assertIsNone(audit['in_file'])
         self.assertTrue(audit['kept'])
 
-    def test_a_file_that_is_not_one_of_the_listed_backups_is_refused(self):
-        record = self.make()
-        data = self.download(record)
-        BackupRecord.objects.filter(pk=record.pk).update(checksum='0' * 64)      # the list no longer knows this file
-        for answer in (self.preview(data), self.restore_file(data)):
-            self.assertEqual(answer.status_code, 400, answer.content)
-            self.assertIn('list', answer.json()['detail'].lower())
-        for answer in (self.preview(b'not a zip at all'), self.preview(None), self.restore_file(None)):
+    def test_a_file_that_is_not_a_backup_at_all_is_refused(self):
+        for answer in (self.preview(b'not a zip at all'), self.preview(None), self.restore_file(None), self.restore_file(b'not a zip at all')):
             self.assertEqual(answer.status_code, 400, answer.content)
         self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
 
@@ -625,13 +618,7 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(self.preview(data).status_code, 409)
         self.assertEqual(self.restore_file(data).status_code, 409)
 
-    # --- Import backup file: a backup made elsewhere is checked, previewed and added to the history (no data changes)
-    def import_file(self, data, dry_run=True, name='backup.zip'):
-        body = {'dry_run': 'true' if dry_run else 'false'}
-        if data is not None:
-            body['file'] = SimpleUploadedFile(name, data, content_type='application/zip')
-        return self.client.post(f'{URL}import/', body, format='multipart')
-
+    # --- Restore takes any genuine backup file of this system, one made elsewhere too (there is no separate Import backup file)
     def unknown_file(self):
         """A genuine backup of this system that the history does not know (made elsewhere): returns its bytes."""
         record = self.make(name='Made elsewhere')
@@ -654,80 +641,61 @@ class BackupTests(TransactionTestCase):
                 dst.writestr(info.filename, content)
         return out.getvalue()
 
-    def test_the_preview_of_a_backup_made_elsewhere_changes_nothing(self):
-        data = self.unknown_file()
-        before = (BackupRecord.objects.count(), Farmer.objects.count())
-        r = self.import_file(data)
-        self.assertEqual(r.status_code, 200, r.content)
-        body = r.json()
-        self.assertEqual((body['created'], body['summary']['ready']), (0, 1))
-        labels = [row['label'] for row in body['rows']]
-        for wanted in ('Backup file', 'Records', 'Uploaded files', 'History'):
-            self.assertIn(wanted, labels)
-        self.assertTrue(all(row['status'] == 'ready' for row in body['rows']), body['rows'])
-        self.assertEqual((BackupRecord.objects.count(), Farmer.objects.count()), before)       # nothing added, nothing changed
-
-    def test_confirming_adds_it_to_the_history_and_the_restore_then_accepts_it(self):
+    def test_a_backup_made_elsewhere_is_previewed_by_what_it_holds_and_changes_nothing(self):
         data = self.unknown_file()
         self.change_things()
-        r = self.import_file(data, dry_run=False, name='october.zip')
+        before = (BackupRecord.objects.count(), Farmer.objects.count())
+        r = self.preview(data)
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(r.json()['created'], 1)
-        entry = BackupRecord.objects.get(kind='imported')
-        self.assertEqual((entry.status, entry.made_by, entry.file_name), ('done', 'bk-admin', 'october.zip'))
-        self.assertEqual(len(entry.checksum), 64)
-        self.assertGreater(entry.records_count, 0)
-        self.assertEqual(entry.file_path, '')                                   # the file itself is not kept online
-        listed = {row['id']: row for row in self.client.get(URL).json()['results']}[entry.id]
-        self.assertEqual((listed['kind_label'], listed['can_restore']), ('Imported', True))
-        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')   # importing changed no record
-        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
-        self.assertEqual(self.restore_file(data).status_code, 202)              # ... and now the Restore window accepts that file
-        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+        body = r.json()
+        self.assertIsNone(body['backup']['id'])                                     # the history does not know it
+        self.assertFalse(body['in_history'])
+        self.assertTrue(body['backup']['name'].startswith('Backup of '), body['backup'])   # named by the day and time it was made
+        self.assertTrue(body['backup']['made_by'])
+        farmers = {g['key']: g for g in body['groups']}['farmers']
+        self.assertEqual((farmers['in_file'], farmers['now']), (1, 2))
+        self.assertGreater(body['records']['in_file'], 0)
+        self.assertEqual((BackupRecord.objects.count(), Farmer.objects.count()), before)       # nothing added, nothing changed
 
-    def test_a_file_already_in_the_history_is_not_added_twice(self):
-        record = self.make()
-        data = self.download(record)
-        preview = self.import_file(data).json()
-        self.assertEqual((preview['summary']['ready'], preview['summary']['duplicate_in_database']), (0, 1))
-        done = self.import_file(data, dry_run=False).json()
-        self.assertEqual(done['created'], 0)
-        self.assertFalse(BackupRecord.objects.filter(kind='imported').exists())
+    def test_a_backup_made_elsewhere_is_restored_with_the_admins_password(self):
+        data = self.unknown_file()
+        self.change_things()
+        self.assertEqual(self.client.post(f'{URL}restore/', {'password': 'not-it', 'file': SimpleUploadedFile('b.zip', data)}, format='multipart').status_code, 400)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+        r = self.restore_file(data)
+        self.assertEqual(r.status_code, 202, r.content)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+        self.assertFalse(Farmer.objects.filter(rsbsa_number='01-033-02-019-990002').exists())
+        self.assertEqual(BackupRecord.objects.get(kind='safety').status, 'done')            # a safety backup of how things were, made first
+        self.assertEqual(BackupRecord.objects.get(kind='restore').status, 'done')
+        self.assertTrue(BackupRecord.objects.get(kind='restore').name.startswith('Restore of "Backup of '))
 
     def test_a_file_that_is_not_a_backup_of_this_system_is_refused(self):
         data = self.unknown_file()
         cases = {
-            'not a zip at all': b'not a zip at all',
             'no database': self.zip_with(data, drop=('database.json',)),
             'no manifest': self.zip_with(data, drop=('manifest.json',)),
             'a manifest that is not one': self.zip_with(data, manifest=b'{"hello": 1}'),
             'a database that is not json': self.zip_with(data, database=b'this is not json'),
         }
         for label, bad in cases.items():
-            for dry_run in (True, False):
-                r = self.import_file(bad, dry_run=dry_run)
-                self.assertEqual(r.status_code, 400, (label, r.content))
-        self.assertEqual(self.import_file(None).status_code, 400)
-        self.assertFalse(BackupRecord.objects.filter(kind='imported').exists())
+            for answer in (self.preview(bad), self.restore_file(bad)):
+                self.assertEqual(answer.status_code, 400, (label, answer.content))
+        self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())
 
-    def test_tables_this_system_no_longer_has_are_said_not_refused(self):
+    def test_tables_this_system_no_longer_has_are_skipped_by_a_restore(self):
         data = self.unknown_file()
         records = json.loads(zipfile.ZipFile(io.BytesIO(data)).read('database.json'))
         records.append({'model': 'oldapp.gone', 'pk': 1, 'fields': {}})
         manifest = zipfile.ZipFile(io.BytesIO(data)).read('manifest.json')
         odd = self.zip_with(data, database=json.dumps(records).encode('utf-8'), manifest=manifest)
-        body = self.import_file(odd).json()
-        self.assertEqual(body['summary']['ready'], 1)
-        self.assertTrue(any('oldapp.gone' in row['detail'] for row in body['rows']), body['rows'])
+        self.change_things()
+        self.assertEqual(self.preview(odd).status_code, 200)
+        self.assertEqual(self.restore_file(odd).status_code, 202)
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
 
-    @override_settings(BACKUP_IMPORT_MAX_BYTES=100)
-    def test_a_file_over_the_size_limit_is_refused(self):
-        r = self.import_file(self.unknown_file())
-        self.assertEqual(r.status_code, 400, r.content)
-        self.assertIn('too large', r.json()['detail'].lower())
-
-    def test_nothing_can_be_imported_while_one_is_running(self):
-        data = self.unknown_file()
-        BackupRecord.objects.create(created_by=self.admin, kind='manual', status='running')
-        self.assertEqual(self.import_file(data).status_code, 409)
-        self.assertEqual(self.import_file(data, dry_run=False).status_code, 409)
+    def test_there_is_no_import_backup_file_any_more(self):
+        from django.urls import Resolver404, resolve
+        with self.assertRaises(Resolver404):
+            resolve('/api/backups/import/')
+        self.assertNotIn('imported', [value for value, _ in BackupRecord.Kind.choices])

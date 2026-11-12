@@ -212,7 +212,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I get the report of just one farmer, fisherfolk or organization?',
-        a: 'In Reports, choose the Registered report (or Organization Assistance) and either search for the person or organization, or click their row in the paper preview. When your search leaves exactly one record, or when you click a row, the report becomes that one record\'s individual report and a bar above says so. Press Show all records to go back to the list; if the search found it, clear the search instead. Print Report and Download Report then give the individual report. For one organization there is also a report of its own: choose Individual Organization Assistance, the kind of organization, then the organization.',
+        a: 'In Reports, choose the Registered report (or Organization Assistance) and either search for the person or organization, or click their row in the paper preview. When your search leaves exactly one record, or when you click a row, the report becomes that one record\'s individual report and a bar above says so. Press Show all records to go back to the list; if the search found it, clear the search instead. Print Report and Download Report then give the individual report.',
       },
       {
         q: 'How do I choose who signs a report?',

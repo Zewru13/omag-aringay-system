@@ -13,7 +13,6 @@ const NO_FILTERS = { ...NO_ORG_ASSISTANCE_FILTERS, search: '' }
 // Report 6: the assistance organizations distributed to their members, for every organization of a kind that matches the search and the
 // filters. One organization's own report (its distributions and each recipient) comes from clicking one of its rows in the preview, or from
 // a search that leaves exactly one organization (the backend decides that: individual=auto); changing the search or a filter goes back to the list.
-// (Report 7, Individual Organization Assistance, is the same report with the organization chosen from a list: IndividualOrganizationAssistanceTab.)
 export default function OrganizationAssistanceReportTab() {
   const [kind, setKind] = useState(ORG_KINDS[0].id)
   const [filters, setFilters] = useState(NO_FILTERS)

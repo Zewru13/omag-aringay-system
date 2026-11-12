@@ -9,9 +9,9 @@ import { formatBytes, formatDate, formatTime, restoreChange, restoreConfirmProbl
 
 // Backup & Restore > Restore: a table form. Drag a backup file onto it (or Browse files) and the window reads it: it names the backup of the history the
 // file is and counts its records group by group next to the records now (POST /backups/restore/preview/, which changes nothing). Typing the password and
-// pressing Restore (POST /backups/restore/) then makes a safety backup of how things are now and puts the backup back. A file the history does not know is
-// refused: Import backup file adds it first. `hint` is the backup whose file the Admin chose to restore from the history; `onStarted(entry)` is told when
-// the restore starts.
+// pressing Restore (POST /backups/restore/) then makes a safety backup of how things are now and puts the backup back. A genuine backup of this system is
+// accepted whether or not the history knows it (one made on another copy of the system, or on a fresh one). `hint` is the backup whose file the Admin chose
+// to restore from the history; `onStarted(entry)` is told when the restore starts.
 const TONES = {
   added: 'bg-[#EBF5EE] text-[#1B4D2E]',
   removed: 'bg-rose-50 text-rose-700',
@@ -101,34 +101,31 @@ export default function RestoreModal({ hint, locked, onClose, onStarted }) {
     >
       <form id="backup-restore-form" onSubmit={submit} className="space-y-3" noValidate>
         <FormSection title="Backup File">
-          <FormRows label="Backup file">
-            <FormRow>
-              <FormCell label="Backup File" required wide error={error}
-                hint={hint && !preview ? <p className={`mt-1 break-all ${muted}`}>The file of &ldquo;{hint.name}&rdquo;{hint.file_name ? `: ${hint.file_name}` : ''}.</p> : null}>
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files?.[0]) choose(e.dataTransfer.files[0]) }}
-                  className={`flex flex-col items-center gap-1.5 rounded-lg border border-dashed px-4 py-5 text-center ${dragging ? 'border-[#1B4D2E] bg-[#F6FAF7]' : 'border-[#C8D5C8] bg-[#FBFCFB]'}`}
-                >
-                  {isReading ? (
-                    <p role="status" className="flex items-center gap-2 text-[13px] text-[#4A5E4A]"><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Reading {file?.name}…</p>
-                  ) : (
-                    <>
-                      <Upload size={20} className="text-[#7A8E7A]" aria-hidden="true" />
-                      <p className="text-[13px] font-medium text-[#1A2B1A]">{file && preview ? file.name : 'Drag a backup file here'}</p>
-                      <p className={muted}>{file && preview ? `${formatBytes(file.size)}` : 'or browse for the .zip file saved from this page'}</p>
-                      <input ref={input} id="restore-file" type="file" className="sr-only" accept=".zip,application/zip,application/x-zip-compressed" tabIndex={-1}
-                        onChange={(e) => { if (e.target.files?.[0]) choose(e.target.files[0]) }} />
-                      <Button type="button" variant="outline" size="sm" disabled={locked} onClick={() => (preview ? startOver() : input.current?.click())}>
-                        {preview ? 'Choose another file' : 'Browse files'}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </FormCell>
-            </FormRow>
-          </FormRows>
+          <div className="px-3 py-3">
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files?.[0]) choose(e.dataTransfer.files[0]) }}
+              className={`flex flex-col items-center gap-1.5 rounded-lg border border-dashed px-4 py-5 text-center ${dragging ? 'border-[#1B4D2E] bg-[#F6FAF7]' : 'border-[#C8D5C8] bg-[#FBFCFB]'}`}
+            >
+              {isReading ? (
+                <p role="status" className="flex items-center gap-2 text-[13px] text-[#4A5E4A]"><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Reading {file?.name}…</p>
+              ) : (
+                <>
+                  <Upload size={20} className="text-[#7A8E7A]" aria-hidden="true" />
+                  <p className="text-[13px] font-medium text-[#1A2B1A]">{file && preview ? file.name : 'Drag a backup file here'}</p>
+                  <p className={muted}>{file && preview ? `${formatBytes(file.size)}` : 'or browse for the .zip file saved from this page'}</p>
+                  <input ref={input} id="restore-file" type="file" className="sr-only" accept=".zip,application/zip,application/x-zip-compressed" tabIndex={-1} aria-label="Backup file"
+                    onChange={(e) => { if (e.target.files?.[0]) choose(e.target.files[0]) }} />
+                  <Button type="button" variant="outline" size="sm" disabled={locked} onClick={() => (preview ? startOver() : input.current?.click())}>
+                    {preview ? 'Choose another file' : 'Browse files'}
+                  </Button>
+                </>
+              )}
+            </div>
+            {hint && !preview && <p className={`mt-1 break-all ${muted}`}>The file of &ldquo;{hint.name}&rdquo;{hint.file_name ? `: ${hint.file_name}` : ''}.</p>}
+            {error && <p className="mt-1 text-xs text-rose-600" role="alert">{error}</p>}
+          </div>
         </FormSection>
 
         {preview && backup && (

@@ -329,70 +329,24 @@ def start_backup(record_id, include_audit=True):
 
 # ------------------------------------------------------------------------------------------------------------------------------------------- restore
 
-def import_limit():
-    """The biggest backup file Import backup file takes, in bytes."""
-    return _setting('BACKUP_IMPORT_MAX_BYTES', 1 << 30)
-
-
-def inspect_backup_file(path):
-    """A file chosen for an import: make sure it is a backup made by this page and say what is in it. Nothing is changed.
-    Returns {'manifest', 'counts': {'app.model': records}, 'unknown': [labels this system no longer has]}; raises RestoreError (the message is
-    shown) when it is not one: not a zip, no database.json, no manifest from this page, or a database that is not the JSON of records."""
+def check_backup_file(path):
+    """A file chosen for a restore that the history does not know (a backup made on another copy of the system): make sure it is a backup made by this
+    page, without loading it. Returns its manifest; raises RestoreError (the message is shown) when it is not one: not a zip, no database.json, no manifest
+    from this page, or a database that is not the JSON list of records."""
     manifest = read_backup_zip(path)
     if not all(key in manifest for key in ('created_at', 'records')):
         raise RestoreError('That file has no manifest from this page, so it is not a backup made here.')
-    try:
-        with zipfile.ZipFile(path) as zf, zf.open('database.json') as f:
-            records = json.load(f)
-    except ValueError:
-        raise RestoreError('The database in that file cannot be read, so it is not a backup made here.')
-    if not isinstance(records, list) or not all(isinstance(item, dict) and isinstance(item.get('model'), str) for item in records):
+    with zipfile.ZipFile(path) as zf, zf.open('database.json') as f:
+        start = f.read(64).lstrip(b'\xef\xbb\xbf \t\r\n')
+    if not start.startswith(b'['):
         raise RestoreError('The database in that file is not a list of records, so it is not a backup made here.')
-    counts = {}
-    for item in records:
-        counts[item['model']] = counts.get(item['model'], 0) + 1
-    unknown = []
-    for label in counts:
-        try:
-            apps.get_model(label)
-        except (LookupError, ValueError):
-            unknown.append(label)
-    return {'manifest': manifest, 'counts': counts, 'unknown': sorted(unknown)}
+    return manifest
 
 
-def describe_import(info, file_name, size_bytes, existing):
-    """The rows and the summary of an import preview or result, in the shape every import of the system answers with ({row, status, label, detail}):
-    what the file is, what is in it, and whether the history already has it (`existing`, its entry)."""
-    manifest, counts = info['manifest'], info['counts']
+def name_of_file(manifest):
+    """The name a backup file made elsewhere is shown under: its day and time."""
     when = parse_datetime(str(manifest.get('created_at')))
-    made = f'{timezone.localtime(when):%b %d, %Y at %I:%M %p}'.replace(' 0', ' ') if when else 'an unknown time'
-    known = {label: n for label, n in counts.items() if label not in info['unknown']}
-    groups = group_rows({}, known)
-    listed = ', '.join(f"{g['label']} {g['in_file']:,}" for g in groups if g['in_file'])
-    total = sum(known.values())
-    audit = manifest.get('audit_included', True) is not False
-    skipped = manifest.get('files_skipped') or 0
-    rows = [
-        {'status': 'ready', 'label': 'Backup file', 'detail': f'{file_name} ({size_bytes / 1024:,.1f} KB) is a backup of this system made on {made}.'},
-        {'status': 'ready', 'label': 'Records', 'detail': f"{total:,} record{'' if total == 1 else 's'}: {listed or 'none'}. "
-                                                      f"The activity log and notifications are {'in' if audit else 'not in'} it."},
-        {'status': 'ready', 'label': 'Uploaded files', 'detail': f"{manifest.get('files', 0):,} file{'' if manifest.get('files', 0) == 1 else 's'}"
-                                                             + (f' ({skipped:,} left out when it was made).' if skipped else '.')},
-    ]
-    if info['unknown']:
-        rows.append({'status': 'ready', 'label': 'Tables no longer in the system',
-                     'detail': '; '.join(f"{label} ({counts[label]:,})" for label in info['unknown']) + '. A restore skips them.'})
-    if existing is not None:
-        rows.append({'status': 'duplicate_in_database', 'label': 'History',
-                     'detail': f'Already in the history as "{existing.name or default_name(existing.created_at)}". It is not added twice.'})
-    else:
-        rows.append({'status': 'ready', 'label': 'History',
-                     'detail': 'Not in the history yet. Importing adds it as an Imported entry so Restore accepts the file. The file itself is not kept online and '
-                               'no record is changed.'})
-    for number, row in enumerate(rows, start=1):
-        row['row'] = number
-    summary = {'ready': 0 if existing is not None else 1, 'duplicate_in_database': 1 if existing is not None else 0, 'invalid': 0}
-    return rows, summary
+    return default_name(when) if when else 'A backup file'
 
 
 def read_backup_zip(path):

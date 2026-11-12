@@ -15,7 +15,6 @@ class BackupRecord(models.Model):
         SCHEDULED = 'scheduled', 'Automatic'          # the nightly backups of an earlier version; none are made any more
         SAFETY = 'safety', 'Before restore'
         RESTORE = 'restore', 'Restore'
-        IMPORTED = 'imported', 'Imported'               # a backup file made elsewhere, checked and added to the list by Import backup file
 
     class Status(models.TextChoices):
         RUNNING = 'running', 'Running'

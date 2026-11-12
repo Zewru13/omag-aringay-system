@@ -4,8 +4,6 @@ import tempfile
 
 from django.core.files.storage import default_storage
 from django.http import FileResponse
-from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -189,21 +187,23 @@ class BackupRestoreView(APIView):
             os.remove(local)
             raise
 
-        return begin_restore(request, record, local)
+        return begin_restore(request, entry_name(record), local)
 
     @staticmethod
     def refuse(message):
         return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def begin_restore(request, record, local):
-    """Start the restore of `record` from the checked local copy of its file: a safety backup of how things are now first, in the same run."""
+def entry_name(record):
+    return record.name or service.default_name(record.created_at)
+
+
+def begin_restore(request, name, local):
+    """Start the restore of the backup called `name` from the checked local copy of its file: a safety backup of how things are now first, in the same run."""
     who = request.user.username
     safety = BackupRecord.objects.create(
-        created_by=request.user, made_by=who, kind=BackupRecord.Kind.SAFETY, name=f'Before restoring "{record.name or service.default_name(record.created_at)}"'[:120],
-        remarks='Made automatically before a restore.')
-    restore = BackupRecord.objects.create(
-        created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, name=f'Restore of "{record.name or service.default_name(record.created_at)}"'[:120])
+        created_by=request.user, made_by=who, kind=BackupRecord.Kind.SAFETY, name=f'Before restoring "{name}"'[:120], remarks='Made automatically before a restore.')
+    restore = BackupRecord.objects.create(created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, name=f'Restore of "{name}"'[:120])
     start_restore(restore.id, safety.id, local)
     restore.refresh_from_db()
     return Response(row(restore), status=status.HTTP_202_ACCEPTED)
@@ -222,65 +222,23 @@ def keep_upload(upload):
     return local
 
 
-def recognise(local):
-    """The finished backup of the list that this file is (by its fingerprint). Raises RestoreError with the message to show when it is none."""
-    service.read_backup_zip(local)
+def identify(local):
+    """Check that the chosen file is a genuine backup of this system. Returns (entry, name, manifest): `entry` is the finished backup of the list that
+    this file is (by its fingerprint), or None when the file was made elsewhere (another copy of the system, or a list that lost its entry); `name` is
+    what to call it. Raises RestoreError with the message to show when it is not a backup of this system."""
+    manifest = service.read_backup_zip(local)
     with open(local, 'rb') as f:
         checksum = service.checksum_of(f)
     record = (BackupRecord.objects.select_related('created_by')
               .filter(checksum=checksum, status=BackupRecord.Status.DONE).exclude(kind=BackupRecord.Kind.RESTORE).order_by('-id').first())
-    if record is None:
-        raise service.RestoreError('That file is not one of the backups in the list, so it cannot be restored. Choose a file this system downloaded for a backup.')
-    return record
-
-
-class BackupImportView(APIView):
-    """Admin only. Import backup file: a backup made elsewhere (or whose entry is not in the list) is checked and added to the history, so that the Restore
-    window accepts its file. Answers like every import of the system: `dry_run=true` previews ({created: 0, summary, rows}) and changes nothing; otherwise the
-    entry is added (kind Imported, the file's fingerprint and counts; the file itself is not kept online). A file that is already in the list is not added
-    twice. Importing never changes a record."""
-    permission_classes = [IsAuthenticated, IsAdmin]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        if service.is_busy():
-            return busy_response()
-        upload = request.FILES.get('file')
-        if upload is None:
-            return refuse('Choose the backup file from your computer.')
-        if upload.size > service.import_limit():
-            return refuse(f'That file is too large to import (the limit is {service.import_limit() / (1024 * 1024):,.0f} MB).')
-        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('true', '1', 'yes')
-        local = keep_upload(upload)
-        try:
-            info = service.inspect_backup_file(local)
-            with open(local, 'rb') as f:
-                checksum = service.checksum_of(f)
-        except service.RestoreError as exc:
-            return refuse(str(exc))
-        finally:
-            os.remove(local)
-        existing = (BackupRecord.objects.filter(checksum=checksum, status=BackupRecord.Status.DONE)
-                    .exclude(kind=BackupRecord.Kind.RESTORE).order_by('-id').first())
-        rows, summary = service.describe_import(info, upload.name, upload.size, existing)
-        created = 0
-        if not dry_run and existing is None:
-            manifest = info['manifest']
-            when = parse_datetime(str(manifest.get('created_at')))
-            made = timezone.localtime(when) if when else None
-            now = timezone.now()
-            record = BackupRecord.objects.create(
-                created_by=request.user, made_by=request.user.username, kind=BackupRecord.Kind.IMPORTED, status=BackupRecord.Status.DONE,
-                name=(service.default_name(made) if made else f'Imported {upload.name}')[:120], file_name=os.path.basename(upload.name)[:120],
-                checksum=checksum, size_bytes=upload.size, records_count=int(manifest.get('records') or 0), files_count=int(manifest.get('files') or 0),
-                files_skipped=int(manifest.get('files_skipped') or 0), remarks=f'Imported from a file{f" made {made:%b %d, %Y %I:%M %p}" if made else ""}.'[:255],
-                finished_at=now)
-            created = 1
-        return Response({'created': created, 'summary': summary, 'rows': rows})
+    if record is not None:
+        return record, entry_name(record), manifest
+    manifest = service.check_backup_file(local)
+    return None, service.name_of_file(manifest), manifest
 
 
 class BackupSummaryView(APIView):
-    """Admin only. What a backup holds, in readable groups with the number of records in each now (the Create backup tab)."""
+    """Admin only. What a backup holds, in readable groups with the number of records in each now (the cards of the Backup & Restore page)."""
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
@@ -288,8 +246,8 @@ class BackupSummaryView(APIView):
 
 
 class BackupRestorePreviewView(APIView):
-    """Admin only. The file the Admin drops on the Restore tab: which backup of the list it is and, group by group, how many records it holds next to how
-    many the system holds now. Changes nothing and starts nothing."""
+    """Admin only. The file the Admin drops in the Restore window: which backup of the list it is (or that it was made elsewhere) and, group by group, how
+    many records it holds next to how many the system holds now. Changes nothing and starts nothing."""
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -301,8 +259,7 @@ class BackupRestorePreviewView(APIView):
             return refuse('Choose the backup file from your computer.')
         local = keep_upload(upload)
         try:
-            record = recognise(local)
-            manifest = service.read_backup_zip(local)
+            record, name, manifest = identify(local)
             in_file = service.zip_counts(local)
         except service.RestoreError as exc:
             return refuse(str(exc))
@@ -310,16 +267,20 @@ class BackupRestorePreviewView(APIView):
             os.remove(local)
         audit_in_file = manifest.get('audit_included', True) is not False
         groups = service.group_rows(service.model_counts(), in_file, audit_in_file)
+        # A file the history does not know (made on another copy of the system) is described by its own manifest.
+        backup = row(record) if record is not None else {
+            'id': None, 'name': name, 'location': '', 'made_by': 'another copy of the system', 'created_at': manifest.get('created_at'), 'file_name': upload.name,
+        }
         return Response({
-            'backup': row(record), 'file': {'name': upload.name, 'size_bytes': upload.size},
+            'backup': backup, 'in_history': record is not None, 'file': {'name': upload.name, 'size_bytes': upload.size},
             'made_at': manifest.get('created_at'), 'audit_included': audit_in_file, 'groups': groups,
             'records': {'in_file': sum(in_file.values()), 'now': sum(g['now'] for g in groups if not g.get('kept'))},
-            'files': {'in_file': manifest.get('files', record.files_count)},
+            'files': {'in_file': manifest.get('files', record.files_count if record is not None else 0)},
         })
 
 
 class BackupRestoreFileView(APIView):
-    """Admin only. Restore from the file the Admin dropped on the Restore tab: the file is recognised by its fingerprint among the backups of the list,
+    """Admin only. Restore from the file the Admin dropped in the Restore window: any genuine backup of this system (one of the list, or one made elsewhere),
     the Admin types their own password, a safety backup of how things are now is made first, and then the records and files go back."""
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
@@ -334,11 +295,11 @@ class BackupRestoreFileView(APIView):
             return refuse('Choose the backup file from your computer.')
         local = keep_upload(upload)
         try:
-            record = recognise(local)
+            _, name, _ = identify(local)
         except service.RestoreError as exc:
             os.remove(local)
             return refuse(str(exc))
         except Exception:
             os.remove(local)
             raise
-        return begin_restore(request, record, local)
+        return begin_restore(request, name, local)
