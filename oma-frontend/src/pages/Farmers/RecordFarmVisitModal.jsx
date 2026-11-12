@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { localToday } from '../../utils/inputGuards.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
-// Record (or edit) a farm visit on a farmer's profile. Staff only; the visit date cannot be in the future, the next
+// Record (or edit) a farm visit on a farmer's profile (one window for both, as a table form). Staff only; the visit date cannot be in the future, the next
 // visit is a plan and cannot come before the visit (the backend enforces the same).
 const DATE_BOX = `${baseInputClasses} min-w-0 max-w-full`
 
@@ -82,7 +83,7 @@ export default function RecordFarmVisitModal({ farmerId, visit = null, onClose, 
       subtitle="What happened on this farm visit, and when the next one is planned."
       icon={ClipboardCheck}
       onClose={onClose}
-      maxWidth="max-w-md"
+      maxWidth="max-w-2xl"
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -90,31 +91,37 @@ export default function RecordFarmVisitModal({ farmerId, visit = null, onClose, 
         </>
       )}
     >
-      <form id="farm-visit-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form id="farm-visit-form" onSubmit={handleSubmit} className="space-y-3" noValidate>
         <DraftBanner draft={draft} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3 [&>*]:min-w-0">
-          <FormField label="Visit Date" required error={errors.visit_date}>
-            <input type="date" className={DATE_BOX} value={form.visit_date} max={localToday()}
-              onChange={(e) => set('visit_date', e.target.value)} />
-          </FormField>
-          <FormField label="Next Visit (optional)" error={errors.next_visit_date}>
-            <input type="date" className={DATE_BOX} value={form.next_visit_date} min={form.visit_date || undefined}
-              onChange={(e) => set('next_visit_date', e.target.value)} />
-          </FormField>
-        </div>
-
-        <FormField label="Purpose" required error={errors.purpose}>
-          <input type="text" className={baseInputClasses} value={form.purpose} maxLength={200}
-            placeholder="e.g. Check on the rice crop" onChange={(e) => set('purpose', e.target.value)} />
-        </FormField>
-
-        <FormField label="Notes (optional)" error={errors.notes}>
-          <textarea rows={3} className={`${baseInputClasses} h-auto py-2`} value={form.notes}
-            placeholder="What was found, advice given…" onChange={(e) => set('notes', e.target.value)} />
-        </FormField>
+        <FormSection title="Farm Visit">
+          <FormRows label="Farm visit">
+            <FormRow>
+              <FormCell label="Visit Date" required error={errors.visit_date}>
+                <input type="date" className={DATE_BOX} value={form.visit_date} max={localToday()} aria-label="Visit Date"
+                  onChange={(e) => set('visit_date', e.target.value)} />
+              </FormCell>
+              <FormCell label="Next Visit" error={errors.next_visit_date}>
+                <input type="date" className={DATE_BOX} value={form.next_visit_date} min={form.visit_date || undefined} aria-label="Next Visit"
+                  onChange={(e) => set('next_visit_date', e.target.value)} />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Purpose" required wide error={errors.purpose}>
+                <input type="text" className={baseInputClasses} value={form.purpose} maxLength={200} aria-label="Purpose"
+                  placeholder="e.g. Check on the rice crop" onChange={(e) => set('purpose', e.target.value)} />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Remarks" wide error={errors.notes}>
+                <textarea rows={3} className={`${baseInputClasses} h-auto py-2`} value={form.notes} aria-label="Remarks"
+                  placeholder="What was found, advice given…" onChange={(e) => set('notes', e.target.value)} />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
 
         {formError && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{formError}</p>
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700" role="alert">{formError}</p>
         )}
       </form>
     </ModalShell>

@@ -1780,36 +1780,31 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Disaster Type",
-    "desc": "Required. Typhoon, flood, drought, pest outbreak and the other types."
+    "label": "Disaster type and date",
+    "desc": "Both required. The type: typhoon, flood, drought, pest outbreak and the other types. The day it happened, which cannot be in the future."
    },
    {
     "n": 2,
-    "label": "Date of Occurrence",
-    "desc": "Required. The day it happened; it cannot be in the future."
-   },
-   {
-    "n": 3,
     "label": "Area Affected (ha)",
     "desc": "Required. How much of the crop was hit, from 0.01 up to the crop's area."
    },
    {
-    "n": 4,
+    "n": 3,
     "label": "Damage description and loss",
     "desc": "Optional notes: what was damaged, and an estimate of the production lost."
    },
    {
-    "n": 5,
+    "n": 4,
     "label": "Total loss",
     "desc": "Tick if the crop was completely destroyed. This ends the crop: it moves to Total Loss."
    },
    {
-    "n": 6,
+    "n": 5,
     "label": "Photos",
     "desc": "Take Photo uses the camera; Add More Photos chooses files (JPG, PNG or WEBP, up to 5 MB each, up to 10 photos)."
    },
    {
-    "n": 7,
+    "n": 6,
     "label": "Report Disaster",
     "desc": "Saves the disaster log. The office is notified, and the crop shows the disaster as Active until it recovers."
    }
@@ -1825,41 +1820,36 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Harvested date",
-    "desc": "Required. The day the crops were harvested."
+    "label": "Harvested date and reason",
+    "desc": "Both required. The day the crops were harvested, and why they are harvested early: an upcoming typhoon or super typhoon, El Niño, drought, flood, a pest outbreak or another reason."
    },
    {
     "n": 2,
-    "label": "Reason",
-    "desc": "Required. Why the crops are harvested early: an upcoming typhoon or super typhoon, El Niño, drought, flood, a pest outbreak or another reason."
-   },
-   {
-    "n": 3,
     "label": "Remarks",
     "desc": "Optional note about the harvest."
    },
    {
-    "n": 4,
+    "n": 3,
     "label": "Select all crops",
     "desc": "Ticks or unticks every crop in the table. Only the crops that are ticked are harvested."
    },
    {
-    "n": 5,
+    "n": 4,
     "label": "Crop columns",
     "desc": "Crop, parcel, date planted, expected harvest, how many days early the harvest is, and the area planted."
    },
    {
-    "n": 6,
+    "n": 5,
     "label": "Area harvested (ha)",
     "desc": "The area actually harvested for each crop, up to its area planted."
    },
    {
-    "n": 7,
+    "n": 6,
     "label": "Qty / Unit",
     "desc": "The quantity and the unit it was counted in (kg, sacks, cavan...). The kg it comes to shows under the box, and the total harvest is worked out from it."
    },
    {
-    "n": 8,
+    "n": 7,
     "label": "Review Force Harvest",
     "desc": "Shows the tables to check, with the total harvest, before you confirm. Nothing is saved until you confirm."
    }
