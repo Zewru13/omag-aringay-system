@@ -6,13 +6,9 @@ import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccoun
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
-import DataTable from '../../components/UI/DataTable.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
-import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
-import ModalShell from '../../components/UI/ModalShell.jsx'
-import ListPrintButton from '../../components/ListPrintButton.jsx'
-import { buildPersonHistorySpec } from '../AssistanceManagement/assistanceHistoryReport.js'
+import AssistanceHistoryModal from '../../components/AssistanceHistoryModal.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import RecordCard from '../../components/UI/RecordCard.jsx'
@@ -62,34 +58,6 @@ function Field({ label, value }) {
 // card where "Edit Profile" sits on the Admin/Staff profile page.
 function initialsOf(fullName) {
   return (fullName || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?'
-}
-
-const HISTORY_COLUMNS = [
-  { key: 'assistance_type', label: 'Assistance Type' },
-  { key: 'source_agency', label: 'Source Agency' },
-  { key: 'quantity', label: 'Quantity' },
-  { key: 'season', label: 'Season' },
-  { key: 'year', label: 'Year' },
-  { key: 'date_given', label: 'Date Given' },
-]
-
-function AssistanceHistoryModal({ history, isLoading, error, onClose, person }) {
-  return (
-    <ModalShell title="Assistance History" onClose={onClose} maxWidth="max-w-3xl">
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : error ? (
-        <ErrorMessage message={error} />
-      ) : (
-        <>
-          <div className="mb-3 flex flex-wrap justify-end gap-2">
-            <ListPrintButton disabled={history.length === 0} build={async () => buildPersonHistorySpec({ domain: 'crop', person, records: history })} />
-          </div>
-          <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
-        </>
-      )}
-    </ModalShell>
-  )
 }
 
 function SubTable({ columns, rows, emptyText }) {
@@ -369,10 +337,7 @@ function FarmerDetailPage() {
     try {
       const response = await api.get('/interventions/beneficiaries/adhoc/', { params: { farmer: id } })
       const rows = Array.isArray(response.data) ? response.data : (response.data.results || [])
-      // source_agency was a single string; is now source_agencies (a list)
-      // on the API — DataTable does a raw row[column.key] lookup with no
-      // render-function support, so the join happens here, keyed back onto
-      // the same 'source_agency' column name HISTORY_COLUMNS already uses.
+      // The API sends source_agencies (a list); the Assistance History window reads one joined source_agency text.
       setHistory(rows.map((r) => ({ ...r, source_agency: (r.source_agencies || []).join(', ') })))
     } catch {
       setHistoryError('Unable to load assistance history.')
@@ -847,6 +812,7 @@ function FarmerDetailPage() {
 
       {isHistoryModalOpen && (
         <AssistanceHistoryModal
+          domain="crop"
           error={historyError}
           history={history}
           isLoading={isLoadingHistory}

@@ -1,15 +1,15 @@
 // The saved forced harvest of a crop as the details window shows it (GET /production/forced-harvest/<id>/): the rows of its two tables, with
 // no screen and no network, so they can be tested on their own.
 
+import { formatDate } from '../../utils/dateFormat.js'
+
 const dash = '—'
 
 export const kgText = (value) => (value === null || value === undefined || value === '' || Number.isNaN(Number(value))
   ? dash
   : Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 
-const longDate = (value) => (value
-  ? new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(`${String(value).slice(0, 10)}T00:00:00`))
-  : dash)
+const longDate = (value) => formatDate(value, { empty: dash })
 
 // "Forced harvest due to early harvest: <reason>" without its fixed start: what the person typed or picked, with its details.
 const reasonOnly = (text) => String(text || '').replace(/^Forced harvest due to early harvest:\s*/i, '')
