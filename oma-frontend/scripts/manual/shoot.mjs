@@ -22,7 +22,10 @@ const outDir = path.join(root, 'public/manual')
 const manifestFile = path.join(root, 'src/pages/Manual/manualScreens.js')
 const MANIFEST_HEAD = '// Written by scripts/manual/shoot.mjs: the legend of every annotated screenshot of the User Manual. Do not edit by hand.\nexport default '
 const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8').slice(MANIFEST_HEAD.length)) : {}
-const chosen = SCREENS.filter((s) => !only.length || only.includes(s.audience) || only.includes(s.id))
+const picked = SCREENS.filter((s) => !only.length || only.includes(s.audience) || only.includes(s.id))
+const startIndex = process.env.START_AT ? picked.findIndex((s) => s.id === process.env.START_AT) : 0
+if (startIndex < 0) throw new Error(`START_AT: no screen ${process.env.START_AT}`)
+const chosen = picked.slice(startIndex)
 
 const BASE = 'http://127.0.0.1:5174'
 const PORT = 9300 + Math.floor(Math.random() * 400)
@@ -48,7 +51,13 @@ await new Promise((r) => { ws.onopen = r })
 let id = 0
 const waiting = new Map()
 ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id) } }
-const send = (method, params = {}) => new Promise((resolve) => { id += 1; waiting.set(id, resolve); ws.send(JSON.stringify({ id, method, params })) })
+const send = (method, params = {}) => new Promise((resolve, reject) => {
+  id += 1
+  const mine = id
+  const timer = setTimeout(() => { waiting.delete(mine); reject(new Error(`Chrome did not answer ${method} in 40 seconds`)) }, 40000)
+  waiting.set(mine, (m) => { clearTimeout(timer); resolve(m) })
+  ws.send(JSON.stringify({ id: mine, method, params }))
+})
 const evaluate = async (expression) => {
   const r = await send('Runtime.evaluate', { expression: `(async()=>{${expression}})()`, awaitPromise: true, returnByValue: true })
   if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description?.slice(0, 200) || 'script error')
@@ -130,6 +139,7 @@ try {
   let scriptId = null
   let isPhone = null
   for (const screen of chosen) {
+    try {
     const t = screen.anon ? { access: '', refresh: '' } : tokens[screen.role]
     if (!t) { console.log('NO TOKENS for', screen.role, screen.id); continue }
     if (screen.anon) {
@@ -198,12 +208,21 @@ return out.join('\\n')`)
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
     const file = path.join(outDir, screen.file)
     fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, Buffer.from(shot.result.data, 'base64'))
+    // A write can fail for a moment (the file open in a viewer, a virus scan): try again before giving up.
+    for (let attempt = 1; ; attempt += 1) {
+      try { fs.writeFileSync(file, Buffer.from(shot.result.data, 'base64')); break } catch (err) { if (attempt >= 5) throw err; await sleep(700 * attempt) }
+    }
     manifest[screen.id] = {
       audience: screen.audience, title: screen.title, purpose: screen.purpose, image: `/manual/${screen.file}`, phone: phone || undefined, width: phone ? 780 : (screen.width || 1280), height: phone ? (screen.height || 844) * 2 : (screen.height || 800),
       legend: found.map((idx, k) => ({ n: k + 1, label: screen.callouts[idx].label, desc: screen.callouts[idx].desc })),
     }
+    // saved after every screen, so a stop part-way keeps the legends of the pictures already taken
+    fs.writeFileSync(manifestFile, `${MANIFEST_HEAD}${JSON.stringify(manifest, null, 1)}
+`)
     console.log(missing.length || lost.length ? 'MISSING' : 'ok', screen.id, path_, missing.length ? `callouts not found: ${missing.join(',')}` : '', lost.length ? `NOT VISIBLE (dropped): ${lost.join(' | ')}` : '')
+    } catch (err) {
+      console.log('FAILED', screen.id, String(err.message || err).slice(0, 160))
+    }
   }
   fs.writeFileSync(manifestFile, `${MANIFEST_HEAD}${JSON.stringify(manifest, null, 1)}\n`)
 } finally {
