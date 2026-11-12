@@ -86,6 +86,13 @@ export function harvestRows(harvest) {
   ]
 }
 
+// Correcting a harvest: Edit and Delete, in the Harvest section of the window. Admin only, and only for a crop that is Harvested and still has its harvest
+// record (an older harvested crop without one has nothing to edit).
+export function harvestManageActions(record, { isAdmin } = {}) {
+  if (!isAdmin || !record || record.status !== 'Harvested' || !record.harvest_record_id) return []
+  return [{ key: 'edit-harvest', label: 'Edit' }, { key: 'delete-harvest', label: 'Delete' }]
+}
+
 // The buttons in the window's footer. The window itself is read-only; each button opens the form that does the work.
 export function detailActions(record) {
   const open = record.status !== 'Harvested' && record.status !== 'Total Loss'

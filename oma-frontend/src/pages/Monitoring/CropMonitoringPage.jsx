@@ -1946,6 +1946,8 @@ export default function CropMonitoringPage() {
   const [groupBy,          setGroupBy]          = useState(farmerAccount ? FARMER_GROUP : DEFAULT_GROUP)
   const [version,          setVersion]          = useState(0)
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
+  const [harvestEditId,    setHarvestEditId]    = useState(null)   // Crop Details > Harvest > Edit: the harvest record being corrected
+  const [harvestDelete,    setHarvestDelete]    = useState(null)   // Crop Details > Harvest > Delete: the crop whose harvest is to be removed
   const [detailsRecord,    setDetailsRecord]    = useState(null)   // the read-only crop details window
   const [viewingParcel,    setViewingParcel]    = useState(null)   // a parcel group's View parcel window (the group row)
   const [editingParcel,    setEditingParcel]    = useState(null)   // a parcel group's Edit parcel window (the whole parcel)
@@ -2282,12 +2284,41 @@ export default function CropMonitoringPage() {
             setDetailsRecord(null)
             if (action === 'activity') setViewLogsRecord(rec)
             else if (action === 'disaster') setDisasterRecord(rec)
+            else if (action === 'edit-harvest') setHarvestEditId(rec.harvest_record_id)
+            else if (action === 'delete-harvest') setHarvestDelete(rec)
             else if (action === 'harvest') {
               const gate = harvestGateInfo(rec)
               if (gate.gated) showToast(gate.message, 'error')
               else setHarvestRecord(rec)
             }
           }}
+        />
+      )}
+
+      {harvestEditId && (
+        <EditHarvestRecordModal harvestId={harvestEditId} onClose={() => setHarvestEditId(null)} onSuccess={() => { setHarvestEditId(null); refreshAll() }} />
+      )}
+
+      {harvestDelete && (
+        <ConfirmDialog
+          title="Delete Harvest Record?"
+          message={`This will permanently delete the harvest record of ${harvestDelete.crop_type_name} and revert the crop's status. This cannot be undone.`}
+          confirmLabel="Delete Harvest"
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={async () => {
+            const rec = harvestDelete
+            setHarvestDelete(null)
+            try {
+              await api.delete(`/production/${rec.harvest_record_id}/`)
+              showToast('Harvest record deleted. Crop status reverted.', 'success')
+              refreshAll()
+            } catch (err) {
+              showToast(err?.response?.data?.detail || 'Failed to delete harvest record.', 'error')
+            }
+          }}
+          onCancel={() => setHarvestDelete(null)}
         />
       )}
 

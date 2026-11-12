@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Sprout } from 'lucide-react'
+import { Pencil, Sprout, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
@@ -8,7 +8,8 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { cycleProgress } from '../../utils/cycleActivity.js'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import { todayISO } from '../../utils/localDate.js'
-import { activityLine, detailActions, disasterLine, harvestRows, pestLine, summaryRows } from './cropDetails.js'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { activityLine, detailActions, disasterLine, harvestManageActions, harvestRows, pestLine, summaryRows } from './cropDetails.js'
 
 // "View Crop Details": a read-only page about one crop record — what it is, its history (activities, pest and disease reports,
 // disasters, harvest) and remarks. It records nothing; the buttons in the footer open the forms that do (Log Activity,
@@ -20,12 +21,13 @@ const FIRST = 5
 const asList = (response) => (Array.isArray(response.data) ? response.data : (response.data?.results || []))
 const fmtDate = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${String(v).slice(0, 10)}T00:00:00`)) : '')
 
-function Section({ title, count, children }) {
+function Section({ title, count, action = null, children }) {
   return (
     <section className="rounded-xl border border-[#E2E8E2]">
       <div className="flex items-center justify-between bg-[#EBF5EE]/60 px-4 py-2.5">
         <h3 className="text-[13px] font-bold text-[#1A2B1A]">{title}</h3>
         {count !== undefined && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#4A5E4A]">{count}</span>}
+        {action}
       </div>
       <div className="px-4 py-3">{children}</div>
     </section>
@@ -60,6 +62,7 @@ function Lines({ items, empty }) {
 }
 
 export default function CropDetailsModal({ record, onClose, onAction }) {
+  const { isAdmin } = useAuth()
   const [data, setData] = useState({ key: null, logs: [], pests: [], disasters: [], remarks: [], harvest: null })
   const key = `${record.id}:${record.harvest_record_id || ''}`
   const isLoading = data.key !== key
@@ -82,6 +85,7 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
   const cycle = cycleProgress(record.date_planted, record.expected_harvest_date, todayISO())
   const harvest = harvestRows(data.harvest)
   const actions = detailActions(record)
+  const manageHarvest = harvestManageActions(record, { isAdmin })
 
   return (
     <ModalShell
@@ -122,7 +126,16 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
         ) : (
           <>
             {harvest.length > 0 && (
-              <Section title="Harvest">
+              <Section
+                title="Harvest"
+                action={manageHarvest.length > 0 ? (
+                  <div className="flex gap-2">
+                    {manageHarvest.map((a) => (
+                      <Button key={a.key} type="button" size="sm" variant="outline" icon={a.key === 'edit-harvest' ? Pencil : Trash2} onClick={() => onAction(a.key)}>{a.label}</Button>
+                    ))}
+                  </div>
+                ) : null}
+              >
                 <dl>
                   {harvest.map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-3 border-b border-[#F0F4F0] py-1.5 text-[13px] last:border-0">

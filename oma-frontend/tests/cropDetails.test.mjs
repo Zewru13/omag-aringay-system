@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-const { summaryRows, activityLine, disasterLine, pestLine, harvestRows, detailActions, dash } = await import(new URL('../src/pages/Monitoring/cropDetails.js', import.meta.url).href)
+const { summaryRows, activityLine, disasterLine, pestLine, harvestRows, detailActions, harvestManageActions, dash } = await import(new URL('../src/pages/Monitoring/cropDetails.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -71,5 +71,24 @@ eq(detailActions({ status: 'Planted' }, { isFarmer: false }).map((a) => a.key), 
 eq(detailActions({ status: 'Harvested' }, { isFarmer: false }).map((a) => a.key), ['disaster'], 'harvested')
 eq(detailActions({ status: 'Total Loss' }, { isFarmer: false }).map((a) => a.key), ['disaster'], 'total loss')
 eq(detailActions({ status: 'Near Harvest' }, { isFarmer: true }).map((a) => a.key), ['activity', 'harvest', 'disaster'], 'a farmer account has the same buttons')
+
+// ── correcting a harvest: Edit and Delete, Admin only, only for a crop that is Harvested and has its harvest record
+const harvested = { status: 'Harvested', harvest_record_id: 12 }
+eq(harvestManageActions(harvested, { isAdmin: true }).map((a) => a.key), ['edit-harvest', 'delete-harvest'], 'an Admin can edit and delete the harvest of a harvested crop')
+eq(harvestManageActions(harvested, { isAdmin: false }), [], 'nobody else can')
+eq(harvestManageActions({ status: 'Planted', harvest_record_id: null }, { isAdmin: true }), [], 'a crop that is not harvested has none')
+eq(harvestManageActions({ status: 'Harvested', harvest_record_id: null }, { isAdmin: true }), [], 'a harvested crop with no harvest record (an older one) has none')
+eq(harvestManageActions({ status: 'Total Loss', harvest_record_id: 12 }, { isAdmin: true }), [], 'a total loss has none')
+eq(harvestManageActions(null, { isAdmin: true }), [], 'no record')
+
+// ── the window offers them and the page handles them
+const { readFileSync } = await import('node:fs')
+const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replaceAll(String.fromCharCode(13), '')
+const modal = src('src/pages/Monitoring/CropDetailsModal.jsx')
+const page = src('src/pages/Monitoring/CropMonitoringPage.jsx')
+assert.ok(modal.includes('harvestManageActions') && modal.includes('useAuth') && modal.includes("onAction(a.key)"), 'Crop Details shows Edit and Delete in its Harvest section'); n++
+assert.ok(page.includes("action === 'edit-harvest'") && page.includes("action === 'delete-harvest'"), 'the page handles both'); n++
+assert.ok(/<EditHarvestRecordModal\s+harvestId=\{harvestEditId\}/.test(page), 'Edit opens the Edit Harvest Record window'); n++
+assert.ok(page.includes('requireTypedConfirmation') && page.includes('Delete Harvest Record?'), 'Delete asks for confirmation'); n++
 
 console.log(`cropDetails: ${n} checks passed`)
