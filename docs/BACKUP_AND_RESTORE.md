@@ -1,6 +1,6 @@
 # Backup & Restore
 
-Admin > **Backup & Restore** is one page with three buttons: **Download backup** (make a backup), **Restore** (a form: drop a backup file, see what it would change, then confirm) and **Import backup file** (bring in a backup made elsewhere). Below them are the cards of what a backup holds and the Backup history.
+Admin > **Backup & Restore** is one page with two buttons: **Download backup** (make a backup) and **Restore** (a form: drop a backup file, see what it would change, then confirm; a backup made on another copy of the system is accepted too). Below them are the cards of what a backup holds and the Backup history.
 
 ## What a backup is
 
@@ -38,7 +38,7 @@ The page shows what a backup holds, in groups (accounts, farmers, crops, fisheri
 Restoring replaces data, so do it deliberately and when nobody else is using the system.
 
 1. Admin > Backup & Restore > **Restore** (or the row menu of a finished backup in the history > **Restore**, which opens the same form).
-2. **Drag the backup file** onto the form, or press **Browse files**. The file is only read: the system recognises it by its fingerprint among the backups of the history (a file that is not one of them is refused: add it with **Import backup file** first) and shows, group by group, the records in the file next to the records now and what a restore would do (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
+2. **Drag the backup file** onto the form, or press **Browse files**. The file is only read: the system recognises it by its fingerprint among the backups of the history (a genuine backup of this system that the history does not know, for example one made on another copy of the system or after the list was lost, is accepted too and shown as made elsewhere) and shows, group by group, the records in the file next to the records now and what a restore would do (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
 3. Type **your own password** and press **Restore** (`POST /api/backups/restore/`).
 4. The system first makes a **safety backup** of how things are now (it appears as *Before restore* and is saved to the computer too). If the safety backup cannot be made, nothing is restored.
 5. Then the backup is put back: the uploaded files, and every record in one step. If anything fails, **no record is changed** and the entry says *Failed* with the reason.
@@ -46,15 +46,6 @@ Restoring replaces data, so do it deliberately and when nobody else is using the
 After a restore, the records, uploaded files, user accounts and passwords are those of the backup (the activity log and notifications too, unless the backup was made without them: those stay as they are); everyone signs in again. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup.
 
 A backup restores best into the same version of the system that made it. Fields or tables the system no longer has are skipped.
-
-## Importing a backup file
-
-**Import backup file** is for a backup the history does not know: one made on another computer or copy of the system. It is the shared import window of the system (`ImportFileModal`): Upload File, Preview, Done (`POST /api/backups/import/`, `dry_run=true` to preview).
-
-- Only the Admin can import. Only a **.zip that is a genuine backup made by this page** is taken: it must hold `database.json` (a list of records) and a `manifest.json` that says when it was made and how many records it holds. Anything else is refused with the reason. A file over `BACKUP_IMPORT_MAX_BYTES` (1 GB by default) is refused.
-- **The preview changes nothing.** It says what the file is and when it was made, how many records it holds group by group, how many uploaded files, any tables this system no longer has (a restore skips them), and whether the history already has the file (by its fingerprint). A file already in the history is not added twice.
-- **Confirm Import** adds an entry of kind *Imported* (who imported it and when; the fingerprint and the counts of the file). **The file itself is not kept online and no record is changed.** From then on the Restore form accepts that file.
-- Migration `backups.0003_alter_backuprecord_kind` adds the *Imported* choice (a choices change only: no table or column changes).
 
 ## Restoring into an empty copy (disaster recovery)
 

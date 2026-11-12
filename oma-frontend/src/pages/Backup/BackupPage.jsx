@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, HardDriveDownload, History, Loader2, Pencil, Upload } from 'lucide-react'
+import { Download, HardDriveDownload, History, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
@@ -11,7 +10,9 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import WorkLockScreen from '../../components/UI/WorkLockScreen.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useLeaveGuard from '../../hooks/useLeaveGuard.js'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { CycleField, CycleRow, CycleRows, CycleSection } from '../Monitoring/CycleFormTable.jsx'
 import BackupGroups from './BackupGroups.jsx'
@@ -20,13 +21,14 @@ import {
   backupSummary, fileNote, formatBytes, formatDate, formatTime, nextAutoDownload, notesProblem, runningMessage,
 } from './backupFormat.js'
 
-// Admin > Backup & Restore, one page with three buttons. DOWNLOAD BACKUP: a backup is one file (.zip) with the whole database (and, if the Admin ticks it, the
+// Admin > Backup & Restore, one page with two buttons. DOWNLOAD BACKUP: a backup is one file (.zip) with the whole database (and, if the Admin ticks it, the
 // activity log and notifications) and every uploaded file. It is made only when the Admin presses it, and it is made for download: when it is done the page
 // saves it to the computer and the online copy is removed. The history keeps every backup ever made (nothing is deleted) with its name, date, time and the
 // place the Admin says the file is kept; those notes can be edited. RESTORE opens a table form: the Admin drops a backup's file, sees what it would change
-// and confirms with their password (RestoreModal.jsx); a safety backup of how things are now is made first. IMPORT BACKUP FILE is the shared import window
-// (Upload File, Preview, Done) pointed at /backups/import/: a backup made elsewhere is checked and added to the history so that Restore accepts it.
-// While a backup or a restore is running, nothing else can be done here.
+// and confirms with their password (RestoreModal.jsx); a safety backup of how things are now is made first. A backup made elsewhere is restored the same
+// way: the Restore window takes any genuine backup file.
+// While a backup is being made, its file is being saved, or a restore is running, the whole screen is held (WorkLockScreen) and the browser is told not to
+// close, reload or go back (useLeaveGuard): the Admin cannot go to another page or do anything else in the system until it is finished.
 const TONES = { done: 'green', running: 'teal', failed: 'rose' }
 const COLUMNS = [
   { key: 'name', label: 'NAME' },
@@ -127,7 +129,6 @@ function BackupNotesModal({ backup, onClose, onSubmit }) {
 export default function BackupPage() {
   const { showToast } = useToast()
   const [restoring, setRestoring] = useState(null)   // null = closed, {} = Restore from any file, a row = the backup whose file was asked for
-  const [importing, setImporting] = useState(false)
   const [groups, setGroups] = useState(null)      // what a backup holds, from the server (null while loading)
   const [includeAudit, setIncludeAudit] = useState(false)   // the activity log and notifications go in the backup only when the Admin ticks it
   const [rows, setRows] = useState(null)          // null while loading
@@ -211,6 +212,7 @@ export default function BackupPage() {
     wanted.current.ids.push(r.data.id)
     wanted.current.watch = r.data.id
     showToast('The backup has started. It can take a few minutes; the file is saved to this computer when it is done.', 'success')
+    setBusy(true)
     refresh()
   }
 
@@ -224,11 +226,15 @@ export default function BackupPage() {
     wanted.current.safety = true
     wanted.current.watch = entry.id
     showToast('The restore has started: a safety backup first, then the backup is put back. Keep this page open.', 'success')
+    setBusy(true)
     refresh()
   }
 
   const list = rows || []
   const locked = busy || savingId !== null
+  useLeaveGuard(locked)
+  const lockTitle = savingId !== null && !busy ? 'Saving the backup file to this computer' : (runningMessage(list) || 'A backup or a restore is in progress').replace(/\.$/, '')
+  const lockMessage = savingId !== null && !busy ? 'The file is being downloaded.' : 'It can take a few minutes.'
   const data = list.map((row) => ({
     id: row.id,
     name: (
@@ -279,18 +285,11 @@ export default function BackupPage() {
                 {busy ? 'Please wait…' : 'Download backup'}
               </Button>
               <Button type="button" variant="outline" icon={History} disabled={locked} onClick={() => setRestoring({})}>Restore</Button>
-              <Button type="button" variant="outline" icon={Upload} disabled={locked} onClick={() => setImporting(true)}>Import backup file</Button>
             </div>
           </div>
           <BackupGroups groups={groups} includeAudit={includeAudit} onIncludeAudit={setIncludeAudit} disabled={locked} />
         </section>
 
-        {busy && (
-          <div role="status" className="flex items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3 text-[13px] text-[#4A5E4A]">
-            <Loader2 size={18} className="shrink-0 animate-spin text-[#1B4D2E]" aria-hidden="true" />
-            <p><span className="font-semibold text-[#1A2B1A]">{runningMessage(list) || 'A backup or a restore is running.'}</span> Please wait: nothing else can be done here until it is finished.</p>
-          </div>
-        )}
         {error && <ErrorMessage message={error} />}
 
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -303,21 +302,7 @@ export default function BackupPage() {
       {notes && !notes.id && <BackupNotesModal onClose={() => setNotes(null)} onSubmit={startBackup} />}
       {notes?.id && <BackupNotesModal backup={notes} onClose={() => setNotes(null)} onSubmit={saveNotes} />}
       {restoring && <RestoreModal hint={restoring.id ? restoring : null} locked={locked} onClose={() => setRestoring(null)} onStarted={restoreStarted} />}
-      {importing && (
-        <ImportFileModal
-          title="Import Backup File"
-          subtitle="Check a backup file made elsewhere and add it to the history. No record is changed."
-          importUrl="/backups/import/"
-          accept=".zip,application/zip,application/x-zip-compressed"
-          chooseText="Click to choose a backup file (.zip)"
-          fileHint="The .zip file saved from Backup & Restore, on this or another copy of the system"
-          rowWord="Check"
-          createdText={(r) => (r.created ? 'Added to the Backup history as an Imported entry' : 'Nothing was added: the file is already in the history')}
-          icon={Upload}
-          onClose={() => setImporting(false)}
-          onImported={load}
-        />
-      )}
+      {locked && <WorkLockScreen title={lockTitle} message={lockMessage} />}
     </PageLayout>
   )
 }

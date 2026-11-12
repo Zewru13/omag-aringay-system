@@ -14,7 +14,6 @@ import { REPORT_TYPES, detailFromFilters, periodText, reportType, reportTypeFrom
 import { useSignatories } from './useSignatories.js'
 import DisasterReportTab from './DisasterReportTab.jsx'
 import OrganizationAssistanceReportTab from './OrganizationAssistanceReportTab.jsx'
-import IndividualOrganizationAssistanceTab from './IndividualOrganizationAssistanceTab.jsx'
 import RegisteredReportTab from './RegisteredReportTab.jsx'
 
 // One page for all six reports (the list is REPORT_TYPES in reportPaper.js). The Report type dropdown at the top picks one; under it that
@@ -403,7 +402,6 @@ export default function ReportsPage() {
           {activeTab === 'disaster_fisheries'  && <DisasterReportTab kind="fisheries" />}
           {activeTab === 'disaster_crops'      && <DisasterReportTab kind="crops" />}
           {activeTab === 'organization_assistance' && <OrganizationAssistanceReportTab />}
-          {activeTab === 'organization_assistance_individual' && <IndividualOrganizationAssistanceTab />}
         </div>
       </div>
     </PageLayout>
