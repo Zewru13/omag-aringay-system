@@ -1,24 +1,19 @@
 import { Eye } from 'lucide-react'
 import Button from '../../components/UI/Button.jsx'
+import { DetailTable } from '../../components/UI/FormTable.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+
+// A long free-text field takes the whole row of the table; the short ones go two to a row.
+const WIDE = /remarks|description|source|reason|notes/i
 
 // Read-only details of one assistance record. `details` is [{ label, value }]; empty values show a dash.
 export default function AssistanceViewDialog({ title, subtitle, details, onClose }) {
   return (
     <ModalShell
-      title={title} subtitle={subtitle} icon={Eye} onClose={onClose} maxWidth="max-w-lg"
+      title={title} subtitle={subtitle} icon={Eye} onClose={onClose} maxWidth="max-w-2xl"
       footer={<Button type="button" variant="outline" onClick={onClose}>Close</Button>}
     >
-      <dl className="space-y-3">
-        {details.map((d) => (
-          <div key={d.label} className="flex items-start justify-between gap-4">
-            <dt className="text-[12px] text-[#7A8E7A]">{d.label}</dt>
-            <dd className="min-w-0 break-words text-right text-[13px] font-medium text-[#1A2B1A]">
-              {d.value === undefined || d.value === null || d.value === '' ? '\u2014' : d.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <DetailTable title="Assistance" fields={details.map((d) => ({ ...d, wide: d.wide ?? WIDE.test(d.label) }))} />
     </ModalShell>
   )
 }

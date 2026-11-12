@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { FormCell } from '../../components/UI/FormTable.jsx'
 import { agencyChipSummary, agencyChoices, choicesWith, isTrainingType, typeFieldFor } from './assistanceFieldHelpers.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
 import useAssistanceChoices from './useAssistanceChoices.js'
@@ -103,36 +104,42 @@ export function SourceAgencyMultiSelect({ value, onChange, other = null }) {
 
 // A dropdown fed by one of the managed lists. The record's own value stays selectable even when it is no longer in the list; an empty
 // list says where an Admin adds to it.
-export function ListSelect({ label, value, onChange, options, where, pillLabel = false, required = false }) {
+// `cell` draws it as a cell of a table form (a FormCell: label + box) instead of a stand-alone FormField.
+export function ListSelect({ label, value, onChange, options, where, pillLabel = false, required = false, cell = false }) {
   const names = choicesWith(options, value)
-  return (
-    <FormField label={label} required={required} pillLabel={pillLabel}>
-      <select className={baseInputClasses} value={value || ''} onChange={(e) => onChange(e.target.value)}>
+  const body = (
+    <>
+      <select className={baseInputClasses} aria-label={label} value={value || ''} onChange={(e) => onChange(e.target.value)}>
         <option value="">{`Select ${label.toLowerCase().replace(/^type of /, '')}…`}</option>
         {names.map((name) => <option key={name} value={name}>{name}</option>)}
       </select>
       {names.length === 0 && options && <p className="mt-1 text-[11px] text-[#7A8E7A]">The list is empty. An Admin adds to it in {where}.</p>}
-    </FormField>
+    </>
   )
+  if (cell) return <FormCell label={label} required={required}>{body}</FormCell>
+  return <FormField label={label} required={required} pillLabel={pillLabel}>{body}</FormField>
 }
 
 // Renders exactly the field(s) matching the current assistance_type: Duration of Training for Training, and the one dropdown the type
 // asks for (see TYPE_FIELDS: the crops for Seeds, the fertilizer inputs, the equipment types; for fisheries the feed types, fishing gear,
 // species and equipment types), filled from the lists managed in Crop Settings / Fisheries Settings.
-export function TypeConditionalFields({ assistanceType, form, set, allowSeedFertilizer = true, pillLabel = false }) {
+export function TypeConditionalFields({ assistanceType, form, set, allowSeedFertilizer = true, pillLabel = false, cell = false }) {
   const domain = allowSeedFertilizer ? 'crop' : 'fisheries'
   const choices = useAssistanceChoices(domain)
   const field = typeFieldFor(domain, assistanceType)
   return (
     <>
-      {isTrainingType(assistanceType) && (
-        <FormField label="Duration of Training (days)" required pillLabel={pillLabel}>
-          <input type="number" min="1" max="3" step="1" className={baseInputClasses} value={form.training_duration_days}
+      {isTrainingType(assistanceType) && (() => {
+        const input = (
+          <input type="number" min="1" max="3" step="1" className={baseInputClasses} aria-label="Duration of Training (days)" value={form.training_duration_days}
             onChange={(e) => set('training_duration_days', e.target.value)} placeholder="1–3 days" />
-        </FormField>
-      )}
+        )
+        return cell
+          ? <FormCell label="Duration of Training (days)" required>{input}</FormCell>
+          : <FormField label="Duration of Training (days)" required pillLabel={pillLabel}>{input}</FormField>
+      })()}
       {field && (
-        <ListSelect label={field.label} value={form[field.key]} onChange={(v) => set(field.key, v)} options={choices?.[field.choices]} where={field.where} pillLabel={pillLabel} />
+        <ListSelect label={field.label} value={form[field.key]} onChange={(v) => set(field.key, v)} options={choices?.[field.choices]} where={field.where} pillLabel={pillLabel} cell={cell} />
       )}
     </>
   )

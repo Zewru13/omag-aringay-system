@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Eye, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, Pencil, Plus, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -11,13 +11,13 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import ListPrintButton from '../../components/ListPrintButton.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
-import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import AssistanceEditSections, { DangerZone } from './AssistanceEditSections.jsx'
+import { MarkResolvedModal, ReportNotReceivedModal } from './AssistanceFollowUpModals.jsx'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
 import ConfirmReceivedDialog from './ConfirmReceivedDialog.jsx'
@@ -33,11 +33,10 @@ import AssistanceTabs from './AssistanceTabs.jsx'
 import { emptyAssistanceText, inGroup, tabFromParam } from './assistanceGroups.js'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
-import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import { EMPTY_OTHER_AGENCY, otherAgencyProblem, sourceAgencies } from './distributeFlow.js'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
-  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
+  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem,
 } from './assistanceFieldHelpers.js'
 import { todayISO } from '../../utils/localDate.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -98,20 +97,6 @@ const CONFIRM_COLUMNS = [
 function formatDate(v) {
   if (!v) return '—'
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
-}
-
-function DangerZone({ isAdmin, description, onDeleteClick }) {
-  if (!isAdmin) return null
-  return (
-    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-      <p className="text-[12px] font-semibold text-rose-700 mb-1">Danger Zone</p>
-      <p className="text-[11px] text-rose-600 mb-2">{description}</p>
-      <button type="button" onClick={onDeleteClick}
-        className="flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors">
-        <Trash2 size={13} /> Delete this record
-      </button>
-    </div>
-  )
 }
 
 // ── Edit Modal — relocated from FisheriesMonitoringPage.jsx unchanged ────────
@@ -195,55 +180,20 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         subtitle={record.fisherfolk_full_name}
         icon={Pencil}
         onClose={onClose}
-        maxWidth="max-w-xl"
+        maxWidth="max-w-3xl"
         footer={
           <>
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" form="edit-fisheries-assistance-form" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="edit-fisheries-assistance-form" isLoading={isSubmitting} disabled={!isDirty}>Save Changes</Button>
           </>
         }
       >
-        <form id="edit-fisheries-assistance-form" onSubmit={handleSubmit} className="space-y-4">
+        <form id="edit-fisheries-assistance-form" onSubmit={handleSubmit} className="space-y-3">
           <DraftBanner draft={draft} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Date Given" required>
-              <input type="date" className={baseInputClasses} value={form.date_received}
-                min={assistanceMinDate({ today: todayISO(), original: originalData.date_received })}
-                onChange={(e) => set('date_received', e.target.value)} />
-            </FormField>
-            <FormField label="Assistance Type" required>
-              <select className={baseInputClasses} value={form.assistance_type}
-                onChange={(e) => setAssistanceType(e.target.value)}>
-                <option value="">Select Assistance Type</option>
-                {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FormField>
-            {!isTraining && (
-              <FormField label={isCashType(form.assistance_type) ? 'Amount (₱)' : 'Quantity'} required>
-                <DecimalInput decimals={2} className={baseInputClasses} value={form.quantity}
-                  onChange={(v) => set('quantity', v)} />
-              </FormField>
-            )}
-            <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={false} />
-          </div>
-          <FormField label="Source of Assistance">
-            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)}
-              other={{ on: form.source_other_on, text: form.source_other, onToggle: (on) => set('source_other_on', on), onText: (t) => set('source_other', t) }} />
-          </FormField>
-          <FormField label="Description">
-            <textarea className={baseInputClasses} rows={2} value={form.description}
-              onChange={(e) => set('description', e.target.value)} />
-          </FormField>
-          <FormField label="Remarks">
-            <textarea className={baseInputClasses} rows={2} value={form.remarks}
-              onChange={(e) => set('remarks', e.target.value)} />
-          </FormField>
+          <AssistanceEditSections
+            domain="fisheries" form={form} set={set} setAssistanceType={setAssistanceType} typeOptions={ASSISTANCE_TYPE_OPTIONS}
+            today={todayISO()} originalDate={originalData.date_received}
+          />
 
           {error && (
             <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
@@ -273,110 +223,11 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   )
 }
 
-// ── Mark Resolved Modal ─────────────────────────────────────────────────────
-
-function MarkResolvedModal({ record, onClose, onResolved }) {
-  const { showToast } = useToast()
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`fisheries-assistance-resolve:${record.id}`)
-  const [notes, setNotes] = useDraftField(draft, 'notes', '')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!notes.trim()) { setError('Follow-up notes are required.'); return }
-    setError(''); setIsSubmitting(true)
-    try {
-      await api.post(`/interventions/fisherfolk-beneficiaries/${record.id}/mark-resolved/`, { follow_up_notes: notes.trim() })
-      showToast('Case marked resolved.', 'success')
-      draft.clear()
-      onResolved()
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to mark this case resolved.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title="Mark Resolved"
-      subtitle={record.fisherfolk_full_name}
-      icon={CheckCircle2}
-      onClose={onClose}
-      maxWidth="max-w-lg"
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="mark-resolved-fisherfolk-form" isLoading={isSubmitting}>Mark Resolved</Button>
-        </>
-      }
-    >
-      <form id="mark-resolved-fisherfolk-form" onSubmit={handleSubmit} className="space-y-4">
-        <DraftBanner draft={draft} />
-        <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
-          <p className="font-semibold">Reason recipient gave: </p>
-          <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
-        </div>
-        <FormField label="Follow-up Notes" required>
-          <textarea
-            rows={3}
-            className={baseInputClasses}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="What was done to resolve this — e.g. redelivered, coordinated with organization…"
-          />
-        </FormField>
-        {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-      </form>
-    </ModalShell>
-  )
-}
-
 // ── Main Page ────────────────────────────────────────────────────────────────
 // Relocated from FisheriesMonitoringPage.jsx's "Assistance" tab (Batch 5).
 // Batch 6: repointed to interventions.FisherfolkBeneficiaryRecord at
 // /interventions/fisherfolk-beneficiaries/adhoc/ — fisheries.FisheriesAssistanceRecord
 // and its endpoint were retired; this page's data was migrated, not lost.
-
-// Fisherfolk accounts: "Report Not Received" on their own assistance (existing recipient endpoint, which
-// checks the record is theirs). A reason is required, as on that endpoint.
-function ReportNotReceivedModal({ record, onClose, onDone }) {
-  const { showToast } = useToast()
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`fisheries-assistance-not-received:${record.id}`)
-  const [reason, setReason] = useDraftField(draft, 'reason', '')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!reason.trim()) { showToast('A reason is required.', 'error'); return }
-    setIsSubmitting(true)
-    try {
-      await api.post(`/interventions/fisherfolk-beneficiaries/${record.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
-      showToast('Reported as not received.', 'success')
-      draft.clear()
-      onDone()
-    } catch (err) {
-      showToast(extractErrorMessage(err, 'Failed to report.'), 'error')
-    } finally { setIsSubmitting(false) }
-  }
-  return (
-    <ModalShell title="Report Not Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
-      footer={<>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="ff-report-not-received" isLoading={isSubmitting}>Submit</Button>
-      </>}>
-      <form id="ff-report-not-received" onSubmit={handleSubmit} className="space-y-4">
-        <DraftBanner draft={draft} />
-        <FormField label="Reason" required>
-          <textarea rows={3} className={`${baseInputClasses} resize-none`} value={reason}
-            onChange={(e) => setReason(e.target.value)} placeholder="Why was this assistance not received?" />
-        </FormField>
-      </form>
-    </ModalShell>
-  )
-}
 
 export default function FisheriesAssistancePage({ asTab = false }) {
   // Fisherfolk accounts reuse this page read-only: the backend returns only their own assistance, and they
@@ -697,15 +548,15 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           onClose={() => setViewing(null)}
           details={[
             { label: 'Fisherfolk', value: viewing.fisherfolk_full_name },
-            { label: 'Type', value: viewing.fisherfolk_type },
+            { label: 'Fisherfolk Type', value: viewing.fisherfolk_type },
             { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
-            { label: 'Assistance type', value: viewing.assistance_type },
-            { label: 'Type', value: viewing.item_type || viewing.equipment_type },
-            { label: 'Source of assistance', value: (viewing.source_agencies || []).join(', ') },
+            { label: 'Assistance Type', value: viewing.assistance_type },
+            { label: 'Item Type', value: viewing.item_type || viewing.equipment_type },
+            { label: 'Source Agency', value: (viewing.source_agencies || []).join(', ') },
             { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
-            { label: 'Date received', value: formatDate(viewing.date_given) },
+            { label: 'Date Received', value: formatDate(viewing.date_given) },
             { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },
-            { label: 'Recorded by', value: viewing.recorded_by_name },
+            { label: 'Recorded By', value: viewing.recorded_by_name },
             { label: 'Description', value: viewing.description },
             { label: 'Remarks', value: viewing.remarks },
           ]}
@@ -713,6 +564,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       )}
       {resolving && !isOrg && (
         <MarkResolvedModal
+          domain="fisheries"
           record={resolving}
           onClose={() => setResolving(null)}
           onResolved={() => { setResolving(null); refreshAll() }}
@@ -720,6 +572,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       )}
       {reportingNotReceived && (
         <ReportNotReceivedModal
+          domain="fisheries"
           record={reportingNotReceived}
           onClose={() => setReportingNotReceived(null)}
           onDone={() => { setReportingNotReceived(null); refreshAll() }}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Eye, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, Pencil, Plus, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
@@ -13,12 +13,16 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import ListPrintButton from '../../components/ListPrintButton.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import { DetailTable, FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import AssistanceEditSections, { DangerZone } from './AssistanceEditSections.jsx'
+import { MarkResolvedModal, ReportNotReceivedModal } from './AssistanceFollowUpModals.jsx'
+import { extractErrorMessage } from './assistanceFollowUp.js'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
 import ConfirmedReportModal from './ConfirmedReportModal.jsx'
@@ -35,11 +39,10 @@ import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
-import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import { EMPTY_OTHER_AGENCY, otherAgencyProblem, sourceAgencies } from './distributeFlow.js'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
-  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
+  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem,
 } from './assistanceFieldHelpers.js'
 import { todayISO } from '../../utils/localDate.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -96,17 +99,6 @@ const CONFIRM_COLUMNS = [
 function formatDate(v) {
   if (!v) return '—'
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
-}
-
-// PendingOnlyEditMixin raises a plain ValidationError(str), which DRF
-// serializes as a bare array — not {detail: ...} — so that shape needs
-// handling too, or the specific "cannot be edited" reason silently
-// collapses into a generic fallback message.
-function extractErrorMessage(err, fallback) {
-  const data = err?.response?.data
-  if (Array.isArray(data) && data.length) return String(data[0])
-  if (data?.detail) return data.detail
-  return fallback
 }
 
 // ── Edit Modal ───────────────────────────────────────────────────────────────
@@ -192,70 +184,24 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         subtitle={record.farmer_full_name}
         icon={Pencil}
         onClose={onClose}
-        maxWidth="max-w-xl"
+        maxWidth="max-w-3xl"
         footer={
           <>
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" form="edit-assistance-form" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="edit-assistance-form" isLoading={isSubmitting} disabled={!isDirty}>Save Changes</Button>
           </>
         }
       >
-        <form id="edit-assistance-form" onSubmit={handleSubmit} className="space-y-4">
+        <form id="edit-assistance-form" onSubmit={handleSubmit} className="space-y-3">
           <DraftBanner draft={draft} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Assistance Type" required>
-              <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => setAssistanceType(e.target.value)}>
-                {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Date Given" required>
-              <input type="date" className={baseInputClasses} value={form.date_received}
-                min={assistanceMinDate({ today: todayISO(), original: originalData.date_received })}
-                onChange={(e) => set('date_received', e.target.value)} />
-            </FormField>
-            {isCashType(form.assistance_type) ? (
-              <FormField label="Amount (₱)" required>
-                <input type="number" step="0.01" min="0.01" inputMode="decimal" className={baseInputClasses} value={form.quantity}
-                  onChange={(e) => set('quantity', e.target.value)} />
-              </FormField>
-            ) : !isTraining && (
-              <FormField label="Quantity">
-                <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
-              </FormField>
-            )}
-            <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} />
-            <FormField label="Year" required>
-              <select className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)}>
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </FormField>
-          </div>
-          <FormField label="Source Agency">
-            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)}
-              other={{ on: form.source_other_on, text: form.source_other, onToggle: (on) => set('source_other_on', on), onText: (t) => set('source_other', t) }} />
-          </FormField>
-          <FormField label="Description">
-            <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
-          </FormField>
+          <AssistanceEditSections
+            domain="crop" form={form} set={set} setAssistanceType={setAssistanceType} typeOptions={ASSISTANCE_TYPE_OPTIONS}
+            today={todayISO()} originalDate={originalData.date_received} years={YEARS}
+          />
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
 
-          {isAdmin && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-              <p className="text-[12px] font-semibold text-rose-700 mb-1">Danger Zone</p>
-              <p className="text-[11px] text-rose-600 mb-2">Permanently delete this assistance record.</p>
-              <button type="button" onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors">
-                <Trash2 size={13} /> Delete this record
-              </button>
-            </div>
-          )}
+          <DangerZone isAdmin={isAdmin} description="Permanently delete this assistance record." onDeleteClick={() => setShowDeleteConfirm(true)} />
         </form>
       </ModalShell>
 
@@ -272,69 +218,6 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
         />
       )}
     </>
-  )
-}
-
-// ── Mark Resolved Modal ─────────────────────────────────────────────────────
-// Manual-with-note discipline mirroring disaster recovery: NOT_RECEIVED ->
-// RESOLVED requires a non-empty follow_up_notes.
-
-function MarkResolvedModal({ record, onClose, onResolved }) {
-  const { showToast } = useToast()
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`crop-assistance-resolve:${record.id}`)
-  const [notes, setNotes] = useDraftField(draft, 'notes', '')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!notes.trim()) { setError('Follow-up notes are required.'); return }
-    setError(''); setIsSubmitting(true)
-    try {
-      await api.post(`/interventions/beneficiaries/${record.id}/mark-resolved/`, { follow_up_notes: notes.trim() })
-      showToast('Case marked resolved.', 'success')
-      draft.clear()
-      onResolved()
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to mark this case resolved.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title="Mark Resolved"
-      subtitle={record.farmer_full_name}
-      icon={CheckCircle2}
-      onClose={onClose}
-      maxWidth="max-w-lg"
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="mark-resolved-form" isLoading={isSubmitting}>Mark Resolved</Button>
-        </>
-      }
-    >
-      <form id="mark-resolved-form" onSubmit={handleSubmit} className="space-y-4">
-        <DraftBanner draft={draft} />
-        <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
-          <p className="font-semibold">Reason recipient gave: </p>
-          <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
-        </div>
-        <FormField label="Follow-up Notes" required>
-          <textarea
-            rows={3}
-            className={baseInputClasses}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="What was done to resolve this — e.g. redelivered, coordinated with organization…"
-          />
-        </FormField>
-        {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-      </form>
-    </ModalShell>
   )
 }
 
@@ -370,54 +253,35 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
     return <ConfirmedReportModal message="Marked as received." spec={spec} onClose={onDone} />
   }
   return (
-    <ModalShell title="Confirm Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
+    <ModalShell title="Confirm Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose} maxWidth="max-w-2xl"
       footer={<>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="submit" form="farmer-confirm-received" isLoading={isSubmitting}>Confirm</Button>
       </>}>
-      <form id="farmer-confirm-received" onSubmit={handleSubmit} className="space-y-4">
+      <form id="farmer-confirm-received" onSubmit={handleSubmit} className="space-y-3">
         <DraftBanner draft={draft} />
-        <PhotoListField photosState={photosState} title="Proof Photos (optional)" hint="Up to 10 photos." altPrefix="Proof photo" />
-        <FormField label="Note (optional)">
-          <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note}
-            onChange={(e) => setNote(e.target.value)} placeholder="Anything the office should know about what you received" />
-        </FormField>
-      </form>
-    </ModalShell>
-  )
-}
-
-function ReportNotReceivedModal({ record, onClose, onDone }) {
-  const { showToast } = useToast()
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`crop-assistance-not-received:${record.id}`)
-  const [reason, setReason] = useDraftField(draft, 'reason', '')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!reason.trim()) { showToast('A reason is required.', 'error'); return }
-    setIsSubmitting(true)
-    try {
-      await api.post(`/interventions/beneficiaries/${record.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
-      showToast('Reported as not received.', 'success')
-      draft.clear()
-      onDone()
-    } catch (err) {
-      showToast(extractErrorMessage(err, 'Failed to report.'), 'error')
-    } finally { setIsSubmitting(false) }
-  }
-  return (
-    <ModalShell title="Report Not Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
-      footer={<>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="farmer-report-not-received" isLoading={isSubmitting}>Submit</Button>
-      </>}>
-      <form id="farmer-report-not-received" onSubmit={handleSubmit} className="space-y-4">
-        <DraftBanner draft={draft} />
-        <FormField label="Reason" required>
-          <textarea rows={3} className={`${baseInputClasses} resize-none`} value={reason}
-            onChange={(e) => setReason(e.target.value)} placeholder="Why was this assistance not received?" />
-        </FormField>
+        <DetailTable
+          title="Assistance"
+          fields={[
+            { label: 'Assistance', value: record.assistance_type },
+            { label: 'Date Given', value: formatDate(record.date_given) },
+          ]}
+        />
+        <FormSection title="Proof of Receipt">
+          <FormRows label="Proof of receipt">
+            <FormRow>
+              <FormCell label="Proof Photos" wide hint={<p className="mt-1 text-[11.5px] text-[#7A8E7A]">Optional. Up to 10 photos.</p>}>
+                <PhotoListField photosState={photosState} title="" hint="" altPrefix="Proof photo" />
+              </FormCell>
+            </FormRow>
+            <FormRow>
+              <FormCell label="Note" wide>
+                <textarea rows={3} className={`${baseInputClasses} h-auto resize-none py-2`} aria-label="Note" value={note}
+                  onChange={(e) => setNote(e.target.value)} placeholder="Anything the office should know about what you received" />
+              </FormCell>
+            </FormRow>
+          </FormRows>
+        </FormSection>
       </form>
     </ModalShell>
   )
@@ -715,13 +579,13 @@ export default function CropAssistancePage({ asTab = false }) {
           details={[
             { label: 'Farmer', value: viewing.farmer_full_name },
             { label: 'Organization', value: viewing.attributed_organization_name },
-            { label: 'Assistance type', value: viewing.assistance_type },
-            { label: 'Source agency', value: (viewing.source_agencies || []).join(', ') },
+            { label: 'Assistance Type', value: viewing.assistance_type },
+            { label: 'Source Agency', value: (viewing.source_agencies || []).join(', ') },
             { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
-            { label: 'Date received', value: formatDate(viewing.date_given) },
+            { label: 'Date Received', value: formatDate(viewing.date_given) },
             { label: 'Year', value: viewing.year || '' },
             { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },
-            { label: 'Logged by', value: viewing.recorded_by_name },
+            { label: 'Logged By', value: viewing.recorded_by_name },
             { label: 'Remarks', value: viewing.remarks },
           ]}
         />
