@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import { ChevronDown, InboxIcon } from 'lucide-react'
 import { rowClickProps } from '../../utils/rowClick.js'
+import { TABLE_HEAD_CELL, TABLE_HEAD_ROW } from './tableStyles.js'
 
 function SkeletonRow({ columnCount }) {
   return (
@@ -46,10 +47,10 @@ function DataTable({
         <div className="overflow-x-auto overflow-y-hidden">
           <table className="min-w-full text-left">
             <thead>
-              <tr className="bg-primary">
+              <tr className={TABLE_HEAD_ROW}>
                 {columns.map((column) => (
                   <th
-                    className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white"
+                    className={TABLE_HEAD_CELL}
                     key={column.key}
                   >
                     {column.headerNode ?? column.label}
@@ -189,10 +190,10 @@ function DataTable({
         <div className="overflow-x-auto overflow-y-hidden">
           <table className="min-w-full text-left">
             <thead>
-              <tr className="bg-primary">
+              <tr className={TABLE_HEAD_ROW}>
                 {columns.map((column) => (
                   <th
-                    className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white ${isActionsColumn(column) ? 'sticky right-0 bg-primary' : ''}`}
+                    className={`${TABLE_HEAD_CELL} ${isActionsColumn(column) ? `sticky right-0 ${TABLE_HEAD_ROW}` : ''}`}
                     key={column.key}
                   >
                     {column.headerNode ?? column.label}

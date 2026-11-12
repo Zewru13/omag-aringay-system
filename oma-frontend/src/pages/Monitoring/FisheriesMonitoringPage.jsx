@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Eye, History, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Eye, History, Pencil, Plus } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
-import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -15,15 +14,11 @@ import ListPrintButton from '../../components/ListPrintButton.jsx'
 import { dateRangeParams } from '../../utils/dateRange.js'
 import { fetchAllRows } from '../../utils/listReport.js'
 import { captureReport, rangeFilter } from './listReports.js'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
 import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
-import DraftBanner from '../../components/UI/DraftBanner.jsx'
-import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
@@ -151,170 +146,6 @@ function SpeciesBreakdownModal({ record, onClose }) {
 }
 
 // ─── Danger Zone (shared bottom-of-Edit-modal delete section) ─────────────────
-
-function DangerZone({ isAdmin, description, onDeleteClick }) {
-  if (!isAdmin) return null
-  return (
-    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-      <p className="text-[12px] font-semibold text-rose-700 mb-1">Danger Zone</p>
-      <p className="text-[11px] text-rose-600 mb-2">{description}</p>
-      <button
-        type="button"
-        onClick={onDeleteClick}
-        className="flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors"
-      >
-        <Trash2 size={13} /> Delete this record
-      </button>
-    </div>
-  )
-}
-
-// ─── Edit Catch Log Modal ──────────────────────────────────────────────────────
-
-function EditCatchModal({ record, onClose, onSaved }) {
-  const { isAdmin } = useAuth()
-  const { showToast } = useToast()
-  const originalData = {
-    trip_date: record.trip_date || '',
-    return_date: record.return_date || '',
-    fishing_ground: record.fishing_ground || '',
-    gear_used: record.gear_used || '',
-    total_catch_kg: record.total_catch_kg != null ? String(record.total_catch_kg) : '',
-    hours_at_sea: record.hours_at_sea != null ? String(record.hours_at_sea) : '',
-    remarks: record.remarks || '',
-  }
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`edit-catch:${record.id}`)
-  const [form, setForm] = useDraftField(draft, 'form', originalData)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(''); setIsSubmitting(true)
-    try {
-      await api.patch(`/fisheries/fishing-trips/${record.id}/`, {
-        trip_date: form.trip_date,
-        return_date: form.return_date || null,
-        fishing_ground: form.fishing_ground,
-        gear_used: form.gear_used,
-        total_catch_kg: form.total_catch_kg !== '' ? parseFloat(form.total_catch_kg) : null,
-        hours_at_sea: form.hours_at_sea !== '' ? parseFloat(form.hours_at_sea) : null,
-        remarks: form.remarks,
-      })
-      draft.clear()
-      showToast('Catch log updated.', 'success')
-      onSaved()
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update catch log.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleDeleteConfirmed = async () => {
-    setIsDeleting(true)
-    try {
-      await api.delete(`/fisheries/fishing-trips/${record.id}/`)
-      showToast('Catch log deleted.', 'success')
-      onSaved()
-      onClose()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete catch log.', 'error')
-      setShowDeleteConfirm(false)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  return (
-    <>
-      <ModalShell
-        title="Edit Catch Log"
-        subtitle={record.fisherfolk_name}
-        icon={Pencil}
-        onClose={onClose}
-        maxWidth="max-w-xl"
-        footer={
-          <>
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" form="edit-catch-log-form" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </>
-        }
-      >
-        <form id="edit-catch-log-form" onSubmit={handleSubmit} className="space-y-4">
-          <DraftBanner draft={draft} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Trip Date" required>
-              <input type="date" className={baseInputClasses} value={form.trip_date}
-                max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => set('trip_date', e.target.value)} />
-            </FormField>
-            <FormField label="Return Date">
-              <input type="date" className={baseInputClasses} value={form.return_date}
-                max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => set('return_date', e.target.value)} />
-            </FormField>
-            <FormField label="Fishing Ground">
-              <input type="text" className={baseInputClasses} value={form.fishing_ground}
-                onChange={(e) => set('fishing_ground', e.target.value)} />
-            </FormField>
-            <FormField label="Gear Used">
-              <input type="text" className={baseInputClasses} value={form.gear_used}
-                onChange={(e) => set('gear_used', e.target.value)} />
-            </FormField>
-            <FormField label="Total Catch (kg)">
-              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.total_catch_kg}
-                onChange={(e) => set('total_catch_kg', e.target.value)} />
-            </FormField>
-            <FormField label="Hours at Sea">
-              <input type="number" step="0.1" min="0" className={baseInputClasses} value={form.hours_at_sea}
-                onChange={(e) => set('hours_at_sea', e.target.value)} />
-            </FormField>
-          </div>
-          <FormField label="Remarks">
-            <textarea className={baseInputClasses} rows={2} value={form.remarks}
-              onChange={(e) => set('remarks', e.target.value)} />
-          </FormField>
-
-          {error && (
-            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
-          )}
-
-          <DangerZone
-            isAdmin={isAdmin}
-            description="Permanently delete this catch log and its species entries."
-            onDeleteClick={() => setShowDeleteConfirm(true)}
-          />
-        </form>
-      </ModalShell>
-
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title="Delete Catch Log?"
-          message="This action cannot be undone."
-          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
-          requireTypedConfirmation
-          typedConfirmationText="DELETE"
-          variant="danger"
-          onConfirm={handleDeleteConfirmed}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-    </>
-  )
-}
 
 // Two views of one page, chosen from the sidebar (Aquaculture Monitoring / Capture Monitoring, ?tab=stocking | capture);
 // a fisherfolk account only ever has Aquaculture.
@@ -546,11 +377,7 @@ export default function FisheriesMonitoringPage() {
         />
       )}
       {editingCatch && (
-        <EditCatchModal
-          record={editingCatch}
-          onClose={() => setEditingCatch(null)}
-          onSaved={() => { setEditingCatch(null); fetchCatch() }}
-        />
+        <LogCatchModal record={editingCatch} onClose={() => setEditingCatch(null)} onSuccess={fetchCatch} />
       )}
     </PageLayout>
   )

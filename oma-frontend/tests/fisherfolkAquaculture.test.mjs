@@ -30,7 +30,8 @@ eq(page.includes('setShowImport(true)') && page.includes('Register') || page.inc
 eq(read('../src/pages/Users/userTabs.js').includes('Not Yet Classified'), false, 'no Not Yet Classified user filter either')
 
 // ── the registration form asks for no type
-const form = read('../src/pages/Fisherfolk/AddFisherfolkModal.jsx')
+// (Register and Edit draw one shared form: its fields are in FisherfolkFormSections.jsx, its values and rules in fisherfolkForm.js)
+const form = read('../src/pages/Fisherfolk/FisherfolkFormSections.jsx') + read('../src/pages/Fisherfolk/fisherfolkForm.js')
 eq(/id="fisherfolk_type"/.test(form), false, 'no Fisherfolk Type box')
 eq(form.includes("fisherfolk_type: 'Aquaculture'"), true, 'the form still saves Aquaculture')
 eq(form.includes('fisherfolk-type-note'), true, 'and says so')
