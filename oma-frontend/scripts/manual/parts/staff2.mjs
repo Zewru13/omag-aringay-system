@@ -2,15 +2,15 @@
 import { A, click, clickIncl, wait, rowMenu, SEARCH, FILTERS, PRINT, DOWNLOAD, COLS, ROW1, PAGER, PAGER_ROW, FILTERS_ROW, PRINT_ROW, DOWNLOAD_ROW, SEARCH_ROW } from './common.mjs'
 
 const H = '[class*="rounded-xl"]'
-const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
+const field = (label, tag = 'th') => ({ text: label, tag, up: 1 })
 const orgMenu = `${rowMenu}; ${wait(700)}`
 
 const ORG_FORM_FIELDS = (kind) => [
-  { find: { text: 'Organization Name', tag: 'label', up: 1 }, label: 'Organization Name', desc: 'Required. The name as registered with the agency.' },
+  { find: { text: 'Organization Name', tag: 'th', up: 1 }, label: 'Organization Name', desc: 'Required. The name as registered with the agency.' },
   { find: [field('Barangay'), field('Street Address')], label: 'Barangay and Street Address', desc: 'The barangay is required (choose from the list). The street address is optional (for example Purok 3, San Antonio St.).' },
   { find: [field('Date Organized'), field('Date Registered')], label: 'Date Organized and Date Registered', desc: 'Both required: when the group was organized, and when it was registered with the agency. They cannot be in the future.' },
   { find: [field('Registration Number'), field('Registration Agency')], label: 'Registration Number and Agency', desc: `Required. The registration number in the agency's format (for example CN200626622: CN = prefix, 2006 = year, 26622 = unique number) and the agency that registered the group (SEC, CDA and the others in the list).` },
-  { find: [field('Email Address'), field('Contact Number'), field('Contact Person Full Name')], label: 'Email, contact person and number', desc: 'Required. One box for the full name of the contact person, then the organization\'s email and a mobile number (09XXXXXXXXX). The report papers use them.' },
+  { find: [field('Email Address'), field('Contact Number'), field('Contact Person Full Name')], label: 'Email, contact person and number', desc: 'Required. The organization\'s email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them.' },
   { find: { text: 'EQUIPMENT', tag: 'h3', up: 1 }, label: 'Equipment', desc: `Add equipment adds a line: choose the kind of ${kind === 'farmers' ? 'farm equipment' : 'fishing equipment'} (or Other), how many units, and optionally the date acquired and remarks. Import equipment attaches a spreadsheet instead (Download template gives its columns). New equipment starts as Good. Leave it empty if there is none.` },
   { find: { text: 'MEMBERS', tag: 'h3', up: 1 }, label: 'Members', desc: `Add Members opens a table of registered ${kind === 'farmers' ? 'farmers' : 'fisherfolk'} who are not members yet. Import members attaches a spreadsheet; when the organization is saved its Import Members window opens so you can check it first.` },
 ]
