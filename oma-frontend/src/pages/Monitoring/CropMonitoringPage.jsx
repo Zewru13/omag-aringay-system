@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import Button from '../../components/UI/Button.jsx'
+import HarvestFormRows from './HarvestFormRows.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import useIsPhone from '../../hooks/useIsPhone.js'
@@ -1222,17 +1223,11 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
 
   return (
     <ModalShell title="Edit Harvest Record" subtitle="Update harvest details" icon={Wheat}
-      iconBg="bg-amber-100" iconColor="text-amber-600" onClose={onClose} maxWidth="max-w-md"
+      iconBg="bg-amber-100" iconColor="text-amber-600" onClose={onClose} maxWidth="max-w-2xl"
       footer={!isLoading && form ? (
         <>
-          <button type="button" onClick={onClose}
-            className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-            Cancel
-          </button>
-          <button type="button" onClick={handleSubmit} disabled={isSubmitting}
-            className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-            {isSubmitting ? 'Saving…' : 'Save Changes'}
-          </button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="button" onClick={handleSubmit} isLoading={isSubmitting} disabled={isSubmitting}>Save Changes</Button>
         </>
       ) : null}>
       {isLoading || !form ? (
@@ -1240,59 +1235,40 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
       ) : (
         <div className="space-y-3">
           <DraftBanner draft={draft} />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Harvested Date *</label>
-            <input type="date" className={baseInputClasses} value={form.harvest_start_date}
-              max={todayISO()}
-              onChange={e => handleChange('harvest_start_date', e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Area Harvested (ha) *</label>
-              <DecimalInput decimals={2} className={baseInputClasses} max={plantedHa === null ? undefined : Number(plantedHa)}
-                value={form.area_harvested_hectares}
-                onChange={v => handleChange('area_harvested_hectares', v)}
-                placeholder="e.g. 2.50" />
-              {harvestAreaHint(plantedHa) && <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(plantedHa)}</p>}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Unit</label>
-              <select className={baseInputClasses} value={form.unit_of_measure}
-                onChange={e => handleChange('unit_of_measure', e.target.value)}>
+          <HarvestFormRows
+            dateInput={(
+              <input type="date" className={baseInputClasses} value={form.harvest_start_date} max={todayISO()} aria-label="Harvested Date"
+                onChange={e => handleChange('harvest_start_date', e.target.value)} />
+            )}
+            areaInput={(
+              <DecimalInput decimals={2} className={baseInputClasses} max={plantedHa === null ? undefined : Number(plantedHa)} value={form.area_harvested_hectares}
+                aria-label="Area Harvested (ha)" onChange={v => handleChange('area_harvested_hectares', v)} placeholder="e.g. 2.50" />
+            )}
+            areaHint={harvestAreaHint(plantedHa) ? <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(plantedHa)}</p> : null}
+            unitSelect={(
+              <select className={baseInputClasses} value={form.unit_of_measure} aria-label="Unit of Measure" onChange={e => handleChange('unit_of_measure', e.target.value)}>
                 {/* The crop's own units, always including the unit already saved on this harvest. */}
                 {[...new Set([...harvestUnitOptions(cropUnits || STANDARD_HARVEST_UNITS), form.unit_of_measure])].map(u => <option key={u} value={u}>{u}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Quantity Harvested *</label>
-            <input type="number" step="0.01" className={baseInputClasses}
-              value={form.quantity}
-              onChange={e => handleChange('quantity', e.target.value)}
-              placeholder="e.g. 500" />
-            {unitPreview(form.quantity, form.unit_of_measure, editWeight) && (
-              <p className={`mt-1 text-[11.5px] ${editWeight === null ? 'text-amber-700' : 'text-slate-500'}`}>{unitPreview(form.quantity, form.unit_of_measure, editWeight)}</p>
             )}
-            {needsTotalKg(editWeight) && (
+            quantityInput={(
+              <input type="number" step="0.01" className={baseInputClasses} value={form.quantity} aria-label="Quantity Harvested"
+                onChange={e => handleChange('quantity', e.target.value)} placeholder="e.g. 500" />
+            )}
+            quantityHint={unitPreview(form.quantity, form.unit_of_measure, editWeight)
+              ? <p className={`mt-1 text-[11.5px] ${editWeight === null ? 'text-amber-700' : 'text-slate-500'}`}>{unitPreview(form.quantity, form.unit_of_measure, editWeight)}</p> : null}
+            quantityExtra={needsTotalKg(editWeight) ? (
               <div className="mt-2">
                 <label className="mb-1 block text-xs font-medium text-slate-700">Total weight (kg) *</label>
-                <input type="number" step="0.01" className={baseInputClasses}
-                  value={form.total_kg}
-                  onChange={e => handleChange('total_kg', e.target.value)}
-                  placeholder="e.g. 40" />
+                <input type="number" step="0.01" className={`${baseInputClasses} md:max-w-[16rem]`} value={form.total_kg} aria-label="Total weight (kg)"
+                  onChange={e => handleChange('total_kg', e.target.value)} placeholder="e.g. 40" />
               </div>
+            ) : null}
+            notesInput={(
+              <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={form.remarks} aria-label="Remarks"
+                onChange={e => handleChange('remarks', e.target.value)} placeholder="Any additional harvest notes" />
             )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Remarks (optional)</label>
-            <textarea rows={2} className={`${baseInputClasses} resize-none`}
-              value={form.remarks}
-              onChange={e => handleChange('remarks', e.target.value)}
-              placeholder="Any additional harvest notes" />
-          </div>
+          />
         </div>
       )}
     </ModalShell>
@@ -1654,14 +1630,8 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         maxWidth="max-w-md"
         footer={
           <>
-            <button type="button" onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-              Close
-            </button>
-            <button type="button" onClick={handlePrint} disabled={isPrinting}
-              className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              <Printer size={15} /> {isPrinting ? 'Preparing…' : 'Print report'}
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+            <Button type="button" icon={Printer} onClick={handlePrint} isLoading={isPrinting} disabled={isPrinting}>{isPrinting ? 'Preparing…' : 'Print report'}</Button>
           </>
         }
       >
@@ -1690,18 +1660,11 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         iconBg="bg-amber-100"
         iconColor="text-amber-600"
         onClose={onClose}
-        maxWidth="max-w-md"
+        maxWidth="max-w-2xl"
         footer={
           <>
-            <button type="button" onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-              Cancel
-            </button>
-            <button type="button" onClick={handleSubmitClick}
-              disabled={isSubmitting || (reasonRequired && Boolean(reasonIssue))}
-              className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
-            </button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" onClick={handleSubmitClick} isLoading={isSubmitting} disabled={isSubmitting || (reasonRequired && Boolean(reasonIssue))}>Save Harvest Record</Button>
           </>
         }
       >
@@ -1764,80 +1727,78 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Harvested Date *</label>
-            <input type="date" className={baseInputClasses} value={harvestStartDate}
-              min={opensOn || undefined} max={todayISO()}
-              onChange={e => changeHarvestDate(e.target.value)} />
-            {opensOn && <p className="mt-1 text-[11px] text-[#7A8E7A]">Record Harvest opens at half the growing time (from {opensOn}). Before that, use Force Harvest.</p>}
-          </div>
-
-          {reasonRequired && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="harvest-reason">
-              <p className="text-xs font-medium text-amber-800 mb-2">
-                This is {Math.abs(harvestVarianceDays)} days later than the expected harvest date.
-              </p>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Reason for late harvest *</label>
-              <select className={baseInputClasses} value={reasonChoice} onChange={e => setReasonChoice(e.target.value)}>
-                <option value="">Choose a reason</option>
-                {LATE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              {reasonChoice && (
-                <div className="mt-2">
-                  <label className="mb-1 block text-xs font-medium text-slate-700">
-                    {reasonIsOther ? 'Describe the reason *' : 'Details (optional)'}
-                  </label>
-                  <input type="text" className={baseInputClasses} value={reasonDetail} maxLength={200}
-                    onChange={e => setReasonDetail(e.target.value)}
-                    placeholder={reasonIsOther ? 'What made the harvest late?' : 'e.g. rain delayed the harvest'} />
+          <HarvestFormRows
+            dateInput={(
+              <input type="date" className={baseInputClasses} value={harvestStartDate} min={opensOn || undefined} max={todayISO()} aria-label="Harvested Date"
+                onChange={e => changeHarvestDate(e.target.value)} />
+            )}
+            dateHint={opensOn ? <p className="mt-1 text-[11px] text-[#7A8E7A]">Record Harvest opens at half the growing time (from {opensOn}). Before that, use Force Harvest.</p> : null}
+            reason={reasonRequired ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="harvest-reason">
+                  <p className="text-xs font-medium text-amber-800 mb-2">
+                    This is {Math.abs(harvestVarianceDays)} days later than the expected harvest date.
+                  </p>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">Reason for late harvest *</label>
+                  <select className={baseInputClasses} value={reasonChoice} onChange={e => setReasonChoice(e.target.value)}>
+                    <option value="">Choose a reason</option>
+                    {LATE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  {reasonChoice && (
+                    <div className="mt-2">
+                      <label className="mb-1 block text-xs font-medium text-slate-700">
+                        {reasonIsOther ? 'Describe the reason *' : 'Details (optional)'}
+                      </label>
+                      <input type="text" className={baseInputClasses} value={reasonDetail} maxLength={200}
+                        onChange={e => setReasonDetail(e.target.value)}
+                        placeholder={reasonIsOther ? 'What made the harvest late?' : 'e.g. rain delayed the harvest'} />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Area Harvested (ha) *</label>
-              <input type="number" step="0.0001" max={plantedHa ?? undefined}
+            ) : null}
+            areaInput={(
+              <input type="number" step="0.0001" max={plantedHa ?? undefined} aria-label="Area Harvested (ha)"
                 className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
                 value={areaHarvested}
                 onChange={e => { setAreaHarvested(e.target.value); setAreaError(validateArea(e.target.value)) }}
                 placeholder="e.g. 2.50" />
-              {areaError
-                ? <p className="mt-1 text-xs text-rose-600">{areaError}</p>
-                : harvestAreaHint(plantedHa) && <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(plantedHa)}</p>}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Unit of Measure *</label>
-              <select className={baseInputClasses} value={unitOfMeasure}
+            )}
+            areaHint={areaError
+              ? <p className="mt-1 text-xs text-rose-600">{areaError}</p>
+              : (harvestAreaHint(plantedHa) ? <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(plantedHa)}</p> : null)}
+            unitSelect={(
+              <select className={baseInputClasses} value={unitOfMeasure} aria-label="Unit of Measure"
                 onChange={e => { setUnitOfMeasure(e.target.value); setTotalKg(''); setTotalKgError('') }}>
                 {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Quantity Harvested *</label>
-            <input type="number" step="0.01"
-              className={`${baseInputClasses} ${quantityError ? 'border-rose-400' : ''}`}
-              value={quantityHarvested}
-              onChange={e => { setQuantityHarvested(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
-              placeholder="e.g. 500" />
-            {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
-            {unitPreview(quantityHarvested, unitOfMeasure, weight) && (
-              <p className={`mt-1 text-[11.5px] ${weight === null ? 'text-amber-700' : 'text-slate-500'}`}>{unitPreview(quantityHarvested, unitOfMeasure, weight)}</p>
             )}
-            {needsTotalKg(weight) && (
-              <div className="mt-2">
-                <label className="mb-1 block text-xs font-medium text-slate-700">Total weight (kg) *</label>
-                <input type="number" step="0.01"
-                  className={`${baseInputClasses} ${totalKgError ? 'border-rose-400' : ''}`}
-                  value={totalKg}
-                  onChange={e => { setTotalKg(e.target.value); setTotalKgError(totalKgProblem(e.target.value)) }}
-                  placeholder="e.g. 40" />
-                {totalKgError && <p className="mt-1 text-xs text-rose-600">{totalKgError}</p>}
-              </div>
+            quantityInput={(
+              <input type="number" step="0.01" aria-label="Quantity Harvested"
+                className={`${baseInputClasses} ${quantityError ? 'border-rose-400' : ''}`}
+                value={quantityHarvested}
+                onChange={e => { setQuantityHarvested(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
+                placeholder="e.g. 500" />
             )}
+            quantityHint={(
+              <>
+                {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
+                {unitPreview(quantityHarvested, unitOfMeasure, weight) && (
+                  <p className={`mt-1 text-[11.5px] ${weight === null ? 'text-amber-700' : 'text-slate-500'}`}>{unitPreview(quantityHarvested, unitOfMeasure, weight)}</p>
+                )}
+              </>
+            )}
+            quantityExtra={(
+              <>
+                {needsTotalKg(weight) && (
+                  <div className="mt-2">
+                    <label className="mb-1 block text-xs font-medium text-slate-700">Total weight (kg) *</label>
+                    <input type="number" step="0.01" aria-label="Total weight (kg)"
+                      className={`${baseInputClasses} md:max-w-[16rem] ${totalKgError ? 'border-rose-400' : ''}`}
+                      value={totalKg}
+                      onChange={e => { setTotalKg(e.target.value); setTotalKgError(totalKgProblem(e.target.value)) }}
+                      placeholder="e.g. 40" />
+                    {totalKgError && <p className="mt-1 text-xs text-rose-600">{totalKgError}</p>}
+                  </div>
+                )}
             {/* Estimated yield (crop_type.yield_per_ha_kg x area_planted_ha, computed server-side and already on the record): the same
                 live "meeting the estimate or not" comparison as the harvest date above, against the real kg this harvest will be saved as
                 (the quantity x the unit's weight from Settings > Harvest Units, or the total kg typed for a unit with no standard weight). */}
@@ -1868,14 +1829,14 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
                 )}
               </div>
             )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Notes (optional)</label>
-            <textarea rows={2} className={`${baseInputClasses} resize-none`} value={harvestNotes}
-              onChange={e => setHarvestNotes(e.target.value)}
-              placeholder="Any additional harvest notes or observations" />
-          </div>
+              </>
+            )}
+            notesInput={(
+              <textarea rows={2} className={`${baseInputClasses} h-auto resize-none py-2`} value={harvestNotes} aria-label="Remarks"
+                onChange={e => setHarvestNotes(e.target.value)}
+                placeholder="Any additional harvest notes or observations" />
+            )}
+          />
         </div>
       </ModalShell>
 
