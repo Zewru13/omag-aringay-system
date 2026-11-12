@@ -2702,61 +2702,81 @@ export default {
  },
  "admin-log-fisheries-disaster": {
   "audience": "admin",
-  "title": "Log Fisheries Disaster: choose the fisherfolk",
-  "purpose": "Choose the fisherfolk whose pond, cage or stock was hit (one or several) and fill in the event once.",
+  "title": "Log Fisheries Disaster: the ponds and cages",
+  "purpose": "Fill in the disaster once, then tick the ponds and cages that were hit, for any fisherfolk, in one report.",
   "image": "/manual/admin/log-fisheries-disaster.png",
   "width": 1280,
-  "height": 800,
+  "height": 2100,
   "legend": [
    {
     "n": 1,
     "label": "Window title",
-    "desc": "One disaster for one fisherfolk or for several at once. The X (or Cancel) closes the window; what was typed is kept as a draft for next time."
+    "desc": "One disaster on the ponds and cages of one fisherfolk or of many at once. The X (or Cancel) closes the window; what was typed is kept as a draft for next time."
    },
    {
     "n": 2,
-    "label": "Search box",
-    "desc": "Type a fisherfolk name or registration number. The matches appear under the box: tick each fisherfolk the disaster hit, and each one is added to the window with a part of their own. Someone with no pond, cage or stock on record cannot be chosen."
+    "label": "The disaster",
+    "desc": "Filled in once for everyone: the date of occurrence, the disaster type (Typhoon, Flooding, Storm Surge, El Nino, Drought, Red Tide or Other) and the description of damage."
    },
    {
     "n": 3,
-    "label": "The disaster",
-    "desc": "Filled in once for everyone chosen: the date of occurrence, the disaster type (Typhoon, Flooding, Storm Surge, El Nino, Drought, Red Tide or Other) and the description of damage."
+    "label": "Affected ponds and cages",
+    "desc": "Every active pond and cage, with its stock, fisherfolk and barangay. Tick the ones that were hit: a stock tick ticks all of its ponds and cages, or tick them one by one. A line under the heading counts what is ticked."
    },
    {
     "n": 4,
+    "label": "Search box",
+    "desc": "Find a fisherfolk, registration number, species, barangay, pond or cage. Filters has the fisherfolk, the barangay and the sort order, and Reset Filters clears them."
+   },
+   {
+    "n": 5,
+    "label": "Select every pond/cage shown",
+    "desc": "Ticks everything the search and filters leave on the list, for example every pond of one barangay after a typhoon."
+   },
+   {
+    "n": 6,
+    "label": "Fingerlings Lost and Total loss",
+    "desc": "For each ticked pond or cage: the fingerlings lost, or Total loss, which is the whole stocked count."
+   },
+   {
+    "n": 7,
+    "label": "Damage not linked to a stock",
+    "desc": "For a fisherfolk whose pond, cage or equipment was damaged but who lost no stock: search by name or registration number and tick them. They need a pond or cage on record."
+   },
+   {
+    "n": 8,
     "label": "Log Disaster",
-    "desc": "Saves one disaster log for each fisherfolk chosen, all together or not at all."
+    "desc": "Saves one disaster log for each fisherfolk affected, all together or not at all."
    }
   ]
  },
  "admin-fisheries-disaster-form": {
   "audience": "admin",
-  "title": "Log Fisheries Disaster: the form",
-  "purpose": "Step 2: the stock that was hit, the disaster and the damage.",
+  "title": "Log Fisheries Disaster: after ticking",
+  "purpose": "A stock is ticked, a count is typed, and the fisherfolk has a part of their own below.",
   "image": "/manual/admin/fisheries-disaster-form.png",
   "width": 1280,
-  "height": 1800,
+  "height": 2100,
   "legend": [
    {
     "n": 1,
-    "label": "Fisherfolk",
-    "desc": "The fisherfolk chosen are listed here. Remove takes one back out, with everything entered for them."
+    "label": "Tick a stock",
+    "desc": "Ticking a stock ticks all of its ponds and cages. Each pond or cage also has its own tick, so one that was not hit can be left out."
    },
    {
     "n": 2,
-    "label": "The disaster",
-    "desc": "Date of occurrence, disaster type and description of damage: entered once and saved on the log of every fisherfolk chosen. Typhoon, Flooding, Storm Surge, El Nino, Drought, Red Tide or Other."
+    "label": "Fingerlings Lost",
+    "desc": "The fingerlings lost in that pond or cage: a whole number, not more than were stocked. Leave it empty when the count is not known."
    },
    {
     "n": 3,
-    "label": "Part of one fisherfolk",
-    "desc": "Each fisherfolk chosen has a part of their own, with a summary line and the rows below. The arrow shows or hides its details."
+    "label": "Total loss",
+    "desc": "Marks the pond or cage as a total loss and fills in the whole stocked count. A stock becomes a Total Loss only when every pond or cage of it that is left is marked."
    },
    {
     "n": 4,
-    "label": "Affected Stock",
-    "desc": "One or more stocks: tick the affected stocks in the list (a search box finds them by species, cycle or location) and give the fingerlings lost in each pond or cage. Or Not linked to a stock, for pond, cage or equipment damage only."
+    "label": "Part of one fisherfolk",
+    "desc": "Each fisherfolk who has something ticked gets a part of their own, with a summary line and the rows below. The arrow shows or hides it; the X removes the fisherfolk and un-ticks their ponds and cages."
    },
    {
     "n": 5,
@@ -2776,7 +2796,7 @@ export default {
    {
     "n": 8,
     "label": "Log Disaster",
-    "desc": "Saves one disaster log for each fisherfolk chosen; with one fisherfolk the log opens so you can print or download it."
+    "desc": "Saves one disaster log for each fisherfolk affected; with one fisherfolk the log opens so you can print or download it."
    }
   ]
  },

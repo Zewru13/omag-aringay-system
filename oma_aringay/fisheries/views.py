@@ -1107,6 +1107,59 @@ def _first_message(detail):
     return str(detail)
 
 
+class FisheriesDisasterTargetsView(APIView):
+    """GET /fisheries/disaster-reports/targets/ - the ponds and cages a disaster can hit, for staff's Log Disaster table: every ACTIVE stock
+    (Stocked, Near Harvest) of every fisherfolk, with the ponds/cages of its production cycle that are not harvested yet, in one response (the
+    same idea as the crop Log Disaster table, GET /production/disasters/targets/). A stock whose ponds/cages are all harvested has nothing left
+    to lose and is left out; a stock with no ponds/cages on record is one "Whole stock" row (unit id null), as the save endpoint expects.
+    Searching, filtering by fisherfolk or barangay and sorting are done on the screen, over this list."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from .models import stocking_harvest_status_bulk
+        records = list(
+            StockingRecord.objects.filter(status__in=disaster_reports.ELIGIBLE_STOCK_STATUSES, fisherfolk__isnull=False)
+            .select_related('fisherfolk', 'species', 'production_cycle')
+            .order_by('fisherfolk__last_name', 'fisherfolk__first_name', 'fisherfolk_id', 'id')
+        )
+        cycle_no = production_cycle_numbers_bulk(records)
+        status_by_stock = stocking_harvest_status_bulk(records)
+        units_by_cycle = defaultdict(list)
+        cycle_ids = {r.production_cycle_id for r in records if r.production_cycle_id}
+        for u in AquacultureProductionUnit.objects.filter(production_cycle_id__in=cycle_ids).order_by('unit_type', 'unit_number'):
+            units_by_cycle[u.production_cycle_id].append(u)
+        stocks = []
+        for r in records:
+            cycle_units = units_by_cycle.get(r.production_cycle_id, [])
+            if cycle_units:
+                open_ids = {row['id'] for row in status_by_stock[r.id][0] if not row['harvested']}
+                units = [
+                    {'id': u.id, 'label': f'{u.get_unit_type_display()} {u.unit_number}', 'fingerlings': u.fingerling_count}
+                    for u in cycle_units if u.id in open_ids
+                ]
+                if not units:
+                    continue
+            else:
+                units = [{'id': None, 'label': 'Whole stock', 'fingerlings': r.number_of_fingerlings}]
+            f = r.fisherfolk
+            stocks.append({
+                'stock_id': r.id,
+                'fisherfolk_id': f.id,
+                'fisherfolk_name': f.full_name,
+                'rsbsa_number': f.rsbsa_number or '',
+                'fishr_number': f.fishr_number or '',
+                'barangay': f.barangay or '',
+                'pond_location': r.pond_location_barangay or '',
+                'species_name': r.species.species_name if r.species_id else '',
+                'cycle_name': r.production_cycle.cycle_name if r.production_cycle_id else '',
+                'cycle_no': cycle_no.get(r.id),
+                'date_stocked': r.date_stocked.isoformat() if r.date_stocked else None,
+                'number_of_fingerlings': r.number_of_fingerlings,
+                'units': units,
+            })
+        return Response({'stocks': stocks})
+
+
 class FisheriesDisasterResolveView(APIView):
     """
     Mark a disaster Recovered. Two paths:

@@ -11,7 +11,7 @@ const multi = read('src/pages/Monitoring/MultiFisherfolkDisasterModal.jsx')
 ok(multi.includes('FormTable.jsx') && /<FormSection/.test(multi) && /<FormCell/.test(multi), 'multi Log Disaster: sections of labelled rows')
 ok(!multi.includes('import FormField') && !/<FormLabel/.test(multi), 'multi Log Disaster: no stacked labels')
 ok(!/<table/.test(multi), 'multi Log Disaster: no hand-made table')
-for (const title of ['Fisherfolk', 'The Disaster']) ok(multi.includes(`title="${title}"`), `multi section ${title}`)
+for (const title of ['The Disaster', 'Damage not linked to a stock']) ok(multi.includes(`title="${title}"`), `multi section ${title}`)
 
 const panel = read('src/pages/Monitoring/FisherfolkDisasterPanel.jsx')
 ok(/<FormSection/.test(panel) && /<FormCell/.test(panel), 'fisherfolk part: sections of labelled rows')
