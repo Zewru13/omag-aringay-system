@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, ChevronDown, ChevronRight, ClipboardList, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Unlock, Wheat, Zap } from 'lucide-react'
+import { ChevronDown, ChevronRight, ClipboardList, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Unlock, Zap } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -27,8 +27,6 @@ import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import {
   RecordStockingHarvestModal,
-  StockingDisasterReportModal,
-  ViewStockingLogsModal,
 } from './StockingMonitoringModals.jsx'
 import EditStockingModal from './EditStockingModal.jsx'
 import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPanel.jsx'
@@ -284,16 +282,14 @@ function harvestGateInfo(rec) {
 }
 
 // The row itself expands the cycle's ponds/cages, and the Feeding Log / Health Log are entered from the Log Activity button there (no longer in this
-// menu, nor is Print Report: that is the button above the table). simplified (Admin and fisherfolk accounts): View Logs / Record Harvest / Report
-// Disaster are not repeated in the menu - harvest stays reachable through the fishing-net button beside the
-// menu; disasters through Disaster. Evaluator accounts keep the full menu.
+// menu, nor is Print Report: that is the button above the table). The menu is the same for every account: View Logs / Record Harvest / Report
+// Disaster are not repeated in it - harvest is the fishing-net button beside the menu; disasters are reported through Disaster.
 function StockingRowActions({
-  rec, isAdmin, isLocked, lockedByName, simplified = false,
-  onViewDetails, onEdit, onActivityLogs, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
+  rec, isAdmin, isLocked, lockedByName,
+  onViewDetails, onEdit, onActivityLogs, onForceHarvest, onRecordHarvest, onForceUnlock,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
-  const isNearHarvest = rec.status === 'Near Harvest'
   const harvestGate = harvestGateInfo(rec)
 
   const actions = [
@@ -304,17 +300,6 @@ function StockingRowActions({
     // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
     // harvest) and the Health Log Force Harvest are unchanged.
     canForceHarvest(rec) && { key: 'force-harvest', label: 'Force Harvest', icon: Zap, onClick: onForceHarvest, tone: 'rose', group: 'lifecycle' },
-    !simplified && { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
-    !simplified && canHarvest && {
-      key: 'harvest',
-      label: 'Record Harvest',
-      icon: Wheat,
-      onClick: () => onRecordHarvest(),
-      disabled: harvestGate.gated,
-      disabledReason: harvestGate.gated ? harvestGate.message : undefined,
-      tone: harvestGate.gated ? 'default' : (isNearHarvest ? 'amber' : 'default'), group: 'lifecycle',
-    },
-    !simplified && { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: onReportDisaster, tone: 'rose', group: 'lifecycle' },
     isAdmin && isLocked && {
       key: 'unlock', label: `Force Unlock (${lockedByName || 'locked'})`, icon: Unlock, onClick: onForceUnlock,
       tone: 'amber', group: 'lifecycle',
@@ -477,8 +462,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [editingRec,   setEditingRec]   = useState(null)
   const [viewingRec,   setViewingRec]   = useState(null)
   const [speciesList,  setSpeciesList]  = useState([])
-  const [viewLogsRec,  setViewLogsRec]  = useState(null)
-  const [disasterRec,  setDisasterRec]  = useState(null)
   const [harvestRec,   setHarvestRec]   = useState(null)
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [viewingCycle,   setViewingCycle]   = useState(null)
@@ -698,16 +681,13 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       <StockingRowActions
         rec={rec}
         isAdmin={user?.role === 'ADMIN'}
-        simplified={user?.role === 'ADMIN' || isFisherfolk}
         isLocked={Boolean(lockStatuses[rec.id])}
         lockedByName={lockStatuses[rec.id]?.locked_by?.name}
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
         onActivityLogs={() => setActivityLogsRec(rec)}
         onForceHarvest={() => setForceRec(rec)}
-        onViewLogs={() => setViewLogsRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
-        onReportDisaster={() => setDisasterRec(rec)}
         onForceUnlock={() => handleForceUnlock(rec.id)}
       />
     ),
@@ -914,22 +894,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
       {linkedForcedId && (
         <ForcedHarvestDetailsModal harvestId={linkedForcedId} onClose={closeLinkedForced} />
-      )}
-
-      {viewLogsRec && (
-        <ViewStockingLogsModal
-          record={viewLogsRec}
-          onClose={() => setViewLogsRec(null)}
-          onLogAdded={() => fetchRecords(page)}
-        />
-      )}
-
-      {disasterRec && (
-        <StockingDisasterReportModal
-          record={disasterRec}
-          onClose={() => setDisasterRec(null)}
-          onSuccess={() => fetchRecords(page)}
-        />
       )}
 
       {harvestRec && (
