@@ -12,6 +12,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import StepIndicator from '../../components/UI/StepIndicator.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftState from '../../hooks/useDraftState.js'
+import { formatDate } from '../../utils/dateFormat.js'
 import { todayISO } from '../../utils/localDate.js'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import AssistanceDetailsFields from './AssistanceDetailsFields.jsx'
@@ -39,8 +40,7 @@ const STATUS_TONE = { created: 'green', blocked: 'rose', error: 'rose' }
 const STATUS_LABEL = { created: 'Created', blocked: 'Blocked', error: 'Error' }
 
 function formatDateLong(iso) {
-  if (!iso) return ''
-  return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(`${iso}T00:00:00`))
+  return formatDate(iso, { empty: '' })
 }
 
 const firstMessage = (data, fallback) => {

@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { DonutCard, HarvestBarsCard } from './HomeChartCards.jsx'
 import fetchAllPages from './fetchAllPages.js'
 import { disasterSlices, harvestBars, statusSlices } from './homeCharts.js'
+import { formatDateWithWeekday } from '../../utils/dateFormat.js'
 
 // Home tab of the fisherfolk phone shell: four summary tiles, an attention card and one card per active
 // production cycle, laid out like the farmer's home. Presentation only - it reads the same own-record-scoped
@@ -145,7 +146,7 @@ export default function FisherfolkPhoneHome() {
         className="mb-3"
         theme="fisheries"
         title={user?.linked_record?.label ? `Welcome, ${user.linked_record.label}` : 'Welcome'}
-        subtitle={`Fisherfolk account · ${new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`}
+        subtitle={`Fisherfolk account · ${formatDateWithWeekday(new Date())}`}
       />
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your production cycles…</p>

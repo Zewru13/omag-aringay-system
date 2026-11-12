@@ -23,6 +23,7 @@ import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
 import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
+import { formatDate } from '../../utils/dateFormat.js'
 
 // ── Help ────────────────────────────────────────────────────────────────────────────────────────────────
 // Same shape as FARMER_HELP_EN (what CitizenHelpScreen reads). Contact details are placeholders until the
@@ -118,7 +119,7 @@ const REQUESTABLE = [
 ]
 const FIELD_LABELS = Object.fromEntries(REQUESTABLE.map((r) => [r.field, r.label]))
 const hasValue = (v) => v !== null && v !== undefined && String(v).trim() !== ''
-const fmtDate = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(`${v}T00:00:00`)) : '')
+const fmtDate = (v) => formatDate(v, { empty: '' })
 
 const CARD = 'rounded-xl border border-border bg-surface'
 

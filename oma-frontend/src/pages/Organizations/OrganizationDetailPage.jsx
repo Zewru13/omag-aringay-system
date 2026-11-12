@@ -36,17 +36,11 @@ import {
 } from "./EquipmentActionDialogs.jsx";
 import DraftBanner from "../../components/UI/DraftBanner.jsx";
 import useDraftForm, { useDraftField } from "../../hooks/useDraftForm.js";
+import { formatDate as formatSharedDate } from "../../utils/dateFormat.js";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-function formatDate(value) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
+const formatDate = formatSharedDate;
 
 const POSITIONS = [
   "President",

@@ -1,5 +1,6 @@
 // Aquaculture Records (Fisheries Management): one row per production cycle, listed from the existing stocking records
 // (GET /fisheries/stocking/), with filters. No screen and no network here, so the rules can be tested on their own.
+import { formatDate } from '../../utils/dateFormat.js'
 import { dateRangeParams, dateRangeProblem } from '../../utils/dateRange.js'
 import { ownerLine, ownershipLabel } from '../../utils/ownership.js'
 
@@ -53,11 +54,7 @@ export function recordsParams({ filters, search, page }) {
 
 const dash = (value) => (value === null || value === undefined || value === '' ? '—' : value)
 
-const fmtShort = (iso) => {
-  if (!iso) return '—'
-  const d = new Date(`${iso}T00:00:00`)
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
-}
+const fmtShort = (iso) => formatDate(iso)
 
 // What one table row shows, from the saved production-cycle record (nothing invented: a missing value is a dash).
 export function recordRow(rec) {

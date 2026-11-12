@@ -14,6 +14,7 @@ import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import RecordCard from '../../components/UI/RecordCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { formatDate as formatSharedDate } from '../../utils/dateFormat.js'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { rowClickProps } from '../../utils/rowClick.js'
 import { PROFILE_DEFAULT_STATUS, PROFILE_STATUS_OPTIONS, cropDisplayStatus, farmerCropParams } from '../Monitoring/monitoringGroups.js'
@@ -27,17 +28,7 @@ const STACK_TABLES = 'max-md:[&_tr]:border-b max-md:[&_tr]:border-[#F0F4F0] max-
 
 const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', 'Due Harvest': 'amber', 'Ready for Harvest': 'rose', Overdue: 'rose', Harvested: 'blue', 'Total Loss': 'rose' }
 
-function formatDate(value) {
-  if (!value) {
-    return ''
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(value))
-}
+const formatDate = (value) => formatSharedDate(value, { empty: '' })
 
 function Field({ label, value }) {
   return (

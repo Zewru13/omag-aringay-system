@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { DonutCard, HarvestBarsCard } from './HomeChartCards.jsx'
 import fetchAllPages from './fetchAllPages.js'
 import { disasterSlices, harvestBars, statusSlices } from './homeCharts.js'
+import { formatDateWithWeekday } from '../../utils/dateFormat.js'
 
 // Home tab of the farmer phone shell: four summary tiles, an attention card and one card per active crop, laid
 // out like the fisherfolk phone Home. Presentation only - it reads the own-record-scoped endpoints the Crop
@@ -139,7 +140,7 @@ export default function FarmerPhoneHome() {
         className="mb-3"
         theme="crop"
         title={user?.linked_record?.label ? `Welcome, ${user.linked_record.label}` : 'Welcome'}
-        subtitle={`Farmer account · ${new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`}
+        subtitle={`Farmer account · ${formatDateWithWeekday(new Date())}`}
       />
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your crops…</p>
