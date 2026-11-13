@@ -10,35 +10,28 @@ from django.db.models.functions import Replace
 from django.utils import timezone
 
 
-def build_name_search_q(search, field_names):
-    """Q object matching a person-name search across split first/middle/last
-    name columns, correctly handling a full-name query like "Juan dela Cruz"
-    that a plain single-field icontains against `search` as one string can
-    never match (no single column holds the whole name together).
+def search_tokens(search):
+    """The words of a typed search: split on spaces AND commas ("Cruz, Juan" is the words Cruz and Juan), blanks dropped."""
+    return [t for t in re.split(r'[\s,]+', search or '') if t]
 
-    Splits `search` on whitespace and requires EVERY resulting token to
-    match at least one of `field_names` (icontains) — AND across tokens, OR
-    across fields per token. A one-word search behaves exactly as a plain
-    icontains across the given fields always did; "Juan dela Cruz" now
-    additionally requires "Juan", "dela", and "Cruz" each match some name
-    field, which a first_name="Juan"/last_name="Dela Cruz" row satisfies.
 
-    Returns Q() (matches everything) for a blank search — callers should
-    still guard the call with `if search:` for their own no-op-when-blank
-    behavior, same as before this helper existed.
-    """
-    # Commas count as separators too, so "Cruz, Juan" is the same search as
-    # "Cruz Juan" instead of a token ("Cruz,") that no name contains.
-    tokens = [t for t in re.split(r'[\s,]+', search or '') if t]
-    if not tokens:
-        return Q()
+def build_text_search_q(search, field_names):
+    """Q object for a search bar: EVERY word typed must be found (icontains) in at least one of `field_names` - AND across words, OR across fields per
+    word - so the order of the words, extra spaces, commas and capitals never matter. "Farmers Cecilia" finds "Santa Cecilia Progressive Farmers"; "Juan
+    dela Cruz" finds a row whose first_name is Juan and last_name is "Dela Cruz", which one icontains on the whole string can never do. One word behaves
+    like a plain icontains across the fields. Returns Q() (matches everything) for a blank search; callers still guard with `if search:`."""
     combined = Q()
-    for token in tokens:
+    for token in search_tokens(search):
         token_q = Q()
         for field_name in field_names:
             token_q |= Q(**{f'{field_name}__icontains': token})
         combined &= token_q
     return combined
+
+
+def build_name_search_q(search, field_names):
+    """The same word-by-word search over a person's split first / middle / last name columns (see build_text_search_q)."""
+    return build_text_search_q(search, field_names)
 
 
 def filter_people_search(queryset, search, name_fields, id_fields, other_fields=()):

@@ -23,7 +23,7 @@ from accounts.utils import (
 )
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
-from core.utils import build_name_search_q, filter_date_range, is_plain_int
+from core.utils import build_name_search_q, build_text_search_q, filter_date_range, filter_people_search, is_plain_int
 from core.validators import normalize_contact_number
 from fisheries.models import Fisherfolk
 from interventions.lifecycle import notify_assistance_recorded
@@ -189,7 +189,7 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
             qs = qs.prefetch_related('members', 'equipment')   # the list serializer counts both: two queries, not two per row
         search = self.request.query_params.get('search', '').strip()
         if search:
-            qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
+            qs = qs.filter(build_text_search_q(search, ['name', 'barangay', 'street_address', 'registration_number']))
         barangay = self.request.query_params.get('barangay', '').strip()
         if barangay:
             qs = qs.filter(barangay__iexact=barangay)
@@ -266,11 +266,7 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
             qs = qs.filter(is_active=True)
         search = self.request.query_params.get('search', '').strip()
         if search:
-            qs = qs.filter(
-                Q(farmer__first_name__icontains=search)
-                | Q(farmer__last_name__icontains=search)
-                | Q(farmer__middle_name__icontains=search)
-            )
+            qs = filter_people_search(qs, search, ['farmer__first_name', 'farmer__middle_name', 'farmer__last_name'], ['farmer__rsbsa_number'])
         return qs
 
     @transaction.atomic
@@ -540,7 +536,7 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
             qs = qs.prefetch_related('members', 'equipment')   # the list serializer counts both: two queries, not two per row
         search = self.request.query_params.get('search', '').strip()
         if search:
-            qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
+            qs = qs.filter(build_text_search_q(search, ['name', 'barangay', 'street_address', 'registration_number']))
         barangay = self.request.query_params.get('barangay', '').strip()
         if barangay:
             qs = qs.filter(barangay__iexact=barangay)
@@ -619,11 +615,8 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
             qs = qs.filter(is_active=True)
         search = self.request.query_params.get('search', '').strip()
         if search:
-            qs = qs.filter(
-                Q(fisherfolk__first_name__icontains=search)
-                | Q(fisherfolk__last_name__icontains=search)
-                | Q(fisherfolk__middle_name__icontains=search)
-            )
+            qs = filter_people_search(qs, search, ['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
+                                      ['fisherfolk__rsbsa_number', 'fisherfolk__fishr_number'])
         return qs
 
     @transaction.atomic

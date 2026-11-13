@@ -2,6 +2,7 @@
 // recipients list, where they come from and where the request goes. Staff may give to anyone; an organization account gives only to its
 // own members (`loadOwnMembers`) or to its own organization (`fixedOrg` in the window).
 import api from '../../api/axiosInstance.js'
+import { matchesSearch } from '../../utils/searchMatch.js'
 
 const asList = (data) => (Array.isArray(data) ? data : (data?.results || []))
 const pageOf = (data, map) => ({ rows: asList(data).map(map), count: typeof data?.count === 'number' ? data.count : asList(data).length })
@@ -21,8 +22,7 @@ const orgRow = (o) => ({ id: o.id, name: o.name, barangay: o.barangay, members: 
 // A member list that has no paging or search of its own (an organization's members), paged and searched here.
 const MEMBER_PAGE = 10
 function pageMembers(all, { search, page }, map) {
-  const words = search.toLowerCase().split(/\s+/).filter(Boolean)
-  const found = all.map(map).filter((m) => words.every((w) => `${m.name} ${m.rsbsa} ${m.barangay}`.toLowerCase().includes(w)))
+  const found = all.map(map).filter((m) => matchesSearch(`${m.name} ${m.rsbsa} ${m.barangay}`, search))
   return { rows: found.slice((page - 1) * MEMBER_PAGE, page * MEMBER_PAGE), count: found.length }
 }
 

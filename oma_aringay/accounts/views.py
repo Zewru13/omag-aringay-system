@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.idnumbers import by_id_key
+from core.utils import build_text_search_q
 from core.validators import validate_uploaded_image
 
 from .authentication import OptionalJWTAuthentication
@@ -532,7 +533,7 @@ class UserListView(generics.ListAPIView):
         ).order_by('-date_joined')
         role = self.request.query_params.get('role')
         is_active = self.request.query_params.get('is_active')
-        search = self.request.query_params.get('search')
+        search = (self.request.query_params.get('search') or '').strip()
         if role in (User.Roles.ADMIN, User.Roles.EVALUATOR):
             qs = qs.filter(role=role)
         elif role in self.CITIZEN_TYPE_FILTERS:
@@ -568,7 +569,7 @@ class UserListView(generics.ListAPIView):
         elif status == 'unverified':
             qs = qs.filter(is_email_verified=False).exclude(role=User.Roles.CITIZEN)
         if search:
-            qs = qs.filter(Q(full_name__icontains=search) | Q(email__icontains=search))
+            qs = qs.filter(build_text_search_q(search, ['full_name', 'email', 'username']))
         return qs.prefetch_related('linked_records')
 
 

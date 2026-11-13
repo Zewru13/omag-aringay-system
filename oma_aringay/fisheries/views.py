@@ -25,7 +25,7 @@ from accounts.permissions import (
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_date_range, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_date_range, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group, search_tokens
 from core.idnumbers import by_id_key
 from core.photos import discard_uploaded_files, photos_by_owner, validated_photos
 from core.validators import validate_uploaded_image
@@ -1531,14 +1531,7 @@ class FisheriesDisasterReportListView(APIView):
             qs = qs.filter(Q(fisherfolk__barangay__iexact=b) | Q(stocking_record__fisherfolk__barangay__iexact=b))
         search = (params.get('search') or '').strip()
         if search:
-            match = (Q(fisherfolk__first_name__icontains=search) | Q(fisherfolk__last_name__icontains=search)
-                     | Q(stocking_record__fisherfolk__first_name__icontains=search)
-                     | Q(stocking_record__fisherfolk__last_name__icontains=search)
-                     | Q(stocking_record__species__species_name__icontains=search)
-                     | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search)
-                     # any affected stock of a multi-stock log (a subquery, so a log is never listed twice)
-                     | Q(pk__in=FisheriesDisasterStockLoss.objects.filter(
-                         stocking_record__species__species_name__icontains=search).values('disaster_report_id')))
+            match = disaster_reports.search_q(search)
             ref = search.upper().replace('FDR-', '').split('-')[-1]
             if is_plain_int(ref):
                 match |= Q(pk=int(ref))
@@ -2629,7 +2622,7 @@ class FisheriesYieldAnalysisView(APIView):
     def get(self, request):
         qs = _fisheries_yield_analysis_queryset(request)
         search = request.query_params.get('search', '').strip()
-        for token in search.split():
+        for token in search_tokens(search):
             qs = qs.filter(
                 Q(species__species_name__icontains=token) | Q(fisherfolk__first_name__icontains=token)
                 | Q(fisherfolk__middle_name__icontains=token) | Q(fisherfolk__last_name__icontains=token)

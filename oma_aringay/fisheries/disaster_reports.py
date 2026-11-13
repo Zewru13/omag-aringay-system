@@ -12,6 +12,7 @@ transaction as the record and its photos.
 import logging
 from datetime import timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 from reportlab.lib.pagesizes import A4
 
@@ -21,7 +22,9 @@ from core.photos import local_photo_paths
 from reports.disaster_log_pdf import build_disaster_log_pdf, fmt_datetime, fmt_number, safe_pdf_filename
 from reports.pdf_utils import fmt_date
 
-from .models import Fisherfolk, FisheriesDisasterReport, StockingRecord
+from core.utils import search_tokens
+
+from .models import Fisherfolk, FisheriesDisasterReport, FisheriesDisasterStockLoss, StockingRecord
 
 logger = logging.getLogger(__name__)
 
@@ -595,3 +598,23 @@ def _render_pdf(doc, sections, paths):
         reference=doc['report_number'],
         pdf_title=f'Fisherfolk Disaster Report {doc["report_number"]}',
     )
+
+
+SEARCH_FIELDS = [
+    'fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name',
+    'stocking_record__fisherfolk__first_name', 'stocking_record__fisherfolk__middle_name', 'stocking_record__fisherfolk__last_name',
+    'stocking_record__species__species_name', 'disaster_type', 'disaster_type_other_specify',
+]
+
+
+def search_q(search):
+    """The Disaster tables' and the report's search bar: EVERY typed word must be found, in any order, in the fisherfolk's name, the species, the disaster
+    type or the affected stocks of a multi-stock log ("Pedro Sea" or "tilapia Pedro" find Pedro Sea's log). The reference no. is the caller's business."""
+    combined = Q()
+    for token in search_tokens(search):
+        # any affected stock of a multi-stock log (a subquery, so a log is never listed twice)
+        token_q = Q(pk__in=FisheriesDisasterStockLoss.objects.filter(stocking_record__species__species_name__icontains=token).values('disaster_report_id'))
+        for field in SEARCH_FIELDS:
+            token_q |= Q(**{f'{field}__icontains': token})
+        combined &= token_q
+    return combined

@@ -3,6 +3,7 @@ import Button from '../../components/UI/Button.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { outcomeSummary } from '../../utils/equipmentLoans.js'
+import { matchesSearch } from '../../utils/searchMatch.js'
 
 // Everything an organization lent that came back: one row per loan (who, what, how many, when it went and when it came back, and the
 // condition the units returned in). `loans` are the returned loans the equipment-loans endpoint gave (newest first). Search by member,
@@ -27,7 +28,7 @@ export default function ReturnedTable({ loans, pageSize = 30 }) {
   const equipmentNames = useMemo(() => [...new Set(loans.map((l) => l.equipment_name))].sort(), [loans])
   const rows = useMemo(() => loans.filter((l) => (
     (!equipment || l.equipment_name === equipment)
-    && (!query.trim() || l.member_name.toLowerCase().includes(query.trim().toLowerCase()))
+    && matchesSearch(l.member_name, query)
   )), [loans, query, equipment])
 
   if (loans.length === 0) {

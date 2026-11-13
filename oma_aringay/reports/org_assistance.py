@@ -27,6 +27,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from associations.models import FarmersOrganization, FisherfolkOrganization
+from core.utils import build_text_search_q
 from interventions.distributions import group_id, summary_status
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
 
@@ -91,7 +92,7 @@ def _records(kind, request, org_id):
         qs = qs.filter(assistance_type=kind_type)
     search = request.query_params.get('search', '').strip()
     if search and not org_id:
-        qs = qs.filter(distributed_by_organization__name__icontains=search)
+        qs = qs.filter(build_text_search_q(search, ['distributed_by_organization__name']))
     records = list(qs)
     agency = request.query_params.get('source_agency', '').strip()
     if agency:

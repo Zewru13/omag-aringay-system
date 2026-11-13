@@ -15,6 +15,7 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import { matchesSearch } from '../../utils/searchMatch.js'
 
 const PAGE_SIZE = 10
 
@@ -490,10 +491,7 @@ export default function SpeciesOptionPage({ asTab = false }) {
   }
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    let list = species.filter(s =>
-      !q || s.species_name?.toLowerCase().includes(q) || s.category_name?.toLowerCase().includes(q)
-    )
+    let list = species.filter(s => matchesSearch(`${s.species_name || ''} ${s.category_name || ''}`, search))
     if (!sortKey) list = newestFirst(list)
     if (sortKey) {
       list = [...list].sort((a, b) => {

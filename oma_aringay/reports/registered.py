@@ -31,7 +31,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
-from core.utils import day_range_bounds
+from core.utils import build_text_search_q, day_range_bounds, search_tokens
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -162,7 +162,7 @@ class Filters:
             qs = qs.filter(date_registered__lte=day_range_bounds(self.to.isoformat(), end_of_day=True))
         if self.search:
             term = Q()
-            for word in self.search.split():
+            for word in search_tokens(self.search):
                 term &= (Q(first_name__icontains=word) | Q(last_name__icontains=word) | Q(middle_name__icontains=word)
                          | Q(**{f'{number_field}__icontains': word}))
             qs = qs.filter(term)
@@ -176,8 +176,7 @@ class Filters:
         if self.to:
             qs = qs.filter(date_registered__lte=self.to)
         if self.search:
-            qs = qs.filter(Q(name__icontains=self.search) | Q(registration_number__icontains=self.search)
-                           | Q(contact_person__icontains=self.search))
+            qs = qs.filter(build_text_search_q(self.search, ['name', 'registration_number', 'contact_person', 'barangay', 'street_address']))
         return qs
 
 

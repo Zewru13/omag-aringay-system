@@ -9,6 +9,7 @@ import { unitsSummary } from '../../utils/equipmentLoans.js'
 import { ActionForm } from './EquipmentActionDialogs.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 import Button from '../../components/UI/Button.jsx'
+import { matchesSearch } from '../../utils/searchMatch.js'
 
 // "Lend equipment" on the Borrowed tab: the organization reports that members borrowed equipment, for the members who have no account to
 // request it themselves. Each section is one kind of equipment with the members who borrowed it (each with their own number of units); add
@@ -88,7 +89,7 @@ export default function LendEquipmentForm({ type, organizationId, lines, members
             const left = unitsLeft(available, picked)
             const full = !canPickMore(available, picked)
             const choices = lendable.filter((l) => !usedElsewhere(kind).has(String(l.id)))
-            const shown = members.filter((m) => m.name.toLowerCase().includes(kind.search.trim().toLowerCase()))
+            const shown = members.filter((m) => matchesSearch(m.name, kind.search))
             return (
               <section key={kind.key} aria-label={`Equipment ${index + 1}`} className="space-y-3 rounded-xl border border-[#E2E8E2] bg-[#FAFBFA] p-3">
                 <div className="flex items-end gap-2">
