@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, HandHelping, Plus, Search, Trash2, Upload, UserCog, UserX } from "lucide-react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Building2, CalendarDays, HandHelping, Landmark, Mail, MapPin, Package, Phone, Plus, Search, Trash2, Upload, UserCog, UserRound, UserX } from "lucide-react";
+import { useParams, useSearchParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
 import ImportFileModal from "../../components/ImportFileModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
+import { AvatarBox, FieldItem, InfoCard, ProfileHero, SectionTitle } from "../../components/Profile/ProfileKit.jsx";
 import Button from "../../components/UI/Button.jsx";
+import ViewSection from "../../components/UI/ViewSection.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import Tabs from "../../components/UI/Tabs.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
@@ -20,6 +22,7 @@ import { apiMessage, availabilityOf, conditionTone, groupEquipment, openRequestC
 import { splitLoans } from "../../utils/borrowerGroups.js";
 import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
+import { addressText } from "./organizationProfile.js";
 import BorrowedPanel from "./BorrowedPanel.jsx";
 import ReturnedTable from "./ReturnedTable.jsx";
 import ConfirmedForMembersPanel from "./ConfirmedForMembersPanel.jsx";
@@ -852,15 +855,6 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
 
 // ─── Field display ────────────────────────────────────────────────────────────
 
-function Field({ label, value }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[12px] text-[#7A8E7A] mb-0.5">{label}</p>
-      <p className="break-words text-[14px] font-medium text-[#1A2B1A]">{value || "—"}</p>
-    </div>
-  );
-}
-
 // Same identity-card + info-card structure as FarmerDetailPage/FisherfolkDetailPage
 // (see FarmerDetailPage's own comment for the reference this is built against).
 // Farmers Org gets the farmer green, Fisherfolk Org gets the same fisheries
@@ -930,6 +924,8 @@ function OrganizationDetailPage({ own = false }) {
   const [showOfficerHistory, setShowOfficerHistory] = useState(false);
 
   const typeLabel = type === "farmers" ? "Farmers" : "Fisherfolk";
+  const themeColor = type === "farmers" ? "#1B4D2E" : FISH_BLUE;
+  const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
   const memberIdLabel = "RSBSA Number";
   const memberIdField =
     type === "farmers" ? "farmer_rsbsa_number" : "fisherfolk_rsbsa_number";
@@ -1056,212 +1052,15 @@ function OrganizationDetailPage({ own = false }) {
   }));
   const officerFilters = [{ key: "position", label: "Position", allLabel: "All positions", options: choices(officerItems, "position") }];
 
-  return (
-    <PageLayout
-      title={own ? "My Organization" : `${typeLabel} Organization Details`}
-      subtitle={own ? "Your organization's members, equipment and officers." : "View members, equipment, and organization information"}
-    >
-      <div className="space-y-4">
-        {/* Batch A: was hardcoded to /organizations, which has no route (404) —
-            the real destination is the type-specific hub's Organizations tab. */}
-        {!own && <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors max-md:min-h-[40px]"
-            to={type === "farmers" ? "/farmers?tab=organizations" : "/fisherfolk?tab=organizations"}
-          >
-            <ArrowLeft size={15} />
-            Back to Organizations
-          </Link>
-          {!isLoading && organization && isStaff && (
-            <ActivateCitizenAccountButton
-              citizenAccount={organization.citizen_account}
-              personLabel={organization.name}
-              onActivated={() => setRefreshKey((k) => k + 1)}
-            />
-          )}
-        </div>}
-
-        {error && (
-          <div className="rounded-lg bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">
-            {error}
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="flex min-h-56 items-center justify-center rounded-xl border border-[#E2E8E2] bg-white">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E2E8E2] border-t-[#1B4D2E]" />
-          </div>
-        )}
-
-        {!isLoading && organization && (
-          <>
-            {/* Identity + Organization Information (staff view only: an organization sees these on My Profile) */}
-            {!own && (() => {
-              const themeColor = type === "farmers" ? "#1B4D2E" : FISH_BLUE;
-              const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
-              return (
-                <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
-                  <div className="lg:sticky lg:top-20">
-                    <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
-                      <div className="h-20" style={{ backgroundColor: themeColor }} />
-                      <div className="px-5 pb-5 -mt-8">
-                        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-2 bg-white text-[18px] font-semibold" style={{ color: themeColor, borderColor: themeColor }}>
-                          {organization.logo ? (
-                            <img src={organization.logo} alt={`${organization.name} logo`} className="h-full w-full object-cover" />
-                          ) : (
-                            initialsOf(organization.name)
-                          )}
-                        </div>
-                        <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Organization Name</p>
-                        <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">
-                          {organization.name}
-                        </h1>
-                        <p className="mt-1.5 text-[12px] text-[#7A8E7A]">{typeLabel} Organization</p>
-                      </div>
-                    </section>
-
-                    <div className="mt-3 rounded-xl border border-[#E2E8E2] px-4 py-3" style={{ backgroundColor: themeBg }}>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>Registration Number</p>
-                      <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{organization.registration_number}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 lg:sticky lg:top-20">
-                    <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
-                      <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>
-                          Registered Information
-                        </p>
-                      </div>
-                      <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                        <Field
-                          label="Registration Number"
-                          value={organization.registration_number}
-                        />
-                        <Field
-                          label="Registration Agency"
-                          value={agencyLabel(organization.registration_agency)}
-                        />
-                        <Field
-                          label="Date Organized"
-                          value={formatDate(organization.date_organized)}
-                        />
-                        <Field
-                          label="Date Registered"
-                          value={formatDate(organization.date_registered)}
-                        />
-                        <Field
-                          label="Added to System"
-                          value={formatDate(organization.date_created)}
-                        />
-                        {/* Farmers Organizations only, and no create/edit/import
-                            path fills them — shown only when a value exists
-                            instead of a permanent row of dashes. */}
-                        {organization.dole_registration_number && (
-                          <Field
-                            label="DOLE Registration No."
-                            value={organization.dole_registration_number}
-                          />
-                        )}
-                        {organization.bir_number && (
-                          <Field
-                            label="BIR Number"
-                            value={organization.bir_number}
-                          />
-                        )}
-                      </div>
-                    </section>
-
-                    <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
-                      <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>
-                          Contact
-                        </p>
-                      </div>
-                      <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                        <Field label="Contact Person" value={organization.contact_person} />
-                        <Field label="Contact Number" value={organization.contact_number} />
-                        <Field label="Email" value={organization.email_address} />
-                        <Field label="Barangay" value={organization.barangay} />
-                        <Field label="Street Address" value={organization.street_address} />
-                      </div>
-                    </section>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Members & Equipment */}
-            <div className="bg-white border border-[#E2E8E2] rounded-xl p-4 sm:p-6">
-              <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <Tabs
-                  activeTab={activeSection}
-                  tabs={sectionTabs}
-                  onChange={setActiveSection}
-                />
-                {canManage &&
-                  (activeSection === "members" ? (
-                    <div className={ACTION_ROW}>
-                      <button
-                        className={BTN_OUTLINE}
-                        onClick={() => setShowImportMembers(true)}
-                      >
-                        <Upload size={15} />
-                        Import<span className="hidden sm:inline"> Members</span>
-                      </button>
-                      <button
-                        className={BTN_SOLID}
-                        onClick={() => setShowAddMember(true)}
-                      >
-                        <Plus size={15} />
-                        Add Member
-                      </button>
-                    </div>
-                  ) : own && activeSection === "borrowed" ? (
-                    <div className={ACTION_ROW}>
-                      <button className={`${BTN_SOLID} col-span-2`} onClick={() => setShowLendMany(true)} type="button">
-                        <HandHelping size={15} />
-                        Lend equipment
-                      </button>
-                    </div>
-                  ) : activeSection === "confirmed" || activeSection === "borrowed-history" ? null : own && activeSection === "officers" ? (
-                    <div className={ACTION_ROW}>
-                      <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
-                        Officer History
-                      </button>
-                      <button
-                        className={BTN_SOLID}
-                        onClick={() => setShowAssignOfficer(true)}
-                      >
-                        <UserCog size={15} />
-                        Assign Officer
-                      </button>
-                    </div>
-                  ) : (
-                    <div className={ACTION_ROW}>
-                      <button
-                        className={BTN_OUTLINE}
-                        onClick={() => setShowImportEquipment(true)}
-                      >
-                        <Upload size={15} />
-                        Import<span className="hidden sm:inline"> Equipment</span>
-                      </button>
-                      <button
-                        className={BTN_SOLID}
-                        onClick={() => setShowAddEquipment(true)}
-                      >
-                        <Plus size={15} />
-                        Add Equipment
-                      </button>
-                    </div>
-                  ))}
-              </div>
-
+  // The body of one section (Members, Equipment, Borrowed, Borrowed History, Confirmed, Officers) and the Import / Add buttons that go with it. An
+  // organization's own page shows them under its tabs; the staff view shows them in the window of a View card.
+  const renderBody = (section) => (
+    <>
               {/* Members tab — Batch (Phase B): both domains are real join
                   rows now (organization.members, from
                   Farmers/FisherfolkOrganizationMemberSerializer), so this is
                   one shared table shape instead of two near-duplicates. */}
-              {activeSection === "members" &&
+              {section === "members" &&
                 (organization.members.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No members recorded.
@@ -1322,7 +1121,7 @@ function OrganizationDetailPage({ own = false }) {
                 ))}
 
               {/* Equipment tab */}
-              {activeSection === "equipment" &&
+              {section === "equipment" &&
                 (organization.equipment.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No equipment recorded.
@@ -1393,20 +1192,20 @@ function OrganizationDetailPage({ own = false }) {
                   </div>
                 ))}
 
-              {own && activeSection === "borrowed" && (
+              {own && section === "borrowed" && (
                 <BorrowedPanel type={type} loans={loans} onChanged={() => setRefreshKey((k) => k + 1)} />
               )}
 
               {/* Everything that was lent and came back, on its own page: the Borrowed tab keeps only what is still out */}
-              {own && activeSection === "borrowed-history" && <ReturnedTable loans={splitLoans(loans).returned} />}
+              {own && section === "borrowed-history" && <ReturnedTable loans={splitLoans(loans).returned} />}
 
               {/* The history of what this organization confirmed for its members (final, no staff review) */}
-              {activeSection === "confirmed" && (
+              {section === "confirmed" && (
                 <ConfirmedForMembersPanel type={type} organizationId={organization.id} />
               )}
 
               {/* Officers tab (an organization's own page) */}
-              {own && activeSection === "officers" &&
+              {own && section === "officers" &&
                 (organization.officers.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No officers assigned yet.
@@ -1414,13 +1213,69 @@ function OrganizationDetailPage({ own = false }) {
                 ) : (
                   <OrgCompactList items={officerItems} filters={officerFilters} searchPlaceholder="Search name..." emptyText="No officers assigned yet." />
                 ))}
-            </div>
+    </>
+  );
 
-            {/* Officers: a tab above for an organization's own page, this card for staff */}
-            {!own && organization.officers && (
-              <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-4 sm:p-6">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                  <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Officers</h3>
+  const renderActions = (section) => canManage &&
+                  (section === "members" ? (
+                    <div className={ACTION_ROW}>
+                      <button
+                        className={BTN_OUTLINE}
+                        onClick={() => setShowImportMembers(true)}
+                      >
+                        <Upload size={15} />
+                        Import<span className="hidden sm:inline"> Members</span>
+                      </button>
+                      <button
+                        className={BTN_SOLID}
+                        onClick={() => setShowAddMember(true)}
+                      >
+                        <Plus size={15} />
+                        Add Member
+                      </button>
+                    </div>
+                  ) : own && section === "borrowed" ? (
+                    <div className={ACTION_ROW}>
+                      <button className={`${BTN_SOLID} col-span-2`} onClick={() => setShowLendMany(true)} type="button">
+                        <HandHelping size={15} />
+                        Lend equipment
+                      </button>
+                    </div>
+                  ) : section === "confirmed" || section === "borrowed-history" ? null : own && section === "officers" ? (
+                    <div className={ACTION_ROW}>
+                      <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
+                        Officer History
+                      </button>
+                      <button
+                        className={BTN_SOLID}
+                        onClick={() => setShowAssignOfficer(true)}
+                      >
+                        <UserCog size={15} />
+                        Assign Officer
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={ACTION_ROW}>
+                      <button
+                        className={BTN_OUTLINE}
+                        onClick={() => setShowImportEquipment(true)}
+                      >
+                        <Upload size={15} />
+                        Import<span className="hidden sm:inline"> Equipment</span>
+                      </button>
+                      <button
+                        className={BTN_SOLID}
+                        onClick={() => setShowAddEquipment(true)}
+                      >
+                        <Plus size={15} />
+                        Add Equipment
+                      </button>
+                    </div>
+                  ));
+
+  const officersBody = !organization ? null : (
+    <>
+      <div className="mb-3 flex justify-end">
                   <div className={ACTION_ROW}>
                     <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
                       Officer History
@@ -1435,7 +1290,7 @@ function OrganizationDetailPage({ own = false }) {
                       </button>
                     )}
                   </div>
-                </div>
+      </div>
                 {organization.officers.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No officers assigned yet.
@@ -1484,7 +1339,127 @@ function OrganizationDetailPage({ own = false }) {
                     </table>
                   </div>
                 )}
+    </>
+  );
+
+  return (
+    <PageLayout
+      title={own ? "My Organization" : `${typeLabel} Organization Details`}
+      subtitle={own ? "Your organization's members, equipment and officers." : "View members, equipment, and organization information"}
+    >
+      <div className="space-y-4">
+        {error && (
+          <div className="rounded-lg bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">
+            {error}
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="flex min-h-56 items-center justify-center rounded-xl border border-[#E2E8E2] bg-white">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E2E8E2] border-t-[#1B4D2E]" />
+          </div>
+        )}
+
+        {!isLoading && organization && (
+          <>
+            {/* The hero and the information cards (staff view only: an organization sees these on My Profile) */}
+            {!own && (
+              <>
+                <ProfileHero
+                  label={`${typeLabel} Organization`}
+                  labelIcon={Building2}
+                  ariaLabel="Organization profile"
+                  accent={themeColor}
+                  avatar={<AvatarBox initials={initialsOf(organization.name)} photoUrl={organization.logo} accent={themeColor} soft={themeBg} />}
+                  name={organization.name}
+                  idLabel="Registration No."
+                  idValue={organization.registration_number}
+                  meta={[
+                    { icon: MapPin, text: addressText(organization) },
+                    { icon: CalendarDays, text: organization.date_registered ? `Registered ${formatDate(organization.date_registered)}` : "" },
+                    { icon: Landmark, text: agencyLabel(organization.registration_agency) },
+                  ]}
+                  actions={isStaff && (
+                    <ActivateCitizenAccountButton
+                      citizenAccount={organization.citizen_account}
+                      personLabel={organization.name}
+                      onActivated={() => setRefreshKey((k) => k + 1)}
+                      iconOnly
+                    />
+                  )}
+                />
+
+                <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+                  <InfoCard icon={Landmark} title="Registered Information" accent={themeColor} soft={themeBg}>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                      <FieldItem label="Registration Number" value={organization.registration_number} />
+                      <FieldItem label="Registration Agency" value={agencyLabel(organization.registration_agency)} />
+                      <FieldItem icon={CalendarDays} label="Date Organized" value={formatDate(organization.date_organized)} />
+                      <FieldItem icon={CalendarDays} label="Date Registered" value={formatDate(organization.date_registered)} />
+                      <FieldItem icon={CalendarDays} label="Added to System" value={formatDate(organization.date_created)} />
+                      {/* Farmers Organizations only, and no create/edit/import path fills them: shown only when a value exists. */}
+                      {organization.dole_registration_number && <FieldItem label="DOLE Registration No." value={organization.dole_registration_number} />}
+                      {organization.bir_number && <FieldItem label="BIR Number" value={organization.bir_number} />}
+                    </div>
+                  </InfoCard>
+
+                  <InfoCard icon={Phone} title="Contact" accent={themeColor} soft={themeBg}>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                      <FieldItem icon={UserRound} label="Contact Person" value={organization.contact_person} />
+                      <FieldItem icon={Phone} label="Contact Number" value={organization.contact_number} />
+                      <FieldItem icon={Mail} label="Email" value={organization.email_address} />
+                      <FieldItem icon={MapPin} label="Barangay" value={organization.barangay} />
+                      <FieldItem icon={MapPin} label="Street Address" value={organization.street_address} />
+                    </div>
+                  </InfoCard>
+                </div>
+              </>
+            )}
+
+            {own ? (
+              <div className="bg-white border border-[#E2E8E2] rounded-xl p-4 sm:p-6">
+                <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <Tabs
+                    activeTab={activeSection}
+                    tabs={sectionTabs}
+                    onChange={setActiveSection}
+                  />
+                  {renderActions(activeSection)}
+                </div>
+                {renderBody(activeSection)}
               </div>
+            ) : (
+              <>
+                <SectionTitle icon={Building2} accent={themeColor}>Organization Records</SectionTitle>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <ViewSection
+                    icon={UserRound} title="Members" count={organization.members.length} noun="member" accent={themeColor} soft={themeBg}
+                    subtitle="Everyone in this organization. Set as main marks the organization a person belongs to first."
+                  >
+                    {canManage && <div className="mb-3 flex justify-end">{renderActions("members")}</div>}
+                    {renderBody("members")}
+                  </ViewSection>
+                  <ViewSection
+                    icon={Package} title="Equipment Inventory" count={organization.equipment.length} noun="equipment line" accent={themeColor} soft={themeBg}
+                    subtitle="What the organization owns, its condition and what is on loan."
+                  >
+                    {canManage && <div className="mb-3 flex justify-end">{renderActions("equipment")}</div>}
+                    {renderBody("equipment")}
+                  </ViewSection>
+                  <ViewSection
+                    icon={HandHelping} title="Confirmed for Members" summary="Assistance it confirmed" accent={themeColor} soft={themeBg}
+                    subtitle="The history of what this organization confirmed for its members."
+                  >
+                    {renderBody("confirmed")}
+                  </ViewSection>
+                  <ViewSection
+                    icon={UserCog} title="Officers" count={(organization.officers || []).length} noun="officer" accent={themeColor} soft={themeBg}
+                    subtitle="The current officers and their terms."
+                  >
+                    {officersBody}
+                  </ViewSection>
+                </div>
+              </>
             )}
           </>
         )}

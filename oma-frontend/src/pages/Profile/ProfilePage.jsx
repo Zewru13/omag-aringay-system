@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Camera, Edit } from "lucide-react"
+import { AtSign, CalendarDays, Edit, KeyRound, Mail, MailCheck, Phone, Shield, ShieldCheck, User, UserCog } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import PageLayout from "../../components/Layout/PageLayout.jsx"
 import Button from "../../components/UI/Button.jsx"
@@ -8,8 +8,10 @@ import ModalShell from "../../components/UI/ModalShell.jsx"
 import PasswordRequirementChecklist from "../../components/UI/PasswordRequirementChecklist.jsx"
 import { passwordMeetsRules } from "../../utils/passwordRules.js"
 import StatusPill from "../../components/UI/StatusPill.jsx"
+import { AvatarBox, FieldItem, InfoCard, ProfileHero } from "../../components/Profile/ProfileKit.jsx"
+import { accountStatus, roleLabel as staffRoleLabel, roleSummary } from "./staffProfile.js"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
-import { DetailTable, FormCell, FormRow, FormRows, FormSection } from "../../components/UI/FormTable.jsx"
+import { FormCell, FormRow, FormRows, FormSection } from "../../components/UI/FormTable.jsx"
 import { formatDate } from "../../utils/dateFormat.js"
 import EmailInput from "../../components/UI/EmailInput.jsx"
 import api from "../../api/axiosInstance.js"
@@ -34,34 +36,6 @@ import { useToast } from "../../context/ToastContext.jsx"
 // accounts/views.py's MeView.patch): email in particular is tied into this
 // account's verification/reset flow, so a bare PATCH without proof of
 // current possession of the account felt like too light a bar.
-
-function Avatar({ initials, photoUrl, size = 64, onPick, uploading }) {
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <div
-        className="flex items-center justify-center rounded-full bg-white text-[#1B4D2E] font-semibold overflow-hidden"
-        style={{ width: size, height: size, fontSize: size * 0.32 }}
-      >
-        {photoUrl ? (
-          <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          initials
-        )}
-      </div>
-      {onPick && (
-        <button
-          type="button"
-          onClick={onPick}
-          disabled={uploading}
-          className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-[#1B4D2E] text-white ring-2 ring-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          aria-label="Upload a new photo"
-        >
-          <Camera size={12} aria-hidden="true" />
-        </button>
-      )}
-    </div>
-  )
-}
 
 function ProfilePage() {
   const { updateUser, logout } = useAuth()
@@ -97,7 +71,7 @@ function ProfilePage() {
 
   useEffect(() => { fetchProfile() }, [])
 
-  const roleLabel = profile?.role === "ADMIN" ? "Admin" : "Focal Person"
+  const roleLabel = staffRoleLabel(profile?.role)
   const initials = profile?.full_name
     ? profile.full_name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join("")
     : "?"
@@ -243,43 +217,56 @@ function ProfilePage() {
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
 
         <div className="space-y-5">
-          {/* Header — photo + full name live here directly, with the single
-              edit entry point for the whole page. */}
-          <section className="relative overflow-hidden rounded-xl border border-[#E2E8E2] bg-[#1B4D2E] px-5 py-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <button
-              type="button"
-              onClick={openEditModal}
-              aria-label="Edit profile"
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
-            >
-              <Edit size={16} aria-hidden="true" />
-            </button>
-            <div className="flex items-center gap-4 pr-12">
-              <Avatar
-                initials={initials}
-                photoUrl={profile?.profile_picture_url}
-                onPick={handlePickPhoto}
-                uploading={uploadingPhoto}
-              />
-              <div className="min-w-0">
-                <h1 className="truncate text-[20px] font-semibold text-white">{profile?.full_name || "—"}</h1>
-                <div className="mt-1.5">
-                  <StatusPill tone={profile?.role === "ADMIN" ? "green" : "teal"}>{roleLabel}</StatusPill>
-                </div>
-              </div>
-            </div>
-          </section>
+          {/* The hero: photo, name, role, e-mail and date joined; the single edit entry point for the whole page is its icon. */}
+          <ProfileHero
+            label={`${roleLabel} Profile`}
+            labelIcon={Shield}
+            ariaLabel="My profile"
+            avatar={<AvatarBox initials={initials} photoUrl={profile?.profile_picture_url} onPick={handlePickPhoto} uploading={uploadingPhoto} />}
+            name={profile?.full_name || profile?.username || "—"}
+            idLabel="Username"
+            idValue={profile?.username}
+            meta={[{ icon: Mail, text: profile?.email }, { icon: CalendarDays, text: profile?.date_joined ? `Joined ${formatDate(profile.date_joined)}` : "" }]}
+            chips={[{ key: "role", label: roleLabel, meaning: roleSummary(profile?.role), tone: profile?.role === "ADMIN" ? "green" : "blue" }]}
+            actions={<Button icon={Edit} onClick={openEditModal} variant="primary" iconOnly>Edit Profile</Button>}
+          />
 
-          {/* Account Information — the previous Account Information and
-              Profile Information cards merged; they duplicated Email,
-              Username, and Date Joined between them. */}
-          <DetailTable title="Account Information" fields={[
-            { label: "Full Name", value: profile?.full_name },
-            { label: "Email Address", value: profile?.email },
-            { label: "Username", value: profile?.username },
-            { label: "Role", value: roleLabel },
-            { label: "Date Joined", value: formatDate(profile?.date_joined) },
-          ]} />
+          <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
+            <InfoCard icon={User} title="Account Information">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
+                <FieldItem icon={User} label="Full Name" value={profile?.full_name} />
+                <FieldItem icon={Mail} label="Email Address" value={profile?.email} />
+                <FieldItem icon={AtSign} label="Username" value={profile?.username} />
+                <FieldItem icon={Phone} label="Contact Number" value={profile?.contact_number} />
+                <FieldItem icon={UserCog} label="Role" value={roleLabel} />
+                <FieldItem icon={CalendarDays} label="Date Joined" value={formatDate(profile?.date_joined)} />
+              </div>
+            </InfoCard>
+
+            <div className="space-y-4">
+              <InfoCard icon={ShieldCheck} title="Account Status">
+                <ul className="space-y-3.5">
+                  {accountStatus(profile).map((s) => {
+                    const Icon = { account: ShieldCheck, email: MailCheck, password: KeyRound }[s.key]
+                    return (
+                      <li key={s.key} className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF5EE] text-[#1B4D2E]"><Icon size={14} aria-hidden="true" /></span>
+                        <div className="min-w-0">
+                          <p className="flex flex-wrap items-center gap-2 text-[13.5px] font-medium text-[#1A2B1A]">{s.label} <StatusPill tone={s.tone}>{s.value}</StatusPill></p>
+                          <p className="mt-0.5 text-[12px] text-[#7A8E7A]">{s.detail}</p>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </InfoCard>
+
+              <InfoCard icon={Shield} title="Role & Access">
+                <p className="text-[13px] font-medium text-[#1A2B1A]">{roleLabel}</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-[#4A5E4A]">{roleSummary(profile?.role)}</p>
+              </InfoCard>
+            </div>
+          </div>
         </div>
       </PageLayout>
 

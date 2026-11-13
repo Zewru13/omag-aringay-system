@@ -9,7 +9,7 @@ const ok = (value, label) => { assert.ok(value, label); n++ }
 const src = read('src/pages/Profile/ProfilePage.jsx')
 ok(src.includes('FormTable.jsx'), 'uses the shared table form')
 ok(/<FormSection/.test(src), 'the edit window is made of titled sections')
-ok(/<DetailTable/.test(src), 'the account details are a detail table')
+ok(/<InfoCard/.test(src), 'the account details are in cards (the shared profile kit)')
 ok(!src.includes('FormLabel'), 'no stacked labels')
 ok(!/<button\s+type="submit"/.test(src), 'the save button is the shared Button')
 ok(!src.includes('const CARD'), 'no hand-made card styles')

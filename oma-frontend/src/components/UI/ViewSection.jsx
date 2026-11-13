@@ -7,9 +7,10 @@ import { countText } from '../../utils/viewSection.js'
 // floating window (the children), so the profile stays short and every section is one click away.
 //   icon / title / count / noun   the card ("Farm Parcels", 3, "parcel" -> "3 parcels")
 //   subtitle                      the line under the window's title
+//   summary                       a line to show instead of the count (when there is nothing to count)
 //   accent / soft                 the colours of the icon (a fisheries page passes its blue)
 export default function ViewSection({
-  icon: Icon, title, count, noun, subtitle = '', isLoading = false, accent = '#1B4D2E', soft = '#EBF5EE', maxWidth = 'max-w-5xl', children,
+  icon: Icon, title, count, noun, summary = null, subtitle = '', isLoading = false, accent = '#1B4D2E', soft = '#EBF5EE', maxWidth = 'max-w-5xl', children,
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -23,7 +24,7 @@ export default function ViewSection({
         )}
         <div className="min-w-0 flex-1">
           <h2 className="text-[14px] font-semibold leading-snug text-[#1A2B1A]">{title}</h2>
-          <p className="text-[12.5px] text-[#7A8E7A]">{isLoading ? 'Loading…' : countText(count, noun)}</p>
+          <p className="text-[12.5px] text-[#7A8E7A]">{isLoading ? 'Loading…' : (summary ?? countText(count, noun))}</p>
         </div>
         <Button type="button" variant="outline" size="sm" aria-haspopup="dialog" onClick={() => setIsOpen(true)}>View</Button>
       </section>
