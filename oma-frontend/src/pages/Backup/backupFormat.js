@@ -75,12 +75,3 @@ export function restoreHeadline({ records, files }) {
 export function nextAutoDownload(rows, wanted) {
   return rows.find((r) => r.status === 'done' && r.has_file && (wanted.ids.includes(r.id) || (wanted.safety && r.kind === 'safety'))) || null
 }
-
-// The running clock of the lock screen: seconds as m:ss (h:mm:ss from an hour).
-export function formatElapsed(seconds) {
-  const total = Math.max(0, Math.floor(Number(seconds) || 0))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = String(total % 60).padStart(2, '0')
-  return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
-}

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 
 const {
   formatBytes, backupSummary, isRunning, formatDate, formatTime, fileNote, notesProblem, restoreFileProblem, restoreConfirmProblem, restoreChange,
-  restoreHeadline, nextAutoDownload, runningMessage, formatElapsed,
+  restoreHeadline, nextAutoDownload, runningMessage,
 } = await import(new URL('../src/pages/Backup/backupFormat.js', import.meta.url).href)
 
 let n = 0
@@ -129,20 +129,20 @@ const manual = readFileSync(new URL('../src/pages/Manual/manualContent.js', impo
 ok(!/every night|latest 14|Delete removes one/.test(manual), 'the manual no longer describes the nightly backup, the 14 kept or Delete')
 ok(/Restore/.test(manual), 'the manual explains Restore')
 
-// the lock screen's running clock and moving bar: it is plain to see that the work has not stalled
-eq(formatElapsed(0), '0:00', 'a clock at the start')
-eq(formatElapsed(7), '0:07', 'seconds are two digits')
-eq(formatElapsed(65), '1:05', 'minutes and seconds')
-eq(formatElapsed(754), '12:34', 'two-digit minutes')
-eq(formatElapsed(3725), '1:02:05', 'an hour')
-eq(formatElapsed(-3), '0:00', 'never negative')
-eq(formatElapsed(undefined), '0:00', 'nothing given')
+// the lock screen box: an animated emblem (spinning arc, rings, a floating icon) instead of a bar and a clock
 const lock2 = readFileSync(new URL('../src/components/UI/WorkLockScreen.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
-ok(/role="progressbar"/.test(lock2) && /work-bar/.test(lock2), 'the lock screen shows a moving bar')
-ok(/aria-label="[^"]*progress/i.test(lock2), 'the bar is named for screen readers')
-ok(/setInterval/.test(lock2) && /clearInterval/.test(lock2) && /formatElapsed\(/.test(lock2) && /Working for/.test(lock2), 'it counts how long the work has been going on, and stops counting when it goes away')
 const css2 = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
-ok(/@keyframes workBar/.test(css2) && /\.work-bar/.test(css2), 'the bar has its own animation')
-ok(/prefers-reduced-motion[\s\S]*\.work-bar/.test(css2), 'and it stands still for people who ask for less motion')
+ok(!/progressbar|work-bar|Working for|formatElapsed|setInterval/.test(lock2), 'no moving bar and no running clock')
+ok(!/workBar|\.work-bar/.test(css2), 'the old bar animation is gone')
+for (const cls of ['work-backdrop', 'work-card', 'work-arc', 'work-ring', 'work-icon', 'work-dot']) ok(lock2.includes(cls), `the box uses ${cls}`)
+ok(/variant/.test(lock2) && /HardDriveDownload/.test(lock2) && /History/.test(lock2) && /Download/.test(lock2), 'the emblem shows a picture that fits the work: making a backup, saving the file, or a restore')
+ok(/createPortal/.test(lock2) && /inert/.test(lock2) && /role="alertdialog"/.test(lock2), 'it still covers everything and holds the page')
+ok(/aria-hidden="true"/.test(lock2) && /Please wait/.test(lock2) && /do not close or leave/i.test(lock2), 'it still says to wait and not to leave, and the decoration is hidden from screen readers')
+for (const frames of ['workCardIn', 'workFade', 'workSpin', 'workRing', 'workFloat', 'workDot']) ok(css2.includes(`@keyframes ${frames}`), `${frames} is defined`)
+ok(/\.work-card\s*{[^}]*cubic-bezier\(0\.23, 1, 0\.32, 1\)/.test(css2), 'the box comes in with a strong ease-out')
+ok(/\.work-card\s*{[^}]*animation: workCardIn 2\d\dms/.test(css2) && /\.work-backdrop\s*{[^}]*animation: workFade/.test(css2), 'the entrance is under 300ms')
+ok(/prefers-reduced-motion[\s\S]*\.work-arc[\s\S]*\.work-ring/.test(css2), 'every motion stands still for people who ask for less motion')
+const pageSrc = readFileSync(new URL('../src/pages/Backup/BackupPage.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(/<WorkLockScreen[^>]*variant=/.test(pageSrc), 'the page tells the box which work is going on')
 
 console.log(`backupFormat: ${n} checks passed`)

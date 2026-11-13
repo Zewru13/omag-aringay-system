@@ -233,7 +233,8 @@ export default function BackupPage() {
   const list = rows || []
   const locked = busy || savingId !== null
   useLeaveGuard(locked)
-  const lockTitle = savingId !== null && !busy ? 'Saving the backup file to this computer' : (runningMessage(list) || 'A backup or a restore is in progress').replace(/\.$/, '')
+  const lockVariant = savingId !== null && !busy ? 'saving' : (runningMessage(list).includes('restore') ? 'restore' : 'backup')
+  const lockTitle = lockVariant === 'saving' ? 'Saving the backup file to this computer' : (runningMessage(list) || 'A backup is being made').replace(/\.$/, '')
   const lockMessage = savingId !== null && !busy ? 'The file is being downloaded.' : 'It can take a few minutes.'
   const data = list.map((row) => ({
     id: row.id,
@@ -302,7 +303,7 @@ export default function BackupPage() {
       {notes && !notes.id && <BackupNotesModal onClose={() => setNotes(null)} onSubmit={startBackup} />}
       {notes?.id && <BackupNotesModal backup={notes} onClose={() => setNotes(null)} onSubmit={saveNotes} />}
       {restoring && <RestoreModal hint={restoring.id ? restoring : null} locked={locked} onClose={() => setRestoring(null)} onStarted={restoreStarted} />}
-      {locked && <WorkLockScreen title={lockTitle} message={lockMessage} />}
+      {locked && <WorkLockScreen variant={lockVariant} title={lockTitle} message={lockMessage} />}
     </PageLayout>
   )
 }
