@@ -518,15 +518,15 @@ export default {
  "admin-farmer-profile": {
   "audience": "admin",
   "title": "Farmer profile",
-  "purpose": "Everything about one farmer: details, machinery, farm parcels, crops and visits.",
+  "purpose": "Everything about one farmer: ID, details, organization, machinery, farm parcels, crops and visits.",
   "image": "/manual/admin/farmer-profile.png",
   "width": 1280,
-  "height": 1500,
+  "height": 1150,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Farmers",
-    "desc": "Returns to the farmers list."
+    "label": "Profile header",
+    "desc": "The farmer's name, RSBSA number, place and the date registered. The tag at the top right says this is the Farmer Profile."
    },
    {
     "n": 2,
@@ -540,48 +540,53 @@ export default {
    },
    {
     "n": 4,
-    "label": "Add Farm Parcel",
-    "desc": "Opens the Add Farm Parcels table for this farmer, to record parcels and the crops planted on them."
-   },
-   {
-    "n": 5,
-    "label": "Import Farm Parcels",
-    "desc": "Reads this farmer's parcels from a spreadsheet, with a preview first."
-   },
-   {
-    "n": 6,
     "label": "Edit Farmer",
     "desc": "Opens the same form as Register Farmer, to correct the farmer's details."
    },
    {
+    "n": 5,
+    "label": "Set Up Account / Regenerate Password",
+    "desc": "Makes a new random password for the farmer's login account and shows it once on screen, to be read to the farmer. Until an account exists this icon says Set Up Account. Every icon shows its name when you rest the pointer on it."
+   },
+   {
+    "n": 6,
+    "label": "Classification chips",
+    "desc": "One chip for each classification the farmer has: Person with Disability, 4Ps Beneficiary, ICC/IP Member (with the group), Senior Citizen and Farm Laborer. Rest the pointer on a chip to read what it means."
+   },
+   {
     "n": 7,
-    "label": "Regenerate Password",
-    "desc": "Makes a new random password for the farmer's login account and shows it once on screen, to be read to the farmer. Until an account exists this button says Set Up Account."
+    "label": "Personal Information",
+    "desc": "The name, gender, birthdate with the age, civil status and highest education."
    },
    {
     "n": 8,
-    "label": "Personal and reference information",
-    "desc": "The name, birthdate, contact number, barangay, civil status, education, date registered and the organization the farmer belongs to (marked Main when it is the main one)."
+    "label": "Contact & Address",
+    "desc": "The contact number, barangay, municipality and province."
    },
    {
     "n": 9,
-    "label": "Agricultural Machinery",
-    "desc": "The farmer's machinery: what, how many and whose it is. Add machinery adds a line; the red trash button of a line removes it."
+    "label": "Organization",
+    "desc": "Every organization the farmer belongs to. The main one is marked Main; a membership that ended is grayed and marked Inactive."
    },
    {
     "n": 10,
-    "label": "Farm Parcels",
-    "desc": "Each parcel with its number, area, ownership and commodity. Edit changes the parcel; Details opens its crops."
+    "label": "Agricultural Machinery",
+    "desc": "How many machinery lines the farmer has. View opens them in a window: what, how many and whose it is. Add machinery at the bottom adds a line; the trash button of a line removes it."
    },
    {
     "n": 11,
-    "label": "Crop Monitoring Records",
-    "desc": "The farmer's crops with season, dates, status and the estimated and actual yield. The box at the top right chooses the stage to show: Planted is the default, and every other status is in the list."
+    "label": "Farm Parcels",
+    "desc": "How many parcels the farmer has. View opens the parcels table (next picture)."
    },
    {
     "n": 12,
+    "label": "Crop Monitoring Records",
+    "desc": "How many crops the farmer has had. View opens every crop with its season, dates, status and yield (the picture after next)."
+   },
+   {
+    "n": 13,
     "label": "Visit History",
-    "desc": "The visits made to the farm. Record Farm Visit writes a new one: the date, what was seen or done, and the next visit."
+    "desc": "How many visits were recorded. View opens them: the date, what was seen or done, and the next visit. Record Farm Visit at the bottom writes a new one; Edit and Delete change a visit."
    }
   ]
  },
@@ -703,15 +708,15 @@ export default {
  "admin-fisherfolk-profile": {
   "audience": "admin",
   "title": "Fisherfolk profile",
-  "purpose": "Everything about one fisherfolk: details, stocking records and ponds.",
+  "purpose": "Everything about one fisherfolk: ID, details, registration numbers, organizations, records, stocking and ponds.",
   "image": "/manual/admin/fisherfolk-profile.png",
   "width": 1280,
-  "height": 1300,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Back",
-    "desc": "Returns to the fisherfolk list."
+    "label": "Profile header",
+    "desc": "The fisherfolk's name, RSBSA number, type, place and the date registered. The chips below the name show the classifications, whether there is a vessel (capture and mariculture) and whether a disaster affected them."
    },
    {
     "n": 2,
@@ -730,28 +735,43 @@ export default {
    },
    {
     "n": 5,
-    "label": "Regenerate Password",
-    "desc": "Makes a new random password for the fisherfolk's login account and shows it once, to be read to them. Until an account exists it says Set Up Account."
+    "label": "Set Up Account / Regenerate Password",
+    "desc": "Makes a new random password for the fisherfolk's login account and shows it once, to be read to them. Until an account exists it says Set Up Account. Rest the pointer on an icon to read its name."
    },
    {
     "n": 6,
-    "label": "Stocking Records",
-    "desc": "Each production cycle: species, culture type, date stocked, expected harvest, estimated and actual harvest (kg), pond barangay and status."
+    "label": "Personal Information",
+    "desc": "The name, gender, birthdate with the age, civil status and highest education."
    },
    {
     "n": 7,
-    "label": "Bulk Add Ponds",
-    "desc": "Adds several ponds or cages at once."
+    "label": "Contact & Address",
+    "desc": "The contact number, barangay and municipality."
    },
    {
     "n": 8,
-    "label": "Add Pond",
-    "desc": "Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance (with up to 5 photos of the insurance form)."
+    "label": "Registration & IDs",
+    "desc": "The RSBSA number, the Fish-R and Boat-R registration numbers, the PhilSys number and the date registered."
    },
    {
     "n": 9,
-    "label": "Ponds table",
-    "desc": "Each pond with its barangay, area, water source, stocking history and the PCIC Insured round check. The Actions menu of a pond edits or removes it."
+    "label": "Organization",
+    "desc": "The organizations the fisherfolk belongs to."
+   },
+   {
+    "n": 10,
+    "label": "Aquaculture or Capture record",
+    "desc": "What the fisherfolk farms or fishes: the culture type, species, area, fingerlings stocked and production, or the vessel, gear and fishing ground."
+   },
+   {
+    "n": 11,
+    "label": "Stocking Records",
+    "desc": "How many production cycles the fisherfolk has. View opens each one: species, culture type, date stocked, expected harvest, estimated and actual harvest (kg), pond barangay and status."
+   },
+   {
+    "n": 12,
+    "label": "Ponds",
+    "desc": "How many ponds and cages are on file. View opens them (next picture)."
    }
   ]
  },
@@ -982,84 +1002,74 @@ export default {
  },
  "admin-org-detail": {
   "audience": "admin",
-  "title": "Organization page: Members and Officers",
-  "purpose": "One organization: its members, equipment inventory, confirmations and officers.",
+  "title": "Organization profile",
+  "purpose": "One organization: its registration, contact, members, equipment, confirmations and officers.",
   "image": "/manual/admin/org-detail.png",
-  "width": 1280,
-  "height": 1300,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Back to Organizations",
-    "desc": "Returns to the list."
-   },
-   {
-    "n": 2,
-    "label": "Regenerate Password",
-    "desc": "Makes a new random password for the organization's login account and shows it once, to be read to its officer. Until an account exists it says Set Up Account."
-   },
-   {
-    "n": 3,
-    "label": "Tabs",
-    "desc": "Members, Equipment Inventory and Confirmed for Members (the next pictures show the last two)."
-   },
-   {
-    "n": 4,
-    "label": "Import Members",
-    "desc": "Adds many members from a spreadsheet, with a preview first."
-   },
-   {
-    "n": 5,
-    "label": "Add Member",
-    "desc": "Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member."
-   },
-   {
-    "n": 6,
-    "label": "Members table",
-    "desc": "Full name, RSBSA number, position, date joined and Main (marks the organization that is this member's main one when they belong to several). A member's menu changes the position or removes them."
-   },
-   {
-    "n": 7,
-    "label": "Organization Officers",
-    "desc": "The president, vice president, secretary, treasurer, auditor, board members and the other positions, with the term of each."
-   },
-   {
-    "n": 8,
-    "label": "Officer History",
-    "desc": "Every officer who held a position before, with the term dates and why it ended."
-   },
-   {
-    "n": 9,
-    "label": "Assign Officer",
-    "desc": "Choose a position and one of the organization's members, then Assign Officer. Positions that are held are grayed out, and a member who already holds a position cannot be given another: end that term first (open the officer, End term early, give the reason)."
-   }
-  ]
- },
- "admin-org-equipment": {
-  "audience": "admin",
-  "title": "Organization page: Equipment Inventory",
-  "purpose": "What the organization owns, as staff see it.",
-  "image": "/manual/admin/org-equipment.png",
   "width": 1280,
   "height": 1000,
   "legend": [
    {
     "n": 1,
-    "label": "Equipment Inventory tab",
-    "desc": "The equipment of this organization, one line per kind."
+    "label": "Profile header",
+    "desc": "The organization's name, registration number, address, date registered and the agency it is registered with. The tag at the top right says which kind of organization it is."
    },
    {
     "n": 2,
+    "label": "Set Up Account / Regenerate Password",
+    "desc": "Makes a new random password for the organization's login account and shows it once, to be read to its officer. Until an account exists it says Set Up Account. Rest the pointer on the icon to read its name."
+   },
+   {
+    "n": 3,
+    "label": "Registered Information",
+    "desc": "The registration number and agency, the dates organized and registered, and when it was added to the system."
+   },
+   {
+    "n": 4,
+    "label": "Contact",
+    "desc": "The contact person, contact number, e-mail, barangay and street address."
+   },
+   {
+    "n": 5,
+    "label": "Members",
+    "desc": "How many members there are. View opens the members table (next picture)."
+   },
+   {
+    "n": 6,
+    "label": "Equipment Inventory",
+    "desc": "How many equipment lines the organization owns. View opens the inventory."
+   },
+   {
+    "n": 7,
+    "label": "Confirmed for Members",
+    "desc": "The history of what the organization confirmed for its members. View opens it."
+   },
+   {
+    "n": 8,
+    "label": "Officers",
+    "desc": "How many officers are assigned. View opens them with their terms, Officer History and Assign Officer."
+   }
+  ]
+ },
+ "admin-org-equipment": {
+  "audience": "admin",
+  "title": "Organization profile: Equipment Inventory",
+  "purpose": "What the organization owns, as staff see it.",
+  "image": "/manual/admin/org-equipment.png",
+  "width": 1280,
+  "height": 900,
+  "legend": [
+   {
+    "n": 1,
     "label": "Import Equipment",
     "desc": "Adds many equipment lines from a spreadsheet."
    },
    {
-    "n": 3,
+    "n": 2,
     "label": "Add Equipment",
     "desc": "Choose the equipment, how many units and optionally the date acquired and remarks. New equipment starts as Good."
    },
    {
-    "n": 4,
+    "n": 3,
     "label": "Columns",
     "desc": "Equipment, quantity, condition (Good, Needs Repair, Not Operational, Broken or Lost), date acquired and remarks. A line that was entered by mistake has a Remove button at its end."
    }
@@ -1067,16 +1077,16 @@ export default {
  },
  "admin-org-confirmed": {
   "audience": "admin",
-  "title": "Organization page: Confirmed for Members",
+  "title": "Organization profile: Confirmed for Members",
   "purpose": "The record of what the organization confirmed for its members.",
   "image": "/manual/admin/org-confirmed.png",
   "width": 1280,
-  "height": 900,
+  "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Confirmed for Members tab",
-    "desc": "When the organization confirms for its members that they received an assistance, the confirmations are listed here, grouped by the moment and the person who confirmed, with the proof photos they share. It is a record: these confirmations are final and need no staff approval."
+    "label": "Confirmed for Members",
+    "desc": "When the organization confirms for its members that they received an assistance, the confirmations are listed here, grouped by the moment and the person who confirmed, with the proof photos they attached."
    }
   ]
  },
@@ -3497,21 +3507,41 @@ export default {
  },
  "admin-profile": {
   "audience": "admin",
-  "title": "My Profile (staff)",
+  "title": "My Profile (Admin and Focal Person)",
   "purpose": "Your own account.",
   "image": "/manual/admin/profile.png",
   "width": 1280,
-  "height": 800,
+  "height": 900,
   "legend": [
    {
     "n": 1,
-    "label": "Edit profile",
-    "desc": "The pencil at the top right changes your name, contact number and the other details of your account."
+    "label": "Profile header",
+    "desc": "Your photo, name, username, e-mail address and the date you joined. The tag at the top right and the chip below the name say whether you are an Admin or a Focal Person."
    },
    {
     "n": 2,
     "label": "Upload a new photo",
     "desc": "The camera button changes your profile photo (JPG, PNG or WEBP, up to 5 MB)."
+   },
+   {
+    "n": 3,
+    "label": "Edit Profile",
+    "desc": "Changes your name, e-mail address, username and password. Changing the e-mail, username or password asks for your current password."
+   },
+   {
+    "n": 4,
+    "label": "Account Information",
+    "desc": "Your full name, e-mail address, username, contact number, role and the date you joined."
+   },
+   {
+    "n": 5,
+    "label": "Account Status",
+    "desc": "Whether the account is active, whether the e-mail address is verified, and whether the password must be changed, each with what it means."
+   },
+   {
+    "n": 6,
+    "label": "Role & Access",
+    "desc": "Your role and what it can do in the system."
    }
   ]
  },
@@ -5223,6 +5253,171 @@ export default {
     "n": 5,
     "label": "Restore",
     "desc": "Makes a safety backup of how things are now and saves it to your computer, then puts the backup back: records, uploaded files, user accounts and passwords. While it runs, nothing else can be done on the page: keep it open."
+   }
+  ]
+ },
+ "admin-farmer-parcels": {
+  "audience": "admin",
+  "title": "Farmer profile: Farm Parcels",
+  "purpose": "Every parcel of the farmer, and the crops on each.",
+  "image": "/manual/admin/farmer-parcels.png",
+  "width": 1280,
+  "height": 1100,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Import Farm Parcels",
+    "desc": "Reads this farmer's parcels from a spreadsheet, with a preview first."
+   },
+   {
+    "n": 2,
+    "label": "Actions",
+    "desc": "The three-dot button of a parcel holds Edit (changes the parcel) and Details (shows or hides the crops of the parcel)."
+   },
+   {
+    "n": 3,
+    "label": "Crops Grown",
+    "desc": "The crops declared on the parcel, with their area and which one is the main crop. The three-dot button of a crop opens View details."
+   },
+   {
+    "n": 4,
+    "label": "Crop Monitoring Records",
+    "desc": "The plantings on this parcel with their dates, status and yield. Their three-dot button offers View details and Open in Crop Monitoring."
+   },
+   {
+    "n": 5,
+    "label": "Add Farm Parcel",
+    "desc": "Opens the Add Farm Parcels table for this farmer, to record parcels and the crops planted on them."
+   }
+  ]
+ },
+ "admin-farmer-crop-details": {
+  "audience": "admin",
+  "title": "Crop details of a crop grown",
+  "purpose": "The full details of a crop on a parcel, up to its harvest.",
+  "image": "/manual/admin/farmer-crop-details.png",
+  "width": 1280,
+  "height": 1300,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Crop Grown",
+    "desc": "What was declared for the crop: the variety, the area, whether it is the main crop, the seeds or trees, the seed source and PCIC insurance."
+   },
+   {
+    "n": 2,
+    "label": "Planting",
+    "desc": "Each planting of this crop on the parcel, with its season, dates, area, estimated and actual yield and status. Only the details are shown here: the activities are in Crop Monitoring."
+   },
+   {
+    "n": 3,
+    "label": "Harvest",
+    "desc": "Once a planting is harvested: the harvest date, the volume, the area harvested, the yield per hectare and whether it was early or late."
+   },
+   {
+    "n": 4,
+    "label": "Close",
+    "desc": "Closes the details and goes back to the parcels."
+   }
+  ]
+ },
+ "admin-farmer-crops": {
+  "audience": "admin",
+  "title": "Farmer profile: Crop Monitoring Records",
+  "purpose": "Every crop of the farmer, with what its colour means.",
+  "image": "/manual/admin/farmer-crops.png",
+  "width": 1280,
+  "height": 1000,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Stage",
+    "desc": "Chooses the crops to show: Planted is the default, and every other stage is in the list, down to All Status."
+   },
+   {
+    "n": 2,
+    "label": "Legend",
+    "desc": "What each colour of the status means, from Planted to Total Loss."
+   },
+   {
+    "n": 3,
+    "label": "Actions",
+    "desc": "The three-dot button of a crop opens View details (a read-only window) or Open in Crop Monitoring."
+   }
+  ]
+ },
+ "admin-fisherfolk-ponds": {
+  "audience": "admin",
+  "title": "Fisherfolk profile: Ponds",
+  "purpose": "Every pond and cage of the fisherfolk.",
+  "image": "/manual/admin/fisherfolk-ponds.png",
+  "width": 1280,
+  "height": 1000,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Bulk Add Ponds",
+    "desc": "Adds several ponds or cages at once."
+   },
+   {
+    "n": 2,
+    "label": "Add Pond",
+    "desc": "Adds one pond or cage: its name (numbered automatically if left blank), barangay, area in hectares, water source, and whether it has PCIC insurance (with up to 5 photos of the insurance form)."
+   },
+   {
+    "n": 3,
+    "label": "Ponds table",
+    "desc": "Each pond with its barangay, area, water source, stocking history and the PCIC Insured round check. The Actions menu of a pond edits, deactivates or removes it."
+   }
+  ]
+ },
+ "admin-org-members": {
+  "audience": "admin",
+  "title": "Organization profile: Members",
+  "purpose": "The members of the organization.",
+  "image": "/manual/admin/org-members.png",
+  "width": 1280,
+  "height": 900,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Import Members",
+    "desc": "Adds many members from a spreadsheet, with a preview first."
+   },
+   {
+    "n": 2,
+    "label": "Add Member",
+    "desc": "Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member."
+   },
+   {
+    "n": 3,
+    "label": "Members table",
+    "desc": "Full name, RSBSA number, position, date joined and Main (marks the organization that is this member's main one when they belong to several; Set as main changes it)."
+   }
+  ]
+ },
+ "admin-org-officers": {
+  "audience": "admin",
+  "title": "Organization profile: Officers",
+  "purpose": "The officers of the organization and their terms.",
+  "image": "/manual/admin/org-officers.png",
+  "width": 1280,
+  "height": 1000,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Officer History",
+    "desc": "Every officer who held a position before, with the term dates and why it ended."
+   },
+   {
+    "n": 2,
+    "label": "Assign Officer",
+    "desc": "Gives a position to one of the organization's members (next picture)."
+   },
+   {
+    "n": 3,
+    "label": "Officers table",
+    "desc": "The president, vice president, secretary, treasurer, auditor, board members and the other positions, with the term of each. End Term Early closes a term before its end date."
    }
   ]
  }
