@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, UserPlus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import { loadAllPages } from '../../utils/loadAllPages.js'
 import Button from '../../components/UI/Button.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import { FormSection } from '../../components/UI/FormTable.jsx'
@@ -32,8 +33,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
   const dupTimer = useRef(null)
 
   useEffect(() => {
-    api.get('/organizations/farmers/')
-      .then((r) => setOrganizations(r.data.results || r.data))
+    loadAllPages((u, o) => api.get(u, o), '/organizations/farmers/')
+      .then(setOrganizations)
       .catch(() => setOrganizations([]))
   }, [])
 

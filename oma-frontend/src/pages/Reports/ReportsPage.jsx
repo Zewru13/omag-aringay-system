@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import { loadAllPages } from '../../utils/loadAllPages.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -36,7 +37,7 @@ function HarvestedCropTab() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/organizations/farmers/'),
+      loadAllPages((u, o) => api.get(u, o), '/organizations/farmers/').then((data) => ({ data })),
       api.get('/production/crop-types/'),
       api.get('/production/monitoring/'),
     ]).then(([aRes, cRes, mRes]) => {
@@ -228,7 +229,7 @@ function FisheriesProductionTab() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/organizations/fisherfolk/'),
+      loadAllPages((u, o) => api.get(u, o), '/organizations/fisherfolk/').then((data) => ({ data })),
       api.get('/fisheries/species/'),
     ]).then(([aRes, sRes]) => {
       setOrganizations(Array.isArray(aRes.data) ? aRes.data : (aRes.data.results || []))
