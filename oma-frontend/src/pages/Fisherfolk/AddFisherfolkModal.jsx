@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import { loadAllPages } from '../../utils/loadAllPages.js'
 import Button from '../../components/UI/Button.jsx'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -24,8 +25,8 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   const dupTimer = useRef(null)
 
   useEffect(() => {
-    api.get('/organizations/fisherfolk/')
-      .then((r) => setOrganizations(r.data.results || r.data))
+    loadAllPages((u, o) => api.get(u, o), '/organizations/fisherfolk/')
+      .then(setOrganizations)
       .catch(() => setOrganizations([]))
   }, [])
 
