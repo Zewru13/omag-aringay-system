@@ -39,7 +39,7 @@ const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 // with (Step 0 found the original bug was that leaving ANY account's page
 // destroyed ITS OWN reveal instantly, not that two accounts interfered with
 // each other).
-export default function ActivateCitizenAccountButton({ citizenAccount, personLabel, onActivated }) {
+export default function ActivateCitizenAccountButton({ citizenAccount, personLabel, onActivated, iconOnly = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -148,11 +148,11 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
   return (
     <>
       {isActive ? (
-        <Button icon={RotateCcw} onClick={openModal} variant="outline" size="sm">
+        <Button icon={RotateCcw} onClick={openModal} variant="outline" size={iconOnly ? 'md' : 'sm'} iconOnly={iconOnly}>
           Regenerate Password
         </Button>
       ) : (
-        <Button icon={KeyRound} onClick={openModal} variant="primary">
+        <Button icon={KeyRound} onClick={openModal} variant="primary" iconOnly={iconOnly}>
           Set Up Account
         </Button>
       )}

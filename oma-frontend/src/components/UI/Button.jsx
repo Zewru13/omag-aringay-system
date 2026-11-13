@@ -22,6 +22,7 @@ function Button({
   variant = 'primary',
   size = 'md',
   icon: Icon,
+  iconOnly = false,       // only the icon is drawn; the label is still the button's name (read aloud, shown as a tooltip)
   isLoading = false,
   className = '',
   disabled,
@@ -31,8 +32,9 @@ function Button({
 
   return (
     <button
-      className={`${base} ${VARIANT[variant] || VARIANT.primary} ${SIZE[size] || SIZE.md} ${className}`}
+      className={`${base} ${VARIANT[variant] || VARIANT.primary} ${SIZE[size] || SIZE.md} ${iconOnly ? '!w-10 !min-w-10 !px-0' : ''} ${className}`}
       disabled={disabled || isLoading}
+      title={iconOnly && typeof children === 'string' ? children : undefined}
       {...props}
     >
       {isLoading ? (
@@ -40,7 +42,7 @@ function Button({
       ) : (
         Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
       )}
-      {children}
+      {iconOnly ? <span className="sr-only">{children}</span> : children}
     </button>
   )
 }

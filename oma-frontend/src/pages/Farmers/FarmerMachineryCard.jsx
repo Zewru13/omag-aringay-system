@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Plus, Tractor, Trash2 } from 'lucide-react'
+import { Tractor, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import { AddRowFooter } from '../../components/UI/InlineAddRow.jsx'
+import ViewSection from '../../components/UI/ViewSection.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import MachineryEditor from './MachineryEditor.jsx'
@@ -91,15 +93,9 @@ export default function FarmerMachineryCard({ farmerId, machinery, canEdit, onCh
   }
 
   return (
-    <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Agricultural Machinery</h2>
-        {canEdit && (
-          <Button type="button" onClick={() => setIsAdding(true)} variant="primary" size="sm">
-            <Plus size={13} aria-hidden="true" /> Add machinery
-          </Button>
-        )}
-      </div>
+    <>
+      <ViewSection icon={Tractor} title="Agricultural Machinery" count={machinery.length} noun="machinery line" maxWidth="max-w-3xl"
+        subtitle="What the farmer has or uses, whoever owns it.">
       {machinery.length === 0 ? (
         <p className="rounded-lg border border-[#E2E8E2] bg-[#EBF5EE]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">No machinery recorded.</p>
       ) : (
@@ -133,6 +129,8 @@ export default function FarmerMachineryCard({ farmerId, machinery, canEdit, onCh
           </table>
         </div>
       )}
+        {canEdit && <AddRowFooter label="Add machinery" onClick={() => setIsAdding(true)} />}
+      </ViewSection>
       {isAdding && <AddMachineryModal farmerId={farmerId} onClose={() => setIsAdding(false)} onSaved={onChanged} />}
       {removing && (
         <ConfirmDialog
@@ -144,6 +142,6 @@ export default function FarmerMachineryCard({ farmerId, machinery, canEdit, onCh
           onCancel={() => setRemoving(null)}
         />
       )}
-    </div>
+    </>
   )
 }
