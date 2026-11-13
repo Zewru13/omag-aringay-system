@@ -214,8 +214,8 @@ export const STAFF5 = [
     ] }),
   A({ id: 'admin-signatories', file: 'admin/signatories.png', url: '/signatories', title: 'Admin > Signatories', purpose: 'The names that can sign the reports.',
     callouts: [
-      { find: { text: 'Add Signatory', tag: 'button' }, label: 'Add Signatory', desc: 'Adds a row at the top of the table: type the name and the position printed under it, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then Save. A person who signs in two roles is added twice.' },
-      { find: COLS, label: 'Columns', desc: 'Name, position, signing role, order and whether the name is Active. The order sorts the names inside their role. A name that is not Active is no longer offered in the Reports pages.' },
+      { find: { text: 'Add Signatory', tag: 'button' }, label: 'Add Signatory', desc: 'Adds a row at the top of the table: type the name and the position printed under it, choose the signing role (Prepared by, Checked by, Noted by or Approved by), then Save. A person who signs in two roles is added twice.' },
+      { find: COLS, label: 'Columns', desc: 'Name, position, signing role and whether the name is Active. The names of a role are listed alphabetically. A name that is not Active is no longer offered in the Reports pages.' },
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the name. Delete does not change reports that were already printed.' },
     ] }),
   A({ id: 'admin-profile', file: 'admin/profile.png', url: '/profile', title: 'My Profile (staff)', purpose: 'Your own account.',

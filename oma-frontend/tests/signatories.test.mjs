@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 const { SIGNATORY_ROLES, roleLabel, signatoryError, signatoryOptions, meSignatory, resolvePick, signatureParams } = await import(new URL('../src/utils/signatories.js', import.meta.url).href)
 
@@ -62,5 +63,10 @@ eq(signatureParams({
 eq(Object.keys(signatureParams({ noted: { id: 1, name: 'Ana Cruz', position: '' } })), ['noted_by'], 'picks carry names, never ids')
 eq(new URLSearchParams(signatureParams({ noted: { name: 'R&D <Chief>', position: '' } })).get('noted_by'), 'R&D <Chief>', 'special characters survive the query string')
 eq(signatureParams({ noted: { name: '   ', position: 'x' } }), {}, 'a blank name is no signer')
+
+// no Order: a role's names are listed alphabetically, and the table and the form have no Order box
+const page = readFileSync(new URL('../src/pages/Signatories/SignatoriesPage.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+eq(/sort_order|ORDER|label="Order"|aria-label="Order"/.test(page), false, 'the Signatories page has no Order column, box or field')
+eq(page.includes("{ key: 'role', label: 'SIGNING ROLE' }") && page.includes("{ key: 'active', label: 'ACTIVE' }"), true, 'the other columns stay')
 
 console.log(`signatories: ${n} checks passed`)

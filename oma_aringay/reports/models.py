@@ -14,7 +14,7 @@ class Signatory(models.Model):
     name = models.CharField(max_length=150)
     position = models.CharField(max_length=150, blank=True, default='')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    sort_order = models.PositiveIntegerField(default=0)
+    sort_order = models.PositiveIntegerField(default=0)    # no longer used: the screens and the API ignore it, names are listed alphabetically inside a role
     is_active = models.BooleanField(default=True)
 
     class Meta:

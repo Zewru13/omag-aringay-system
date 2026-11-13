@@ -19,14 +19,14 @@ class SignatoryApiTests(APITestCase):
         cls.evaluator = User.objects.create_user(username='ev', password='pw', role='EVALUATOR', email='e@x.test')
         cls.citizen = User.objects.create_user(username='cit', password='pw', role='CITIZEN', email='c@x.test')
 
-    def _make(self, name, role='noted', sort_order=0, is_active=True, position=''):
-        return Signatory.objects.create(name=name, role=role, sort_order=sort_order, is_active=is_active, position=position)
+    def _make(self, name, role='noted', is_active=True, position=''):
+        return Signatory.objects.create(name=name, role=role, is_active=is_active, position=position)
 
-    def test_evaluator_and_admin_list_only_active_rows_ordered_by_role_then_sort_order_then_name(self):
+    def test_evaluator_and_admin_list_only_active_rows_ordered_by_role_then_name(self):
         self._make('Zed', 'approved')
-        self._make('Bea', 'noted', sort_order=2)
-        self._make('Abe', 'noted', sort_order=2)
-        self._make('Cy', 'noted', sort_order=1)
+        self._make('Bea', 'noted')
+        self._make('Abe', 'noted')
+        self._make('Cy', 'noted')
         self._make('Dee', 'prepared')
         self._make('Eve', 'checked')
         self._make('Gone', 'noted', is_active=False)
@@ -36,9 +36,9 @@ class SignatoryApiTests(APITestCase):
             self.assertEqual(res.status_code, 200)
             self.assertEqual(
                 [(r['role'], r['name']) for r in res.data],
-                [('prepared', 'Dee'), ('checked', 'Eve'), ('noted', 'Cy'), ('noted', 'Abe'), ('noted', 'Bea'), ('approved', 'Zed')],
+                [('prepared', 'Dee'), ('checked', 'Eve'), ('noted', 'Abe'), ('noted', 'Bea'), ('noted', 'Cy'), ('approved', 'Zed')],
             )
-            self.assertEqual(set(res.data[0]), {'id', 'name', 'position', 'role', 'sort_order', 'is_active'})
+            self.assertEqual(set(res.data[0]), {'id', 'name', 'position', 'role', 'is_active'})
 
     def test_all_flag_returns_inactive_rows_for_admin_but_is_ignored_for_evaluator(self):
         self._make('Here')
@@ -54,7 +54,7 @@ class SignatoryApiTests(APITestCase):
         self.assertEqual(self.client.get(URL).status_code, 403)
 
     def test_only_admin_can_create_edit_and_delete(self):
-        body = {'name': 'Ana Cruz', 'position': 'Municipal Agriculturist', 'role': 'noted', 'sort_order': 1}
+        body = {'name': 'Ana Cruz', 'position': 'Municipal Agriculturist', 'role': 'noted'}
         self.client.force_authenticate(self.evaluator)
         self.assertEqual(self.client.post(URL, body, format='json').status_code, 403)
         row = self._make('Existing')
