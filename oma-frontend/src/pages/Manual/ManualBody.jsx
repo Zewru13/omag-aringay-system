@@ -6,13 +6,15 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { AUDIENCES, audienceFor, manualFor, manualIntro } from './manualContent.js'
 import { printManual } from './manualPrint.js'
+import ManualSearchBox from './ManualSearchBox.jsx'
+import { guideTarget, screenTarget, stepTarget } from './manualSearch.js'
 
 const CARD = 'rounded-xl border border-[#E2E8E2] bg-white p-5'
 
 // One annotated picture: its title, the picture with its numbered orange boxes, and the table that says what each number is.
-function Screen({ screen, number }) {
+function Screen({ screen, number, id }) {
   return (
-    <figure className="rounded-lg border border-[#E2E8E2] bg-[#FBFCFB] p-3">
+    <figure id={id} className="scroll-mt-32 rounded-lg border border-[#E2E8E2] bg-[#FBFCFB] p-3">
       <figcaption className="mb-2">
         <p className="text-[13.5px] font-semibold text-[#1A2B1A]">{number}. {screen.title}</p>
         <p className="text-[12.5px] text-[#4A5E4A]">{screen.purpose}</p>
@@ -65,6 +67,10 @@ export default function ManualBody() {
   return (
     <>
       <div className="space-y-5">
+        <div className="sticky top-14 z-20 -mx-4 bg-[#F5F7F5]/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+          <ManualSearchBox guides={guides} />
+        </div>
+
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white p-4">
           <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-[#EBF5EE]"><BookOpen className="h-4 w-4 text-[#1B4D2E]" aria-hidden="true" /></div>
           <div className="min-w-0 flex-1 basis-64">
@@ -112,19 +118,19 @@ export default function ManualBody() {
         </section>
 
         {guides.map((g, i) => (
-          <section key={g.id} id={`guide-${g.id}`} className={`${CARD} scroll-mt-20`} aria-labelledby={`guide-title-${g.id}`}>
+          <section key={g.id} id={guideTarget(g)} className={`${CARD} scroll-mt-32`} aria-labelledby={`guide-title-${g.id}`}>
             <h2 id={`guide-title-${g.id}`} className="text-[16px] font-semibold text-[#1A2B1A]">{i + 1}. {g.title}</h2>
             <p className="mb-3 mt-1 text-[13px] text-[#4A5E4A]">{g.intro}</p>
             <ol className="mb-4 space-y-2">
               {g.steps.map((step, j) => (
-                <li key={step} className="flex gap-3">
+                <li key={step} id={stepTarget(g, j)} className="flex scroll-mt-32 gap-3">
                   <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#1B4D2E] text-[11px] font-bold text-white" aria-hidden="true">{j + 1}</span>
                   <p className="min-w-0 flex-1 text-[13.5px] leading-relaxed text-[#1A2B1A]">{step}</p>
                 </li>
               ))}
             </ol>
             <div className="space-y-4">
-              {g.screens.map((s, k) => <Screen key={s.id} screen={s} number={`${i + 1}.${k + 1}`} />)}
+              {g.screens.map((s, k) => <Screen key={s.id} id={screenTarget(g, s)} screen={s} number={`${i + 1}.${k + 1}`} />)}
             </div>
           </section>
         ))}

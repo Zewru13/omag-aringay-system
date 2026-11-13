@@ -755,3 +755,13 @@ body {
   .work-backdrop, .work-card, .work-arc, .work-icon, .work-dot { animation: none; }
   .work-ring { animation: none; opacity: 0; }
 }
+
+/* The place the User Manual search jumped to: a short orange ring so the eye finds it. */
+@keyframes manualFound {
+  0%, 60% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.55); background-color: rgba(254, 243, 199, 0.6); }
+  100% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0); background-color: transparent; }
+}
+.manual-found { animation: manualFound 1.8s ease-out; border-radius: 0.5rem; }
+@media (prefers-reduced-motion: reduce) {
+  .manual-found { animation: none; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.55); }
+}
