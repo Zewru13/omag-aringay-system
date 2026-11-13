@@ -5032,12 +5032,12 @@ export default {
    {
     "n": 1,
     "label": "Add Signatory",
-    "desc": "Adds a row at the top of the table: type the name and the position printed under it, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then Save. A person who signs in two roles is added twice."
+    "desc": "Adds a row at the top of the table: type the name and the position printed under it, choose the signing role (Prepared by, Checked by, Noted by or Approved by), then Save. A person who signs in two roles is added twice."
    },
    {
     "n": 2,
     "label": "Columns",
-    "desc": "Name, position, signing role, order and whether the name is Active. The order sorts the names inside their role. A name that is not Active is no longer offered in the Reports pages."
+    "desc": "Name, position, signing role and whether the name is Active. The names of a role are listed alphabetically. A name that is not Active is no longer offered in the Reports pages."
    },
    {
     "n": 3,

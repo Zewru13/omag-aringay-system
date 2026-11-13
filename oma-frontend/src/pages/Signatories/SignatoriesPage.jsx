@@ -19,26 +19,25 @@ import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
 // Admin > Signatories: the officials the Reports pages offer as Prepared / Checked / Noted / Approved by. One row is one person in one
-// signing role (a person who signs in two roles is added twice). A row that is not Active is no longer offered; Order sorts a role's list.
+// signing role (a person who signs in two roles is added twice). A row that is not Active is no longer offered. A role's names are listed alphabetically.
 // A new signatory is typed in a row of the table (the Add Signatory button is under it), like the other settings tables; Edit opens the form.
 
 const COLUMNS = [
   { key: 'name', label: 'NAME' },
   { key: 'position', label: 'POSITION' },
   { key: 'role', label: 'SIGNING ROLE' },
-  { key: 'sort_order', label: 'ORDER' },
   { key: 'active', label: 'ACTIVE' },
   { key: 'actions', label: 'ACTIONS' },
 ]
 
-const EMPTY = { name: '', position: '', role: 'noted', sort_order: '0', is_active: true }
+const EMPTY = { name: '', position: '', role: 'noted', is_active: true }
 const first = (v) => (Array.isArray(v) ? v[0] : v)
 
 function SignatoryModal({ signatory, onClose, onSaved }) {
   const { showToast } = useToast()
   const isEdit = Boolean(signatory?.id)
   const original = isEdit
-    ? { name: signatory.name, position: signatory.position || '', role: signatory.role, sort_order: String(signatory.sort_order ?? 0), is_active: signatory.is_active }
+    ? { name: signatory.name, position: signatory.position || '', role: signatory.role, is_active: signatory.is_active }
     : EMPTY
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`signatory:${signatory?.id ?? 'new'}`)
@@ -52,7 +51,7 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
     e.preventDefault()
     const problem = signatoryError(form)
     if (problem) { setErrors(form.name.trim() ? { role: problem } : { name: problem }); return }
-    const body = { name: form.name.trim(), position: form.position.trim(), role: form.role, sort_order: Number(form.sort_order) || 0, is_active: form.is_active }
+    const body = { name: form.name.trim(), position: form.position.trim(), role: form.role, is_active: form.is_active }
     setIsSubmitting(true)
     try {
       if (isEdit) await api.put(`/reports/signatories/${signatory.id}/`, body)
@@ -62,7 +61,7 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
       onSaved(); onClose()
     } catch (err) {
       const data = err?.response?.data || {}
-      setErrors({ name: first(data.name), role: first(data.role), sort_order: first(data.sort_order), general: first(data.detail) || (Object.keys(data).length ? undefined : 'Failed to save the signatory.') })
+      setErrors({ name: first(data.name), role: first(data.role), general: first(data.detail) || (Object.keys(data).length ? undefined : 'Failed to save the signatory.') })
     } finally {
       setIsSubmitting(false)
     }
@@ -100,10 +99,6 @@ function SignatoryModal({ signatory, onClose, onSaved }) {
             {SIGNATORY_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </SettingsField>
-        <SettingsField label="Order" error={errors.sort_order}>
-          <input className={baseInputClasses} type="number" min="0" inputMode="numeric" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value)} />
-          <p className="mt-1 text-[11.5px] text-[#7A8E7A]">Smaller numbers come first in that role's list.</p>
-        </SettingsField>
           <SettingsField label="Active">
             <label className="flex min-h-[40px] items-center gap-2 text-[13px] text-[#1A2B1A]">
               <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)} className="h-4 w-4 accent-[#1B4D2E]" />
@@ -122,7 +117,7 @@ export default function SignatoriesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)   // null = closed, a row = editing it
-  const add = useAddRow({ name: '', position: '', role: 'noted', sort_order: '0' }, 'signatory')
+  const add = useAddRow({ name: '', position: '', role: 'noted' }, 'signatory')
   const [deleting, setDeleting] = useState(null)
   const [version, setVersion] = useState(0)
 
@@ -143,13 +138,13 @@ export default function SignatoriesPage() {
     if (problem) { showToast(problem, 'error'); return }
     add.setIsSaving(true)
     try {
-      await api.post('/reports/signatories/', { name: d.name.trim(), position: d.position.trim(), role: d.role, sort_order: Number(d.sort_order) || 0, is_active: true })
+      await api.post('/reports/signatories/', { name: d.name.trim(), position: d.position.trim(), role: d.role, is_active: true })
       showToast('Signatory added.', 'success')
       add.close()
       refresh()
     } catch (err) {
       const data = err?.response?.data || {}
-      showToast(first(data.name) || first(data.role) || first(data.sort_order) || first(data.detail) || 'Failed to save the signatory.', 'error')
+      showToast(first(data.name) || first(data.role) || first(data.detail) || 'Failed to save the signatory.', 'error')
     } finally {
       add.setIsSaving(false)
     }
@@ -160,7 +155,6 @@ export default function SignatoriesPage() {
     name: s.name,
     position: s.position || <span className="text-[#A8BCA8]">—</span>,
     role: roleLabel(s.role),
-    sort_order: s.sort_order,
     active: <StatusPill tone={s.is_active ? 'green' : 'slate'}>{s.is_active ? 'Active' : 'Inactive'}</StatusPill>,
     actions: (
       <RowActions actions={[
@@ -182,8 +176,6 @@ export default function SignatoriesPage() {
           {SIGNATORY_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </DraftSelect>
       ),
-      sort_order: <DraftInput type="number" min="0" inputMode="numeric" value={add.draft.sort_order} aria-label="Order"
-        onChange={(e) => add.change({ sort_order: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
       active: <StatusPill tone="green">Active</StatusPill>,
       actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
     })

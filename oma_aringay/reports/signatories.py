@@ -20,7 +20,7 @@ class SignatorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Signatory
-        fields = ['id', 'name', 'position', 'role', 'sort_order', 'is_active']
+        fields = ['id', 'name', 'position', 'role', 'is_active']
 
 
 class SignatoryList(generics.ListCreateAPIView):
@@ -35,7 +35,7 @@ class SignatoryList(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_queryset(self):
-        qs = Signatory.objects.annotate(role_order=ROLE_ORDER).order_by('role_order', 'sort_order', 'name')
+        qs = Signatory.objects.annotate(role_order=ROLE_ORDER).order_by('role_order', 'name')
         wants_all = self.request.query_params.get('all') == '1' and self.request.user.role == 'ADMIN'
         return qs if wants_all else qs.filter(is_active=True)
 

@@ -267,7 +267,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where do I keep the names that sign the reports?',
-        a: 'Admin > Signatories. Press Add Signatory under the table, type the name and the position that is printed under it in the new row, choose the signing role (Prepared by, Checked by, Noted by or Approved by) and the order, then press Save. Add a person once for each role they sign in. Turn off Active to stop offering a name without deleting it. These are the names offered in the Signatories block of the Reports pages.',
+        a: 'Admin > Signatories. Press Add Signatory under the table, type the name and the position that is printed under it in the new row, choose the signing role (Prepared by, Checked by, Noted by or Approved by), then press Save. Add a person once for each role they sign in. Turn off Active to stop offering a name without deleting it. These are the names offered in the Signatories block of the Reports pages.',
         roles: ADMIN,
       },
       {
