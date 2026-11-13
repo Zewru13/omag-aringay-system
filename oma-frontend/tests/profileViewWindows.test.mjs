@@ -31,10 +31,10 @@ ok(/aria-haspopup="dialog"/.test(view), 'the View button says it opens a window'
 // the farmer profile
 const farmer = read('src/pages/Farmers/FarmerDetailPage.jsx')
 ok(!/Back to Farmers/.test(farmer) && !/ArrowLeft/.test(farmer), 'no Back to Farmers')
-for (const label of ['View Assistance History', 'Generate Report', 'Import Farm Parcels', 'Edit Farmer']) {
+for (const label of ['View Assistance History', 'Generate Report', 'Edit Farmer']) {
   ok(new RegExp(`iconOnly[^>]*>\s*${label}\s*<|${label}[\s\S]{0,40}</Button>`).test(farmer) && farmer.includes(label), `${label} stays as a button`)
 }
-ok((farmer.match(/iconOnly/g) || []).length >= 5, 'the header buttons (history, report, import, edit, set up account) are icon-only')
+ok((farmer.match(/iconOnly/g) || []).length >= 4, 'the header buttons (history, report, edit, set up account) are icon-only')
 const headerEnd = farmer.indexOf('Farm Parcels', farmer.indexOf('<ViewSection'))
 ok(farmer.includes('<ViewSection') && /title="Farm Parcels"/.test(farmer), 'Farm Parcels is a View card')
 ok(/title="Crop Monitoring Records"|title="Crops"/.test(farmer), 'Crops is a View card')

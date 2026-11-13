@@ -22,7 +22,7 @@ export default function ViewSection({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[14px] font-semibold text-[#1A2B1A]">{title}</h2>
+          <h2 className="text-[14px] font-semibold leading-snug text-[#1A2B1A]">{title}</h2>
           <p className="text-[12.5px] text-[#7A8E7A]">{isLoading ? 'Loading…' : countText(count, noun)}</p>
         </div>
         <Button type="button" variant="outline" size="sm" aria-haspopup="dialog" onClick={() => setIsOpen(true)}>View</Button>

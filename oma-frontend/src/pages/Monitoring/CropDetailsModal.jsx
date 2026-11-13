@@ -60,7 +60,9 @@ function HistoryTable({ title, items, empty, heads, testId }) {
   )
 }
 
-export default function CropDetailsModal({ record, onClose, onAction }) {
+// `readOnly`: no buttons that open forms (the window is only looked at, e.g. from a farmer's profile). `hideHistory`: only the crop and its harvest, no
+// activities, pest and disease reports, disasters or remarks.
+export default function CropDetailsModal({ record, onClose, onAction, readOnly = false, hideHistory = false }) {
   const { isAdmin } = useAuth()
   const [data, setData] = useState({ key: null, logs: [], pests: [], disasters: [], remarks: [], harvest: null })
   const key = `${record.id}:${record.harvest_record_id || ''}`
@@ -68,7 +70,7 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
 
   useEffect(() => {
     let alive = true
-    const get = (url) => api.get(url).then(asList).catch(() => [])
+    const get = (url) => (hideHistory ? Promise.resolve([]) : api.get(url).then(asList).catch(() => []))
     Promise.all([
       get(`/production/monitoring/${record.id}/logs/`),
       get(`/production/monitoring/${record.id}/pest-disease/`),
@@ -79,12 +81,12 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
       if (alive) setData({ key, logs, pests, disasters, remarks, harvest })
     })
     return () => { alive = false }
-  }, [key, record.id, record.harvest_record_id])
+  }, [key, record.id, record.harvest_record_id, hideHistory])
 
   const cycle = cycleProgress(record.date_planted, record.expected_harvest_date, todayISO())
   const harvest = harvestRows(data.harvest)
   const actions = detailActions(record)
-  const manageHarvest = harvestManageActions(record, { isAdmin })
+  const manageHarvest = readOnly ? [] : harvestManageActions(record, { isAdmin })
 
   return (
     <ModalShell
@@ -96,7 +98,7 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
       footer={(
         <>
           <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-          {actions.map((a) => (
+          {!readOnly && actions.map((a) => (
             <Button key={a.key} type="button" variant={a.key === 'disaster' ? 'outline' : 'primary'} onClick={() => onAction(a.key)}>{a.label}</Button>
           ))}
         </>
@@ -131,10 +133,14 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
                 <DetailTable title="Harvest" fields={asFields(harvest)} />
               </div>
             )}
-            <HistoryTable title="Activities" items={data.logs.map(activityLine)} empty="No activities recorded yet." heads={['Activity', 'Plant Condition', 'Notes']} testId="crop-details-activities" />
-            <HistoryTable title="Pest and Disease Reports" items={data.pests.map(pestLine)} empty="No pest or disease reports." heads={['Pest / Disease', 'Severity', 'Action Taken']} testId="crop-details-pests" />
-            <HistoryTable title="Disasters" items={data.disasters.map(disasterLine)} empty="No disasters reported." heads={['Disaster', 'Details']} testId="crop-details-disasters" />
-            <HistoryTable title="Remarks" items={data.remarks.map((r) => ({ title: r.content, date: r.date_created, meta: r.created_by_name || '' }))} empty="No remarks." heads={['Remark', 'Added By']} testId="crop-details-remarks" />
+            {!hideHistory && (
+              <>
+              <HistoryTable title="Activities" items={data.logs.map(activityLine)} empty="No activities recorded yet." heads={['Activity', 'Plant Condition', 'Notes']} testId="crop-details-activities" />
+              <HistoryTable title="Pest and Disease Reports" items={data.pests.map(pestLine)} empty="No pest or disease reports." heads={['Pest / Disease', 'Severity', 'Action Taken']} testId="crop-details-pests" />
+              <HistoryTable title="Disasters" items={data.disasters.map(disasterLine)} empty="No disasters reported." heads={['Disaster', 'Details']} testId="crop-details-disasters" />
+              <HistoryTable title="Remarks" items={data.remarks.map((r) => ({ title: r.content, date: r.date_created, meta: r.created_by_name || '' }))} empty="No remarks." heads={['Remark', 'Added By']} testId="crop-details-remarks" />
+              </>
+            )}
           </>
         )}
       </div>
