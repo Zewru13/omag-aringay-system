@@ -52,9 +52,11 @@ eq(STATUS_LEGEND.every((s) => s.tone && s.meaning), true, 'each has a colour and
 
 // the screens
 const parts = read('src/pages/Farmers/FarmerProfileParts.jsx')
-for (const name of ['ProfileHero', 'InfoCard', 'FieldItem', 'OrganizationList', 'StatusLegend']) {
+for (const name of ['ProfileHero', 'OrganizationList', 'StatusLegend']) {
   ok(new RegExp(`export function ${name}`).test(parts), `${name} is a part of the profile`)
 }
+const kit = read('src/components/Profile/ProfileKit.jsx')
+for (const name of ['InfoCard', 'FieldItem']) ok(new RegExp(`export function ${name}`).test(kit), `${name} comes from the shared kit`)
 ok(!/export function StatsStrip|export function ClassificationList/.test(parts), 'the totals strip and the Classification card are gone')
 const page = read('src/pages/Farmers/FarmerDetailPage.jsx')
 ok(/<ProfileHero/.test(page), 'the page opens with the hero')
