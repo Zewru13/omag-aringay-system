@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Cake, CalendarCheck, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, GraduationCap, Heart, IdCard, MapPin, Phone, Plus, Sprout, Upload, User, UserRound, Users,
+  ArrowUpRight, Cake, CalendarCheck, ClipboardList, Edit, Eye, FileText, GraduationCap, Heart, IdCard, MapPin, Phone, Sprout, Upload, User, UserRound, Users,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -9,6 +9,7 @@ import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { AddRowFooter } from '../../components/UI/InlineAddRow.jsx'
 import ViewSection from '../../components/UI/ViewSection.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
@@ -20,13 +21,14 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate as formatSharedDate } from '../../utils/dateFormat.js'
 import { downloadFile } from '../../utils/fileDownload.js'
-import { rowClickProps } from '../../utils/rowClick.js'
 import { PROFILE_DEFAULT_STATUS, PROFILE_STATUS_OPTIONS, cropDisplayStatus, farmerCropParams } from '../Monitoring/monitoringGroups.js'
 import EditFarmerModal from './EditFarmerModal.jsx'
 import EditParcelModal from './EditParcelModal.jsx'
+import CropDetailsModal from '../Monitoring/CropDetailsModal.jsx'
 import FarmerMachineryCard from './FarmerMachineryCard.jsx'
-import { ClassificationList, FieldItem, InfoCard, OrganizationList, ProfileHero, SectionTitle, StatsStrip, StatusLegend } from './FarmerProfileParts.jsx'
-import { ageText, classificationChips, locationText, profileStats } from './farmerProfile.js'
+import FarmCropDetailsModal from './FarmCropDetailsModal.jsx'
+import { FieldItem, InfoCard, OrganizationList, ProfileHero, SectionTitle, StatusLegend } from './FarmerProfileParts.jsx'
+import { ageText, classificationChips, locationText } from './farmerProfile.js'
 import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 
 // Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
@@ -100,11 +102,22 @@ function MonitoringRecordCard({ r, navigate }) {
   )
 }
 
+// The three-dot menu of a crop record: its details in a window, or the record in Crop Monitoring.
+function CropRecordMenu({ record, onView, navigate }) {
+  return (
+    <RowActions alwaysMenu actions={[
+      { key: 'view', label: 'View details', icon: Eye, onClick: () => onView(record) },
+      { key: 'open', label: 'Open in Crop Monitoring', icon: ArrowUpRight, onClick: () => navigate(`/crop-monitoring?record=${record.id}`) },
+    ]} />
+  )
+}
+
 function CropMonitoringSubSection({ parcelId }) {
   const navigate = useNavigate()
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [viewing, setViewing] = useState(null)
 
   useEffect(() => {
     if (loaded) return
@@ -128,7 +141,7 @@ function CropMonitoringSubSection({ parcelId }) {
     <table className="hidden min-w-full text-xs md:table">
       <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
         <tr>
-          {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)'].map((h) => (
+          {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)', 'Actions'].map((h) => (
             <th key={h} className="px-3 py-1.5 text-left">{h}</th>
           ))}
         </tr>
@@ -136,10 +149,7 @@ function CropMonitoringSubSection({ parcelId }) {
       <tbody className="divide-y divide-[#F0F4F0]">
         {records.map((r, i) => (
           <React.Fragment key={r.id}>
-            <tr
-              className={`cursor-pointer hover:bg-[#EBF5EE]/60 ${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}`}
-              {...rowClickProps(() => navigate(`/crop-monitoring?record=${r.id}`), `Open ${r.crop_type_name} monitoring record`)}
-            >
+            <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
               <td data-label="Crop" className="px-3 py-1.5 text-[#1A2B1A]">{r.crop_type_name}</td>
               <td data-label="Season/Year" className="px-3 py-1.5 text-[#1A2B1A]">{r.season} {r.year}</td>
               <td data-label="Date Planted" className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.date_planted)}</td>
@@ -149,9 +159,10 @@ function CropMonitoringSubSection({ parcelId }) {
               </td>
               <td data-label="Est. Yield (kg)" className="px-3 py-1.5 text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
               <td data-label="Act. Yield (kg)" className="px-3 py-1.5 text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
+              <td data-label="Actions" className="px-3 py-1.5"><CropRecordMenu record={r} onView={setViewing} navigate={navigate} /></td>
             </tr>
             <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
-              <td colSpan={7} className="px-3 pb-2 pt-0 text-[11px] text-[#7A8E7A]">
+              <td colSpan={8} className="px-3 pb-2 pt-0 text-[11px] text-[#7A8E7A]">
                 {(r.log_count ?? 0)} activity log{(r.log_count ?? 0) !== 1 ? 's' : ''}
                 {' · '}
                 {(r.labor_log_count ?? 0)} operation{(r.labor_log_count ?? 0) !== 1 ? 's' : ''} logged
@@ -161,12 +172,14 @@ function CropMonitoringSubSection({ parcelId }) {
         ))}
       </tbody>
     </table>
+    {viewing && <CropDetailsModal record={viewing} readOnly onClose={() => setViewing(null)} />}
     </>
   )
 }
 
 function ParcelRow({ parcel, onEdit }) {
   const [expanded, setExpanded] = useState(false)
+  const [viewingCrop, setViewingCrop] = useState(null)     // the crop grown whose details are open
 
   const cropRows = (parcel.crops || []).map((c) => ({
     crop_name: (
@@ -179,6 +192,7 @@ function ParcelRow({ parcel, onEdit }) {
     main_crop_pill: c.is_main_crop ? (
       <StatusPill tone="green">Main</StatusPill>
     ) : null,
+    actions: <RowActions alwaysMenu actions={[{ key: 'view', label: 'View details', icon: Eye, onClick: () => setViewingCrop(c) }]} />,
   }))
 
   return (
@@ -188,25 +202,11 @@ function ParcelRow({ parcel, onEdit }) {
         <td data-label="Area (ha)" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.area_hectares}</td>
         <td data-label="Ownership" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.land_ownership}</td>
         <td data-label="Commodity" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.commodity_name || '-'}</td>
-        <td className="px-4 py-3 text-right">
-          {onEdit && (
-            <button
-              className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors max-md:mr-2 max-md:min-h-[40px] max-md:border max-md:border-[#C8D5C8] max-md:px-4"
-              onClick={() => onEdit(parcel)}
-              type="button"
-            >
-              <Edit size={13} />
-              Edit
-            </button>
-          )}
-          <button
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors max-md:min-h-[40px] max-md:border max-md:border-[#C8D5C8] max-md:px-4"
-            onClick={() => setExpanded((v) => !v)}
-            type="button"
-          >
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            {expanded ? 'Hide' : 'Details'}
-          </button>
+        <td data-label="Actions" className="px-4 py-3 text-right">
+          <RowActions alwaysMenu actions={[
+            onEdit && { key: 'edit', label: 'Edit', icon: Edit, onClick: () => onEdit(parcel) },
+            { key: 'details', label: expanded ? 'Hide details' : 'Details', icon: Eye, onClick: () => setExpanded((v) => !v) },
+          ]} />
         </td>
       </tr>
 
@@ -234,6 +234,7 @@ function ParcelRow({ parcel, onEdit }) {
                       { key: 'crop_name', label: 'Crop' },
                       { key: 'area_hectares', label: 'Area (ha)' },
                       { key: 'main_crop_pill', label: 'Main Crop' },
+                      { key: 'actions', label: 'Actions' },
                     ]}
                     rows={cropRows}
                     emptyText="None recorded"
@@ -253,6 +254,7 @@ function ParcelRow({ parcel, onEdit }) {
           </td>
         </tr>
       )}
+      {viewingCrop && <FarmCropDetailsModal crop={viewingCrop} parcel={parcel} onClose={() => setViewingCrop(null)} />}
     </>
   )
 }
@@ -274,6 +276,7 @@ function FarmerDetailPage() {
   const [isLoadingVisits, setIsLoadingVisits] = useState(false)
   const [isLoadingCrops, setIsLoadingCrops] = useState(true)
   const [cropTotal, setCropTotal] = useState(undefined)     // every crop of the farmer, whatever the stage filter says
+  const [viewingCrop, setViewingCrop] = useState(null)       // the crop whose details are open (from the Crop Monitoring Records window)
   const [farmerError, setFarmerError] = useState('')
   const [parcelError, setParcelError] = useState('')
   const [historyError, setHistoryError] = useState('')
@@ -397,14 +400,11 @@ function FarmerDetailPage() {
     }
   }
 
-  // The actions are icons (hover for the name); they sit in the hero. Add Farm Parcel is in the Farm Parcels window.
+  // The actions are icons (hover for the name); they sit in the hero. Add Farm Parcel and Import Farm Parcels are in the Farm Parcels window.
   const actions = farmer && (
     <>
       <Button icon={ClipboardList} onClick={openHistory} variant="outline" iconOnly>View Assistance History</Button>
       <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} iconOnly>Generate Report</Button>
-      {(isAdmin || isEvaluator) && (
-        <Button icon={Upload} onClick={() => setIsParcelImportOpen(true)} variant="outline" iconOnly>Import Farm Parcels</Button>
-      )}
       {(isAdmin || isEvaluator) && (
         <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" iconOnly>Edit Farmer</Button>
       )}
@@ -444,8 +444,6 @@ function FarmerDetailPage() {
               registered={formatDate(farmer.date_registered)}
             />
 
-            <StatsStrip stats={profileStats({ parcels, cropTotal, organizations: farmer.organizations })} />
-
             <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
               <div className="space-y-4">
                 <InfoCard icon={User} title="Personal Information">
@@ -477,10 +475,6 @@ function FarmerDetailPage() {
                 <InfoCard icon={Users} title={(farmer.organizations || []).length > 1 ? 'Organizations' : 'Organization'}>
                   <OrganizationList organizations={farmer.organizations} />
                 </InfoCard>
-
-                <InfoCard icon={IdCard} title="Classification">
-                  <ClassificationList chips={classificationChips(farmer)} />
-                </InfoCard>
               </div>
             </div>
           </>
@@ -489,7 +483,7 @@ function FarmerDetailPage() {
         <SectionTitle icon={Sprout}>Farm Records</SectionTitle>
 
         {/* Machinery, Farm Parcels and Crops: a card each with a View button; View opens the table in a floating window */}
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {farmer && (
             <FarmerMachineryCard farmerId={farmer.id} machinery={farmer.machinery || []} canEdit={isAdmin || isEvaluator} onChanged={fetchFarmer} />
           )}
@@ -498,6 +492,12 @@ function FarmerDetailPage() {
             icon={MapPin} title="Farm Parcels" count={parcels.length} noun="parcel" isLoading={isLoadingParcels}
             subtitle="Every parcel of this farmer. Details opens its crops and crop monitoring records."
           >
+          {(isAdmin || isEvaluator) && (
+            <div className="mb-3 flex justify-end">
+              <Button type="button" variant="outline" size="sm" icon={Upload} onClick={() => setIsParcelImportOpen(true)}>Import Farm Parcels</Button>
+            </div>
+          )}
+
           {parcelError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
               {parcelError}
@@ -521,7 +521,7 @@ function FarmerDetailPage() {
                     <th className="px-4 py-3">Area (ha)</th>
                     <th className="px-4 py-3">Ownership</th>
                     <th className="px-4 py-3">Commodity</th>
-                    <th className="px-4 py-3" />
+                    <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -580,7 +580,7 @@ function FarmerDetailPage() {
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
-                    {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)'].map((h) => (
+                    {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)', 'Actions'].map((h) => (
                       <th key={h} className="px-4 py-2.5 text-left">{h}</th>
                     ))}
                   </tr>
@@ -589,11 +589,7 @@ function FarmerDetailPage() {
                   {cropRecords.map((r, i) => {
                     const fmt = (v) => v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v)) : '—'
                     return (
-                      <tr
-                        key={r.id}
-                        className={`cursor-pointer hover:bg-[#EBF5EE]/60 ${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}`}
-                        {...rowClickProps(() => navigate(`/crop-monitoring?record=${r.id}`), `Open ${r.crop_type_name} monitoring record`)}
-                      >
+                      <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
                         <td data-label="Crop" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.crop_type_name}</td>
                         <td data-label="Season/Year" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.season} {r.year}</td>
                         <td data-label="Date Planted" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.date_planted)}</td>
@@ -603,6 +599,7 @@ function FarmerDetailPage() {
                         </td>
                         <td data-label="Est. Yield (kg)" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
                         <td data-label="Act. Yield (kg)" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
+                        <td data-label="Actions" className="px-4 py-2.5"><CropRecordMenu record={r} onView={setViewingCrop} navigate={navigate} /></td>
                       </tr>
                     )
                   })}
@@ -612,18 +609,11 @@ function FarmerDetailPage() {
             </>
           )}
           </ViewSection>
-        </div>
 
-        {/* Visit History */}
-        <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <SectionTitle icon={CalendarCheck}>Visit History</SectionTitle>
-            {(isAdmin || isEvaluator) && (
-              <Button type="button" size="sm" onClick={() => setVisitModal('new')}>
-                <Plus size={14} className="mr-1" /> Record Farm Visit
-              </Button>
-            )}
-          </div>
+          <ViewSection
+            icon={CalendarCheck} title="Visit History" count={visitHistory.length} noun="visit" isLoading={isLoadingVisits}
+            subtitle="The farm visits recorded for this farmer."
+          >
           {isLoadingVisits ? (
             <LoadingSpinner />
           ) : visitHistory.length === 0 ? (
@@ -664,6 +654,10 @@ function FarmerDetailPage() {
               </table>
             </div>
           )}
+          {(isAdmin || isEvaluator) && (
+            <AddRowFooter label="Record Farm Visit" onClick={() => setVisitModal('new')} />
+          )}
+          </ViewSection>
         </div>
       </div>
 
@@ -698,6 +692,8 @@ function FarmerDetailPage() {
           onCancel={() => setDeletingVisit(null)}
         />
       )}
+
+      {viewingCrop && <CropDetailsModal record={viewingCrop} readOnly onClose={() => setViewingCrop(null)} />}
 
       {isParcelImportOpen && (
         <ImportFileModal

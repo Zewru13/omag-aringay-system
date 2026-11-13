@@ -1,17 +1,15 @@
 import {
-  Accessibility, Building2, CalendarDays, Feather, HandHeart, Hourglass, IdCard, Info, MapPin, Ruler, Sprout, Users, Wrench,
+  Accessibility, Building2, CalendarDays, Feather, HandHeart, Hourglass, IdCard, Info, MapPin, Sprout, Wrench,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { STATUS_LEGEND } from './farmerProfile.js'
 
-// The pieces of the farmer profile screen (FarmerDetailPage): the hero with the name, ID and classifications, the row of totals, the grouped information
-// cards, the organizations, the classifications with what they mean, and the legend of the crop stage colours. The rules (chips, totals, age) are in
+// The pieces of the farmer profile screen (FarmerDetailPage): the hero with the name, ID and classifications, the grouped information cards, the
+// organizations, and the legend of the crop stage colours. The rules (chips, totals, age) are in
 // farmerProfile.js.
 
-const ICONS = {
-  accessibility: Accessibility, handheart: HandHeart, feather: Feather, hourglass: Hourglass, wrench: Wrench, mappin: MapPin, ruler: Ruler, sprout: Sprout, users: Users,
-}
+const ICONS = { accessibility: Accessibility, handheart: HandHeart, feather: Feather, hourglass: Hourglass, wrench: Wrench }
 const CHIP_TONE = {
   blue: { chip: 'bg-blue-50 text-blue-700 ring-blue-200', dot: 'bg-blue-100 text-blue-700' },
   green: { chip: 'bg-green-50 text-green-700 ring-green-200', dot: 'bg-green-100 text-green-700' },
@@ -86,28 +84,6 @@ export function ProfileHero({ farmer, chips, actions, place, registered }) {
   )
 }
 
-// The four totals: a number and a caption each, side by side (two by two on a phone).
-export function StatsStrip({ stats }) {
-  return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[#E2E8E2] bg-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] lg:grid-cols-4">
-      {stats.map((s) => {
-        const Icon = ICONS[s.icon]
-        return (
-          <div key={s.key} className="flex items-center gap-3 bg-white px-4 py-3.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF5EE] text-[#1B4D2E]">{Icon && <Icon size={18} aria-hidden="true" />}</span>
-            <div className="min-w-0">
-              <p className="text-[22px] font-semibold leading-none text-[#1A2B1A] tabular-nums">
-                {s.value}{s.unit && <span className="ml-1 text-[13px] font-medium text-[#7A8E7A]">{s.unit}</span>}
-              </p>
-              <p className="mt-1 truncate text-[12px] text-[#7A8E7A]">{s.label}</p>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 // A card of the profile: a green header with its picture and name, then the content.
 export function InfoCard({ icon: Icon, title, children }) {
   return (
@@ -155,27 +131,6 @@ export function OrganizationList({ organizations }) {
             <span className={`min-w-0 flex-1 text-[13.5px] font-medium ${o.is_active ? 'text-[#1A2B1A]' : 'text-[#A8BCA8]'}`}>{name}</span>
             {o.is_main && o.is_active && <span className="rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[11px] font-medium text-[#1B4D2E]">Main</span>}
             {!o.is_active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Inactive</span>}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-// The classifications with what each means.
-export function ClassificationList({ chips }) {
-  if (chips.length === 0) return <p className="text-[13px] italic text-[#A8BCA8]">No classification recorded.</p>
-  return (
-    <ul className="space-y-2.5">
-      {chips.map((chip) => {
-        const Icon = ICONS[chip.icon]
-        return (
-          <li key={chip.key} className="flex items-start gap-2.5">
-            <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${CHIP_TONE[chip.tone].dot}`}>{Icon && <Icon size={14} aria-hidden="true" />}</span>
-            <div className="min-w-0">
-              <p className="text-[13.5px] font-medium text-[#1A2B1A]">{chip.label}</p>
-              <p className="text-[12px] text-[#7A8E7A]">{chip.meaning}</p>
-            </div>
           </li>
         )
       })}

@@ -19,25 +19,30 @@ export function classificationChips(farmer) {
   })
 }
 
-// The hectares of a list of parcels, added without float noise ("0.10" + "0.20" is "0.30"); '0' when there is none.
-export function areaText(parcels) {
-  const hundredths = (parcels || []).reduce((sum, p) => {
-    const value = Number.parseFloat(p?.area_hectares)
-    return Number.isFinite(value) ? sum + Math.round(value * 100) : sum
-  }, 0)
-  if (hundredths === 0) return '0'
-  return (hundredths / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// What a crop grown on a parcel says about itself: [[label, value], ...] ("—" for what was not recorded).
+const dash = (value) => (value === undefined || value === null || value === '' ? '—' : String(value))
+export const cropGrownName = (crop) => (crop?.crop_name === 'Other' ? crop.crop_name_other : crop?.crop_name) || ''
+
+export function cropGrownRows(crop) {
+  const planted = crop.number_of_trees
+    ? ['Trees', String(crop.number_of_trees)]
+    : ['Seeds', crop.quantity_of_seeds_used ? `${crop.quantity_of_seeds_used} ${crop.seeds_unit || ''}`.trim() : '—']
+  return [
+    ['Crop', dash(cropGrownName(crop))],
+    ['Variety', dash(crop.variety_used)],
+    ['Area (ha)', dash(crop.area_hectares)],
+    ['Main crop', crop.is_main_crop ? 'Yes' : 'No'],
+    planted,
+    ['Seed source', dash(crop.seed_source)],
+    ['PCIC insurance', crop.has_pcic_insurance ? 'Yes' : 'No'],
+  ]
 }
 
-// The four totals under the name. `cropTotal` is undefined until it has loaded (shown as a dash); organizations count only the active memberships.
-export function profileStats({ parcels, cropTotal, organizations }) {
-  const list = parcels || []
-  return [
-    { key: 'parcels', label: 'Farm Parcels', value: String(list.length), icon: 'mappin' },
-    { key: 'area', label: 'Total Area', value: areaText(list), unit: 'ha', icon: 'ruler' },
-    { key: 'crops', label: 'Crop Records', value: cropTotal === undefined ? '—' : Number(cropTotal).toLocaleString('en-US'), icon: 'sprout' },
-    { key: 'organizations', label: 'Organizations', value: String((organizations || []).filter((o) => o.is_active).length), icon: 'users' },
-  ]
+// The plantings (crop monitoring records) of a parcel that are of this crop, whatever the capitals.
+export function plantingsOf(crop, records) {
+  const name = cropGrownName(crop).trim().toLowerCase()
+  if (!name) return []
+  return (records || []).filter((r) => String(r.crop_type_name || '').trim().toLowerCase() === name)
 }
 
 export function ageText(birthdate, today = new Date()) {
