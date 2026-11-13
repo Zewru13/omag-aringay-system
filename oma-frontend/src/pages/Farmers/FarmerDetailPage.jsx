@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, ClipboardList, Edit, FileText, MapPin, Plus, Sprout, Upload } from 'lucide-react'
+import {
+  Cake, CalendarCheck, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, GraduationCap, Heart, IdCard, MapPin, Phone, Plus, Sprout, Upload, User, UserRound, Users,
+} from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
@@ -23,6 +25,8 @@ import { PROFILE_DEFAULT_STATUS, PROFILE_STATUS_OPTIONS, cropDisplayStatus, farm
 import EditFarmerModal from './EditFarmerModal.jsx'
 import EditParcelModal from './EditParcelModal.jsx'
 import FarmerMachineryCard from './FarmerMachineryCard.jsx'
+import { ClassificationList, FieldItem, InfoCard, OrganizationList, ProfileHero, SectionTitle, StatsStrip, StatusLegend } from './FarmerProfileParts.jsx'
+import { ageText, classificationChips, locationText, profileStats } from './farmerProfile.js'
 import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 
 // Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
@@ -32,15 +36,6 @@ const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', 'Du
 
 const formatDate = (value) => formatSharedDate(value, { empty: '' })
 
-function Field({ label, value }) {
-  return (
-    <div>
-      <p className="text-[12px] text-[#7A8E7A] mb-0.5">{label}</p>
-      <p className="text-[14px] font-medium text-[#1A2B1A]">{value || '-'}</p>
-    </div>
-  )
-}
-
 // Rebuilt against the same reference (PROFILE BASIS.docx / screenshots) used
 // for the Staff/Admin profile and the citizen "Aking Profile" screens:
 // cover-banner identity card + a separate colored-header info card. Farmer
@@ -49,10 +44,6 @@ function Field({ label, value }) {
 // of this green. Staff-specific action buttons (Edit, Generate Report, etc.)
 // have no equivalent in the citizen reference, so they sit in the identity
 // card where "Edit Profile" sits on the Admin/Staff profile page.
-function initialsOf(fullName) {
-  return (fullName || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?'
-}
-
 function SubTable({ columns, rows, emptyText }) {
   if (!rows || rows.length === 0) {
     return (
@@ -406,31 +397,31 @@ function FarmerDetailPage() {
     }
   }
 
+  // The actions are icons (hover for the name); they sit in the hero. Add Farm Parcel is in the Farm Parcels window.
+  const actions = farmer && (
+    <>
+      <Button icon={ClipboardList} onClick={openHistory} variant="outline" iconOnly>View Assistance History</Button>
+      <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} iconOnly>Generate Report</Button>
+      {(isAdmin || isEvaluator) && (
+        <Button icon={Upload} onClick={() => setIsParcelImportOpen(true)} variant="outline" iconOnly>Import Farm Parcels</Button>
+      )}
+      {(isAdmin || isEvaluator) && (
+        <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" iconOnly>Edit Farmer</Button>
+      )}
+      {(isAdmin || isEvaluator) && (
+        <ActivateCitizenAccountButton
+          citizenAccount={farmer.citizen_account}
+          personLabel={farmer.full_name}
+          onActivated={fetchFarmer}
+          iconOnly
+        />
+      )}
+    </>
+  )
+
   return (
     <PageLayout title="Farmer Details" subtitle="View and manage farmer profile and farm parcels">
       <div className="space-y-4">
-        {/* The actions are icons (hover for the name). Add Farm Parcel is in the Farm Parcels window. */}
-        {!isLoadingFarmer && farmer && (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button icon={ClipboardList} onClick={openHistory} variant="outline" iconOnly>View Assistance History</Button>
-            <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} iconOnly>Generate Report</Button>
-            {(isAdmin || isEvaluator) && (
-              <Button icon={Upload} onClick={() => setIsParcelImportOpen(true)} variant="outline" iconOnly>Import Farm Parcels</Button>
-            )}
-            {(isAdmin || isEvaluator) && (
-              <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" iconOnly>Edit Farmer</Button>
-            )}
-            {(isAdmin || isEvaluator) && (
-              <ActivateCitizenAccountButton
-                citizenAccount={farmer.citizen_account}
-                personLabel={farmer.full_name}
-                onActivated={fetchFarmer}
-                iconOnly
-              />
-            )}
-          </div>
-        )}
-
         {farmerError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
             {farmerError}
@@ -444,133 +435,58 @@ function FarmerDetailPage() {
         )}
 
         {!isLoadingFarmer && farmer && (
-          <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
-            {/* Identity card */}
-            <div className="lg:sticky lg:top-20">
-              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="h-20 bg-[#1B4D2E]" />
-                <div className="px-5 pb-5 -mt-8">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#1B4D2E] bg-white text-[18px] font-semibold text-[#1B4D2E]">
-                    {initialsOf(farmer.full_name)}
-                  </div>
-                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Name</p>
-                  <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">{farmer.full_name}</h1>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {farmer.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
-                  </div>
-                </div>
-              </section>
+          <>
+            <ProfileHero
+              farmer={farmer}
+              chips={classificationChips(farmer)}
+              actions={actions}
+              place={locationText(farmer)}
+              registered={formatDate(farmer.date_registered)}
+            />
 
-              <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#EBF5EE] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]">RSBSA Number</p>
-                <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{farmer.rsbsa_number}</p>
+            <StatsStrip stats={profileStats({ parcels, cropTotal, organizations: farmer.organizations })} />
+
+            <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
+              <div className="space-y-4">
+                <InfoCard icon={User} title="Personal Information">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
+                    {farmer.prefix && <FieldItem icon={User} label="Prefix" value={farmer.prefix} />}
+                    <FieldItem icon={User} label="First Name" value={farmer.first_name} />
+                    <FieldItem icon={User} label="Middle Name" value={farmer.middle_name} />
+                    <FieldItem icon={User} label="Last Name" value={farmer.last_name} />
+                    <FieldItem icon={UserRound} label="Gender" value={farmer.gender} />
+                    <FieldItem icon={Cake} label="Birthdate" value={formatDate(farmer.birthdate)} hint={ageText(farmer.birthdate)} />
+                    <FieldItem icon={Heart} label="Civil Status" value={farmer.civil_status} />
+                    <FieldItem icon={GraduationCap} label="Highest Education" value={farmer.highest_education} />
+                    {farmer.philsys_number && <FieldItem icon={IdCard} label="PhilSys / National ID No." value={farmer.philsys_number} />}
+                  </div>
+                </InfoCard>
+
+                <InfoCard icon={MapPin} title="Contact & Address">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
+                    <FieldItem icon={Phone} label="Contact Number" value={farmer.contact_number} />
+                    <FieldItem icon={MapPin} label="Barangay" value={farmer.barangay} />
+                    <FieldItem icon={MapPin} label="Municipality" value={farmer.municipality} />
+                    <FieldItem icon={MapPin} label="Province" value={farmer.province} />
+                  </div>
+                </InfoCard>
+              </div>
+
+              <div className="space-y-4">
+                {/* A farmer can belong to several organizations at once: the main one is marked, an ended membership is muted. */}
+                <InfoCard icon={Users} title={(farmer.organizations || []).length > 1 ? 'Organizations' : 'Organization'}>
+                  <OrganizationList organizations={farmer.organizations} />
+                </InfoCard>
+
+                <InfoCard icon={IdCard} title="Classification">
+                  <ClassificationList chips={classificationChips(farmer)} />
+                </InfoCard>
               </div>
             </div>
-
-            <div className="space-y-4 lg:sticky lg:top-20">
-              {/* Personal Information card */}
-              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="px-5 py-3.5 bg-[#EBF5EE] border-b border-[#E2E8E2]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]">Personal Information</p>
-                </div>
-                <div className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {farmer.prefix && <Field label="Prefix" value={farmer.prefix} />}
-                  <Field label="First Name" value={farmer.first_name} />
-                  <Field label="Last Name" value={farmer.last_name} />
-                  <Field label="Middle Name" value={farmer.middle_name} />
-                  <Field label="Gender" value={farmer.gender} />
-                  <Field label="Birthdate" value={formatDate(farmer.birthdate)} />
-                  <Field label="Contact Number" value={farmer.contact_number} />
-                  <Field label="Barangay" value={farmer.barangay} />
-                  <Field label="Municipality" value={farmer.municipality} />
-                  <Field label="Province" value={farmer.province} />
-                </div>
-              </section>
-
-              {/* Reference Information card */}
-              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="px-5 py-3.5 bg-[#EBF5EE] border-b border-[#E2E8E2]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]">Reference Information</p>
-                </div>
-                <div className="p-5">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label="Civil Status" value={farmer.civil_status} />
-                    <Field label="Highest Education" value={farmer.highest_education} />
-                    <Field label="Date Registered" value={formatDate(farmer.date_registered)} />
-                    {farmer.philsys_number && (
-                      <Field label="PhilSys / National ID No." value={farmer.philsys_number} />
-                    )}
-                    <div>
-                      {/* Batch (Phase B): a farmer can belong to several
-                          organizations at once — shows every membership,
-                          the main one marked, inactive ones muted. */}
-                      <p className="text-[12px] text-[#7A8E7A] mb-0.5">
-                        {(farmer.organizations || []).length > 1 ? 'Organizations' : 'Organization'}
-                      </p>
-                      {(farmer.organizations || []).length === 0 ? (
-                        <p className="text-[14px] font-medium italic text-[#A8BCA8]">Not part of any organization</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {farmer.organizations.map(o => (
-                            <span
-                              key={o.membership_id}
-                              className={`inline-flex items-center gap-1 text-[14px] font-medium ${
-                                o.is_active ? 'text-[#1A2B1A]' : 'text-[#A8BCA8]'
-                              }`}
-                            >
-                              {o.organization_name}
-                              {o.is_main && o.is_active && (
-                                <span className="inline-flex items-center rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[11px] font-medium text-[#1B4D2E] align-middle">
-                                  Main
-                                </span>
-                              )}
-                              {!o.is_active && (
-                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 align-middle">
-                                  Inactive
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* RSBSA Classification badges */}
-                  {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member || farmer.is_senior_citizen || farmer.is_farm_laborer) && (
-                    <div className="mt-5 flex flex-wrap gap-2 border-t border-[#F0F4F0] pt-4">
-                      {farmer.is_pwd && (
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
-                          Person with Disability (PWD)
-                        </span>
-                      )}
-                      {farmer.is_4ps_beneficiary && (
-                        <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-[12px] font-medium text-green-700 ring-1 ring-green-200">
-                          4Ps Beneficiary
-                        </span>
-                      )}
-                      {farmer.is_icc_ip_member && (
-                        <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[12px] font-medium text-purple-700 ring-1 ring-purple-200">
-                          ICC/IP Member{farmer.icc_ip_name ? ` — ${farmer.icc_ip_name}` : ''}
-                        </span>
-                      )}
-                      {farmer.is_senior_citizen && (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
-                          Senior Citizen
-                        </span>
-                      )}
-                      {farmer.is_farm_laborer && (
-                        <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[12px] font-medium text-orange-700 ring-1 ring-orange-200">
-                          Farm Laborer
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </section>
-            </div>
-          </div>
+          </>
         )}
+
+        <SectionTitle icon={Sprout}>Farm Records</SectionTitle>
 
         {/* Machinery, Farm Parcels and Crops: a card each with a View button; View opens the table in a floating window */}
         <div className="grid gap-3 md:grid-cols-3">
@@ -637,6 +553,8 @@ function FarmerDetailPage() {
             </select>
           </div>
 
+          <StatusLegend />
+
           {cropError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
               {cropError}
@@ -699,7 +617,7 @@ function FarmerDetailPage() {
         {/* Visit History */}
         <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Visit History</h2>
+            <SectionTitle icon={CalendarCheck}>Visit History</SectionTitle>
             {(isAdmin || isEvaluator) && (
               <Button type="button" size="sm" onClick={() => setVisitModal('new')}>
                 <Plus size={14} className="mr-1" /> Record Farm Visit
