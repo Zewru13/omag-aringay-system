@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, Plus, Upload } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ChevronDown, ChevronRight, ClipboardList, Edit, FileText, MapPin, Plus, Sprout, Upload } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import { AddRowFooter } from '../../components/UI/InlineAddRow.jsx'
+import ViewSection from '../../components/UI/ViewSection.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import AssistanceHistoryModal from '../../components/AssistanceHistoryModal.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -280,6 +282,7 @@ function FarmerDetailPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isLoadingVisits, setIsLoadingVisits] = useState(false)
   const [isLoadingCrops, setIsLoadingCrops] = useState(true)
+  const [cropTotal, setCropTotal] = useState(undefined)     // every crop of the farmer, whatever the stage filter says
   const [farmerError, setFarmerError] = useState('')
   const [parcelError, setParcelError] = useState('')
   const [historyError, setHistoryError] = useState('')
@@ -375,6 +378,14 @@ function FarmerDetailPage() {
   }, [id])
 
   useEffect(() => {
+    let alive = true
+    api.get('/production/monitoring/', { params: { ...farmerCropParams(id, 'all'), page: 1, page_size: 1 } })
+      .then((r) => { if (alive) setCropTotal(typeof r.data?.count === 'number' ? r.data.count : (Array.isArray(r.data) ? r.data.length : 0)) })
+      .catch(() => { if (alive) setCropTotal(0) })
+    return () => { alive = false }
+  }, [id])
+
+  useEffect(() => {
     fetchCropRecords()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, cropStatusFilter])
@@ -398,48 +409,27 @@ function FarmerDetailPage() {
   return (
     <PageLayout title="Farmer Details" subtitle="View and manage farmer profile and farm parcels">
       <div className="space-y-4">
-        {/* Back link + actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            className="inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline max-md:min-h-[40px]"
-            to="/farmers"
-          >
-            <ArrowLeft size={14} />
-            Back to Farmers
-          </Link>
-          {!isLoadingFarmer && farmer && (
-            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap [&>*]:w-full [&>*]:justify-center md:[&>*]:w-auto [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
-              <Button icon={ClipboardList} onClick={openHistory} variant="outline">
-                View Assistance History
-              </Button>
-              <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport}>
-                Generate Report
-              </Button>
-              {(isAdmin || isEvaluator) && (
-                <Button icon={Plus} onClick={() => navigate(`/farmers/${id}/add-parcels`)} variant="outline">
-                  Add Farm Parcel
-                </Button>
-              )}
-              {(isAdmin || isEvaluator) && (
-                <Button icon={Upload} onClick={() => setIsParcelImportOpen(true)} variant="outline">
-                  Import Farm Parcels
-                </Button>
-              )}
-              {(isAdmin || isEvaluator) && (
-                <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary">
-                  Edit Farmer
-                </Button>
-              )}
-              {(isAdmin || isEvaluator) && (
-                <ActivateCitizenAccountButton
-                  citizenAccount={farmer.citizen_account}
-                  personLabel={farmer.full_name}
-                  onActivated={fetchFarmer}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        {/* The actions are icons (hover for the name). Add Farm Parcel is in the Farm Parcels window. */}
+        {!isLoadingFarmer && farmer && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button icon={ClipboardList} onClick={openHistory} variant="outline" iconOnly>View Assistance History</Button>
+            <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} iconOnly>Generate Report</Button>
+            {(isAdmin || isEvaluator) && (
+              <Button icon={Upload} onClick={() => setIsParcelImportOpen(true)} variant="outline" iconOnly>Import Farm Parcels</Button>
+            )}
+            {(isAdmin || isEvaluator) && (
+              <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" iconOnly>Edit Farmer</Button>
+            )}
+            {(isAdmin || isEvaluator) && (
+              <ActivateCitizenAccountButton
+                citizenAccount={farmer.citizen_account}
+                personLabel={farmer.full_name}
+                onActivated={fetchFarmer}
+                iconOnly
+              />
+            )}
+          </div>
+        )}
 
         {farmerError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
@@ -582,15 +572,16 @@ function FarmerDetailPage() {
           </div>
         )}
 
-        {/* Machinery: the farmer's own, not a parcel's */}
-        {farmer && (
-          <FarmerMachineryCard farmerId={farmer.id} machinery={farmer.machinery || []} canEdit={isAdmin || isEvaluator} onChanged={fetchFarmer} />
-        )}
+        {/* Machinery, Farm Parcels and Crops: a card each with a View button; View opens the table in a floating window */}
+        <div className="grid gap-3 md:grid-cols-3">
+          {farmer && (
+            <FarmerMachineryCard farmerId={farmer.id} machinery={farmer.machinery || []} canEdit={isAdmin || isEvaluator} onChanged={fetchFarmer} />
+          )}
 
-        {/* Farm Parcels */}
-        <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-          <h2 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Farm Parcels</h2>
-
+          <ViewSection
+            icon={MapPin} title="Farm Parcels" count={parcels.length} noun="parcel" isLoading={isLoadingParcels}
+            subtitle="Every parcel of this farmer. Details opens its crops and crop monitoring records."
+          >
           {parcelError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
               {parcelError}
@@ -625,15 +616,17 @@ function FarmerDetailPage() {
               </table>
             </div>
           )}
-        </div>
+            {(isAdmin || isEvaluator) && (
+              <AddRowFooter label="Add Farm Parcel" onClick={() => navigate(`/farmers/${id}/add-parcels`)} />
+            )}
+          </ViewSection>
 
-        {/* Crop Monitoring Records — this farmer's complete crop history,
-            queried directly by farmer_id (not nested per-parcel like the
-            table inside each Farm Parcel row's "Details" expansion above,
-            which only ever shows records that have a farm_parcel link). */}
-        <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
+          <ViewSection
+            icon={Sprout} title="Crop Monitoring Records" count={cropTotal} noun="crop record" isLoading={cropTotal === undefined && isLoadingCrops}
+            subtitle="This farmer's complete crop history. Open a row to see its monitoring record."
+          >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Crop Monitoring Records</h2>
+            <span className="text-[12.5px] text-[#7A8E7A]">Stage</span>
             <select
               value={cropStatusFilter}
               onChange={(e) => setCropStatusFilter(e.target.value)}
@@ -700,6 +693,7 @@ function FarmerDetailPage() {
             </div>
             </>
           )}
+          </ViewSection>
         </div>
 
         {/* Visit History */}

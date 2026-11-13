@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ClipboardList, Edit, FileText, Layers, Pencil, Plus, Power, Trash2 } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ClipboardList, Edit, FileText, Layers, Pencil, Plus, Power, Sprout, Trash2, Waves } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import ViewSection from '../../components/UI/ViewSection.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -290,37 +291,24 @@ function FisherfolkDetailPage() {
   return (
     <PageLayout title="Fisherfolk Details" subtitle="View and manage fisherfolk profile and records">
       <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            className="inline-flex items-center gap-1 text-[13px] text-[#155E82] hover:underline max-md:min-h-[40px]"
-            to="/fisherfolk"
-          >
-            <ArrowLeft size={14} />
-            Back to Fisherfolk Registry
-          </Link>
-          {!isLoading && fisherfolk && (
-            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap [&>*]:w-full [&>*]:justify-center md:[&>*]:w-auto [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
-              <Button icon={ClipboardList} onClick={openHistory} variant="outline">
-                View Assistance History
-              </Button>
-              <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport}>
-                Generate Report
-              </Button>
-              {(isAdmin || isEvaluator) && (
-                <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary">
-                  Edit Profile
-                </Button>
-              )}
-              {(isAdmin || isEvaluator) && (
-                <ActivateCitizenAccountButton
-                  citizenAccount={fisherfolk.citizen_account}
-                  personLabel={fisherfolk.full_name}
-                  onActivated={fetchFisherfolk}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        {/* The actions are icons (hover for the name). */}
+        {!isLoading && fisherfolk && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button icon={ClipboardList} onClick={openHistory} variant="outline" iconOnly>View Assistance History</Button>
+            <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} iconOnly>Generate Report</Button>
+            {(isAdmin || isEvaluator) && (
+              <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" iconOnly>Edit Profile</Button>
+            )}
+            {(isAdmin || isEvaluator) && (
+              <ActivateCitizenAccountButton
+                citizenAccount={fisherfolk.citizen_account}
+                personLabel={fisherfolk.full_name}
+                onActivated={fetchFisherfolk}
+                iconOnly
+              />
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -461,12 +449,13 @@ function FisherfolkDetailPage() {
             )}
             {fisherfolk.capture_record && <CaptureSection record={fisherfolk.capture_record} />}
 
-            {/* Stocking Records — aquaculture / mariculture only */}
+            {/* Stocking Records and Ponds — aquaculture / mariculture only: a card each; View opens the table in a floating window */}
             {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
-              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
-                <h2 className="mb-4 text-[14px] font-semibold text-[#1A2B1A]">
-                  Stocking Records
-                </h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                <ViewSection
+                  title="Stocking Records" icon={Sprout} count={stockingRecords.length} noun="stocking record" isLoading={isLoadingStocking}
+                  accent="#155E82" soft="#EAF1F5" subtitle="Every stocking of this fisherfolk. Open a row to monitor it."
+                >
                 {isLoadingStocking ? (
                   <LoadingSpinner />
                 ) : stockingRecords.length === 0 ? (
@@ -487,16 +476,14 @@ function FisherfolkDetailPage() {
                     />
                   </div>
                 )}
-              </section>
-            )}
+                </ViewSection>
 
-            {/* Ponds — aquaculture / mariculture only (Batch 3) */}
-            {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
-              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Ponds</h2>
+                <ViewSection
+                  title="Ponds" icon={Waves} count={ponds.length} noun="pond" isLoading={isLoadingPonds}
+                  accent="#155E82" soft="#EAF1F5" subtitle="The ponds on file for this fisherfolk." maxWidth="max-w-4xl"
+                >
                   {(isAdmin || isEvaluator) && (
-                    <div className="flex gap-2">
+                    <div className="mb-3 flex flex-wrap justify-end gap-2">
                       <Button icon={Layers} size="sm" onClick={() => setIsBulkPondModalOpen(true)} variant="secondary">
                         Bulk Add Ponds
                       </Button>
@@ -505,7 +492,6 @@ function FisherfolkDetailPage() {
                       </Button>
                     </div>
                   )}
-                </div>
                 {isLoadingPonds ? (
                   <LoadingSpinner />
                 ) : ponds.length === 0 ? (
@@ -517,7 +503,8 @@ function FisherfolkDetailPage() {
                     <DataTable columns={POND_COLUMNS} data={pondsData} isLoading={false} />
                   </div>
                 )}
-              </section>
+                </ViewSection>
+              </div>
             )}
           </>
         )}
