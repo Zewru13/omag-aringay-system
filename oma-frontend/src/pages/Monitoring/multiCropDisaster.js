@@ -1,6 +1,7 @@
 // Logging one disaster on several of a farmer's crops at once (POST /production/disasters/multi/). Pure functions - no
 // screen, no network - so the rules can be tested on their own. The server checks everything again.
 
+import { matchesSearch, searchWords } from '../../utils/searchMatch.js'
 import { appendUserPhotos, hasUserPhotos } from './userPhotos.js'
 
 export const MAX_CROPS = 1000
@@ -93,7 +94,6 @@ export function selectionSummary(rows) {
 }
 
 export function filterCrops(crops, query) {
-  const q = String(query || '').trim().toLowerCase()
-  if (!q) return crops
-  return crops.filter((c) => `${c.label || ''} ${c.crop_type_name || ''}`.toLowerCase().includes(q))
+  if (!searchWords(query).length) return crops
+  return crops.filter((c) => matchesSearch(`${c.label || ''} ${c.crop_type_name || ''}`, query))
 }

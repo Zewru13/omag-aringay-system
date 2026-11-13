@@ -17,6 +17,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { PLANTING_TYPES, plantingTypeLabel } from '../CropInformation/cropEntry.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
+import { matchesSearch } from '../../utils/searchMatch.js'
 
 const PAGE_SIZE = 10
 
@@ -606,13 +607,8 @@ export default function CropOptionPage({ asTab = false }) {
   }
 
   const filteredCrops = useMemo(() => {
-    const q = search.toLowerCase()
     return search
-      ? crops.filter(c =>
-          c.name.toLowerCase().includes(q) ||
-          (c.category_name    || '').toLowerCase().includes(q) ||
-          (c.subcategory_name || '').toLowerCase().includes(q)
-        )
+      ? crops.filter(c => matchesSearch(`${c.name} ${c.category_name || ''} ${c.subcategory_name || ''}`, search))
       : crops
   }, [crops, search])
 

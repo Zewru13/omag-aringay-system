@@ -4,6 +4,7 @@
 // sort order, the page), for what is ticked and for what is sent, so the rules can be tested on their own. The per-row checks (the fingerlings
 // lost cannot exceed what was stocked, a total loss is the whole stocked count) are the ones of fisheriesStockLosses.js; the server checks
 // everything again (fisheries/disaster_reports.py plan_stock_losses).
+import { searchWords } from '../../utils/searchMatch.js'
 import { effectiveLost, rowError, rowKey } from './fisheriesStockLosses.js'
 
 export const PAGE_SIZE = 10
@@ -49,7 +50,7 @@ const text = (s) => [
 // What is left after the search (every word has to appear somewhere on the stock, its fisherfolk or its ponds/cages, so a fisherfolk is found by name
 // there) and the Barangay filter.
 export function filterStocks(stocks, { search = '', barangay = '' } = {}) {
-  const words = String(search).toLowerCase().split(/\s+/).filter(Boolean)
+  const words = searchWords(search)
   return stocks.filter((s) => (
     (!barangay || placeOf(s) === barangay)
     && words.every((w) => text(s).includes(w))

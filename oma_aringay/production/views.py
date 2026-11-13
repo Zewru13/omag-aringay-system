@@ -24,7 +24,7 @@ from accounts.permissions import (
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, filter_date_range, filter_people_search, is_plain_int, new_yield_group
+from core.utils import accumulate_yield_group, filter_date_range, filter_people_search, is_plain_int, new_yield_group, search_tokens
 from .forecast_filters import filter_forecast_status
 from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
@@ -1480,7 +1480,7 @@ def _page_params(request, default_size=25, max_size=100):
 def _yield_search(qs, text, fields):
     """Every word of `text` must match at least one of `fields` (icontains), so "marie fontanilla" finds a farmer
     whose first and last names are in different columns."""
-    for token in text.split():
+    for token in search_tokens(text):
         cond = Q()
         for f in fields:
             cond |= Q(**{f + '__icontains': token})
@@ -2719,13 +2719,7 @@ class CropDisasterLogListView(APIView):
             qs = qs.filter(monitoring_record__farm_location_barangay__iexact=params['barangay'])
         search = (params.get('search') or '').strip()
         if search:
-            match = (Q(monitoring_record__farmer__first_name__icontains=search)
-                     | Q(monitoring_record__farmer__last_name__icontains=search)
-                     | Q(monitoring_record__farm_parcel__farmer__first_name__icontains=search)
-                     | Q(monitoring_record__farm_parcel__farmer__last_name__icontains=search)
-                     | Q(monitoring_record__farmers_organization__name__icontains=search)
-                     | Q(monitoring_record__crop_type__name__icontains=search)
-                     | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
+            match = crop_disaster_logs.search_q(search)
             ref = search.upper().replace('CDR-', '').split('-')[-1]
             if is_plain_int(ref):
                 match |= Q(pk=int(ref))

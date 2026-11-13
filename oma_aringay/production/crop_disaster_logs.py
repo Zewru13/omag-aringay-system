@@ -3,10 +3,14 @@ Farmer Disaster Logs (Admin > Disaster > Farmer Disaster): the existing CropDisa
 model - turned into one document used by the details view, the browser print layout and the PDF.
 Read-only: logs are still created through the existing /production/monitoring/<id>/disasters/ endpoint.
 """
+from django.db.models import Q
+
 from reports.disaster_log_pdf import build_disaster_log_pdf, fmt_datetime, fmt_number, safe_pdf_filename
 from reports.pdf_utils import fmt_date
 
 from core.photos import local_photo_paths
+
+from core.utils import search_tokens
 
 from .models import CropDisasterReport
 
@@ -165,3 +169,23 @@ def _build_pdf(report, doc, crop, farmer, photo_paths):
         reference=doc['report_number'],
         pdf_title=f'Farmer Disaster Report {doc["report_number"]}',
     )
+
+
+SEARCH_FIELDS = [
+    'monitoring_record__farmer__first_name', 'monitoring_record__farmer__middle_name', 'monitoring_record__farmer__last_name',
+    'monitoring_record__farm_parcel__farmer__first_name', 'monitoring_record__farm_parcel__farmer__middle_name',
+    'monitoring_record__farm_parcel__farmer__last_name', 'monitoring_record__farmers_organization__name', 'monitoring_record__crop_type__name',
+    'disaster_type', 'disaster_type_other_specify',
+]
+
+
+def search_q(search):
+    """The Disaster tables' and the report's search bar: EVERY typed word must be found, in any order, in the farmer's name, the organization, the crop or
+    the disaster type ("Maria Santos" or "flood Maria" find Maria's log). The reference no. is the caller's business."""
+    combined = Q()
+    for token in search_tokens(search):
+        token_q = Q()
+        for field in SEARCH_FIELDS:
+            token_q |= Q(**{f'{field}__icontains': token})
+        combined &= token_q
+    return combined

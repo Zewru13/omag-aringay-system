@@ -2,6 +2,7 @@
 // the ones a disaster hit. Pure functions - no screen, no network - for what the table shows (search, filters, the sort order, the
 // page) and for what is ticked, so the rules can be tested on their own. The selection itself (which crops,
 // how much of each, which are a total loss) is the one in disasterEvent.js. The server checks everything again.
+import { searchWords } from '../../utils/searchMatch.js'
 import { cropLabel } from './disasterEvent.js'
 
 export const PAGE_SIZE = 25
@@ -21,7 +22,7 @@ const text = (p) => [p.farmer_name, p.rsbsa_number, p.parcel_number, p.title, p.
 // What is left after the search (every word has to appear somewhere on the parcel, its farmer or its crops, so a farmer is found by name there) and the
 // Barangay filter.
 export function filterParcels(parcels, { search = '', barangay = '' } = {}) {
-  const words = String(search).toLowerCase().split(/\s+/).filter(Boolean)
+  const words = searchWords(search)
   return parcels.filter((p) => (
     (!barangay || p.barangay === barangay)
     && words.every((w) => text(p).includes(w))

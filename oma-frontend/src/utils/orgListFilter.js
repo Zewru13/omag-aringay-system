@@ -1,12 +1,13 @@
+import { searchWords } from './searchMatch.js'
+
 // Search and filters for an organization's own lists (members, equipment, officers). Each item is
 // { id, name, attrs: { status, position, ... } }. The search looks at the NAME only; every word must match, in any
 // order, ignoring case and commas. A filter value of '' means "all"; otherwise the attribute must equal it exactly.
 
-const words = (text) => String(text ?? '').toLowerCase().split(/[\s,]+/).filter(Boolean)
 
 export const filterOrgItems = (items, { query = '', filters = {} } = {}) => {
   if (!Array.isArray(items)) return []
-  const wanted = words(query)
+  const wanted = searchWords(query)
   const active = Object.entries(filters).filter(([, value]) => value !== '' && value !== null && value !== undefined)
   return items.filter((item) => {
     if (wanted.length > 0) {

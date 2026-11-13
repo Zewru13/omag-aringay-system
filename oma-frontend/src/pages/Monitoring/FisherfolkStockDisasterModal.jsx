@@ -17,6 +17,7 @@ import {
 import { DamagePhotosField, EquipmentChecklist } from './fisheriesDisasterShared.jsx'
 import useDamagePhotos from './useDamagePhotos.js'
 import { HARVESTED, autoFilled, effectiveLost, rowError, rowKey, stockOptionLabel, todayLocal } from './fisheriesStockLosses.js'
+import { matchesSearch } from '../../utils/searchMatch.js'
 
 // Log Disaster - the ONE Fisheries disaster form, for a fisherfolk's own stocks and for Admin/Evaluator logging
 // on behalf of a chosen fisherfolk (Admin > Disaster > Fisheries Disaster). Either:
@@ -43,8 +44,7 @@ const stockOptionDetail = (s) => [
 // `disabled`: shown but not usable (the report is not linked to a stock); choosing "One or more stocks" enables it again.
 export function StockPicker({ stocks, selectedIds, onToggle, disabled = false }) {
   const [query, setQuery] = useState('')
-  const q = query.trim().toLowerCase()
-  const shown = stocks.filter(s => !q || `${stockOptionLabel(s)} ${stockOptionDetail(s)}`.toLowerCase().includes(q))
+  const shown = stocks.filter(s => matchesSearch(`${stockOptionLabel(s)} ${stockOptionDetail(s)}`, query))
   return (
     <div className={`space-y-2 ${disabled ? 'opacity-60' : ''}`} data-testid="stock-picker" aria-disabled={disabled}>
       {selectedIds.length > 0 && (

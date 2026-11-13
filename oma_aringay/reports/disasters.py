@@ -146,13 +146,7 @@ def fisheries_document(filters):
     if filters.barangay:
         qs = qs.filter(Q(fisherfolk__barangay__iexact=filters.barangay) | Q(stocking_record__fisherfolk__barangay__iexact=filters.barangay))
     if filters.search:
-        match = (Q(fisherfolk__first_name__icontains=filters.search) | Q(fisherfolk__last_name__icontains=filters.search)
-                 | Q(stocking_record__fisherfolk__first_name__icontains=filters.search)
-                 | Q(stocking_record__fisherfolk__last_name__icontains=filters.search)
-                 | Q(stocking_record__species__species_name__icontains=filters.search)
-                 | Q(disaster_type__icontains=filters.search) | Q(disaster_type_other_specify__icontains=filters.search)
-                 | Q(pk__in=FisheriesDisasterStockLoss.objects.filter(
-                     stocking_record__species__species_name__icontains=filters.search).values('disaster_report_id')))
+        match = disaster_reports.search_q(filters.search)
         ref = _reference_number(filters.search)
         if ref is not None:
             match |= Q(pk=ref)
@@ -196,12 +190,7 @@ def crops_document(filters):
                        | Q(monitoring_record__farm_location_barangay='', monitoring_record__farm_parcel__barangay__iexact=filters.barangay))
     if filters.search:
         s = filters.search
-        match = (Q(monitoring_record__farmer__first_name__icontains=s) | Q(monitoring_record__farmer__last_name__icontains=s)
-                 | Q(monitoring_record__farm_parcel__farmer__first_name__icontains=s)
-                 | Q(monitoring_record__farm_parcel__farmer__last_name__icontains=s)
-                 | Q(monitoring_record__farmers_organization__name__icontains=s)
-                 | Q(monitoring_record__crop_type__name__icontains=s)
-                 | Q(disaster_type__icontains=s) | Q(disaster_type_other_specify__icontains=s))
+        match = crop_disaster_logs.search_q(s)
         ref = _reference_number(s)
         if ref is not None:
             match |= Q(pk=ref)
