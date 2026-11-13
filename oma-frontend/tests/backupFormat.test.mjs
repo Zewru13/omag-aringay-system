@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 
 const {
   formatBytes, backupSummary, isRunning, formatDate, formatTime, fileNote, notesProblem, restoreFileProblem, restoreConfirmProblem, restoreChange,
-  restoreHeadline, nextAutoDownload, runningMessage,
+  restoreHeadline, nextAutoDownload, runningMessage, formatElapsed,
 } = await import(new URL('../src/pages/Backup/backupFormat.js', import.meta.url).href)
 
 let n = 0
@@ -128,5 +128,21 @@ ok((page.match(/<BackupNotesModal/g) || []).length === 2, 'the same form makes a
 const manual = readFileSync(new URL('../src/pages/Manual/manualContent.js', import.meta.url), 'utf8')
 ok(!/every night|latest 14|Delete removes one/.test(manual), 'the manual no longer describes the nightly backup, the 14 kept or Delete')
 ok(/Restore/.test(manual), 'the manual explains Restore')
+
+// the lock screen's running clock and moving bar: it is plain to see that the work has not stalled
+eq(formatElapsed(0), '0:00', 'a clock at the start')
+eq(formatElapsed(7), '0:07', 'seconds are two digits')
+eq(formatElapsed(65), '1:05', 'minutes and seconds')
+eq(formatElapsed(754), '12:34', 'two-digit minutes')
+eq(formatElapsed(3725), '1:02:05', 'an hour')
+eq(formatElapsed(-3), '0:00', 'never negative')
+eq(formatElapsed(undefined), '0:00', 'nothing given')
+const lock2 = readFileSync(new URL('../src/components/UI/WorkLockScreen.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(/role="progressbar"/.test(lock2) && /work-bar/.test(lock2), 'the lock screen shows a moving bar')
+ok(/aria-label="[^"]*progress/i.test(lock2), 'the bar is named for screen readers')
+ok(/setInterval/.test(lock2) && /clearInterval/.test(lock2) && /formatElapsed\(/.test(lock2) && /Working for/.test(lock2), 'it counts how long the work has been going on, and stops counting when it goes away')
+const css2 = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(/@keyframes workBar/.test(css2) && /\.work-bar/.test(css2), 'the bar has its own animation')
+ok(/prefers-reduced-motion[\s\S]*\.work-bar/.test(css2), 'and it stands still for people who ask for less motion')
 
 console.log(`backupFormat: ${n} checks passed`)

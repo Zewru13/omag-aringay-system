@@ -1,11 +1,21 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2 } from 'lucide-react'
+import { formatElapsed } from '../../pages/Backup/backupFormat.js'
 
 // A screen that holds the whole system while something that must not be interrupted is going on (a backup being made or saved, a restore running): it covers
 // everything, the menu and the top bar included, so nothing can be clicked, and the page behind it is made inert so the keyboard cannot reach it either.
 // It goes away when it is no longer rendered.
 export default function WorkLockScreen({ title, message }) {
+  const [seconds, setSeconds] = useState(0)
+
+  // How long the work has been going on: the clock keeps moving, so it is plain that nothing has stalled.
+  useEffect(() => {
+    const started = Date.now()
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   useEffect(() => {
     const root = document.getElementById('root')
     if (!root) return undefined
@@ -24,6 +34,8 @@ export default function WorkLockScreen({ title, message }) {
         <Loader2 size={30} className="mx-auto animate-spin text-[#1B4D2E]" aria-hidden="true" />
         <h2 id="work-lock-title" className="mt-3 text-[15px] font-semibold text-[#1A2B1A]">{title}</h2>
         <p className="mt-1 text-[13px] text-[#4A5E4A]">{message}</p>
+        <div className="work-bar mt-4" role="progressbar" aria-label="Work in progress" aria-valuetext="Working, no percentage available" />
+        <p className="mt-2 text-[12px] tabular-nums text-[#7A8E7A]" role="timer" aria-live="off">Working for {formatElapsed(seconds)}</p>
         <p className="mt-3 text-[13px] font-medium text-[#1A2B1A]">Please wait. Do not close or leave this page until it is finished.</p>
       </div>
     </div>,
