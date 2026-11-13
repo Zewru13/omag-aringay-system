@@ -129,4 +129,20 @@ const manual = readFileSync(new URL('../src/pages/Manual/manualContent.js', impo
 ok(!/every night|latest 14|Delete removes one/.test(manual), 'the manual no longer describes the nightly backup, the 14 kept or Delete')
 ok(/Restore/.test(manual), 'the manual explains Restore')
 
+// the lock screen box: an animated emblem (spinning arc, rings, a floating icon) instead of a bar and a clock
+const lock2 = readFileSync(new URL('../src/components/UI/WorkLockScreen.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+const css2 = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(!/progressbar|work-bar|Working for|formatElapsed|setInterval/.test(lock2), 'no moving bar and no running clock')
+ok(!/workBar|\.work-bar/.test(css2), 'the old bar animation is gone')
+for (const cls of ['work-backdrop', 'work-card', 'work-arc', 'work-ring', 'work-icon', 'work-dot']) ok(lock2.includes(cls), `the box uses ${cls}`)
+ok(/variant/.test(lock2) && /HardDriveDownload/.test(lock2) && /History/.test(lock2) && /Download/.test(lock2), 'the emblem shows a picture that fits the work: making a backup, saving the file, or a restore')
+ok(/createPortal/.test(lock2) && /inert/.test(lock2) && /role="alertdialog"/.test(lock2), 'it still covers everything and holds the page')
+ok(/aria-hidden="true"/.test(lock2) && /Please wait/.test(lock2) && /do not close or leave/i.test(lock2), 'it still says to wait and not to leave, and the decoration is hidden from screen readers')
+for (const frames of ['workCardIn', 'workFade', 'workSpin', 'workRing', 'workFloat', 'workDot']) ok(css2.includes(`@keyframes ${frames}`), `${frames} is defined`)
+ok(/\.work-card\s*{[^}]*cubic-bezier\(0\.23, 1, 0\.32, 1\)/.test(css2), 'the box comes in with a strong ease-out')
+ok(/\.work-card\s*{[^}]*animation: workCardIn 2\d\dms/.test(css2) && /\.work-backdrop\s*{[^}]*animation: workFade/.test(css2), 'the entrance is under 300ms')
+ok(/prefers-reduced-motion[\s\S]*\.work-arc[\s\S]*\.work-ring/.test(css2), 'every motion stands still for people who ask for less motion')
+const pageSrc = readFileSync(new URL('../src/pages/Backup/BackupPage.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+ok(/<WorkLockScreen[^>]*variant=/.test(pageSrc), 'the page tells the box which work is going on')
+
 console.log(`backupFormat: ${n} checks passed`)

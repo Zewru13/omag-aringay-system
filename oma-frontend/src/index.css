@@ -684,3 +684,74 @@ body {
     margin: 12mm;
   }
 }
+
+/* ─── Work lock screen: the box shown during a backup, a download or a restore ─────────────────────────────
+   transform and opacity only; the entrance is under 300ms with a strong ease-out; everything stands still under reduced motion. */
+
+.work-backdrop {
+  animation: workFade 200ms ease-out both;
+  backdrop-filter: blur(3px);
+}
+
+.work-card {
+  animation: workCardIn 260ms cubic-bezier(0.23, 1, 0.32, 1) 40ms both;
+}
+
+.work-arc {
+  animation: workSpin 1.2s linear infinite;
+}
+
+.work-ring {
+  animation: workRing 2.6s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  opacity: 0;
+}
+
+.work-ring-late {
+  animation-delay: 1.3s;
+}
+
+.work-icon {
+  animation: workFloat 2.6s ease-in-out infinite;
+}
+
+.work-dot {
+  display: inline-block;
+  animation: workDot 1.2s ease-in-out infinite;
+}
+
+.work-dot:nth-child(2) { animation-delay: 0.15s; }
+.work-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes workFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes workCardIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes workSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes workRing {
+  0%   { opacity: 0.45; transform: scale(0.8); }
+  100% { opacity: 0;    transform: scale(1.45); }
+}
+
+@keyframes workFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+@keyframes workDot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1;    transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-backdrop, .work-card, .work-arc, .work-icon, .work-dot { animation: none; }
+  .work-ring { animation: none; opacity: 0; }
+}
