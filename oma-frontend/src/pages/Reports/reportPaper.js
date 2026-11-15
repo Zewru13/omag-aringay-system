@@ -11,7 +11,7 @@ export const REPORT_TYPES = [
   { id: 'fisheries', label: 'Fisheries Production Harvested', description: 'Harvested aquaculture production, by fisherfolk, species, barangay and season.' },
   { id: 'disaster_fisheries', label: 'Fisheries Disaster Reports', description: 'Disasters logged against fisherfolk and their stocks, with the volume lost and recovery status.' },
   { id: 'disaster_crops', label: 'Crop / Parcel Disaster Reports', description: 'Disasters logged against crops and farm parcels, with the area affected and recovery status.' },
-  { id: 'organization_assistance', label: 'Organization Assistance', description: 'Assistance organizations gave to their members, for one organization or all, with who received it.' },
+  { id: 'organization_assistance', label: 'Organization Assistance', description: 'Assistance organizations gave to their members, for one organization or all, with who received it; and assistance given directly to individual farmers or fisherfolk.' },
 ]
 
 // One report by id.

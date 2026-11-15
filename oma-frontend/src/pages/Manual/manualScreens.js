@@ -3061,7 +3061,7 @@ export default {
    {
     "n": 2,
     "label": "Report on",
-    "desc": "Chooses Farmers Organizations or Fisherfolk Organizations."
+    "desc": "Chooses Farmers Organizations, Fisherfolk Organizations, Individual Farmers or Individual Fisherfolk. The two organization reports show what each organization gave to its members; the individual ones show the assistance given directly to farmers or fisherfolk, not through an organization (there the search box finds the person)."
    },
    {
     "n": 3,
@@ -3096,7 +3096,7 @@ export default {
    {
     "n": 9,
     "label": "Print-ready preview",
-    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Click a row to see that one record's individual report. Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status."
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Click a row to see that one record's individual report. Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status. Under it, the Recipients table names every member who received the assistance: organization, recipient, recipient type, barangay, assistance, source agency, date given, quantity, status and date confirmed. The individual reports have only the Recipients table, without the organization."
    }
   ]
  },

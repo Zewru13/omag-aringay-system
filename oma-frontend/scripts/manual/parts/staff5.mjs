@@ -99,11 +99,11 @@ export const STAFF5 = [
   A({ id: 'admin-report-org-assistance', file: 'admin/report-org-assistance.png', url: '/reports?tab=organization_assistance', after: 1500, height: 1400, title: 'Report: Organization Assistance', purpose: 'The assistance organizations gave to their members.',
     callouts: [
       REPORT_TYPE,
-      { find: { css: '#assistance-kind' }, label: 'Report on', desc: 'Chooses Farmers Organizations or Fisherfolk Organizations.' },
+      { find: { css: '#assistance-kind' }, label: 'Report on', desc: 'Chooses Farmers Organizations, Fisherfolk Organizations, Individual Farmers or Individual Fisherfolk. The two organization reports show what each organization gave to its members; the individual ones show the assistance given directly to farmers or fisherfolk, not through an organization (there the search box finds the person).' },
       SEARCH_ROW('the organization'),
       FILTERS_ROW,
       ...REPORT_BUTTONS,
-      { ...REPORT_PAPER, desc: `${REPORT_PAPER.desc}${ROW_CLICK} Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status.` },
+      { ...REPORT_PAPER, desc: `${REPORT_PAPER.desc}${ROW_CLICK} Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status. Under it, the Recipients table names every member who received the assistance: organization, recipient, recipient type, barangay, assistance, source agency, date given, quantity, status and date confirmed. The individual reports have only the Recipients table, without the organization.` },
     ] }),
 
   // ───────────────────────────── Admin settings ─────────────────────────────

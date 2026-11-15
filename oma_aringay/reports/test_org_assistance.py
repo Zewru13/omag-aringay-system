@@ -59,6 +59,13 @@ class OrganizationAssistanceReportTests(APITestCase):
         BeneficiaryRecord.objects.create(farmer=cls.f1, assistance_type='Seeds', date_given=date(2026, 7, 1))
         # a removed entry is never shown
         removed = give(cls.org_a, [cls.f3], date(2026, 9, 20), 'Seeds', ['DA'], '1 sack', ['REMOVED'])
+        # assistance given straight to a farmer (no organization): Dina is in no organization, Ana is a member of org A but this one was not through it
+        cls.f4 = farmer('Dina', 1004)
+        direct = BeneficiaryRecord.objects.create(
+            farmer=cls.f4, assistance_type='Fertilizer', fertilizer_type='Urea', date_given=date(2026, 8, 10), source_agencies=['DA'], quantity='3 bags')
+        BeneficiaryRecord.objects.filter(pk=direct.pk).update(status='CONFIRMED', confirmed_at=timezone.now())
+        gone = BeneficiaryRecord.objects.create(farmer=cls.f2, assistance_type='Seeds', date_given=date(2026, 8, 11), quantity='9 sacks')
+        BeneficiaryRecord.objects.filter(pk=gone.pk).update(status='REMOVED')
 
         cls.forg = _org(FisherfolkOrganization, 'Samara Fishers', 'FF-1')
         cls.fish = Fisherfolk.objects.create(
@@ -68,6 +75,16 @@ class OrganizationAssistanceReportTests(APITestCase):
             fisherfolk=cls.fish, assistance_type='Feed', date_given=date(2026, 9, 5), source_agencies=['BFAR'], quantity='20 sacks',
             distributed_by_organization=cls.forg, distribution_batch=uuid.uuid4())
         FisherfolkBeneficiaryRecord.objects.filter(pk=rec.pk).update(status='CONFIRMED')
+        # fisherfolk assistance given straight to people: Maria is in no organization, Pedro is a member of Samara Fishers but this was not through it
+        cls.fish2 = Fisherfolk.objects.create(
+            rsbsa_number='01-033-02-019-000502', first_name='Maria', last_name='Reef', gender='Female', birthdate=date(1990, 5, 5),
+            barangay='Dulao', fisherfolk_type='Aquaculture')
+        gear = FisherfolkBeneficiaryRecord.objects.create(
+            fisherfolk=cls.fish2, assistance_type='Fishing Gear', item_type='Nets', date_given=date(2026, 9, 10), source_agencies=['BFAR'], quantity='2 sets')
+        FisherfolkBeneficiaryRecord.objects.filter(pk=gear.pk).update(status='CONFIRMED', confirmed_at=timezone.now())
+        cash = FisherfolkBeneficiaryRecord.objects.create(
+            fisherfolk=cls.fish, assistance_type='Cash Assistance', date_given=date(2026, 9, 12), source_agencies=['LGU'], quantity='5000')
+        FisherfolkBeneficiaryRecord.objects.filter(pk=cash.pk).update(status='NOT_RECEIVED')
 
     def setUp(self):
         self.client.force_authenticate(self.admin)
@@ -103,7 +120,7 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual(fert[3:], ['DA, PCA', '5 bags', 1, 0, 'Needs follow-up'])
         self.assertEqual(training[3:], ['ATI', '—', 1, 1, 'Confirmed'])
         self.assertEqual(seeds[3:], ['DA', '10 sacks', 2, 1, 'Awaiting confirmation'])
-        self.assertEqual(dict(map(tuple, doc['stats'])), {'Organizations': 2, 'Distributions': 3, 'Members Reached': 4,
+        self.assertEqual(dict(map(tuple, doc['stats'])), {'Organizations': 2, 'Distributions': 3, 'Members Reached': 3,
                                                           'Confirmed': 2, 'Needs Follow-up': 1})
 
     def test_individual_and_removed_assistance_are_not_organization_assistance(self):
@@ -137,14 +154,126 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual([s['title'] for s in doc['sections']], ['Distributions', 'Recipients'])
         self.assertEqual({r[0] for r in self.rows(doc)}, {'Alaska Farmers'})
         recipients = doc['sections'][1]['rows']
-        self.assertEqual([(r[0], r[1], r[3]) for r in recipients], [
-            ('Ana Test', 'Training — 2 days', 'Confirmed'),
-            ('Ana Test', 'Seeds — Hybrid rice', 'Confirmed'),
-            ('Ben Test', 'Seeds — Hybrid rice', 'Awaiting Confirmation'),
+        self.assertEqual([(r[0], r[1], r[4], r[8]) for r in recipients], [
+            ('Alaska Farmers', 'Ana Test', 'Training — 2 days', 'Confirmed'),
+            ('Alaska Farmers', 'Ana Test', 'Seeds — Hybrid rice', 'Confirmed'),
+            ('Alaska Farmers', 'Ben Test', 'Seeds — Hybrid rice', 'Awaiting Confirmation'),
         ])
-        self.assertNotEqual(recipients[0][4], '—')    # confirmed: has a date
-        self.assertEqual(recipients[2][4], '—')       # not yet confirmed
+        self.assertNotEqual(recipients[0][9], '—')    # confirmed: has a date
+        self.assertEqual(recipients[2][9], '—')       # not yet confirmed
         self.assertNotIn('Organizations', dict(map(tuple, doc['stats'])))
+
+    # ---- recipients: the people who actually received the assistance, by name -------------------------------------------------------
+
+    RECIPIENT_HEADERS = ['Organization', 'Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given',
+                         'Quantity', 'Status', 'Date Confirmed']
+    PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Date Confirmed']
+
+    def test_the_all_organizations_report_names_every_recipient(self):
+        doc = self.get(kind='farmers')
+        self.assertEqual([s['title'] for s in doc['sections']], ['Distributions', 'Recipients'])
+        section = doc['sections'][1]
+        self.assertEqual(section['headers'], self.RECIPIENT_HEADERS)
+        self.assertEqual([r[:9] for r in section['rows']], [
+            ['Baracbac Farmers', 'Cora Test', 'Farmer', 'Alaska', 'Fertilizer', 'DA, PCA', 'Sep 15, 2026', '5 bags', 'Not Received'],
+            ['Alaska Farmers', 'Ana Test', 'Farmer', 'Alaska', 'Training — 2 days', 'ATI', 'Sep 01, 2026', '—', 'Confirmed'],
+            ['Alaska Farmers', 'Ana Test', 'Farmer', 'Alaska', 'Seeds — Hybrid rice', 'DA', 'Aug 01, 2026', '10 sacks', 'Confirmed'],
+            ['Alaska Farmers', 'Ben Test', 'Farmer', 'Alaska', 'Seeds — Hybrid rice', 'DA', 'Aug 01, 2026', '10 sacks', 'Awaiting Confirmation'],
+        ])
+        keys = [tuple(r[:9]) for r in section['rows']]
+        self.assertEqual(len(keys), len(set(keys)), 'no recipient row is listed twice')
+        names = {r[1] for r in section['rows']}
+        self.assertNotIn('Dina Test', names)   # assistance given directly is not organization assistance
+
+    def test_fisherfolk_organizations_name_their_recipients(self):
+        doc = self.get(kind='fisherfolk')
+        rows = doc['sections'][1]['rows']
+        self.assertEqual([r[:9] for r in rows], [
+            ['Samara Fishers', 'Pedro Sea', 'Fisherfolk', 'Samara', 'Feed', 'BFAR', 'Sep 05, 2026', '20 sacks', 'Confirmed']])
+        self.assertEqual(dict(map(tuple, doc['stats']))['Members Reached'], 1)
+
+    def test_recipients_follow_the_filters(self):
+        doc = self.get(kind='farmers', status='follow_up')
+        self.assertEqual([r[1] for r in doc['sections'][1]['rows']], ['Cora Test'])
+        doc = self.get(kind='farmers', assistance_type='Seeds')
+        self.assertEqual([r[1] for r in doc['sections'][1]['rows']], ['Ana Test', 'Ben Test'])
+        self.assertEqual(self.get(kind='farmers', search='zzzz')['sections'][1]['rows'], [])
+
+    # ---- individual farmers and fisherfolk: assistance given directly, not through an organization -------------------------------
+
+    def test_individual_farmers_are_only_what_was_given_directly(self):
+        doc = self.get(kind='individual_farmers')
+        self.assertEqual(doc['title'], 'Individual Farmers Assistance')
+        self.assertEqual([s['title'] for s in doc['sections']], ['Recipients'])
+        section = doc['sections'][0]
+        self.assertEqual(section['headers'], self.PERSON_HEADERS)
+        self.assertEqual([r[:8] for r in section['rows']], [
+            ['Dina Test', 'Farmer', 'Alaska', 'Fertilizer — Urea', 'DA', 'Aug 10, 2026', '3 bags', 'Confirmed'],
+            ['Ana Test', 'Farmer', 'Alaska', 'Seeds', '—', 'Jul 01, 2026', '—', 'Awaiting Confirmation'],
+        ])
+        self.assertNotEqual(section['rows'][0][8], '—')     # confirmed: has a date
+        self.assertEqual(section['rows'][1][8], '—')
+        self.assertEqual(dict(map(tuple, doc['stats'])), {'Recipients': 2, 'Assistance Records': 2, 'Confirmed': 1, 'Needs Follow-up': 0})
+        self.assertNotIn('row_refs', doc)                    # there is no organization to open
+
+    def test_an_organization_member_is_listed_only_for_what_was_not_through_the_organization(self):
+        rows = self.get(kind='individual_farmers')['sections'][0]['rows']
+        self.assertEqual([r[3] for r in rows if r[0] == 'Ana Test'], ['Seeds'])    # not her two organization distributions
+        org_rows = self.get(kind='farmers')['sections'][1]['rows']
+        self.assertEqual(len([r for r in org_rows if r[1] == 'Ana Test']), 2)       # and those two are not in the organization report twice
+
+    def test_individual_fisherfolk(self):
+        doc = self.get(kind='individual_fisherfolk')
+        self.assertEqual(doc['title'], 'Individual Fisherfolk Assistance')
+        rows = doc['sections'][0]['rows']
+        self.assertEqual([r[:8] for r in rows], [
+            ['Pedro Sea', 'Fisherfolk', 'Samara', 'Cash Assistance', 'LGU', 'Sep 12, 2026', '5000', 'Not Received'],
+            ['Maria Reef', 'Fisherfolk', 'Dulao', 'Fishing Gear — Nets', 'BFAR', 'Sep 10, 2026', '2 sets', 'Confirmed'],
+        ])
+        self.assertEqual(dict(map(tuple, doc['stats'])), {'Recipients': 2, 'Assistance Records': 2, 'Confirmed': 1, 'Needs Follow-up': 1})
+
+    def test_individual_filters_and_search(self):
+        names = lambda kind='individual_farmers', **p: [r[0] for r in self.get(kind=kind, **p)['sections'][0]['rows']]
+        self.assertEqual(names(date_from='2026-08-01'), ['Dina Test'])
+        self.assertEqual(names(date_to='2026-07-31'), ['Ana Test'])
+        self.assertEqual(names(assistance_type='Seeds'), ['Ana Test'])
+        self.assertEqual(names(source_agency='DA'), ['Dina Test'])
+        self.assertEqual(names(status='confirmed'), ['Dina Test'])
+        self.assertEqual(names(status='awaiting'), ['Ana Test'])
+        self.assertEqual(names(status='follow_up'), [])
+        self.assertEqual(names(search='dina'), ['Dina Test'])
+        self.assertEqual(names(search='test ana'), ['Ana Test'])
+        self.assertEqual(names(search='zzzz'), [])
+        self.assertEqual(names('individual_fisherfolk', status='follow_up'), ['Pedro Sea'])
+        self.assertEqual(names('individual_fisherfolk', search='reef'), ['Maria Reef'])
+        subtitle = self.get(kind='individual_farmers', assistance_type='Seeds', search='ana')['subtitle']
+        self.assertIn('Assistance: Seeds', subtitle)
+
+    def test_individual_reports_refuse_what_the_kind_cannot_give(self):
+        for params in ({'kind': 'individual_farmers', 'assistance_type': 'Fishing Gear'},
+                       {'kind': 'individual_fisherfolk', 'assistance_type': 'Seeds'},
+                       {'kind': 'individual_farmers', 'status': 'maybe'}):
+            self.assertEqual(self.client.get(URL, params).status_code, 400, params)
+
+    def test_an_individual_report_ignores_an_organization_id(self):
+        self.assertEqual(self.get(kind='individual_farmers', id=self.org_a.id)['title'], 'Individual Farmers Assistance')
+
+    def test_individual_pdf_and_excel_carry_the_names(self):
+        for kind in ('individual_farmers', 'individual_fisherfolk'):
+            pdf = self.client.get(URL, {'kind': kind, 'format': 'pdf', 'prepared_by': 'Clerk'})
+            self.assertEqual(pdf['Content-Type'], 'application/pdf', kind)
+            self.assertTrue(pdf.content.startswith(b'%PDF'))
+        xl = self.client.get(URL, {'kind': 'individual_farmers', 'format': 'excel'})
+        ws = openpyxl.load_workbook(io.BytesIO(xl.content)).active
+        cells = [str(c) for row in ws.iter_rows(values_only=True) for c in row if c is not None]
+        for expected in ('Recipients', 'Dina Test', 'Ana Test', 'Fertilizer — Urea', 'Recipient Type', 'Barangay'):
+            self.assertIn(expected, cells)
+        # the organization report's Excel names its recipients too
+        xl = self.client.get(URL, {'kind': 'farmers', 'format': 'excel'})
+        ws = openpyxl.load_workbook(io.BytesIO(xl.content)).active
+        cells = [str(c) for row in ws.iter_rows(values_only=True) for c in row if c is not None]
+        for expected in ('Recipients', 'Cora Test', 'Ben Test', 'Alaska Farmers'):
+            self.assertIn(expected, cells)
 
     def test_one_organization_with_filters_and_an_unknown_id(self):
         doc = self.get(kind='farmers', id=self.org_a.id, assistance_type='Seeds')

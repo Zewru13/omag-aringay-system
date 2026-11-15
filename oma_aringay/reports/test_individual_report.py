@@ -167,7 +167,7 @@ class AssistanceIndividualTests(APITestCase):
     def test_a_search_that_matches_two_organizations_stays_the_list(self):
         doc = self.get(search='Farmers', individual='auto')
         self.assertNotIn('individual', doc)
-        self.assertEqual([s['title'] for s in doc['sections']], ['Distributions'])
+        self.assertEqual([s['title'] for s in doc['sections']], ['Distributions', 'Recipients'])
 
     def test_no_search_never_switches_even_when_only_one_organization_has_distributions(self):
         doc = self.get(date_from='2026-09-10', individual='auto')   # only Baracbac Farmers is left
