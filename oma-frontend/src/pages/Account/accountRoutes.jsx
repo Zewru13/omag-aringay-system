@@ -6,9 +6,17 @@ import { useAuth } from '../../context/AuthContext.jsx'
 
 const CropMonitoringPage = lazy(() => import('../Monitoring/CropMonitoringPage.jsx'))
 const MyCropsPage = lazy(() => import('./MyCropsPage.jsx'))
+const CropAssistancePage = lazy(() => import('../AssistanceManagement/CropAssistancePage.jsx'))
+const MyAssistancePage = lazy(() => import('./MyAssistancePage.jsx'))
 
 // /crop-monitoring
 export function CropsRoute() {
   const { isFarmer } = useAuth()
   return isFarmer ? <MyCropsPage /> : <CropMonitoringPage />
+}
+
+// /crop-assistance (the office and a farmers' organization keep the Crop Assistance page)
+export function CropAssistanceRoute() {
+  const { isFarmer } = useAuth()
+  return isFarmer ? <MyAssistancePage /> : <CropAssistancePage />
 }

@@ -42,7 +42,7 @@ const ActivitySettingsHub = lazy(() => import("./pages/ActivitySettings/Activity
 const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.jsx"));
 const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
 const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
-const CropAssistancePage = lazy(() => import("./pages/AssistanceManagement/CropAssistancePage.jsx"));
+const CropAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropAssistanceRoute })));
 const FisheriesAssistancePage = lazy(() => import("./pages/AssistanceManagement/FisheriesAssistancePage.jsx"));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
 const MoreScreen = lazy(() => import("./pages/Account/MoreScreen.jsx"));
@@ -317,7 +317,7 @@ function App() {
             path="/crop-assistance"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer allowOrg={["FARMERS_ORG"]}>
-                <CropAssistancePage />
+                <CropAssistanceRoute />
               </ProtectedRoute>
             }
           />
