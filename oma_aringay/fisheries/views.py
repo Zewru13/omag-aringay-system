@@ -591,81 +591,86 @@ class StockingListView(generics.ListAPIView):
         return StockingRecordSerializer
 
     def get_queryset(self):
-        qs = StockingRecord.objects.select_related(
-            'fisherfolk', 'species', 'species__category', 'recorded_by', 'production_cycle',
-            'production_cycle__organization',
-        ).prefetch_related('logs', 'disaster_reports', 'harvests', 'pcic_extra_photos', 'production_cycle__units').order_by('-date_recorded', '-id')
+        return stocking_list_queryset(self.request.user, self.request.query_params)
 
-        if self.request.user.role == 'CITIZEN':
-            fisherfolk_id = self.request.user.get_linked_fisherfolk_id()
-            qs = qs.filter(fisherfolk_id=fisherfolk_id if fisherfolk_id else -1)
 
-        params = self.request.query_params
-        raw_status = params.get('status', '')
-        if raw_status:
-            # Filters on the DISPLAYED status (Stocked / Near Harvest / Late from the dates, see
-            # stocking_display_status), so a row and the filter that lists it always agree.
-            statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
-            qs = qs.filter(stocking_display_status_q(statuses))
-        else:
-            qs = qs.exclude(status__in=[
-                StockingRecord.Status.TOTAL_LOSS,
-                StockingRecord.Status.HARVESTED,
-            ])
+def stocking_list_queryset(user, params):
+    """The stocking records the Aquaculture Records / Monitoring lists show for `user`, narrowed by the query `params` (a dict or QueryDict).
+    One place for the filters, so the Reports page's Aquaculture Records report lists exactly what the page lists."""
+    qs = StockingRecord.objects.select_related(
+        'fisherfolk', 'species', 'species__category', 'recorded_by', 'production_cycle',
+        'production_cycle__organization',
+    ).prefetch_related('logs', 'disaster_reports', 'harvests', 'pcic_extra_photos', 'production_cycle__units').order_by('-date_recorded', '-id')
 
-        if params.get('season'):
-            qs = qs.filter(season__iexact=params['season'])
-        if params.get('year'):
-            qs = qs.filter(year=params['year'])
-        if params.get('fisherfolk'):
-            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        if params.get('species'):
-            qs = qs.filter(species_id=params['species'])
-        if params.get('barangay'):
-            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
-        # PCIC insured (Aquaculture Monitoring's filter): ?pcic=insured keeps the cycles saved as insured, ?pcic=not_insured the others
-        # (anything else: all). It reads the same flag as the table's PCIC INSURED column.
-        if params.get('pcic') == 'insured':
-            qs = qs.filter(has_pcic_insurance=True)
-        elif params.get('pcic') == 'not_insured':
-            qs = qs.filter(has_pcic_insurance=False)
-        qs = _filter_stocking_records(qs, params)
-        # Date stocked: ?stocked_from= and ?stocked_to= (YYYY-MM-DD, both ends included). (date_from / date_to below are the
-        # forecast's expected-harvest window.)
-        qs = filter_date_range(qs, 'date_stocked', params, 'stocked_from', 'stocked_to')
-        pond = (params.get('pond') or '').strip()
-        if pond:
-            qs = qs.filter(stocking_pond_q(pond))
-        # Fisherfolk by name in any order or by RSBSA / LGU / FishR number
-        # (as typed or without dashes), plus species and barangay.
-        qs = filter_people_search(
-            qs, params.get('search'),
-            name_fields=['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
-            id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__fishr_number'],
-            other_fields=['species__species_name', 'pond_location_barangay'],
+    if user.role == 'CITIZEN':
+        fisherfolk_id = user.get_linked_fisherfolk_id()
+        qs = qs.filter(fisherfolk_id=fisherfolk_id if fisherfolk_id else -1)
+
+    raw_status = params.get('status', '')
+    if raw_status:
+        # Filters on the DISPLAYED status (Stocked / Near Harvest / Late from the dates, see
+        # stocking_display_status), so a row and the filter that lists it always agree.
+        statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
+        qs = qs.filter(stocking_display_status_q(statuses))
+    else:
+        qs = qs.exclude(status__in=[
+            StockingRecord.Status.TOTAL_LOSS,
+            StockingRecord.Status.HARVESTED,
+        ])
+
+    if params.get('season'):
+        qs = qs.filter(season__iexact=params['season'])
+    if params.get('year'):
+        qs = qs.filter(year=params['year'])
+    if params.get('fisherfolk'):
+        qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+    if params.get('species'):
+        qs = qs.filter(species_id=params['species'])
+    if params.get('barangay'):
+        qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+    # PCIC insured (Aquaculture Monitoring's filter): ?pcic=insured keeps the cycles saved as insured, ?pcic=not_insured the others
+    # (anything else: all). It reads the same flag as the table's PCIC INSURED column.
+    if params.get('pcic') == 'insured':
+        qs = qs.filter(has_pcic_insurance=True)
+    elif params.get('pcic') == 'not_insured':
+        qs = qs.filter(has_pcic_insurance=False)
+    qs = _filter_stocking_records(qs, params)
+    # Date stocked: ?stocked_from= and ?stocked_to= (YYYY-MM-DD, both ends included). (date_from / date_to below are the
+    # forecast's expected-harvest window.)
+    qs = filter_date_range(qs, 'date_stocked', params, 'stocked_from', 'stocked_to')
+    pond = (params.get('pond') or '').strip()
+    if pond:
+        qs = qs.filter(stocking_pond_q(pond))
+    # Fisherfolk by name in any order or by RSBSA / LGU / FishR number
+    # (as typed or without dashes), plus species and barangay.
+    qs = filter_people_search(
+        qs, params.get('search'),
+        name_fields=['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
+        id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__fishr_number'],
+        other_fields=['species__species_name', 'pond_location_barangay'],
+    )
+    # Fisheries Forecasting "Forecast" tab: day-window scope over the real
+    # expected_harvest_date field (today <= date <= date_to), rather than
+    # trusting `status` alone — status only flips to Near Harvest when
+    # something calls .save() on the record, so a record already inside
+    # the window can still read Stocked if nothing has touched it since.
+    # Same date_from/date_to query-param convention already used by
+    # auditlog/views.py. Total Loss (and Harvested) stay excluded via the
+    # existing no-status-param default branch above.
+    if params.get('date_from'):
+        qs = qs.filter(expected_harvest_date__gte=params['date_from'])
+    if params.get('date_to'):
+        qs = qs.filter(expected_harvest_date__lte=params['date_to'])
+    # Forecast lists ask for the soonest expected harvest first; any other
+    # value is ignored (the default newest-first order stays).
+    ordering = params.get('ordering')
+    if ordering in ('expected_harvest_date', '-expected_harvest_date'):
+        harvest = F('expected_harvest_date')
+        qs = qs.order_by(
+            harvest.desc(nulls_last=True) if ordering.startswith('-') else harvest.asc(nulls_last=True),
+            '-id',
         )
-        # Fisheries Forecasting "Forecast" tab: day-window scope over the real
-        # expected_harvest_date field (today <= date <= date_to), rather than
-        # trusting `status` alone — status only flips to Near Harvest when
-        # something calls .save() on the record, so a record already inside
-        # the window can still read Stocked if nothing has touched it since.
-        # Same date_from/date_to query-param convention already used by
-        # auditlog/views.py. Total Loss (and Harvested) stay excluded via the
-        # existing no-status-param default branch above.
-        if params.get('date_from'):
-            qs = qs.filter(expected_harvest_date__gte=params['date_from'])
-        if params.get('date_to'):
-            qs = qs.filter(expected_harvest_date__lte=params['date_to'])
-        # Forecast lists ask for the soonest expected harvest first; any other
-        # value is ignored (the default newest-first order stays).
-        ordering = params.get('ordering')
-        if ordering in ('expected_harvest_date', '-expected_harvest_date'):
-            harvest = F('expected_harvest_date')
-            qs = qs.order_by(
-                harvest.desc(nulls_last=True) if ordering.startswith('-') else harvest.asc(nulls_last=True),
-                '-id',
-            )
-        return qs
+    return qs
 
 
 class StockingHistoryView(generics.ListAPIView):

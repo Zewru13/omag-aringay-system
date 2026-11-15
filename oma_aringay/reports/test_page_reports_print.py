@@ -158,7 +158,7 @@ class PageReportPdfTests(APITestCase):
         self.assertGreater(wide[0], wide[1])
         _, harvest = self.pdf('/api/reports/production/harvested-crop/')          # ten columns
         self.assertGreater(harvest[0], harvest[1])
-        _, fish = self.pdf('/api/reports/fisheries/production/')                  # nine columns
+        _, fish = self.pdf('/api/reports/fisheries/production/')                  # eight columns
         self.assertGreater(fish[0], fish[1])
 
     def test_a_long_report_continues_on_the_next_page_and_keeps_every_record(self):

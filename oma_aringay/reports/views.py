@@ -2058,7 +2058,7 @@ class FisheriesProductionReport(APIView):
             'BARANGAY', 'FISHERFOLK', 'ORGANIZATION',
             'SPECIES', 'CULTURE TYPE',
             'DATE STOCKED', 'HARVEST DATE',
-            'QUANTITY (KG)', 'FINAL?',
+            'QUANTITY (KG)',
         ]
 
         def _assoc(rec):
@@ -2077,7 +2077,6 @@ class FisheriesProductionReport(APIView):
                 fmt_date(sr.date_stocked) if (sr and sr.date_stocked) else '—',
                 fmt_date(rec.harvest_date) if rec.harvest_date else '—',
                 float(rec.quantity_kg) if rec.quantity_kg else 0,
-                'Yes' if rec.is_final else 'No',
             ]
 
         if fmt == 'json':
@@ -2088,7 +2087,7 @@ class FisheriesProductionReport(APIView):
                     'barangay':     r[0], 'fisherfolk':   r[1], 'organization': r[2],
                     'species':      r[3], 'culture_type': r[4],
                     'date_stocked': r[5], 'harvest_date': r[6],
-                    'quantity_kg':  r[7], 'is_final':     r[8],
+                    'quantity_kg':  r[7],
                 })
             return JsonResponse({'count': len(data), 'records': data})
 
@@ -2112,7 +2111,7 @@ class FisheriesProductionReport(APIView):
         doc = make_document(
             'Fisheries Production Report', ' · '.join(applied) or 'All harvest records',
             [['Total Harvest Records', len(rows)], ['Total Quantity (kg)', f'{total_kg:,.2f}']],
-            [{'title': 'Harvest Records', 'headers': ['Barangay', 'Fisherfolk', 'Organization', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)', 'Final?'],
+            [{'title': 'Harvest Records', 'headers': ['Barangay', 'Fisherfolk', 'Organization', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)'],
               'rows': rows,
               'empty': 'No harvest records match these filters.'}],
             heading='Fisheries Production Report', period=period_text(start_date, end_date),
