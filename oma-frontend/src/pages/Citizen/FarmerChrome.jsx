@@ -81,7 +81,8 @@ const CHROME_THEME = {
   fish: { header: 'bg-cz-fish-header', tabActive: 'text-cz-fish-deep' },
 }
 
-export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, theme = 'crop', menuLabels }) {
+// `showMenu={false}`: only the notification bell (the account's phone shell: its profile, Help and Log out are on the More tab).
+export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, theme = 'crop', menuLabels, showMenu = true }) {
   const [open, setOpen] = useMenuState()
   return (
     <header className={`sticky top-0 z-30 ${CHROME_THEME[theme].header}`}>
@@ -92,19 +93,21 @@ export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, 
         </span>
         <div className="flex items-center gap-1">
           <NotificationBell />
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label={labels.header.profileNav}
-            className={`flex h-7 w-7 shrink-0 relative after:absolute after:-inset-2 after:content-[''] items-center justify-center rounded-full bg-white/[0.16] transition-shadow ${open ? 'ring-2 ring-white' : ''}`}
-          >
-            <span className="text-[10px] font-bold text-white">{initials}</span>
-          </button>
+          {showMenu && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              aria-label={labels.header.profileNav}
+              className={`flex h-7 w-7 shrink-0 relative after:absolute after:-inset-2 after:content-[''] items-center justify-center rounded-full bg-white/[0.16] transition-shadow ${open ? 'ring-2 ring-white' : ''}`}
+            >
+              <span className="text-[10px] font-bold text-white">{initials}</span>
+            </button>
+          )}
         </div>
       </div>
-      {open && (
+      {showMenu && open && (
         <>
           <button
             type="button"
@@ -144,7 +147,7 @@ export function FarmerTabBar({ active, items, theme = 'crop', ariaLabel }) {
               type="button"
               onClick={item.onClick}
               aria-current={isActive ? 'page' : undefined}
-              className="press-scale flex min-h-[60px] flex-1 flex-col items-center justify-center gap-[5px] px-1 py-1.5"
+              className="press-scale flex min-h-[60px] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 py-1.5"
             >
               <Icon
                 size={20}
@@ -152,7 +155,7 @@ export function FarmerTabBar({ active, items, theme = 'crop', ariaLabel }) {
                 aria-hidden="true"
               />
               <span
-                className={`text-center text-[9.5px] leading-[1.15] transition-colors ${
+                className={`text-center text-[13px] leading-[1.15] transition-colors ${
                   isActive ? `font-semibold ${activeText}` : 'font-medium text-cz-text-muted'
                 }`}
               >

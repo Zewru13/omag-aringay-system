@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, BarChart2, Building2, Package, ChevronDown, ClipboardList, FileBarChart, Fish, HandHeart, Home, LayoutDashboard, Leaf, LineChart, Settings2, HeartHandshake, ListChecks, Scale, ShieldCheck, Sprout, TrendingUp, UserCog, Users, Waves, Wheat, X, HardDriveDownload, PenLine } from "lucide-react";
+import { Activity, AlertTriangle, BarChart2, Building2, ChevronDown, ClipboardList, FileBarChart, Fish, HandHeart, LayoutDashboard, Leaf, LineChart, Menu, Settings2, HeartHandshake, ListChecks, Scale, ShieldCheck, Sprout, TrendingUp, UserCog, Users, Waves, Wheat, X, HardDriveDownload, PenLine } from "lucide-react";
 import { useLocation, NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { accountIcon } from "../../pages/Account/accountIcons.js";
+import { accountKind, accountNav, activeNavKey } from "../../pages/Account/accountNav.js";
 import logo from "../../assets/LOGO OMAg-small.png";
 
 // ─── Nav structure ──────────────────────────────────────────────────────────
@@ -37,7 +39,7 @@ const REPORTS_GROUP = { key: "reports", label: "Reports", icon: FileBarChart, it
 // mirrors that so a bare /farmers (e.g. an old link, or the farmer detail
 // page's back-navigation) still correctly highlights "Farmers", not nothing.
 // /disaster mirrors the same idea: a bare /disaster opens the Crop view (see AdminDisasterPage).
-const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/disaster": "farmer", "/fisheries-monitoring": "stocking" };
+const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/disaster": "farmer", "/fisheries-monitoring": "stocking", "/my-organization": "members" };
 
 const GROUPS = [
   {
@@ -99,37 +101,6 @@ const GROUPS = [
   },
 ];
 
-// Fisherfolk accounts: the same Admin Fisheries pages (the backend returns only their own records), in
-// English. Activity logs, Health Log, Harvest and Force Harvest are the workflows inside Fisheries
-// Monitoring > Aquaculture, exactly as for Admin. A fisherfolk account is already an aquaculture
-// context, so there is no Capture Fishing and no Aquaculture/Capture category choice anywhere here.
-// Direct links, no submenus: the account itself is the context, so Aquaculture Monitoring is its only monitoring and Disaster IS the fisherfolk disaster page (My Logged Disasters + Log Disaster).
-const FISHERFOLK_NAV = [
-  { to: "/my-account", icon: Home, label: "Home" },
-  { to: "/fisheries-monitoring", icon: Waves, label: "Aquaculture Monitoring" },
-  { to: "/fisheries-forecasting", icon: TrendingUp, label: "Forecasting" },
-  { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
-  { to: "/fisheries-assistance", icon: HandHeart, label: "Assistance" },
-];
-
-// Farmer accounts: the same Admin crop pages (the backend returns only their own records), in English, as plain
-// top-level links like the fisherfolk menu. A farmer cannot create crop records, so there is no Crop Records.
-const FARMER_NAV = [
-  { to: "/my-account", icon: Home, label: "Home" },
-  { to: "/crop-monitoring", icon: Sprout, label: "Crop Monitoring" },
-  { to: "/forecasting", icon: TrendingUp, label: "Forecasting" },
-  { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
-  { to: "/crop-assistance", icon: HandHeart, label: "Assistance" },
-];
-
-// Organization accounts: their own organization and its assistance, as plain top-level links. The assistance
-// page is the one of the organization's own domain (crop or fisheries).
-const orgNav = (orgType) => [
-  { to: "/my-account", icon: Home, label: "Home" },
-  { to: "/my-organization", icon: Building2, label: "My Organization" },
-  { to: orgType === "FISHERFOLK_ORG" ? "/fisheries-assistance" : "/crop-assistance", icon: HandHeart, label: "Assistance" },
-];
-
 const ADMIN_GROUP = {
   key: "admin",
   label: "Admin",
@@ -187,9 +158,10 @@ function groupContainsPath(group, location) {
 
 // ─── Leaf item ──────────────────────────────────────────────────────────────
 
-function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
+// `active` (optional) overrides the address match: an account's main entries are lit by its own menu rules (activeNavKey).
+function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0, active }) {
   const location = useLocation();
-  const isActive = isItemActive(to, location);
+  const isActive = active ?? isItemActive(to, location);
 
   if (isCollapsed) {
     return (
@@ -356,10 +328,14 @@ function GroupLink({ to, icon: Icon, label, isCollapsed }) {
 
 function Sidebar({ isOpen, onClose, isCollapsed }) {
   const { user, isFisherfolk, isFarmer, isOrg, orgType } = useAuth();
-  const baseNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : isOrg ? orgNav(orgType) : null;
-  // A member of an organization can also borrow its equipment.
-  const isMember = (isFisherfolk || isFarmer) && (user?.linked_record?.organization_names?.length || 0) > 0;
-  const ownNav = baseNav && isMember ? [...baseNav, { to: "/my-equipment", icon: Package, label: "Equipment" }] : baseNav;
+  const location = useLocation();
+  // A farmer, fisherfolk or organization account: its own menu (pages/Account/accountNav.js), the same five entries as its phone tab
+  // bar. The first four are plain links; More opens in place and holds the rest. A member of an organization can also borrow equipment.
+  const kind = accountKind({ isFarmer, isFisherfolk, isOrg, orgType });
+  const isMember = (user?.linked_record?.organization_names?.length || 0) > 0;
+  const ownNav = kind ? accountNav(kind, { isMember }) : null;
+  const ownActive = ownNav ? activeNavKey(ownNav, location.pathname, location.search) : null;
+  const moreGroup = ownNav && { key: "more", label: "More", icon: Menu, items: ownNav.more.map((entry) => ({ to: entry.to, icon: accountIcon(entry.icon), label: entry.label })) };
   const isAdmin = user?.role === "ADMIN";
 
   return (
@@ -434,11 +410,12 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
         {/* Navigation */}
         <nav className="flex-1 py-3">
           {ownNav ? (
-            // Fisherfolk or farmer account: five plain top-level links, no submenus.
             <>
-              {ownNav.map((entry) => (
-                <LeafItem key={entry.to} {...entry} isCollapsed={isCollapsed} />
+              {ownNav.main.filter((entry) => entry.key !== "more").map((entry) => (
+                <LeafItem key={entry.key} to={entry.to} icon={accountIcon(entry.icon)} label={entry.label} isCollapsed={isCollapsed} active={ownActive === entry.key} />
               ))}
+              {isCollapsed && <div className="mx-auto w-8 border-t border-nav-rail my-2" />}
+              <NavGroup group={moreGroup} isCollapsed={isCollapsed} />
             </>
           ) : (
             <>

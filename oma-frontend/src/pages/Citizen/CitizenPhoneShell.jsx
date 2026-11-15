@@ -1,93 +1,44 @@
-import { AlertTriangle, Building2, HandHeart, Home, Sprout, TrendingUp, Waves } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { accountIcon } from '../Account/accountIcons.js'
+import { accountKind, accountNav, accountTheme, activeNavKey } from '../Account/accountNav.js'
 import { FarmerHeader, FarmerTabBar } from './FarmerChrome.jsx'
 
-// The phone layout of a citizen account that uses the Admin pages for its own records: the citizen chrome
-// (header with avatar menu, five-tab bottom bar) around the existing pages, in the account's colour (fisheries
-// blue for a fisherfolk, crop green for a farmer). PageLayout renders this instead of the admin sidebar layout
-// on a phone for those two accounts; tablets, desktops and every other role keep the admin layout.
+// The phone layout of a farmer, fisherfolk or organization account: a header (the office name and the notification bell) and the
+// five-tab bottom bar around the page, in the account's colour (fisheries blue for a fisherfolk and a fisherfolk organization, crop
+// green for a farmer and a farmers' organization). PageLayout renders this instead of the sidebar layout on a phone for those
+// accounts; tablets, desktops and every other role keep the sidebar layout.
 //
-// English on purpose: the pages inside each tab are English, so the chrome matches them.
-
-const MENU = { viewProfile: 'My Profile', help: 'Help', manual: 'User Manual', logout: 'Log out' }
-
-const TABS_BY_ROLE = {
-  fisherfolk: [
-    { key: 'home', path: '/my-account', icon: Home, label: 'Home' },
-    { key: 'monitoring', path: '/fisheries-monitoring', icon: Waves, label: 'Monitoring' },
-    { key: 'disaster', path: '/disaster', icon: AlertTriangle, label: 'Disaster' },
-    { key: 'forecasting', path: '/fisheries-forecasting', icon: TrendingUp, label: 'Forecasting' },
-    { key: 'assistance', path: '/fisheries-assistance', icon: HandHeart, label: 'Assistance' },
-  ],
-  farmer: [
-    { key: 'home', path: '/my-account', icon: Home, label: 'Home' },
-    { key: 'monitoring', path: '/crop-monitoring', icon: Sprout, label: 'Monitoring' },
-    { key: 'disaster', path: '/disaster', icon: AlertTriangle, label: 'Disaster' },
-    { key: 'forecasting', path: '/forecasting', icon: TrendingUp, label: 'Forecasting' },
-    { key: 'assistance', path: '/crop-assistance', icon: HandHeart, label: 'Assistance' },
-  ],
-}
-// An organization account: Home, its organization and the assistance page of its own domain.
-TABS_BY_ROLE.orgFarm = [
-  { key: 'home', path: '/my-account', icon: Home, label: 'Home' },
-  { key: 'organization', path: '/my-organization', icon: Building2, label: 'Organization' },
-  { key: 'assistance', path: '/crop-assistance', icon: HandHeart, label: 'Assistance' },
-]
-TABS_BY_ROLE.orgFish = [
-  { key: 'home', path: '/my-account', icon: Home, label: 'Home' },
-  { key: 'organization', path: '/my-organization', icon: Building2, label: 'Organization' },
-  { key: 'assistance', path: '/fisheries-assistance', icon: HandHeart, label: 'Assistance' },
-]
-
-const THEME_BY_ROLE = { fisherfolk: 'fish', farmer: 'crop', orgFarm: 'crop', orgFish: 'fish' }
-
-// The tab a path belongs to; the profile and help pages (reached from the avatar menu) light none.
-function activeTabKey(tabs, pathname) {
-  const hit = tabs.find((t) => pathname === t.path || pathname.startsWith(`${t.path}/`))
-  return hit ? hit.key : null
-}
+// The tabs are the account's menu (pages/Account/accountNav.js), the same five entries the sidebar shows. The profile, Help, the
+// User Manual and Log out are on the More tab, so the header has no menu of its own.
 
 export default function CitizenPhoneShell({ title, action, children }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const { user, logout, isFarmer, isOrg, orgType } = useAuth()
-  const role = isFarmer ? 'farmer' : isOrg ? (orgType === 'FISHERFOLK_ORG' ? 'orgFish' : 'orgFarm') : 'fisherfolk'
-  const TABS = TABS_BY_ROLE[role]
-
-  const initials = (user?.full_name || user?.linked_record?.label || '')
-    .split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'F'
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
+  const { pathname, search } = useLocation()
+  const auth = useAuth()
+  const { user } = auth
+  const kind = accountKind(auth)
+  const isMember = (user?.linked_record?.organization_names?.length || 0) > 0
+  const nav = accountNav(kind, { isMember })
+  const theme = accountTheme(kind)
 
   return (
     <div className="min-h-screen bg-cz-page">
-      <FarmerHeader
-        theme={THEME_BY_ROLE[role]}
-        menuLabels={MENU}
-        initials={initials}
-        onProfile={() => navigate('/my-profile')}
-        onHelp={() => navigate('/my-help')}
-        onManual={() => navigate('/manual')}
-        onLogout={handleLogout}
-      />
+      <FarmerHeader theme={theme} showMenu={false} />
 
       {/* pb clears the fixed tab bar (60px) plus the device's home-indicator inset. */}
       <main className="px-4 pb-[calc(60px+env(safe-area-inset-bottom)+20px)] pt-4">
-        {/* Same as PageLayout: no visible title block (the bottom tabs show where you are); the title stays for screen readers. */}
+        {/* Same as PageLayout: no visible title block here (the page draws its own heading); the title stays for screen readers. */}
         {title && <h1 className="sr-only">{title}</h1>}
         {action && <div className="mb-4 flex justify-end">{action}</div>}
         {children}
       </main>
 
       <FarmerTabBar
-        theme={THEME_BY_ROLE[role]}
+        theme={theme}
         ariaLabel="Main navigation"
-        active={activeTabKey(TABS, pathname)}
-        items={TABS.map((t) => ({ key: t.key, icon: t.icon, label: t.label, onClick: () => navigate(t.path) }))}
+        active={activeNavKey(nav, pathname, search)}
+        items={nav.main.map((entry) => ({ key: entry.key, icon: accountIcon(entry.icon), label: entry.label, onClick: () => navigate(entry.to) }))}
       />
     </div>
   )
