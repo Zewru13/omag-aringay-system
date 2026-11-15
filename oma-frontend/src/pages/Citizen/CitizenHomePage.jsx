@@ -1,40 +1,23 @@
 import { LogOut } from 'lucide-react'
 import logo from '../../assets/LOGO OMAg-small.png'
 import { useAuth } from '../../context/AuthContext.jsx'
-import FisherfolkPhoneHome from './FisherfolkPhoneHome.jsx'
-import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
-import FarmerPhoneHome from './FarmerPhoneHome.jsx'
-import OrgPhoneHome from './OrgPhoneHome.jsx'
+import AccountHome from '../Account/AccountHome.jsx'
+import { accountKind } from '../Account/accountNav.js'
 import { labels } from './labels.js'
 
-// Batch 10 built the read-only proof-of-chain overview below. Batch 11
-// added self-service tabs for Farmer/Fisherfolk: log/edit own activity &
-// harvest entries, read-only Yield Analysis and Assistance History.
-// Batch 12 added the ORGANIZATION-role equivalent: report beneficiary
-// assistance for this org's own members only, edit own submissions. No
-// crop/pond records, no member profile editing, no disaster reporting
-// anywhere on this page for any role. Organization accounts now use the
-// Admin pages in an own-organization mode, like the other two (see OrgPhoneHome).
+// The landing page of a farmer, fisherfolk or organization account: Home (see pages/Account/AccountHome.jsx), one screen for all of
+// them. What is left here is only the fallback for an account with no linked record.
 
 const RECORD_TYPE_LABELS_LOWER = labels.home.recordTypeLabels
 
 export default function CitizenHomePage() {
-  const { user, logout } = useAuth()
+  const auth = useAuth()
+  const { user, logout } = auth
   const record = user?.linked_record
   const recordType = user?.linked_record_type
-  const isFarmersOrg = recordType === 'FARMERS_ORG'
-  const isFisherfolkOrg = recordType === 'FISHERFOLK_ORG'
-  const isFarmer = recordType === 'FARMER'
-  const isFisherfolk = recordType === 'FISHERFOLK'
-  const orgDomain = isFarmersOrg ? FARMERS_ORG_DOMAIN : isFisherfolkOrg ? FISHERFOLK_ORG_DOMAIN : null
 
-  // Farmer, Fisherfolk and Organization accounts land on a Home dashboard (summary tiles and charts) built from
-  // their own records; the backend limits every list it reads to this account. On a phone it sits inside the phone
-  // shell (see CitizenPhoneShell), on a larger screen inside the sidebar layout, and the Home entry in the menu
-  // brings them back to it. The pages they work in (monitoring, disaster, assistance) are one tap away.
-  if (isFarmer && record) return <FarmerPhoneHome />
-  if (isFisherfolk && record) return <FisherfolkPhoneHome />
-  if (orgDomain && record) return <OrgPhoneHome />
+  // The same Home for every kind of account: what needs the person today, what is active, a short summary.
+  if (accountKind(auth) && record) return <AccountHome />
 
   // Fallback only: a CITIZEN whose account has no linked record at all, and
   // any role that somehow reaches this route. Kept deliberately plain —

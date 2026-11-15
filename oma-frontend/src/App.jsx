@@ -44,6 +44,7 @@ const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
 const CropAssistancePage = lazy(() => import("./pages/AssistanceManagement/CropAssistancePage.jsx"));
 const FisheriesAssistancePage = lazy(() => import("./pages/AssistanceManagement/FisheriesAssistancePage.jsx"));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
+const MoreScreen = lazy(() => import("./pages/Account/MoreScreen.jsx"));
 const OwnHelpPage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnHelpPage })));
 const OwnProfilePage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnProfilePage })));
 const DisasterPage = lazy(() => import("./pages/Monitoring/DisasterPage.jsx"));
@@ -114,6 +115,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["CITIZEN"]}>
                 <CitizenHomePage />
+              </ProtectedRoute>
+            }
+          />
+          {/* The fifth menu entry of a farmer, fisherfolk or organization account: the rest of its pages, and Log out. */}
+          <Route
+            path="/more"
+            element={
+              <ProtectedRoute allowedRoles={["CITIZEN"]}>
+                <MoreScreen />
               </ProtectedRoute>
             }
           />

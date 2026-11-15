@@ -23,8 +23,8 @@ ok(!/<span>\{rec\.date_planted\}<\/span>/.test(crop) && !crop.includes("(rec.dat
 ok(crop.includes("utils/dateFormat.js"), 'crop monitoring: uses the shared date format')
 
 // the month is not written in full on a screen
-for (const file of ['src/components/Layout/Navbar.jsx', 'src/pages/Dashboard/StaffDashboard.jsx', 'src/pages/Citizen/FarmerPhoneHome.jsx', 'src/pages/Citizen/FisherfolkPhoneHome.jsx',
-  'src/pages/Citizen/OrgPhoneHome.jsx', 'src/pages/Farmers/FarmerDetailPage.jsx', 'src/pages/Fisheries/FisherfolkDetailPage.jsx', 'src/pages/Citizen/OrgAccountPages.jsx',
+for (const file of ['src/components/Layout/Navbar.jsx', 'src/pages/Dashboard/StaffDashboard.jsx', 'src/pages/Account/AccountHome.jsx',
+  'src/pages/Farmers/FarmerDetailPage.jsx', 'src/pages/Fisheries/FisherfolkDetailPage.jsx', 'src/pages/Citizen/OrgAccountPages.jsx',
   'src/pages/Organizations/OrganizationDetailPage.jsx', 'src/pages/AssistanceManagement/DistributeAssistanceModal.jsx']) {
   ok(!/month:\s*['"]long['"]/.test(read(file)), `${file}: month not written in full`)
 }
