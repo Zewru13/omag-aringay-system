@@ -1,21 +1,26 @@
 """
 Report 6 of the Reports page: Organization Assistance - the assistance an organization distributed to its members, for one
-organization or for all of them.
+organization or for all of them, with the name of every member who received it; and the assistance given straight to individual
+farmers or fisherfolk (no organization).
 
 GET /api/reports/organization-assistance/
-    kind             farmers | fisherfolk                                  (required: which organizations)
-    id               one organization's id: that organization's distributions plus every recipient (leave it out for all)
+    kind             farmers | fisherfolk | individual_farmers | individual_fisherfolk   (required)
+                     farmers / fisherfolk: the organizations' distributions (one row each) and, under them, a Recipients table with one
+                     row per member who received something. individual_*: one Recipients table of the assistance given directly to
+                     people (records with no distributing organization), so nobody is listed under an organization they did not use.
+    id               (farmers / fisherfolk only) one organization's id: that organization's distributions plus every recipient (leave it out for all)
     date_from/to     assistance given on or after / on or before this date (YYYY-MM-DD)
     assistance_type  one of that kind's assistance types
     source_agency    assistance from this agency
-    status           confirmed | awaiting | follow_up   (the distribution's overall status)
-    search           organization name (all-organizations report only)
+    status           confirmed | awaiting | follow_up   (the distribution's overall status; for individual_* the entry's own status)
+    search           organization name (all-organizations report only); for individual_*: the recipient's name
     individual       auto: with a search that leaves exactly one organization, that organization's own report (as if id were sent)
     format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 One row per distribution (the records one distribution submit created, shown as one unit - interventions.distributions).
-Only distributions an organization ran are included (records with `distributed_by_organization`); assistance staff logged for a
-single person is not organization assistance. Entries removed before the recipient confirmed are never shown. Staff only.
+Only distributions an organization ran are included in the organization reports (records with `distributed_by_organization`);
+assistance staff logged for a single person is the individual reports' (no `distributed_by_organization`). Entries removed before the
+recipient confirmed are never shown. Staff only.
 """
 from datetime import datetime
 
@@ -27,7 +32,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from associations.models import FarmersOrganization, FisherfolkOrganization
-from core.utils import build_text_search_q
+from core.utils import build_name_search_q, build_text_search_q
 from interventions.distributions import group_id, summary_status
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
 
@@ -35,14 +40,21 @@ from .documents import individual_of, make_document, respond, text, with_row_ref
 from .period import period_text
 
 KINDS = {
-    'farmers': dict(record=BeneficiaryRecord, org=FarmersOrganization, person='farmer', title='Farmers Organization Assistance',
-                    stem='farmers_organization_assistance', people='Members'),
-    'fisherfolk': dict(record=FisherfolkBeneficiaryRecord, org=FisherfolkOrganization, person='fisherfolk',
-                       title='Fisherfolk Organization Assistance', stem='fisherfolk_organization_assistance', people='Members'),
+    'farmers': dict(record=BeneficiaryRecord, org=FarmersOrganization, person='farmer', person_label='Farmer', individual=False,
+                    title='Farmers Organization Assistance', stem='farmers_organization_assistance', people='Members'),
+    'fisherfolk': dict(record=FisherfolkBeneficiaryRecord, org=FisherfolkOrganization, person='fisherfolk', person_label='Fisherfolk',
+                       individual=False, title='Fisherfolk Organization Assistance', stem='fisherfolk_organization_assistance', people='Members'),
+    'individual_farmers': dict(record=BeneficiaryRecord, org=None, person='farmer', person_label='Farmer', individual=True,
+                               title='Individual Farmers Assistance', stem='individual_farmers_assistance',
+                               scope='Assistance given directly to farmers, not through an organization'),
+    'individual_fisherfolk': dict(record=FisherfolkBeneficiaryRecord, org=None, person='fisherfolk', person_label='Fisherfolk', individual=True,
+                                  title='Individual Fisherfolk Assistance', stem='individual_fisherfolk_assistance',
+                                  scope='Assistance given directly to fisherfolk, not through an organization'),
 }
 STATUS_FILTERS = {'confirmed': 'Confirmed', 'awaiting': 'Awaiting confirmation', 'follow_up': 'Needs follow-up'}
 HEADERS = ['Organization', 'Date Given', 'Assistance', 'Source Agency', 'Quantity', 'Members', 'Confirmed', 'Status']
-RECIPIENT_HEADERS = ['Member', 'Assistance', 'Date Given', 'Status', 'Date Confirmed']
+PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Date Confirmed']
+RECIPIENT_HEADERS = ['Organization'] + PERSON_HEADERS
 
 
 def _parse_date(request, name):
@@ -74,10 +86,13 @@ def assistance_label(record):
 
 def _records(kind, request, org_id):
     cfg = KINDS[kind]
-    qs = cfg['record'].objects.filter(distributed_by_organization__isnull=False).select_related(
-        cfg['person'], 'distributed_by_organization').order_by('-date_given', '-id')
-    if org_id:
-        qs = qs.filter(distributed_by_organization_id=org_id)
+    qs = cfg['record'].objects.select_related(cfg['person'], 'distributed_by_organization').order_by('-date_given', '-id')
+    if cfg['individual']:
+        qs = qs.filter(distributed_by_organization__isnull=True)    # given straight to the person, never through an organization
+    else:
+        qs = qs.filter(distributed_by_organization__isnull=False)
+        if org_id:
+            qs = qs.filter(distributed_by_organization_id=org_id)
     frm, to = _parse_date(request, 'date_from'), _parse_date(request, 'date_to')
     if frm and to and frm > to:
         raise ValidationError({'date_to': ['"To" cannot be before "From".']})
@@ -91,7 +106,10 @@ def _records(kind, request, org_id):
             raise ValidationError({'assistance_type': ['Not an assistance type.']})
         qs = qs.filter(assistance_type=kind_type)
     search = request.query_params.get('search', '').strip()
-    if search and not org_id:
+    if search and cfg['individual']:
+        person = cfg['person']
+        qs = qs.filter(build_name_search_q(search, [f'{person}__first_name', f'{person}__middle_name', f'{person}__last_name']))
+    elif search and not org_id:
         qs = qs.filter(build_text_search_q(search, ['distributed_by_organization__name']))
     records = list(qs)
     agency = request.query_params.get('source_agency', '').strip()
@@ -126,17 +144,80 @@ def _status_key(label):
     return next(key for key, value in STATUS_FILTERS.items() if value == label)
 
 
+def _recipient_row(cfg, record, with_organization):
+    """One person who received assistance: who, what kind of person, where they live, what they got, from whom, when, how much, and whether
+    it was confirmed. Organization reports put the distributing organization first."""
+    person = getattr(record, cfg['person'])
+    row = [person.full_name, cfg['person_label'], person.barangay or '—', assistance_label(record), ', '.join(record.source_agencies or []) or '—',
+           text(record.date_given), record.quantity or '—', record.get_status_display(),
+           text(timezone.localtime(record.confirmed_at).date()) if record.confirmed_at else '—']
+    return [record.distributed_by_organization.name] + row if with_organization else row
+
+
+def _record_status(record):
+    """The overall-status label (Confirmed / Awaiting confirmation / Needs follow-up) of one record on its own."""
+    return summary_status({status: int(status == record.status) for status in DistributionStatus})
+
+
+def _status_filter(request):
+    value = request.query_params.get('status', '').strip()
+    if value and value not in STATUS_FILTERS:
+        raise ValidationError({'status': [f'Use one of: {", ".join(STATUS_FILTERS)}.']})
+    return value
+
+
+def _filter_text(request, frm, to, status_filter, search_label=None):
+    """The filters in words: ('Given from … to …' or '', every part joined with ' · ' in a list)."""
+    parts = []
+    date_part = ''
+    if frm or to:
+        span = ' '.join(x for x in (f'from {text(frm)}' if frm else '', f'to {text(to)}' if to else '') if x)
+        date_part = f'Given {span}'
+        parts.append(date_part)
+    for param, label in (('assistance_type', 'Assistance'), ('source_agency', 'Agency')):
+        if request.query_params.get(param, '').strip():
+            parts.append(f'{label}: {request.query_params[param].strip()}')
+    if status_filter:
+        parts.append(f'Status: {STATUS_FILTERS[status_filter]}')
+    if search_label and request.query_params.get('search', '').strip():
+        parts.append(f'{search_label}: "{request.query_params["search"].strip()}"')
+    return date_part, parts
+
+
+def build_individual_document(kind, request):
+    """The assistance given straight to individual farmers or fisherfolk: one row per entry, newest first."""
+    cfg = KINDS[kind]
+    status_filter = _status_filter(request)
+    records, frm, to = _records(kind, request, None)
+    if status_filter:
+        records = [r for r in records if _status_key(_record_status(r)) == status_filter]
+    records.sort(key=lambda r: (getattr(r, cfg['person']).full_name.lower(), r.id))
+    records.sort(key=lambda r: r.date_given, reverse=True)
+
+    person_key = cfg['person'] + '_id'
+    stats = [['Recipients', len({getattr(r, person_key) for r in records})], ['Assistance Records', len(records)],
+             ['Confirmed', sum(1 for r in records if r.status == DistributionStatus.CONFIRMED)],
+             ['Needs Follow-up', sum(1 for r in records if r.status == DistributionStatus.NOT_RECEIVED)]]
+    date_part, parts = _filter_text(request, frm, to, status_filter, 'Recipient')
+    rows = [_recipient_row(cfg, r, False) for r in records]
+    sections = [{'title': 'Recipients', 'headers': PERSON_HEADERS, 'rows': rows, 'empty': 'No assistance given directly matches these filters.'}]
+    other = ' · '.join(p for p in parts if p != date_part)
+    doc = make_document(cfg['title'], ' · '.join(parts) or cfg['scope'], stats, sections, heading='Individual Assistance Report',
+                        period=period_text(frm, to), detail=' · '.join(p for p in (cfg['title'], other) if p))
+    return doc, cfg['stem']
+
+
 def build_document(kind, request):
     cfg = KINDS[kind]
+    if cfg['individual']:
+        return build_individual_document(kind, request)
     raw_id = request.query_params.get('id', '').strip()
     org = None
     if raw_id:
         if not raw_id.isdigit():
             raise ValidationError({'id': ['Send the organization id.']})
         org = get_object_or_404(cfg['org'], pk=int(raw_id))
-    status_filter = request.query_params.get('status', '').strip()
-    if status_filter and status_filter not in STATUS_FILTERS:
-        raise ValidationError({'status': [f'Use one of: {", ".join(STATUS_FILTERS)}.']})
+    status_filter = _status_filter(request)
 
     def load(org_id):
         records, frm, to = _records(kind, request, org_id)
@@ -157,37 +238,24 @@ def build_document(kind, request):
 
     rows = [[d['organization'].name, text(d['date_given']), d['label'], ', '.join(d['agencies']) or '—', d['quantity'] or '—',
              len(d['members']), d['confirmed'], d['status']] for d in distributions]
-    reached = sum(len(d['members']) for d in distributions)
+    person_key = cfg['person'] + '_id'
+    reached = len({getattr(r, person_key) for d in distributions for r in d['members']})   # people, not entries: someone helped twice counts once
     stats = [['Distributions', len(distributions)], [f'{cfg["people"]} Reached', reached],
              ['Confirmed', sum(d['confirmed'] for d in distributions)],
              ['Needs Follow-up', sum(1 for d in distributions if d['status'] == STATUS_FILTERS['follow_up'])]]
     if not org:
         stats.insert(0, ['Organizations', len({d['organization'].id for d in distributions})])
 
-    parts = []
-    date_part = ''
-    if frm or to:
-        span = ' '.join(x for x in (f'from {text(frm)}' if frm else '', f'to {text(to)}' if to else '') if x)
-        date_part = f'Given {span}'
-        parts.append(date_part)
-    for param, label in (('assistance_type', 'Assistance'), ('source_agency', 'Agency')):
-        if request.query_params.get(param, '').strip():
-            parts.append(f'{label}: {request.query_params[param].strip()}')
-    if status_filter:
-        parts.append(f'Status: {STATUS_FILTERS[status_filter]}')
-    if request.query_params.get('search', '').strip() and not org:
-        parts.append(f'Organization: "{request.query_params["search"].strip()}"')
+    date_part, parts = _filter_text(request, frm, to, status_filter, None if org else 'Organization')
     filters = ' · '.join(parts)
 
+    # Under the distributions, the people who received them: every recipient by name, in the order of the distributions above.
+    recipients = [_recipient_row(cfg, record, True) for d in distributions
+                  for record in sorted(d['members'], key=lambda r: (getattr(r, cfg['person']).full_name.lower(), r.id))]
     sections = [{'title': 'Distributions', 'headers': HEADERS, 'rows': rows,
-                 'empty': 'No organization assistance matches these filters.'}]
+                 'empty': 'No organization assistance matches these filters.'},
+                {'title': 'Recipients', 'headers': RECIPIENT_HEADERS, 'rows': recipients, 'empty': 'No recipients.'}]
     if org:
-        recipients = []
-        for d in distributions:
-            for record in sorted(d['members'], key=lambda r: (getattr(r, cfg['person']).full_name.lower(), r.id)):
-                recipients.append([getattr(record, cfg['person']).full_name, d['label'], text(record.date_given),
-                                   record.get_status_display(), text(timezone.localtime(record.confirmed_at).date()) if record.confirmed_at else '—'])
-        sections.append({'title': 'Recipients', 'headers': RECIPIENT_HEADERS, 'rows': recipients, 'empty': 'No recipients.'})
         title, subtitle = f'{cfg["title"]} Report', ' · '.join(p for p in (org.name, filters) if p)
     else:
         title, subtitle = cfg['title'], filters or 'All organizations'
