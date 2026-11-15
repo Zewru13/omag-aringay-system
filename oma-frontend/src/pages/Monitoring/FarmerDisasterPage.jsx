@@ -32,7 +32,8 @@ const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short
 const listOf = (data) => (Array.isArray(data) ? data : (data?.results || []))
 const cropLabel = (c) => `${c.crop_type_name || 'Crop'}${c.season ? ` · ${c.season} ${c.year}` : ''} — planted ${fmtLong(c.date_planted)}${c.farm_location_barangay ? ` · ${c.farm_location_barangay}` : ''}`
 
-function MarkRecoveredModal({ row, onClose, onDone }) {
+// Also used by the farmer's own Disasters page (pages/Account/MyDisastersPage.jsx).
+export function MarkRecoveredModal({ row, onClose, onDone }) {
   const { showToast } = useToast()
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`farmer-mark-recovered:${row.id}`)

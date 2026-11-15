@@ -87,7 +87,7 @@ const labelCls = 'text-[11px] font-medium text-[#7A8E7A]'
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 
-function ForecastDetailModal({ record, onClose, onUpdated }) {
+export function ForecastDetailModal({ record, onClose, onUpdated }) {
   const { showToast } = useToast()
   const { isFarmer } = useAuth()   // a farmer sees their crop's forecast but cannot edit staff remarks
   const originalNotes = record.notes || ''
@@ -495,7 +495,7 @@ function AggregatePanel({ groups, overall, isLoading }) {
 
 // ── Yield Analysis Tab ───────────────────────────────────────────────────────
 
-function YieldAnalysisTab() {
+export function YieldAnalysisTab() {
   const { showToast } = useToast()
   // A farmer sees only their own harvested crops: no farmer picker, no "by farmer" grouping, no aggregate
   // comparison and no report export (those are staff tools and the endpoints behind them are staff-only).

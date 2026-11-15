@@ -49,11 +49,12 @@ import EditParcelModal from '../Farmers/EditParcelModal.jsx'
 import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, cropDisplayStatus, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
 import { harvestButton } from './cropHarvestButton.js'
+import { harvestGateInfo } from './harvestGateInfo.js'
 import { harvestAmountText, harvestKg, harvestUnitOptions, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
 import useHarvestUnitWeights from './useHarvestUnitWeights.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
-  LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestGate, harvestOpensOn,
+  LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestOpensOn,
   harvestTiming, reasonProblem,
 } from './harvestReport.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -313,7 +314,7 @@ function DisasterResponsesModal({ record, onClose, onApply }) {
 // the crop's schedule - the activity that is due (or the earliest overdue one), its advice as the Recommendations and, for a fertilizer
 // application, the Type of Fertilizer - and everything can be changed. See cropLogDefaults.js. The crop's Activity History is below it.
 
-function ViewLogsModal({ record, onClose, onLogAdded }) {
+export function ViewLogsModal({ record, onClose, onLogAdded }) {
   const { showToast } = useToast()
   const [logs,              setLogs]              = useState([])
   const [disasters,         setDisasters]         = useState([])
@@ -1472,7 +1473,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
 
 // ── Record Harvest Modal (from Monitoring table) ──────────────────────────────
 
-function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
+export function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`crop-harvest:${record.id}`)
@@ -1847,21 +1848,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
 // Mirrors HarvestRecordCreateView.create()'s date_planted_is_estimated block on the backend (the real
 // enforcement - this is client-side UX only, to explain it before the user opens the modal rather than after a
 // rejected submit). The same goes for the half-growing-time rule.
-function harvestGateInfo(row) {
-  // Record Harvest opens once half of the growing time has passed (today); before that the crop is harvested with Force Harvest.
-  const growth = harvestGate(row.date_planted, row.expected_harvest_date, todayISO())
-  if (growth.gated) return { gated: true, message: growth.message }
-  if (row.date_planted_is_estimated) {
-    return {
-      gated: true,
-      message: 'This record’s planting date is an estimate (imported from a registry record, ' +
-        'not a confirmed field date). Harvest cannot be recorded until a staff member confirms or ' +
-        'corrects the real planting date.',
-    }
-  }
-  return { gated: false, message: null }
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 // Mirrors FisheriesRecordsPage's own STATUS_TONES exactly (Stocked/Planted

@@ -54,6 +54,13 @@ ok(!/month:\s*['"]long['"]/.test(home), 'the month is not written in full')
 const page = read('../src/pages/Citizen/CitizenHomePage.jsx')
 ok(page.includes('AccountHome') && !/FarmerPhoneHome|FisherfolkPhoneHome|OrgPhoneHome/.test(page), 'one Home for every kind')
 for (const gone of ['FarmerPhoneHome', 'FisherfolkPhoneHome', 'OrgPhoneHome']) ok(!fs.existsSync(new URL(`../src/pages/Citizen/${gone}.jsx`, import.meta.url)), `${gone} is removed`)
+const windows = read('../src/pages/Account/HomeWindows.jsx')
+for (const piece of ['ViewLogsModal', 'RecordHarvestFromMonitoringModal', 'ConfirmReceivedModal', 'ReportNotReceivedModal']) {
+  ok(windows.includes(piece), `a farmer's to-do opens ${piece} on Home`)
+}
+ok(/lazy\(\(\) => import\('\.\/HomeWindows\.jsx'\)\)/.test(home) && home.includes('<Suspense'), 'the windows are downloaded only when a button is pressed')
+ok(home.includes('harvestGateInfo') && home.includes('onAct={act}'), 'Record harvest opens only when the crop may be harvested')
 const card = read('../src/pages/Account/TodoCard.jsx')
+ok(card.includes('onAct') && card.includes('todo.actions'), 'a to-do button opens its window in place, or links to its page')
 ok(card.includes('min-h-[44px]') && !/text-\[(9|10|11|12)(\.\d+)?px\]/.test(card), 'a to-do button is 44px and no text is under 13px')
 console.log(`ok - ${n} assertions`)
