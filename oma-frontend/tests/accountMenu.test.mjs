@@ -16,6 +16,8 @@ ok(sidebar.includes('GROUPS') && sidebar.includes('ADMIN_GROUP') && sidebar.incl
 const chrome = read('../src/pages/Citizen/FarmerChrome.jsx')
 ok(/showMenu/.test(chrome), 'the header can hide its menu')
 ok(!chrome.includes('text-[9.5px]'), 'tab labels are no longer 9.5px')
+const tabBar = chrome.slice(chrome.indexOf('export function FarmerTabBar'), chrome.indexOf('// ─── Desktop'))
+ok(tabBar.includes('md:hidden') && !tabBar.includes('sm:hidden'), 'the tab bar shows wherever the phone layout does (under 768px): it is the only menu there')
 const more = read('../src/pages/Account/MoreScreen.jsx')
 ok(more.includes('accountNav(') && more.includes('.more'), 'More lists the More entries')
 ok(more.includes('Log out') && more.includes('ConfirmDialog'), 'Log out is on More and asks first')

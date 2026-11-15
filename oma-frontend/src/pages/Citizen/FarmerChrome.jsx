@@ -134,7 +134,7 @@ export function FarmerTabBar({ active, items, theme = 'crop', ariaLabel }) {
   const activeText = CHROME_THEME[theme].tabActive
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t-[0.5px] border-cz-border bg-cz-surface pb-[env(safe-area-inset-bottom)] sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t-[0.5px] border-cz-border bg-cz-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label={ariaLabel || labels.tabBar.ariaLabel}
     >
       <div className="mx-auto flex w-full max-w-[720px]">
@@ -155,7 +155,7 @@ export function FarmerTabBar({ active, items, theme = 'crop', ariaLabel }) {
                 aria-hidden="true"
               />
               <span
-                className={`text-center text-[13px] leading-[1.15] transition-colors ${
+                className={`text-center text-[13px] leading-[1.15] transition-colors max-[339px]:text-[12px] ${
                   isActive ? `font-semibold ${activeText}` : 'font-medium text-cz-text-muted'
                 }`}
               >

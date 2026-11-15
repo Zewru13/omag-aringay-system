@@ -23,7 +23,7 @@ eq(farmerTodos({ assistance, crops, suggestions, loans }).map(brief), [
   ['amber', 'Ginger: Fertilizing', 'Log activity', '/crop-monitoring?record=1'],
   ['amber', 'Rice is ready to harvest', 'Record harvest', '/crop-monitoring?record=2'],
 ], 'a farmer: problems first, then what waits; harvested crops and returned loans never appear')
-eq(farmerTodos({ assistance, crops, suggestions, loans })[0].detail, 'Overdue', 'the overdue line')
+eq(farmerTodos({ assistance, crops, suggestions, loans })[0].detail, 'Past its suggested date', 'the overdue line')
 eq(farmerTodos({ assistance, crops, suggestions, loans })[1].detail, 'Was due Nov 1, 2026', 'when the loan was due')
 eq(farmerTodos({ assistance, crops, suggestions, loans })[2].detail, 'Given Nov 14, 2026', 'when it was given')
 eq(farmerTodos({ assistance, crops, suggestions, loans })[4].detail, 'Due today', 'the due line')

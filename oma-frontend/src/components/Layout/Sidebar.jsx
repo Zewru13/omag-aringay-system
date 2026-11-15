@@ -3,7 +3,7 @@ import { Activity, AlertTriangle, BarChart2, Building2, ChevronDown, ClipboardLi
 import { useLocation, NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { accountIcon } from "../../pages/Account/accountIcons.js";
-import { accountKind, accountNav, activeNavKey } from "../../pages/Account/accountNav.js";
+import { accountKind, accountNav, accountTheme, activeNavKey } from "../../pages/Account/accountNav.js";
 import logo from "../../assets/LOGO OMAg-small.png";
 
 // ─── Nav structure ──────────────────────────────────────────────────────────
@@ -366,9 +366,9 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
         // updated but the visual didn't apply live" bug. An inline style
         // has no generation step, so it can't hit that gap.
         style={{ width: isCollapsed ? '64px' : '248px' }}
-        // Fisherfolk accounts get the fisheries blue rail (index.css [data-nav-theme="fisherfolk"]);
-        // every other role keeps the default green.
-        data-nav-theme={isFisherfolk ? "fisherfolk" : undefined}
+        // Fisherfolk and fisherfolk organization accounts get the fisheries blue rail (index.css [data-nav-theme="fisherfolk"]),
+        // the colour of their phone header and buttons; every other role keeps the default green.
+        data-nav-theme={kind && accountTheme(kind) === "fish" ? "fisherfolk" : undefined}
       >
         {/* Logo area — h-14 + md:top-0 on the aside makes this header fill the
             top-left corner flush with the navbar (no gap above the wordmark) */}

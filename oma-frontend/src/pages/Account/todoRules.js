@@ -31,7 +31,7 @@ const loanTodos = (loans) => list(loans)
   }))
 
 const ACTIVE_CROP = ['Planted', 'Near Harvest']
-const DUE = { overdue: { tone: 'red', detail: 'Overdue' }, due_now: { tone: 'amber', detail: 'Due today' } }
+const DUE = { overdue: { tone: 'red', detail: 'Past its suggested date' }, due_now: { tone: 'amber', detail: 'Due today' } }
 
 // `suggestions` is { cropId: [{ activity_name, status, day_after_planting }] }, as the crop's suggestions endpoint answers.
 export function farmerTodos({ assistance, crops, suggestions, loans } = {}) {
