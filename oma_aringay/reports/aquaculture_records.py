@@ -10,7 +10,7 @@ GET /api/reports/aquaculture-records/
     pond_location    the barangay the ponds/cages are in (the Pond/Cage Location column)
     culture_type     Pond | Cage | Pen ...                pcic         insured | not_insured
     stocked_from/to  date stocked on or after / on or before (YYYY-MM-DD)
-    format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by / noted_by / approved_by, each with its _role, for the PDF)
+    format           json (the page preview, default) | pdf      (no Excel for this report)      (+ prepared_by / reviewed_by / noted_by / approved_by, each with its _role, for the PDF)
 
 The records are the Aquaculture Records page's own (fisheries.views.stocking_list_queryset, every status), read through the same
 serializer, so a row here says what the page says. Nothing is stored for the report. Staff only.
@@ -149,5 +149,7 @@ class AquacultureRecordsReport(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
+        if request.query_params.get('format', '').lower() in ('excel', 'xlsx'):
+            raise ValidationError({'format': ['This report is not offered as an Excel file. Use pdf or json.']})
         doc, stem = build_document(request)
         return respond(doc, request, stem)

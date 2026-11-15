@@ -1,4 +1,4 @@
-"""Reports page: the Aquaculture Records report (the page's production cycles as a printable report, JSON / PDF / Excel), and the Fisheries
+"""Reports page: the Aquaculture Records report (the page's production cycles as a printable report, JSON / PDF), and the Fisheries
 Production report without its "Final?" column."""
 import io
 import itertools
@@ -187,14 +187,12 @@ class AquacultureRecordsReportTests(APITestCase):
         for header in ('Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Organization', 'Date Stocked', 'PCIC Insured'):
             self.assertIn(header, flat)
 
-    def test_the_excel_has_the_same_records_and_columns(self):
-        r = self.client.get(URL, {'format': 'excel', 'search': 'dike'})
-        self.assertEqual(r.status_code, 200)
-        ws = openpyxl.load_workbook(io.BytesIO(r.content)).active
-        cells = [str(c) for row in ws.iter_rows(values_only=True) for c in row if c is not None]
-        for expected in HEADERS + ['Ben Dike', 'Lease', 'AQ Bangus', 'Samara', 'Jun 10, 2026']:
-            self.assertIn(expected, cells)
-        self.assertNotIn('Ana Reef', cells)
+    def test_this_report_is_not_offered_as_excel(self):
+        for fmt in ('excel', 'xlsx', 'EXCEL'):
+            r = self.client.get(URL, {'format': fmt})
+            self.assertEqual(r.status_code, 400, fmt)
+            self.assertNotIn('spreadsheetml', r['Content-Type'])
+        self.assertEqual(self.client.get(URL, {'format': 'pdf'}).status_code, 200)    # the PDF and the preview stay
 
 
 class FisheriesProductionNoFinalColumnTests(APITestCase):
