@@ -1,5 +1,7 @@
 // Home's to-do list: the things a farmer, a fisherfolk or an organization can act on today, worked out from their own records.
-// Each item is { key, tone: 'red' | 'amber', title, detail, action: { label, to } }; the button opens the page that does the work.
+// Each item is { key, tone: 'red' | 'amber', title, detail, actions }. An action is a button: { label, primary?, to } links to the
+// page that does the work; { label, primary?, act: { kind, record } } opens the window for it on Home itself (a farmer's Received,
+// Not received, Log activity and Record harvest: kind is 'received' | 'not-received' | 'activity' | 'harvest').
 // Problems (red) come first, then what is waiting (amber); inside a tone: assistance, activities, harvest, loans.
 // A source that failed to load is null (see loadState.js) and adds nothing: Home says separately that it could not be loaded.
 // No screen and no network here, so the rules can be tested on their own.
@@ -8,15 +10,18 @@ import { formatDate } from '../../utils/dateFormat.js'
 const list = (value) => (Array.isArray(value) ? value : [])
 const redFirst = (todos) => [...todos.filter((t) => t.tone === 'red'), ...todos.filter((t) => t.tone === 'amber')]
 
-// Assistance that has reached its date and waits for the person to say whether they received it.
-const assistanceTodos = (assistance, to) => list(assistance)
+const link = (label, to) => [{ label, primary: true, to }]
+const window = (label, kind, record) => ({ label, act: { kind, record } })
+
+// Assistance that has reached its date and waits for the person to say whether they received it. `actionsOf(record)` is its buttons.
+const assistanceTodos = (assistance, actionsOf) => list(assistance)
   .filter((r) => r.status === 'AWAITING_CONFIRMATION')
   .map((r) => ({
     key: `assistance-${r.id}`,
     tone: 'amber',
     title: [r.assistance_type || 'Assistance', r.quantity].filter(Boolean).join(', '),
     detail: `Given ${formatDate(r.date_given)}`,
-    action: { label: 'Confirm', to },
+    actions: actionsOf(r),
   }))
 
 // Equipment the person borrowed and still holds after its return-by date.
@@ -27,7 +32,7 @@ const loanTodos = (loans) => list(loans)
     tone: 'red',
     title: `${loan.equipment_name || 'Equipment'} is due back`,
     detail: loan.due_date ? `Was due ${formatDate(loan.due_date)}` : 'Past its return date',
-    action: { label: 'View loan', to: '/my-equipment' },
+    actions: link('View loan', '/my-equipment'),
   }))
 
 const ACTIVE_CROP = ['Planted', 'Near Harvest']
@@ -44,16 +49,18 @@ export function farmerTodos({ assistance, crops, suggestions, loans } = {}) {
       tone: DUE[s.status].tone,
       title: `${crop.crop_type_name || 'Crop'}: ${s.activity_name}`,
       detail: DUE[s.status].detail,
-      action: { label: 'Log activity', to: `/crop-monitoring?record=${crop.id}` },
+      actions: [{ ...window('Log activity', 'activity', crop), primary: true }],
     })))
   const harvest = active.filter((crop) => crop.status === 'Near Harvest').map((crop) => ({
     key: `harvest-${crop.id}`,
     tone: 'amber',
     title: `${crop.crop_type_name || 'Crop'} is ready to harvest`,
     detail: 'You can record the harvest now.',
-    action: { label: 'Record harvest', to: `/crop-monitoring?record=${crop.id}` },
+    actions: [{ ...window('Record harvest', 'harvest', crop), primary: true }],
   }))
-  return redFirst([...assistanceTodos(assistance, '/crop-assistance'), ...activities, ...harvest, ...loanTodos(loans)])
+  // A farmer answers on Home itself: Received (the main button) or Not received.
+  const answer = (record) => [{ ...window('Received', 'received', record), primary: true }, window('Not received', 'not-received', record)]
+  return redFirst([...assistanceTodos(assistance, answer), ...activities, ...harvest, ...loanTodos(loans)])
 }
 
 export function fisherfolkTodos({ assistance, cycles, loans } = {}) {
@@ -64,9 +71,9 @@ export function fisherfolkTodos({ assistance, cycles, loans } = {}) {
       tone: 'amber',
       title: `${cycle.species_name || 'Cycle'} is ready to harvest`,
       detail: cycle.force_harvest ? 'A pond or cage is waiting for a force harvest.' : 'You can record the harvest now.',
-      action: { label: 'Record harvest', to: `/fisheries-monitoring?cycle=${cycle.production_cycle}` },
+      actions: link('Record harvest', `/fisheries-monitoring?cycle=${cycle.production_cycle}`),
     }))
-  return redFirst([...assistanceTodos(assistance, '/fisheries-assistance'), ...harvest, ...loanTodos(loans)])
+  return redFirst([...assistanceTodos(assistance, () => link('Confirm', '/fisheries-assistance')), ...harvest, ...loanTodos(loans)])
 }
 
 const count = (n, one, many) => `${n} ${n === 1 ? one : many}`
@@ -82,7 +89,7 @@ export function orgTodos({ confirmables, loans } = {}, { assistancePath }) {
       tone: 'amber',
       title: `${count(waiting, 'member is', 'members are')} waiting for a confirmation`,
       detail: 'They have no working account, so you can confirm for them.',
-      action: { label: 'Confirm for members', to: `${assistancePath}?tab=confirm` },
+      actions: link('Confirm for members', `${assistancePath}?tab=confirm`),
     })
   }
   const requests = list(loans).filter((loan) => loan.status === 'REQUESTED').length
@@ -92,7 +99,7 @@ export function orgTodos({ confirmables, loans } = {}, { assistancePath }) {
       tone: 'amber',
       title: `${count(requests, 'borrow request', 'borrow requests')} to review`,
       detail: 'A member asked to borrow equipment.',
-      action: { label: 'Review requests', to: '/my-organization?tab=borrowed' },
+      actions: link('Review requests', '/my-organization?tab=borrowed'),
     })
   }
   const overdue = list(loans).filter((loan) => loan.status === 'BORROWED' && loan.overdue).length
@@ -102,7 +109,7 @@ export function orgTodos({ confirmables, loans } = {}, { assistancePath }) {
       tone: 'red',
       title: `${count(overdue, 'loan is', 'loans are')} overdue`,
       detail: 'Borrowed equipment is past its return date.',
-      action: { label: 'View loans', to: '/my-organization?tab=borrowed' },
+      actions: link('View loans', '/my-organization?tab=borrowed'),
     })
   }
   return redFirst(todos)

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate, formatDateWithWeekday } from '../../utils/dateFormat.js'
 import fetchAllPages from '../Citizen/fetchAllPages.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
+import { harvestGateInfo } from '../Monitoring/harvestGateInfo.js'
 import AccountPage from './AccountPage.jsx'
 import { accountKind } from './accountNav.js'
 import { failedText, greeting, homeActive, homeSources, homeSummary } from './homeData.js'
@@ -23,6 +25,9 @@ import { capTodos, farmerTodos, fisherfolkTodos, orgTodos } from './todoRules.js
 
 const ALL_CROPS = 'Planted,Near Harvest,Harvested,Total Loss'
 const ALL_CYCLES = 'Stocked,Near Harvest,Late,Harvested,Total Loss'
+
+// The windows a farmer's to-do buttons open here (Log Activity, Record Harvest, Confirm Received, Report Not Received).
+const HomeWindows = lazy(() => import('./HomeWindows.jsx'))
 
 // How each part is read. The member's loans come grouped by organization; Home only needs the loans.
 function loaders(kind, orgId) {
@@ -121,6 +126,16 @@ export default function AccountHome() {
   const [home, setHome] = useState({ state: 'loading', data: {}, failed: [] })
   const [attempt, setAttempt] = useState(0)
   const retry = useCallback(() => { setHome({ state: 'loading', data: {}, failed: [] }); setAttempt((n) => n + 1) }, [])
+  // After a window saves: read Home again, keeping what is on screen until the new answer is in.
+  const reload = useCallback(() => setAttempt((n) => n + 1), [])
+  const { showToast } = useToast()
+  const [open, setOpen] = useState(null)     // the window a to-do button opened: { kind, record }
+  // Record Harvest opens only when the crop may be harvested; otherwise the reason is shown.
+  const act = (action) => {
+    const gate = action.kind === 'harvest' ? harvestGateInfo(action.record) : null
+    if (gate?.gated) showToast(gate.message, 'error')
+    else setOpen(action)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -149,7 +164,7 @@ export default function AccountHome() {
             <h2 id="home-todo" className={SECTION}>To do today{todos.length > 0 ? ` (${todos.length})` : ''}</h2>
             {shown.length > 0 ? (
               <>
-                <ul className="space-y-2">{shown.map((todo) => <TodoCard key={todo.key} todo={todo} />)}</ul>
+                <ul className="space-y-2">{shown.map((todo) => <TodoCard key={todo.key} todo={todo} onAct={act} />)}</ul>
                 {more > 0 && <p className="mt-2 px-1 text-[13px] text-text-secondary">and {more} more</p>}
               </>
             ) : failed.length === 0 ? (
@@ -191,6 +206,11 @@ export default function AccountHome() {
             </ul>
           </section>
         </div>
+      )}
+      {open && (
+        <Suspense fallback={null}>
+          <HomeWindows open={open} onClose={() => setOpen(null)} onDone={reload} />
+        </Suspense>
       )}
     </AccountPage>
   )

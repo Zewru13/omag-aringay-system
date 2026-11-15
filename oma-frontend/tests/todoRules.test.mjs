@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 const { farmerTodos, fisherfolkTodos, orgTodos, capTodos } = await import(new URL('../src/pages/Account/todoRules.js', import.meta.url).href)
 let n = 0
 const eq = (a, e, label) => { assert.deepEqual(a, e, `${label}: got ${JSON.stringify(a)}, wanted ${JSON.stringify(e)}`); n++ }
-const brief = (t) => [t.tone, t.title, t.action.label, t.action.to]
+// An item's buttons: their labels, and what each does (the window it opens in place, or the page it links to).
+const brief = (t) => [t.tone, t.title, t.actions.map((a) => a.label).join(' / '), t.actions.map((a) => a.act?.kind || a.to).join(' / ')]
 
 const assistance = [
   { id: 7, status: 'AWAITING_CONFIRMATION', assistance_type: 'Fertilizer', quantity: '5 bags', date_given: '2026-11-14' },
@@ -16,13 +17,20 @@ const suggestions = { 1: [{ activity_name: 'Weeding', status: 'overdue', day_aft
 const loans = [{ id: 4, status: 'BORROWED', overdue: true, equipment_name: 'Hand Tractor', due_date: '2026-11-01' }, { id: 5, status: 'BORROWED', overdue: false, equipment_name: 'Sprayer' }, { id: 6, status: 'RETURNED', overdue: true, equipment_name: 'Plow' }]
 
 eq(farmerTodos({ assistance, crops, suggestions, loans }).map(brief), [
-  ['red', 'Ginger: Weeding', 'Log activity', '/crop-monitoring?record=1'],
+  ['red', 'Ginger: Weeding', 'Log activity', 'activity'],
   ['red', 'Hand Tractor is due back', 'View loan', '/my-equipment'],
-  ['amber', 'Fertilizer, 5 bags', 'Confirm', '/crop-assistance'],
-  ['amber', 'Training', 'Confirm', '/crop-assistance'],
-  ['amber', 'Ginger: Fertilizing', 'Log activity', '/crop-monitoring?record=1'],
-  ['amber', 'Rice is ready to harvest', 'Record harvest', '/crop-monitoring?record=2'],
+  ['amber', 'Fertilizer, 5 bags', 'Received / Not received', 'received / not-received'],
+  ['amber', 'Training', 'Received / Not received', 'received / not-received'],
+  ['amber', 'Ginger: Fertilizing', 'Log activity', 'activity'],
+  ['amber', 'Rice is ready to harvest', 'Record harvest', 'harvest'],
 ], 'a farmer: problems first, then what waits; harvested crops and returned loans never appear')
+{
+  const todos = farmerTodos({ assistance, crops, suggestions, loans })
+  eq(todos[0].actions[0].act.record.id, 1, 'Log activity carries the crop')
+  eq(todos[2].actions.map((a) => a.act.record.id), [7, 7], 'Received and Not received carry the assistance record')
+  eq(todos[5].actions[0].act.record.id, 2, 'Record harvest carries the crop')
+  eq(todos.map((t) => t.actions.filter((a) => a.primary).length), [1, 1, 1, 1, 1, 1], 'one main button on every item')
+}
 eq(farmerTodos({ assistance, crops, suggestions, loans })[0].detail, 'Past its suggested date', 'the overdue line')
 eq(farmerTodos({ assistance, crops, suggestions, loans })[1].detail, 'Was due Nov 1, 2026', 'when the loan was due')
 eq(farmerTodos({ assistance, crops, suggestions, loans })[2].detail, 'Given Nov 14, 2026', 'when it was given')
