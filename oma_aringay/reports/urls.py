@@ -20,6 +20,7 @@ from .views import (
     SeasonalVarianceReport,
     YieldAnalysisReport,
 )
+from .aquaculture_records import AquacultureRecordsReport
 from .disasters import CropDisasterReportsReport, FisheriesDisasterReportsReport
 from .org_assistance import OrganizationAssistanceReport
 from .registered import RegisteredRecordsReport
@@ -31,6 +32,7 @@ urlpatterns = [
     path('signatories/', SignatoryList.as_view(), name='report-signatories'),
     path('signatories/<int:pk>/', SignatoryDetail.as_view(), name='report-signatory-detail'),
     path('organization-assistance/', OrganizationAssistanceReport.as_view(), name='report-organization-assistance'),
+    path('aquaculture-records/', AquacultureRecordsReport.as_view(), name='report-aquaculture-records'),
     path('registered/', RegisteredRecordsReport.as_view(), name='report-registered'),
     path('spec-pdf/', SpecPdfView.as_view(), name='report-spec-pdf'),
     path('disasters/fisheries/', FisheriesDisasterReportsReport.as_view(), name='report-disasters-fisheries'),

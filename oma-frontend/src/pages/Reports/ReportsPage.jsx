@@ -13,11 +13,12 @@ import { ActionButtons, SignatoriesPanel, labelCls } from './ReportParts.jsx'
 import { ReportPaper, SelectedReportBox } from './ReportPaper.jsx'
 import { REPORT_TYPES, detailFromFilters, periodText, reportType, reportTypeFromParam } from './reportPaper.js'
 import { useSignatories } from './useSignatories.js'
+import AquacultureRecordsReportTab from './AquacultureRecordsReportTab.jsx'
 import DisasterReportTab from './DisasterReportTab.jsx'
 import OrganizationAssistanceReportTab from './OrganizationAssistanceReportTab.jsx'
 import RegisteredReportTab from './RegisteredReportTab.jsx'
 
-// One page for all six reports (the list is REPORT_TYPES in reportPaper.js). The Report type dropdown at the top picks one; under it that
+// One page for all the reports (the list is REPORT_TYPES in reportPaper.js). The Report type dropdown at the top picks one; under it that
 // report's filters, the Selected report box, the Signatories block, the Print / PDF / Excel buttons and the print-ready paper preview.
 
 // ── Harvested Crop Tab ─────────────────────────────────────────────────────────
@@ -253,7 +254,7 @@ function FisheriesProductionTab() {
         rec.barangay, rec.fisherfolk, rec.organization,
         rec.species, rec.culture_type,
         rec.date_stocked, rec.harvest_date,
-        rec.quantity_kg, rec.is_final,
+        rec.quantity_kg,
       ]))
     } catch {
       showToast('Failed to load preview.', 'error')
@@ -296,7 +297,7 @@ function FisheriesProductionTab() {
     'BARANGAY', 'FISHERFOLK', 'ORGANIZATION',
     'SPECIES', 'CULTURE TYPE',
     'DATE STOCKED', 'HARVEST DATE',
-    'QUANTITY (KG)', 'FINAL?',
+    'QUANTITY (KG)',
   ]
 
   // What the paper preview and the Selected report box show: the same title, period and filters as the printed report.
@@ -400,6 +401,7 @@ export default function ReportsPage() {
           {activeTab === 'registered'          && <RegisteredReportTab />}
           {activeTab === 'harvested'           && <HarvestedCropTab />}
           {activeTab === 'fisheries'           && <FisheriesProductionTab />}
+          {activeTab === 'aquaculture_records' && <AquacultureRecordsReportTab />}
           {activeTab === 'disaster_fisheries'  && <DisasterReportTab kind="fisheries" />}
           {activeTab === 'disaster_crops'      && <DisasterReportTab kind="crops" />}
           {activeTab === 'organization_assistance' && <OrganizationAssistanceReportTab />}

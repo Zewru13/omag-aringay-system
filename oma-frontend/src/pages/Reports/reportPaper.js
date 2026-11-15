@@ -1,14 +1,15 @@
-// The Reports page's pure pieces: the six reports the Report type dropdown lists, the wording of the Selected report box, and what the
+// The Reports page's pure pieces: the reports the Report type dropdown lists, the wording of the Selected report box, and what the
 // paper preview prints (the period line, the filters line, the signature lines). The wording mirrors the printed PDF (backend reports/period.py,
 // reports/documents.py and reports/pdf_utils.py), so the paper on screen and the paper that prints say the same.
 
 // One entry per report: `id` is the ?tab= value that opens it. The agreed reports (the Reports page offers exactly these):
 //   1. Registered Farmers / Fisherfolk / Organizations   2. Crop Records Harvested   3. Fisheries Production Harvested
-//   4. Fisheries Disaster Reports   5. Crop / Parcel Disaster Reports   6. Organization Assistance
+//   4. Aquaculture Records   5. Fisheries Disaster Reports   6. Crop / Parcel Disaster Reports   7. Organization Assistance
 export const REPORT_TYPES = [
   { id: 'registered', label: 'Registered Farmers, Fisherfolk & Organizations', description: 'Registration records for everyone at once, filtered by barangay and date registered, or for one record.' },
   { id: 'harvested', label: 'Crop Records Harvested', description: 'Harvested crop records with their yield, by farmer, crop, barangay and season.' },
   { id: 'fisheries', label: 'Fisheries Production Harvested', description: 'Harvested aquaculture production, by fisherfolk, species, barangay and season.' },
+  { id: 'aquaculture_records', label: 'Aquaculture Records', description: 'The production cycles listed in Aquaculture Records, by fisherfolk, species, barangay, ownership, culture type and PCIC insurance.' },
   { id: 'disaster_fisheries', label: 'Fisheries Disaster Reports', description: 'Disasters logged against fisherfolk and their stocks, with the volume lost and recovery status.' },
   { id: 'disaster_crops', label: 'Crop / Parcel Disaster Reports', description: 'Disasters logged against crops and farm parcels, with the area affected and recovery status.' },
   { id: 'organization_assistance', label: 'Organization Assistance', description: 'Assistance organizations gave to their members, for one organization or all, with who received it; and assistance given directly to individual farmers or fisherfolk.' },

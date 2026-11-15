@@ -4,7 +4,7 @@ import { A, F, click, clickIncl, wait, rowMenu, SEARCH, FILTERS, PRINT, DOWNLOAD
 const H = '[class*="rounded-xl"]'
 const field = (label, tag = 'label') => ({ text: label, tag, up: 1 })
 const thl = (label) => ({ text: label, tag: 'th', up: 1, last: true })
-const REPORT_TYPE = { find: { css: '#report-type' }, label: 'Report type', desc: 'Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report.' }
+const REPORT_TYPE = { find: { css: '#report-type' }, label: 'Report type', desc: 'Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report.' }
 const REPORT_SELECTED = { find: { css: '[aria-label="Selected report"]' }, label: 'Selected report', desc: 'Repeats the report you chose, what it covers, the period and the filters applied right now.' }
 const REPORT_PAPER = { find: { css: '[aria-label="Print-ready report preview template"]' }, label: 'Print-ready preview', desc: 'The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers.' }
 const ROW_CLICK = ' Click a row to see that one record\'s individual report.'
