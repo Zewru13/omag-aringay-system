@@ -8,6 +8,8 @@ const CropMonitoringPage = lazy(() => import('../Monitoring/CropMonitoringPage.j
 const MyCropsPage = lazy(() => import('./MyCropsPage.jsx'))
 const CropAssistancePage = lazy(() => import('../AssistanceManagement/CropAssistancePage.jsx'))
 const MyAssistancePage = lazy(() => import('./MyAssistancePage.jsx'))
+const ForecastingPage = lazy(() => import('../Forecasting/ForecastingPage.jsx'))
+const MyForecastPage = lazy(() => import('./MyForecastPage.jsx'))
 
 // /crop-monitoring
 export function CropsRoute() {
@@ -19,4 +21,10 @@ export function CropsRoute() {
 export function CropAssistanceRoute() {
   const { isFarmer } = useAuth()
   return isFarmer ? <MyAssistancePage /> : <CropAssistancePage />
+}
+
+// /forecasting
+export function ForecastRoute() {
+  const { isFarmer } = useAuth()
+  return isFarmer ? <MyForecastPage /> : <ForecastingPage />
 }

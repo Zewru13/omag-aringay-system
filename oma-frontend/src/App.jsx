@@ -33,7 +33,7 @@ const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
 const ReportsPage = lazy(() => import("./pages/Reports/ReportsPage.jsx"));
 // An address the office and a farmer share: the farmer's own screen for a farmer, the office page otherwise (pages/Account/accountRoutes.jsx).
 const CropsRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropsRoute })));
-const ForecastingPage = lazy(() => import("./pages/Forecasting/ForecastingPage.jsx"));
+const ForecastRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.ForecastRoute })));
 const CropInformationPage = lazy(() => import("./pages/CropInformation/CropInformationPage.jsx"));
 const AddCropMonitoringPage = lazy(() => import("./pages/Monitoring/AddCropMonitoringPage.jsx"));
 const AddFarmParcelsPage = lazy(() => import("./pages/CropInformation/AddFarmParcelsPage.jsx"));
@@ -296,7 +296,7 @@ function App() {
             path="/forecasting"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
-                <ForecastingPage />
+                <ForecastRoute />
               </ProtectedRoute>
             }
           />
