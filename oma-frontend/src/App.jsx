@@ -26,12 +26,13 @@ const FisherfolkHub = lazy(() => import("./pages/Fisherfolk/FisherfolkHub.jsx"))
 const FisheriesSettingsHub = lazy(() => import("./pages/FisheriesSettings/FisheriesSettingsHub.jsx"));
 const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePasswordPage.jsx"));
 const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
-const CropMonitoringPage = lazy(() => import("./pages/Monitoring/CropMonitoringPage.jsx"));
 const FisheriesMonitoringPage = lazy(() => import("./pages/Monitoring/FisheriesMonitoringPage.jsx"));
 const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
 const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
 const ReportsPage = lazy(() => import("./pages/Reports/ReportsPage.jsx"));
+// An address the office and a farmer share: the farmer's own screen for a farmer, the office page otherwise (pages/Account/accountRoutes.jsx).
+const CropsRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropsRoute })));
 const ForecastingPage = lazy(() => import("./pages/Forecasting/ForecastingPage.jsx"));
 const CropInformationPage = lazy(() => import("./pages/CropInformation/CropInformationPage.jsx"));
 const AddCropMonitoringPage = lazy(() => import("./pages/Monitoring/AddCropMonitoringPage.jsx"));
@@ -271,7 +272,7 @@ function App() {
             path="/crop-monitoring"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
-                <CropMonitoringPage />
+                <CropsRoute />
               </ProtectedRoute>
             }
           />
