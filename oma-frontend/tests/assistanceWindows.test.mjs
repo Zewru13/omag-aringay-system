@@ -43,7 +43,7 @@ ok(sections.includes('export function DangerZone'), 'one Danger Zone for both pa
 ok(/FormSection/.test(modals) && /label="Follow-up Notes"/.test(modals) && /label="Reason"/.test(modals), 'follow-up windows are table forms')
 ok(read('src/pages/AssistanceManagement/AssistanceViewDialog.jsx').includes('DetailTable'), 'the view window is a DetailTable')
 ok(read('src/pages/AssistanceManagement/ConfirmReceivedDialog.jsx').includes('DetailTable'), 'Confirm Received (fisherfolk) shows the assistance in a table')
-ok(/<DetailTable/.test(crop) || /FormSection/.test(crop), 'Confirm Received (farmer) is a table form')
+ok(/<DetailTable/.test(read('src/pages/AssistanceManagement/ConfirmReceivedModal.jsx')), 'Confirm Received (farmer) is a table form')
 ok(!/(overflow-hidden)/.test(read('src/components/UI/FormTable.jsx').split('export function FormRows')[0].split('export function FormSection')[1]), 'a section does not clip a drop-down list')
 
 console.log(`assistanceWindows: ${n} checks passed`)

@@ -3,8 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Eye, Pencil, Plus, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
-import PhotoListField from '../../components/UI/PhotoListField.jsx'
-import usePhotoList from '../../hooks/usePhotoList.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -13,9 +11,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import ListPrintButton from '../../components/ListPrintButton.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import { DetailTable, FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -25,8 +21,7 @@ import { MarkResolvedModal, ReportNotReceivedModal } from './AssistanceFollowUpM
 import { extractErrorMessage } from './assistanceFollowUp.js'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
-import ConfirmedReportModal from './ConfirmedReportModal.jsx'
-import { buildAssistanceReportSpec } from './assistanceReport.js'
+import ConfirmReceivedModal from './ConfirmReceivedModal.jsx'
 import { buildStaffHistoryReport } from './assistanceHistoryReport.js'
 import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
 import useConfirmSelection from './useConfirmSelection.js'
@@ -222,70 +217,6 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 }
 
 // ── Main Page ────────────────────────────────────────────────────────────────
-
-function ConfirmReceivedModal({ record, onClose, onDone }) {
-  const { showToast } = useToast()
-  const photosState = usePhotoList()
-  // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`crop-assistance-received:${record.id}`)
-  const [note, setNote] = useDraftField(draft, 'note', '')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    try {
-      const body = new FormData()
-      photosState.photos.forEach(p => body.append('confirmation_photos', p.file))
-      if (note.trim()) body.append('confirmation_note', note.trim())
-      await api.post(`/interventions/beneficiaries/${record.id}/confirm-received/`, body)
-      showToast('Confirmed as received.', 'success')
-      draft.clear()
-      setDone(true)
-    } catch (err) {
-      const d = err?.response?.data
-      const photoError = d?.confirmation_photos && [].concat(d.confirmation_photos).join(' ')
-      showToast(photoError || extractErrorMessage(err, 'Failed to confirm.'), 'error')
-    } finally { setIsSubmitting(false) }
-  }
-  if (done) {
-    const spec = buildAssistanceReportSpec({ domain: 'crop', records: [record], confirmedOn: new Date().toISOString(), organizationName: record.attributed_organization_name || '' })
-    return <ConfirmedReportModal message="Marked as received." spec={spec} onClose={onDone} />
-  }
-  return (
-    <ModalShell title="Confirm Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose} maxWidth="max-w-2xl"
-      footer={<>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="farmer-confirm-received" isLoading={isSubmitting}>Confirm</Button>
-      </>}>
-      <form id="farmer-confirm-received" onSubmit={handleSubmit} className="space-y-3">
-        <DraftBanner draft={draft} />
-        <DetailTable
-          title="Assistance"
-          fields={[
-            { label: 'Assistance', value: record.assistance_type },
-            { label: 'Date Given', value: formatDate(record.date_given) },
-          ]}
-        />
-        <FormSection title="Proof of Receipt">
-          <FormRows label="Proof of receipt">
-            <FormRow>
-              <FormCell label="Proof Photos" wide hint={<p className="mt-1 text-[11.5px] text-[#7A8E7A]">Optional. Up to 10 photos.</p>}>
-                <PhotoListField photosState={photosState} title="" hint="" altPrefix="Proof photo" />
-              </FormCell>
-            </FormRow>
-            <FormRow>
-              <FormCell label="Note" wide>
-                <textarea rows={3} className={`${baseInputClasses} h-auto resize-none py-2`} aria-label="Note" value={note}
-                  onChange={(e) => setNote(e.target.value)} placeholder="Anything the office should know about what you received" />
-              </FormCell>
-            </FormRow>
-          </FormRows>
-        </FormSection>
-      </form>
-    </ModalShell>
-  )
-}
 
 export default function CropAssistancePage({ asTab = false }) {
   // A farmer account reuses this page for its own assistance only: the list is the caller's own history, and
