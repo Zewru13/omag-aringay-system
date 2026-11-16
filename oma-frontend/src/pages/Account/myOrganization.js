@@ -43,3 +43,26 @@ export function officerRows(org) {
     .map((o) => ({ ...o, memberText: o.is_member === false ? 'Not a member' : 'Yes' }))
     .sort((a, b) => order(a.position) - order(b.position))
 }
+
+// ── Assistance ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+// The tab of the Assistance page a link opens: ?tab=history, ?tab=confirm (Home's "Confirm for members", and the old Confirmed for
+// Members tab); anything else, including the old words current / needs-follow-up, opens To do.
+export function orgAssistanceTab(search) {
+  const tab = new URLSearchParams(search).get('tab')
+  return tab === 'history' || tab === 'confirm' ? tab : 'todo'
+}
+
+// Where a member's confirmation stands: sent to the office and waiting, turned down (and why), or not sent yet.
+export function confirmReview(record) {
+  if (record.latest_request_status === 'PENDING') return { text: 'Pending review', tone: 'amber' }
+  if (record.latest_request_status === 'REJECTED') {
+    return { text: record.latest_request_reason ? `Rejected: ${record.latest_request_reason}` : 'Rejected', tone: 'red' }
+  }
+  return { text: 'Needs confirmation', tone: 'amber' }
+}
+
+// The kind of assistance an organization gives: crop for a farmers' organization, fisheries for a fisherfolk one.
+export const orgAssistanceDomain = (kind) => (kind === 'orgFish'
+  ? { domain: 'fisheries', nameField: 'fisherfolk_full_name' }
+  : { domain: 'crop', nameField: 'farmer_full_name' })

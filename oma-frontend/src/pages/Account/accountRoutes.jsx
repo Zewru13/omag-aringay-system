@@ -8,6 +8,7 @@ const CropMonitoringPage = lazy(() => import('../Monitoring/CropMonitoringPage.j
 const MyCropsPage = lazy(() => import('./MyCropsPage.jsx'))
 const CropAssistancePage = lazy(() => import('../AssistanceManagement/CropAssistancePage.jsx'))
 const MyAssistancePage = lazy(() => import('./MyAssistancePage.jsx'))
+const MyOrgAssistancePage = lazy(() => import('./MyOrgAssistancePage.jsx'))
 const FisheriesAssistancePage = lazy(() => import('../AssistanceManagement/FisheriesAssistancePage.jsx'))
 const ForecastingPage = lazy(() => import('../Forecasting/ForecastingPage.jsx'))
 const MyForecastPage = lazy(() => import('./MyForecastPage.jsx'))
@@ -22,9 +23,10 @@ export function CropsRoute() {
   return isFarmer ? <MyCropsPage /> : <CropMonitoringPage />
 }
 
-// /crop-assistance (the office and a farmers' organization keep the Crop Assistance page)
+// /crop-assistance: a farmer and a farmers' organization each get their own page; the office keeps Crop Assistance
 export function CropAssistanceRoute() {
-  const { isFarmer } = useAuth()
+  const { isFarmer, isOrg } = useAuth()
+  if (isOrg) return <MyOrgAssistancePage kind="orgFarm" />
   return isFarmer ? <MyAssistancePage domain="crop" /> : <CropAssistancePage />
 }
 
@@ -40,9 +42,10 @@ export function CyclesRoute() {
   return isFisherfolk ? <MyCyclesPage /> : <FisheriesMonitoringPage />
 }
 
-// /fisheries-assistance (the office and a fisherfolk organization keep the Fisheries Assistance page)
+// /fisheries-assistance: a fisherfolk and a fisherfolk organization each get their own page; the office keeps Fisheries Assistance
 export function FisheriesAssistanceRoute() {
-  const { isFisherfolk } = useAuth()
+  const { isFisherfolk, isOrg } = useAuth()
+  if (isOrg) return <MyOrgAssistancePage kind="orgFish" />
   return isFisherfolk ? <MyAssistancePage domain="fisheries" /> : <FisheriesAssistancePage />
 }
 
