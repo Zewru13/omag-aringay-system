@@ -34,3 +34,11 @@ export function cellText(column, row) {
   const value = column.render ? column.render(row) : row[column.key]
   return isBlank(value) ? '—' : value
 }
+
+// The tick boxes of a list (RecordList's `selectable`): whether every row that can be ticked is ticked (the header box), and whether
+// any is. `canSelect(row)` leaves rows out that cannot be ticked; without it every row counts.
+export function selectionState(rows, selected, canSelect = () => true) {
+  const ids = rows.filter(canSelect).map((row) => row.id)
+  const some = ids.some((id) => selected.has(id))
+  return { all: ids.length > 0 && ids.every((id) => selected.has(id)), some }
+}
