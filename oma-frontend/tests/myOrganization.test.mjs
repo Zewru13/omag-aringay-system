@@ -54,6 +54,11 @@ const route = read('../src/pages/Account/MyOrganizationRoute.jsx')
 ok(route.includes('<Navigate') && route.includes('?tab=confirm') && route.includes('MyMembersPage'), 'the router shows Members and sends confirmed to Assistance')
 const hook = read('../src/pages/Account/useMyOrganization.js')
 ok(hook.includes('/organizations/${domain.type}/${id}/') && hook.includes("'failed'"), 'one loader for the organization, which can fail')
+const officers = read('../src/pages/Account/MyOfficersPage.jsx')
+for (const piece of ['RecordList', 'officerRows', 'AssignOfficerModal', 'EndTermModal', 'OfficerHistoryModal', 'Assign officer', 'Officer history', 'End term early', 'useMyOrganization', 'onRetry=']) {
+  ok(officers.includes(piece), `Officers uses ${piece}`)
+}
+ok(route.includes('<MyOfficersPage />') && !route.includes('OrganizationDetailPage'), 'the router shows Officers too; the old page is no longer used for an organization account')
 const app = read('../src/App.jsx')
 const orgRoute = app.slice(app.indexOf('path="/my-organization"'), app.indexOf('path="/my-organization"') + 260)
 ok(orgRoute.includes('<MyOrganizationRoute />') && orgRoute.includes('FISHERFOLK_ORG'), 'the address stays /my-organization')

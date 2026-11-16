@@ -8,7 +8,7 @@ import { orgDomain, orgView } from './myOrganization.js'
 // (see orgView): Members, Equipment (Items or Loans) or Officers; Confirmed for Members now lives on Assistance's Confirm for members tab.
 const MyMembersPage = lazy(() => import('./MyMembersPage.jsx'))
 const MyOrgEquipmentPage = lazy(() => import('./MyOrgEquipmentPage.jsx'))
-const OrganizationDetailPage = lazy(() => import('../Organizations/OrganizationDetailPage.jsx'))
+const MyOfficersPage = lazy(() => import('./MyOfficersPage.jsx'))
 
 export default function MyOrganizationRoute() {
   const { search } = useLocation()
@@ -18,6 +18,5 @@ export default function MyOrganizationRoute() {
   if (view.page === 'members') return <MyMembersPage />
   // The address decides the tab, so a link (the bell's ?tab=borrowed) and the tab row always agree.
   if (view.page === 'equipment') return <MyOrgEquipmentPage tab={view.tab} />
-  // Officers keeps the organization page until its own page is built.
-  return <OrganizationDetailPage own />
+  return <MyOfficersPage />
 }
