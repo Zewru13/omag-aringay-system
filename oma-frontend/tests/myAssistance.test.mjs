@@ -31,8 +31,16 @@ for (const piece of ['RecordList', 'ListTools', 'ConfirmReceivedModal', 'ReportN
   ok(page.includes(piece), `Assistance uses ${piece}`)
 }
 ok(page.includes("label: 'Received'") && page.includes("label: 'Not received'"), 'the two buttons of a waiting record')
+// the same page for a fisherfolk: their own list, and the fisheries windows
+for (const piece of ["'/interventions/my-fisherfolk-beneficiary-history/'", 'ConfirmReceivedDialog', '/interventions/fisherfolk-beneficiaries/', 'ReportNotReceivedModal domain={domain}']) {
+  ok(page.includes(piece), `the fisheries side uses ${piece}`)
+}
+ok(page.includes("export default function MyAssistancePage({ domain = 'crop' })"), 'crop is the default, so the farmer is unchanged')
 const routes = read('../src/pages/Account/accountRoutes.jsx')
-ok(routes.includes('isFarmer ? <MyAssistancePage />') && routes.includes('<CropAssistancePage />'), 'a farmer gets their Assistance page, the office and organizations theirs')
+ok(routes.includes('isFisherfolk ? <MyAssistancePage domain="fisheries" />') && routes.includes('<FisheriesAssistancePage />'), 'a fisherfolk gets the same page; the office and a fisherfolk organization keep theirs')
+const fishRoute = read('../src/App.jsx').slice(read('../src/App.jsx').indexOf('path="/fisheries-assistance"'), read('../src/App.jsx').indexOf('path="/fisheries-assistance"') + 260)
+ok(fishRoute.includes('<FisheriesAssistanceRoute />') && fishRoute.includes('allowFisherfolk') && fishRoute.includes('FISHERFOLK_ORG'), 'the fisheries address is the same for everyone who had it')
+ok(routes.includes('isFarmer ? <MyAssistancePage domain="crop" />') && routes.includes('<CropAssistancePage />'), 'a farmer gets their Assistance page, the office and organizations theirs')
 const app = read('../src/App.jsx')
 const route = app.slice(app.indexOf('path="/crop-assistance"'), app.indexOf('path="/crop-assistance"') + 260)
 ok(route.includes('<CropAssistanceRoute />') && route.includes('allowFarmer') && route.includes('FARMERS_ORG'), 'the address is the same for everyone who had it')

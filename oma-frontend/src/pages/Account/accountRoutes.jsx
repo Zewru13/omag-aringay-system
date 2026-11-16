@@ -8,6 +8,7 @@ const CropMonitoringPage = lazy(() => import('../Monitoring/CropMonitoringPage.j
 const MyCropsPage = lazy(() => import('./MyCropsPage.jsx'))
 const CropAssistancePage = lazy(() => import('../AssistanceManagement/CropAssistancePage.jsx'))
 const MyAssistancePage = lazy(() => import('./MyAssistancePage.jsx'))
+const FisheriesAssistancePage = lazy(() => import('../AssistanceManagement/FisheriesAssistancePage.jsx'))
 const ForecastingPage = lazy(() => import('../Forecasting/ForecastingPage.jsx'))
 const MyForecastPage = lazy(() => import('./MyForecastPage.jsx'))
 const FisheriesMonitoringPage = lazy(() => import('../Monitoring/FisheriesMonitoringPage.jsx'))
@@ -22,7 +23,7 @@ export function CropsRoute() {
 // /crop-assistance (the office and a farmers' organization keep the Crop Assistance page)
 export function CropAssistanceRoute() {
   const { isFarmer } = useAuth()
-  return isFarmer ? <MyAssistancePage /> : <CropAssistancePage />
+  return isFarmer ? <MyAssistancePage domain="crop" /> : <CropAssistancePage />
 }
 
 // /forecasting
@@ -35,4 +36,10 @@ export function ForecastRoute() {
 export function CyclesRoute() {
   const { isFisherfolk } = useAuth()
   return isFisherfolk ? <MyCyclesPage /> : <FisheriesMonitoringPage />
+}
+
+// /fisheries-assistance (the office and a fisherfolk organization keep the Fisheries Assistance page)
+export function FisheriesAssistanceRoute() {
+  const { isFisherfolk } = useAuth()
+  return isFisherfolk ? <MyAssistancePage domain="fisheries" /> : <FisheriesAssistancePage />
 }

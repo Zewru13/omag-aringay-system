@@ -43,7 +43,7 @@ const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.j
 const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
 const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
 const CropAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropAssistanceRoute })));
-const FisheriesAssistancePage = lazy(() => import("./pages/AssistanceManagement/FisheriesAssistancePage.jsx"));
+const FisheriesAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesAssistanceRoute })));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
 const MoreScreen = lazy(() => import("./pages/Account/MoreScreen.jsx"));
 const OwnHelpPage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnHelpPage })));
@@ -325,7 +325,7 @@ function App() {
             path="/fisheries-assistance"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowOrg={["FISHERFOLK_ORG"]}>
-                <FisheriesAssistancePage />
+                <FisheriesAssistanceRoute />
               </ProtectedRoute>
             }
           />
