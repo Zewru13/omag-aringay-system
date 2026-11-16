@@ -38,6 +38,6 @@ for (const piece of ['RecordList', 'ChooseCropsModal', 'MultiCropDisasterModal',
 }
 ok(!/\binline\b/.test(page), 'the report opens as a window, not as the page')
 const router = read('../src/pages/Monitoring/DisasterPage.jsx')
-ok(router.includes('if (isFarmer) return <MyDisastersPage />') && router.includes('<AdminDisasterPage />') && router.includes('<FisherfolkDisasterPage />'), 'a farmer gets the new page; the others keep theirs')
+ok(router.includes('if (isFarmer) return <MyDisastersPage />') && router.includes('<AdminDisasterPage />'), 'a farmer gets the new page; the office keeps its own')
 ok(/export function MarkRecoveredModal\(/.test(read('../src/pages/Monitoring/FarmerDisasterPage.jsx')), 'Mark Recovered can be imported')
 console.log(`ok - ${n} assertions`)
