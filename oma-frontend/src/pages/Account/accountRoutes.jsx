@@ -13,6 +13,8 @@ const ForecastingPage = lazy(() => import('../Forecasting/ForecastingPage.jsx'))
 const MyForecastPage = lazy(() => import('./MyForecastPage.jsx'))
 const FisheriesMonitoringPage = lazy(() => import('../Monitoring/FisheriesMonitoringPage.jsx'))
 const MyCyclesPage = lazy(() => import('./MyCyclesPage.jsx'))
+const FisheriesForecastingTab = lazy(() => import('../Monitoring/FisheriesForecastingTab.jsx'))
+const MyFisheriesForecastPage = lazy(() => import('./MyFisheriesForecastPage.jsx'))
 
 // /crop-monitoring
 export function CropsRoute() {
@@ -42,4 +44,10 @@ export function CyclesRoute() {
 export function FisheriesAssistanceRoute() {
   const { isFisherfolk } = useAuth()
   return isFisherfolk ? <MyAssistancePage domain="fisheries" /> : <FisheriesAssistancePage />
+}
+
+// /fisheries-forecasting
+export function FisheriesForecastRoute() {
+  const { isFisherfolk } = useAuth()
+  return isFisherfolk ? <MyFisheriesForecastPage /> : <FisheriesForecastingTab />
 }

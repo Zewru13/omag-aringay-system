@@ -28,7 +28,7 @@ const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePassw
 const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
 const CyclesRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CyclesRoute })));
 const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
-const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
+const FisheriesForecastRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesForecastRoute })));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
 const ReportsPage = lazy(() => import("./pages/Reports/ReportsPage.jsx"));
 // An address the office and a farmer share: the farmer's own screen for a farmer, the office page otherwise (pages/Account/accountRoutes.jsx).
@@ -306,7 +306,7 @@ function App() {
             path="/fisheries-forecasting"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
-                <FisheriesForecastingTab />
+                <FisheriesForecastRoute />
               </ProtectedRoute>
             }
           />

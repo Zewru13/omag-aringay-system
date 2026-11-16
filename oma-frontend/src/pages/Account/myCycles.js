@@ -70,3 +70,10 @@ export const cycleDate = (rec) => rec.date_stocked
 
 // The Harvest date column: the day it was harvested once it is, the expected day until then.
 export const cycleHarvestDate = (rec) => (sectionOf(rec) === 'harvested' && rec.actual_harvest_date) || rec.expected_harvest_date
+
+// The Forecast page: cycles still in the water first (their expected harvest and estimate), then the harvested ones (the estimate
+// beside what was actually harvested). A lost cycle has nothing to forecast.
+export const CYCLE_FORECAST_SECTIONS = [
+  { key: 'growing', label: 'Growing', match: (rec) => ['growing', 'ready'].includes(sectionOf(rec)) },
+  { key: 'harvested', label: 'Harvested', match: (rec) => sectionOf(rec) === 'harvested' },
+]

@@ -63,6 +63,22 @@ eq(cycleDate({ date_stocked: '2026-08-01' }), '2026-08-01', 'the Year filter rea
 eq(cycleHarvestDate({ status: 'Stocked', expected_harvest_date: '2026-12-01' }), '2026-12-01', 'growing: the expected date')
 eq(cycleHarvestDate({ status: 'Harvested', expected_harvest_date: '2026-12-01', actual_harvest_date: '2026-11-28' }), '2026-11-28', 'harvested: the day it was')
 
+const { CYCLE_FORECAST_SECTIONS } = await import(new URL('../src/pages/Account/myCycles.js', import.meta.url).href)
+eq(CYCLE_FORECAST_SECTIONS.map((s) => s.label), ['Growing', 'Harvested'], 'the forecast: growing cycles, then harvested ones')
+const forecastSection = (rec) => CYCLE_FORECAST_SECTIONS.filter((s) => s.match(rec)).map((s) => s.label)
+eq(forecastSection({ status: 'Stocked' }), ['Growing'], 'stocked')
+eq(forecastSection({ status: 'Near Harvest' }), ['Growing'], 'near harvest')
+eq(forecastSection({ status: 'Stocked', display_status: 'Late' }), ['Growing'], 'late is still growing')
+eq(forecastSection({ status: 'Harvested' }), ['Harvested'], 'harvested')
+eq(forecastSection(forcedAll), ['Harvested'], 'force harvested')
+const forecastPage = read('../src/pages/Account/MyFisheriesForecastPage.jsx')
+for (const piece of ['RecordList', 'ListTools', 'StockingForecastDetailModal', 'view="yield"', "'Stocked,Near Harvest,Harvested'", 'yieldDifference', 'countdown', 'onRetry={retry}', 'what="your forecast"', 'Yield analysis']) {
+  ok(forecastPage.includes(piece), `Forecast uses ${piece}`)
+}
+const forecastRoutes = read('../src/pages/Account/accountRoutes.jsx')
+ok(forecastRoutes.includes('isFisherfolk ? <MyFisheriesForecastPage />') && forecastRoutes.includes('<FisheriesForecastingTab />'), 'a fisherfolk gets their Forecast page, the office its own')
+const forecastRoute = read('../src/App.jsx').slice(read('../src/App.jsx').indexOf('path="/fisheries-forecasting"'), read('../src/App.jsx').indexOf('path="/fisheries-forecasting"') + 220)
+ok(forecastRoute.includes('<FisheriesForecastRoute />') && forecastRoute.includes('allowFisherfolk'), 'the address is the same for both')
 const page = read('../src/pages/Account/MyCyclesPage.jsx')
 ok(page.includes('<StatusBadge status={cycleStatusText(r)}>'), 'the badge colour comes from the real status, not the plain-word label')
 const { toneOf } = await import(new URL('../src/pages/Account/statusTone.js', import.meta.url).href)
