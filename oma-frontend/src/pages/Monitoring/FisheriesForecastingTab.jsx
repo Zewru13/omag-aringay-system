@@ -61,7 +61,7 @@ function DisclaimerBanner() {
 
 // ── Forecast Detail Modal (mirrors ForecastDetailModal in crop's ForecastingPage.jsx) ──
 
-function StockingForecastDetailModal({ record, onClose, onUpdated }) {
+export function StockingForecastDetailModal({ record, onClose, onUpdated }) {
   const { showToast } = useToast()
   const originalNotes = record.notes || ''
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
@@ -747,14 +747,17 @@ function AggregatePanel({ groups, overall, cycleTrend, isLoading }) {
 
 // ── Forecasting Tab (fisheries yield analysis) ───────────────────────────────
 
-export default function ForecastingTab({ asTab = false }) {
+// `view="yield"`: only the Yield analysis, loaded at once and without the two tabs (the fisherfolk's own Forecast page shows it as
+// its second tab). The office page passes nothing and keeps both tabs.
+export default function ForecastingTab({ asTab = false, view }) {
   const { showToast } = useToast()
   // Fisherfolk accounts use this same page; the backend returns only their own records.
   const { isFisherfolk } = useAuth()
-  const [activeTab, setActiveTab] = useState('forecast') // 'forecast' | 'yield_analysis'
+  const onlyYield = view === 'yield'
+  const [activeTab, setActiveTab] = useState(onlyYield ? 'yield_analysis' : 'forecast') // 'forecast' | 'yield_analysis'
   // Yield Analysis data is loaded only once its tab has been opened (not while Forecast is the active tab);
   // after that it reloads only when its own filters change, not on every tab switch.
-  const [yieldOpened, setYieldOpened] = useState(false)
+  const [yieldOpened, setYieldOpened] = useState(onlyYield)
 
   // ── "Forecast" tab: upcoming stockings (additive — everything below this
   // block, through the existing "yield analysis" state, is unchanged) ──────
@@ -1381,7 +1384,7 @@ export default function ForecastingTab({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <PillTabs
+      {!onlyYield && <PillTabs
         ariaLabel="Forecasting views"
         tabs={[
           { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
@@ -1389,7 +1392,7 @@ export default function ForecastingTab({ asTab = false }) {
         ]}
         value={activeTab}
         onChange={(id) => { setActiveTab(id); if (id === 'yield_analysis') setYieldOpened(true) }}
-      />
+      />}
 
       {activeTab === 'forecast' ? forecastContent : yieldAnalysisContent}
 

@@ -58,6 +58,8 @@ const windows = read('../src/pages/Account/HomeWindows.jsx')
 for (const piece of ['ViewLogsModal', 'RecordHarvestFromMonitoringModal', 'ConfirmReceivedModal', 'ReportNotReceivedModal']) {
   ok(windows.includes(piece), `a farmer's to-do opens ${piece} on Home`)
 }
+for (const piece of ['ConfirmReceivedDialog', 'RecordStockingHarvestModal', "domain === 'fisheries'"]) ok(windows.includes(piece), `a fisherfolk's to-do opens ${piece} on Home`)
+ok(home.includes('stockingHarvestGate'), "a cycle's Record harvest opens only when the cycle may be harvested")
 ok(/lazy\(\(\) => import\('\.\/HomeWindows\.jsx'\)\)/.test(home) && home.includes('<Suspense'), 'the windows are downloaded only when a button is pressed')
 ok(home.includes('harvestGateInfo') && home.includes('onAct={act}'), 'Record harvest opens only when the crop may be harvested')
 const card = read('../src/pages/Account/TodoCard.jsx')

@@ -31,7 +31,8 @@ import {
 import EditStockingModal from './EditStockingModal.jsx'
 import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPanel.jsx'
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
-import { fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
+import { fmtLong, fmtShort } from './stockingHelpers.js'
+import { stockingHarvestGate as harvestGateInfo } from './stockingHarvestGate.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import OwnershipCell from '../../components/UI/OwnershipCell.jsx'
 import { AQUACULTURE_PCIC_OPTIONS } from '../../utils/pcic.js'
@@ -145,7 +146,8 @@ function HarvestDetailsSection({ record }) {
 // details - the very block "View Cycle Details & Logs" shows - so both views carry the same fields and values; the rows below
 // are only what the cycle block does not already say. A fisherfolk account, a stock without a cycle, or a cycle that could not be
 // loaded keeps the full list of rows.
-function StockingDetailModal({ record, onClose, staffView = false }) {
+// Also opened from the fisherfolk's own Cycles page (pages/Account/MyCyclesPage.jsx).
+export function StockingDetailModal({ record, onClose, staffView = false }) {
   const wantsCycle = staffView && Boolean(record.production_cycle)
   const [cycle, setCycle] = useState(null)
   const [cycleFailed, setCycleFailed] = useState(false)
@@ -262,24 +264,6 @@ function StockingDetailModal({ record, onClose, staffView = false }) {
 // Unlock icon; RowActions collapses them into one dropdown with a divider
 // between the groups since a row always offers 3+ applicable actions here.
 // Delete lives inside EditStockingModal's Danger Zone, not in this menu.
-
-// Mirrors core.utils.harvest_gate_status on the backend (the real
-// enforcement — this is client-side UX only, to explain the gate before
-// the user even opens the modal rather than after a rejected submit).
-function harvestGateInfo(rec) {
-  if (rec.date_stocked_is_estimated) {
-    return {
-      gated: true,
-      message: 'This record’s stocking date is an estimate, not a confirmed field date. Harvest ' +
-        'cannot be recorded until a staff member confirms or corrects the real stocking date.',
-    }
-  }
-  // Force Harvest (fish mortality / disease in the cycle's Health Log) lifts the waiting period; the
-  // backend applies the same exemption.
-  if (rec.force_harvest) return { gated: false, message: null }
-  // Normal harvest: active once >= 50% of this record's own Stocking Date -> Expected Harvest Date has elapsed.
-  return harvestGateStatus(rec.date_stocked, rec.expected_harvest_date)
-}
 
 // The row itself expands the cycle's ponds/cages, and the Feeding Log / Health Log are entered from the Log Activity button there (no longer in this
 // menu, nor is Print Report: that is the button above the table). The menu is the same for every account: View Logs / Record Harvest / Report

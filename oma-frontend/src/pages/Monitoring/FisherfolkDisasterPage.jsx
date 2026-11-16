@@ -31,7 +31,8 @@ const SUBMISSION_TONES = { SUBMITTED: 'green', DRAFT: 'amber' }
 
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
 
-function MarkRecoveredModal({ row, onClose, onDone }) {
+// Also used by the fisherfolk's own Disasters page (pages/Account/MyFisheriesDisastersPage.jsx).
+export function MarkRecoveredModal({ row, onClose, onDone }) {
   const { showToast } = useToast()
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`fisherfolk-mark-recovered:${row.id}`)

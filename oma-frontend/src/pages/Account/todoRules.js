@@ -1,7 +1,8 @@
 // Home's to-do list: the things a farmer, a fisherfolk or an organization can act on today, worked out from their own records.
 // Each item is { key, tone: 'red' | 'amber', title, detail, actions }. An action is a button: { label, primary?, to } links to the
 // page that does the work; { label, primary?, act: { kind, record } } opens the window for it on Home itself (a farmer's Received,
-// Not received, Log activity and Record harvest: kind is 'received' | 'not-received' | 'activity' | 'harvest').
+// Not received, Log activity and Record harvest; a fisherfolk's Received, Not received and Record harvest: kind is 'received' |
+// 'not-received' | 'activity' | 'harvest', and domain is 'crop' or 'fisheries').
 // Problems (red) come first, then what is waiting (amber); inside a tone: assistance, activities, harvest, loans.
 // A source that failed to load is null (see loadState.js) and adds nothing: Home says separately that it could not be loaded.
 // No screen and no network here, so the rules can be tested on their own.
@@ -11,7 +12,10 @@ const list = (value) => (Array.isArray(value) ? value : [])
 const redFirst = (todos) => [...todos.filter((t) => t.tone === 'red'), ...todos.filter((t) => t.tone === 'amber')]
 
 const link = (label, to) => [{ label, primary: true, to }]
-const window = (label, kind, record) => ({ label, act: { kind, record } })
+// `domain` says which kind of window opens: the crop ones for a farmer, the fisheries ones for a fisherfolk.
+const window = (label, kind, record, domain = 'crop') => ({ label, act: { kind, record, domain } })
+// Received (the main button) or Not received, answered on Home itself.
+const answer = (domain) => (record) => [{ ...window('Received', 'received', record, domain), primary: true }, window('Not received', 'not-received', record, domain)]
 
 // Assistance that has reached its date and waits for the person to say whether they received it. `actionsOf(record)` is its buttons.
 const assistanceTodos = (assistance, actionsOf) => list(assistance)
@@ -58,9 +62,7 @@ export function farmerTodos({ assistance, crops, suggestions, loans } = {}) {
     detail: 'You can record the harvest now.',
     actions: [{ ...window('Record harvest', 'harvest', crop), primary: true }],
   }))
-  // A farmer answers on Home itself: Received (the main button) or Not received.
-  const answer = (record) => [{ ...window('Received', 'received', record), primary: true }, window('Not received', 'not-received', record)]
-  return redFirst([...assistanceTodos(assistance, answer), ...activities, ...harvest, ...loanTodos(loans)])
+  return redFirst([...assistanceTodos(assistance, answer('crop')), ...activities, ...harvest, ...loanTodos(loans)])
 }
 
 export function fisherfolkTodos({ assistance, cycles, loans } = {}) {
@@ -71,9 +73,9 @@ export function fisherfolkTodos({ assistance, cycles, loans } = {}) {
       tone: 'amber',
       title: `${cycle.species_name || 'Cycle'} is ready to harvest`,
       detail: cycle.force_harvest ? 'A pond or cage is waiting for a force harvest.' : 'You can record the harvest now.',
-      actions: link('Record harvest', `/fisheries-monitoring?cycle=${cycle.production_cycle}`),
+      actions: [{ ...window('Record harvest', 'harvest', cycle, 'fisheries'), primary: true }],
     }))
-  return redFirst([...assistanceTodos(assistance, () => link('Confirm', '/fisheries-assistance')), ...harvest, ...loanTodos(loans)])
+  return redFirst([...assistanceTodos(assistance, answer('fisheries')), ...harvest, ...loanTodos(loans)])
 }
 
 const count = (n, one, many) => `${n} ${n === 1 ? one : many}`

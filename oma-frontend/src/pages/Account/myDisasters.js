@@ -21,8 +21,11 @@ export function disasterTone(row) {
 // crops (null while they are still loading, when there is no reason yet).
 export const reportBlock = (crops) => (crops && crops.length === 0 ? 'You can only report a disaster on a crop you have on record.' : null)
 
-// Everything the search box may look at.
-export const disasterText = (row) => [row.disaster_type_label, row.crop, row.report_number].filter(Boolean).join(' ')
+// Everything the search box may look at (a farmer's report names a crop, a fisherfolk's a stock).
+export const disasterText = (row) => [row.disaster_type_label, row.crop, row.affected_stock, row.report_number].filter(Boolean).join(' ')
+
+// The stock a fisherfolk's report was on; a report can also be about no stock at all.
+export const stockLabel = (row) => row.affected_stock || 'Not linked to a stock'
 
 // Newest first; a report with no date goes last. A new list; the one given is left as it is.
 export function sortDisasters(rows) {

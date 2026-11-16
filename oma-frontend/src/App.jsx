@@ -26,9 +26,9 @@ const FisherfolkHub = lazy(() => import("./pages/Fisherfolk/FisherfolkHub.jsx"))
 const FisheriesSettingsHub = lazy(() => import("./pages/FisheriesSettings/FisheriesSettingsHub.jsx"));
 const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePasswordPage.jsx"));
 const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
-const FisheriesMonitoringPage = lazy(() => import("./pages/Monitoring/FisheriesMonitoringPage.jsx"));
+const CyclesRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CyclesRoute })));
 const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
-const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
+const FisheriesForecastRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesForecastRoute })));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
 const ReportsPage = lazy(() => import("./pages/Reports/ReportsPage.jsx"));
 // An address the office and a farmer share: the farmer's own screen for a farmer, the office page otherwise (pages/Account/accountRoutes.jsx).
@@ -43,7 +43,7 @@ const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.j
 const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
 const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
 const CropAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropAssistanceRoute })));
-const FisheriesAssistancePage = lazy(() => import("./pages/AssistanceManagement/FisheriesAssistancePage.jsx"));
+const FisheriesAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesAssistanceRoute })));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
 const MoreScreen = lazy(() => import("./pages/Account/MoreScreen.jsx"));
 const OwnHelpPage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnHelpPage })));
@@ -288,7 +288,7 @@ function App() {
             path="/fisheries-monitoring"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
-                <FisheriesMonitoringPage />
+                <CyclesRoute />
               </ProtectedRoute>
             }
           />
@@ -306,7 +306,7 @@ function App() {
             path="/fisheries-forecasting"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
-                <FisheriesForecastingTab />
+                <FisheriesForecastRoute />
               </ProtectedRoute>
             }
           />
@@ -325,7 +325,7 @@ function App() {
             path="/fisheries-assistance"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowOrg={["FISHERFOLK_ORG"]}>
-                <FisheriesAssistancePage />
+                <FisheriesAssistanceRoute />
               </ProtectedRoute>
             }
           />
