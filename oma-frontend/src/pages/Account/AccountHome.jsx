@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate, formatDateWithWeekday } from '../../utils/dateFormat.js'
 import fetchAllPages from '../Citizen/fetchAllPages.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
+import { stockingHarvestGate } from '../FisheriesRecords/stockingHarvestGate.js'
 import { harvestGateInfo } from '../Monitoring/harvestGateInfo.js'
 import AccountPage from './AccountPage.jsx'
 import { accountKind } from './accountNav.js'
@@ -132,7 +133,9 @@ export default function AccountHome() {
   const [open, setOpen] = useState(null)     // the window a to-do button opened: { kind, record }
   // Record Harvest opens only when the crop may be harvested; otherwise the reason is shown.
   const act = (action) => {
-    const gate = action.kind === 'harvest' ? harvestGateInfo(action.record) : null
+    // A crop and a fisheries cycle each have their own harvest rule.
+    const gateOf = action.domain === 'fisheries' ? stockingHarvestGate : harvestGateInfo
+    const gate = action.kind === 'harvest' ? gateOf(action.record) : null
     if (gate?.gated) showToast(gate.message, 'error')
     else setOpen(action)
   }
