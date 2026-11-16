@@ -64,4 +64,5 @@ ok(!page.includes('EditLegend'), 'no colour key: each row says in words what its
 const row = read('../src/pages/Account/ProfileRow.jsx')
 ok(row.includes('min-h-[44px]') && row.includes('Fixed') && row.includes('Lock') && row.includes('Request change') && row.includes('>Edit<'), 'a row button is easy to tap; a fixed row shows a padlock and says so')
 ok(read('../src/pages/Citizen/OwnAccountPages.jsx').includes('<AccountProfilePage />'), '/my-profile shows the one profile for every account')
+ok(!/className="mx-auto max-w-3xl/.test(page) && page.includes('className="max-w-3xl space-y-4"'), 'the profile column starts under the page heading, not centred away from it')
 console.log(`ok - ${n} assertions`)

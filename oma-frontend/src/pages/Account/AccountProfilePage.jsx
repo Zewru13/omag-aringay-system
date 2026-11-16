@@ -176,7 +176,7 @@ export default function AccountProfilePage() {
 
   return (
     <AccountPage title={isOrg ? 'Organization profile' : 'My profile'} helper={isOrg ? 'Your organization’s details and account.' : 'What the office has on record about you.'}>
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="max-w-3xl space-y-4">
         {error && !open && <p role="alert" className="rounded-[var(--radius-md)] border border-[#F5C6C6] bg-[#FCEBEB] px-4 py-3 text-[14px] text-[#791F1F]">{error}</p>}
 
         <section className={`${CARD} flex flex-col gap-4 p-4 sm:flex-row sm:items-center`}>
