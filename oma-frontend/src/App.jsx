@@ -12,6 +12,8 @@ import LoadingSpinner from "./components/UI/LoadingSpinner.jsx";
 // A navigation keeps the page you are on until the next one has arrived; only the first load shows the placeholder.
 const AuditLogPage = lazy(() => import("./pages/Admin/AuditLogPage.jsx"));
 const OrganizationDetailPage = lazy(() => import("./pages/Organizations/OrganizationDetailPage.jsx"));
+// An organization account's own pages at /my-organization (Members, Equipment, Officers; ?tab= picks one).
+const MyOrganizationRoute = lazy(() => import("./pages/Account/MyOrganizationRoute.jsx"));
 const MyEquipmentPage = lazy(() => import("./pages/Equipment/MyEquipmentPage.jsx"));
 const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage.jsx"));
 const FarmerDetailPage = lazy(() => import("./pages/Farmers/FarmerDetailPage.jsx"));
@@ -224,7 +226,7 @@ function App() {
             path="/my-organization"
             element={
               <ProtectedRoute allowedRoles={[]} allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
-                <OrganizationDetailPage own />
+                <MyOrganizationRoute />
               </ProtectedRoute>
             }
           />
