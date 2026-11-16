@@ -3548,15 +3548,15 @@ export default {
  "farmer-home": {
   "audience": "farmer",
   "title": "Home (Farmer)",
-  "purpose": "Your farm at a glance.",
+  "purpose": "What needs you today, then your crops.",
   "image": "/manual/farmer/home.png",
   "width": 1280,
-  "height": 1100,
+  "height": 900,
   "legend": [
    {
     "n": 1,
     "label": "Menu",
-    "desc": "Home, Crop Monitoring, Forecasting, Disaster and Assistance. Equipment appears when you belong to an organization that lends equipment."
+    "desc": "Home, Crops, Assistance and Disasters. More holds the other pages of your account. The page you are on is highlighted."
    },
    {
     "n": 2,
@@ -3565,165 +3565,115 @@ export default {
    },
    {
     "n": 3,
-    "label": "Bell and account menu",
-    "desc": "The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, Help, the User Manual and Log out."
+    "label": "Bell and your name",
+    "desc": "The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out."
    },
    {
     "n": 4,
-    "label": "Welcome banner",
+    "label": "Page heading",
     "desc": "Your name, the kind of account and today's date."
    },
    {
     "n": 5,
-    "label": "Totals",
-    "desc": "Your farm parcels, your active crops (not yet harvested), your total area in hectares and the harvests recorded this month."
+    "label": "To do today",
+    "desc": "Only what needs you now, the most urgent first. Each line has the button that does it."
    },
    {
     "n": 6,
-    "label": "My crops by stage",
-    "desc": "A ring of your crops by stage: growing, harvested and the others."
+    "label": "The button of a to-do",
+    "desc": "Log activity, Record harvest, Received or Not received opens that form right here; View loan opens Borrow equipment."
    },
    {
     "n": 7,
-    "label": "Harvest vs estimate",
-    "desc": "For your latest harvested crops, the estimate made when it was planted (light) against the actual harvest (dark), in kg."
+    "label": "My crops",
+    "desc": "The crops still in the field, each with Details."
    },
    {
     "n": 8,
-    "label": "Disasters by type",
-    "desc": "The disasters you reported, by type: typhoon, flood, drought and so on."
-   },
-   {
-    "n": 9,
-    "label": "Crops that need attention",
-    "desc": "Shown when some activity is due today or overdue. View opens the crops that need work."
-   },
-   {
-    "n": 10,
-    "label": "Open crop",
-    "desc": "Opens that crop's details: its activities, disasters and remarks."
-   },
-   {
-    "n": 11,
-    "label": "Report disaster",
-    "desc": "Starts a disaster report for that crop."
-   },
-   {
-    "n": 12,
-    "label": "Activity suggestion",
-    "desc": "The next activity recommended for the crop at its stage (for example fertilizer application)."
+    "label": "Summary",
+    "desc": "Three figures. A dash means that figure could not be read; Try again at the top reloads it."
    }
   ]
  },
  "farmer-profile": {
   "audience": "farmer",
-  "title": "My Profile (Farmer)",
+  "title": "My profile (Farmer)",
   "purpose": "What the office has on record about you.",
   "image": "/manual/farmer/profile.png",
   "width": 1280,
-  "height": 900,
+  "height": 1300,
   "legend": [
    {
     "n": 1,
-    "label": "Change photo",
-    "desc": "The camera button on your picture changes your photo (JPG, PNG or WEBP, up to 5 MB)."
+    "label": "Your name and picture",
+    "desc": "Your name, Farmer, and your RSBSA number. Change photo (or Change logo) replaces the picture at once."
    },
    {
     "n": 2,
-    "label": "Key to the icons",
-    "desc": "The pencil changes a detail at once. The arrows send a request that the office checks first. A padlock means it cannot be changed here."
+    "label": "Details you can change",
+    "desc": "Edit saves at once. Request change sends the new value to the office, and the row shows Waiting for approval until it is decided."
    },
    {
     "n": 3,
-    "label": "RSBSA number",
-    "desc": "Locked. Contact the office to have it corrected."
+    "label": "Fixed details",
+    "desc": "The padlock means only the office can correct it."
    },
    {
     "n": 4,
-    "label": "Personal information",
-    "desc": "Your name and barangay (a change request goes to the office, who approve it) and your contact number (changed at once with the pencil)."
+    "label": "Your change requests",
+    "desc": "Everything you asked to change: what it was, what you asked for, and whether it was approved or rejected (with the reason)."
    },
    {
     "n": 5,
-    "label": "Reference information",
-    "desc": "Your birthdate, civil status, education and organization, as the office recorded them. They are locked."
-   },
-   {
-    "n": 6,
-    "label": "Change Password",
-    "desc": "Optional. Press Edit to set a new password; it is never required."
-   },
-   {
-    "n": 7,
-    "label": "Log out",
-    "desc": "Signs you out of this device."
-   },
-   {
-    "n": 8,
-    "label": "Borrow equipment",
-    "desc": "Shown when you belong to an organization: opens the equipment your organization lends."
+    "label": "Password and Log out",
+    "desc": "Change password asks for the current one and the new one twice. Log out asks first."
    }
   ]
  },
  "farmer-crops": {
   "audience": "farmer",
-  "title": "Crop Monitoring (Farmer)",
-  "purpose": "Your farm parcels and the crops on them.",
+  "title": "Crops (Farmer)",
+  "purpose": "Every crop the office has on record for you.",
   "image": "/manual/farmer/crops.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Search box",
-    "desc": "Type to find one of your crops by crop name or barangay. The table updates as you type."
+    "label": "Page heading",
+    "desc": "My crops: the list the office keeps for you."
    },
    {
     "n": 2,
-    "label": "Filters",
-    "desc": "Opens the filter row: status, season and the other filters."
+    "label": "Search box",
+    "desc": "Type to narrow the list to a crop or a place. The words can be in any order."
    },
    {
     "n": 3,
-    "label": "Parcel columns",
-    "desc": "Each row is one of your farm parcels: its number, you, the barangay, the area (ha), the ownership (Owner, Lessee or Tenant) and how many records it holds."
+    "label": "Columns",
+    "desc": "The crop and variety, the area in hectares, the place, the dates and the status. A red triangle beside the status means a disaster is still open on it."
    },
    {
     "n": 4,
-    "label": "A parcel row",
-    "desc": "The arrow at the end of the row opens or closes the crops planted on that parcel."
+    "label": "Sections",
+    "desc": "Growing, Ready to harvest, Harvested and Lost, each with how many."
    },
    {
     "n": 5,
-    "label": "Crop columns",
-    "desc": "Under an open parcel: the crop, its variety, the organization, barangay, date planted, expected harvest, how many activities were logged, whether it is PCIC insured and its status (Planted, Near Harvest, Harvested...)."
+    "label": "Log activity",
+    "desc": "Records what you did on the crop. The form starts with the activity that is due."
    },
    {
     "n": 6,
-    "label": "Log Activity",
-    "desc": "Logs what you did on the crop (for example watering, fertilizing or spraying). The form opens already filled in from the crop's schedule and you can change it."
-   },
-   {
-    "n": 7,
-    "label": "Crop Details",
-    "desc": "Opens everything about the crop: activities, pest and disease reports, disasters and remarks."
-   },
-   {
-    "n": 8,
-    "label": "Record Harvest",
-    "desc": "The wheat button beside the menu records the harvest once at least half of the crop's growing time has passed: the date, the area harvested, the unit and the quantity."
-   },
-   {
-    "n": 9,
-    "label": "Report Disaster",
-    "desc": "Reports damage on this crop: the type, the date, the area affected, a description, whether it is a total loss, and photos."
+    "label": "Details",
+    "desc": "Everything about the crop, with its own buttons (see the next picture)."
    }
   ]
  },
  "farmer-forecast": {
   "audience": "farmer",
-  "title": "Forecasting (Farmer)",
-  "purpose": "The harvest expected from your crops.",
+  "title": "Forecast (Farmer)",
+  "purpose": "When each crop should be ready, and how past harvests compared.",
   "image": "/manual/farmer/forecast.png",
   "width": 1280,
   "height": 800,
@@ -3731,109 +3681,64 @@ export default {
    {
     "n": 1,
     "label": "Forecast / Yield analysis",
-    "desc": "Forecast looks ahead at your planted crops. Yield analysis compares the estimate with the actual harvest of crops already harvested."
-   },
-   {
-    "n": 2,
-    "label": "Search box",
-    "desc": "Type to find one of your crops. The table updates as you type."
-   },
-   {
-    "n": 3,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
-   },
-   {
-    "n": 4,
-    "label": "Columns",
-    "desc": "Crop, area planted, the estimated yield in kg (the area times the crop's usual yield per hectare), the expected harvest date, the status and Details."
-   },
-   {
-    "n": 5,
-    "label": "View",
-    "desc": "Opens the forecast details of the crop."
-   }
-  ]
- },
- "farmer-disaster": {
-  "audience": "farmer",
-  "title": "Disaster (Farmer): step 1",
-  "purpose": "Report a disaster that hurt your crops.",
-  "image": "/manual/farmer/disaster.png",
-  "width": 1280,
-  "height": 800,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Disaster history",
-    "desc": "Opens the list of disasters you reported before: reference number, crop, type, date, area affected, status (Active or Recovered), date logged, and View / Actions for each."
-   },
-   {
-    "n": 2,
-    "label": "Select all",
-    "desc": "Step 1: ticks every one of your crops. Tick the crops that were hit; you fill in the disaster only once for all of them."
-   },
-   {
-    "n": 3,
-    "label": "A crop",
-    "desc": "Each crop with its season, the date it was planted and the barangay. Tick the ones that were affected."
-   },
-   {
-    "n": 4,
-    "label": "Continue",
-    "desc": "Goes to step 2. It stays grayed out until at least one crop is ticked."
-   }
-  ]
- },
- "farmer-disaster-history": {
-  "audience": "farmer",
-  "title": "Disaster history (Farmer)",
-  "purpose": "The disasters you reported.",
-  "image": "/manual/farmer/disaster-history.png",
-  "width": 1280,
-  "height": 800,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Disaster history",
-    "desc": "Close it with the X at the top right."
+    "desc": "Forecast is the list below. Yield analysis compares what you harvested with the estimate, and lists activities that were missed."
    },
    {
     "n": 2,
     "label": "Columns",
-    "desc": "Reference number, crop, disaster type, date of occurrence, area affected, status (Active until the crop recovers, then Recovered), date logged and Actions."
+    "desc": "The expected harvest (with the days left), the estimated yield, then once harvested: the day and the yield."
    },
    {
     "n": 3,
-    "label": "View",
-    "desc": "Opens that disaster log with its details and photos, with Print and Download."
+    "label": "Growing / Harvested",
+    "desc": "A harvested crop shows the difference from its estimate: green when more, red when less."
+   },
+   {
+    "n": 4,
+    "label": "Details",
+    "desc": "How the estimate was made, and the office's remarks."
    }
   ]
  },
  "farmer-assistance": {
   "audience": "farmer",
-  "title": "Assistance Received (Farmer)",
-  "purpose": "The help given to you.",
+  "title": "Assistance (Farmer)",
+  "purpose": "Help recorded for you.",
   "image": "/manual/farmer/assistance.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Current / History",
-    "desc": "Current is what is scheduled for a later date, what waits for you to confirm it, and what you reported as not received (until the office resolves it). History is what you received and confirmed, or that was resolved. Each assistance shows its type and date: click it to open the details (the source agency, the quantity, the status, and a button to confirm that you received it, or that you did not, when it asks you to)."
+    "label": "Page heading",
+    "desc": "Help recorded for you by the office or your organization."
    },
    {
     "n": 2,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
+    "label": "Search box",
+    "desc": "Type to narrow the list to one kind of assistance. The words can be in any order."
+   },
+   {
+    "n": 3,
+    "label": "Columns",
+    "desc": "What was given, how much, from which agency, on which day, and where it stands."
+   },
+   {
+    "n": 4,
+    "label": "Sections",
+    "desc": "Waiting for you, Being followed up, Scheduled and History."
+   },
+   {
+    "n": 5,
+    "label": "Received / Not received",
+    "desc": "Your answer for assistance that has reached its date. Not received asks for the reason, and the office follows it up."
    }
   ]
  },
  "farmer-equipment": {
   "audience": "farmer",
-  "title": "Borrow Equipment (Farmer)",
-  "purpose": "The equipment your organization lends. This page is for farmers who belong to an organization.",
+  "title": "Borrow equipment (Farmer)",
+  "purpose": "Equipment your organization lends, under More.",
   "image": "/manual/farmer/equipment.png",
   "width": 1280,
   "height": 800,
@@ -3841,274 +3746,109 @@ export default {
    {
     "n": 1,
     "label": "Available to borrow",
-    "desc": "The equipment of your organization that can be lent now, with how many units are available."
+    "desc": "Your organization's equipment with units free now. Open one to ask for it: how many units and when you will return it."
    },
    {
     "n": 2,
-    "label": "Search box",
-    "desc": "Type to find equipment by name. The table updates as you type."
-   },
-   {
-    "n": 3,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
-   },
-   {
-    "n": 4,
-    "label": "An item",
-    "desc": "Click an item to ask to borrow it: choose how many units and a date you will return it. Your organization then approves or rejects the request."
-   },
-   {
-    "n": 5,
     "label": "My loans",
-    "desc": "What you asked for or borrowed, with its status, and the return date."
-   }
-  ]
- },
- "fisherfolk-stocks": {
-  "audience": "fisherfolk",
-  "title": "Aquaculture Monitoring (Fisherfolk)",
-  "purpose": "Your production cycles, ponds and cages.",
-  "image": "/manual/fisherfolk/stocks.png",
-  "width": 1900,
-  "height": 800,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Menu",
-    "desc": "Home, Aquaculture Monitoring, Forecasting, Disaster and Assistance."
-   },
-   {
-    "n": 2,
-    "label": "Start Production Cycle",
-    "desc": "Starts a new production cycle (next picture)."
-   },
-   {
-    "n": 3,
-    "label": "Columns",
-    "desc": "Ownership, species, culture type (pond or cage), cycle number, date stocked, expected harvest, organization, pond location, status (a small red alert icon beside it means a disaster is still active on the cycle, a green check means it recovered) and Actions."
-   },
-   {
-    "n": 4,
-    "label": "Harvest / Actions",
-    "desc": "The harvest button is grayed out until at least half of the expected time has passed. The three dots open the menu of the cycle: view and edit it, see its logs, or force a harvest."
-   },
-   {
-    "n": 5,
-    "label": "Ponds of the cycle",
-    "desc": "Click a row to open its ponds or cages: the unit, its PCIC Insured round check (View form opens the uploaded form inside the system), species, fingerlings, dimensions, area, estimated and actual harvest, the date harvested and the status."
-   },
-   {
-    "n": 6,
-    "label": "Page bar",
-    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
-   }
-  ]
- },
- "fisherfolk-start-cycle": {
-  "audience": "fisherfolk",
-  "title": "Start Production Cycle (Fisherfolk)",
-  "purpose": "Starts a new production cycle for your ponds or cages.",
-  "image": "/manual/fisherfolk/start-cycle.png",
-  "width": 1280,
-  "height": 1500,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Fisherfolk",
-    "desc": "You, already filled in."
-   },
-   {
-    "n": 2,
-    "label": "Organization",
-    "desc": "Optional. Your organization, if you belong to one."
-   },
-   {
-    "n": 3,
-    "label": "Culture Phase",
-    "desc": "Required: Nursery, Stocking, Grow-out and the other phases."
-   },
-   {
-    "n": 4,
-    "label": "Species and Culture System",
-    "desc": "Required. The species, and Fishpond or Fishcage."
-   },
-   {
-    "n": 5,
-    "label": "Water and fingerling source",
-    "desc": "Required. River, spring, rain-fed, deep well or other; and where the fingerlings came from (BFAR, own production, private hatchery)."
-   },
-   {
-    "n": 6,
-    "label": "Pond location and ownership",
-    "desc": "Required. The barangay of the pond or cage, and Tenant, Lease or Owner."
-   },
-   {
-    "n": 7,
-    "label": "Stocking date, season, target harvest",
-    "desc": "Required. The day you stocked; the season is detected from it; and the date you plan to harvest. The harvest button opens when half of this time has passed."
-   },
-   {
-    "n": 8,
-    "label": "Number of Ponds",
-    "desc": "Required. How many ponds or cages: a line for each opens, to give its size, the fingerlings and whether it has PCIC insurance."
-   },
-   {
-    "n": 9,
-    "label": "Start Cycle",
-    "desc": "Saves the production cycle."
+    "desc": "What you asked for or borrowed, and its status. Cancel request, or I returned it when you bring it back."
    }
   ]
  },
  "fisherfolk-forecast": {
   "audience": "fisherfolk",
-  "title": "Forecasting (Fisherfolk)",
-  "purpose": "The harvest expected from your production cycles.",
+  "title": "Forecast (Fisherfolk)",
+  "purpose": "When each cycle should be ready, and how past harvests compared.",
   "image": "/manual/fisherfolk/forecast.png",
-  "width": 1700,
+  "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
     "label": "Forecast / Yield analysis",
-    "desc": "Forecast looks ahead at your cycles. Yield analysis compares the estimate with the actual harvest."
+    "desc": "Forecast is the list below. Yield analysis compares harvests with their estimate and names the feeding and health logs behind them."
    },
    {
     "n": 2,
     "label": "Columns",
-    "desc": "Species, you, culture type, date stocked, fingerlings, the estimated harvest yield (kg), the actual harvest, the estimated and actual harvest dates and the status."
+    "desc": "The expected harvest (with the days left), the estimated harvest in kg, then once harvested: the day and the kilos."
    },
    {
     "n": 3,
-    "label": "Page bar",
-    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
-   }
-  ]
- },
- "fisherfolk-disaster": {
-  "audience": "fisherfolk",
-  "title": "Disaster (Fisherfolk)",
-  "purpose": "Report a disaster that hurt your ponds, cages or stocks.",
-  "image": "/manual/fisherfolk/disaster.png",
-  "width": 1280,
-  "height": 1700,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Disaster history",
-    "desc": "The disasters you reported before, with their status (Active or Recovered) and View for each."
-   },
-   {
-    "n": 2,
-    "label": "Affected Stock",
-    "desc": "Required. One or more stocks: tick the affected stocks (a search box finds them by species, cycle or location). Or Not linked to a stock, for pond, cage or equipment damage only."
-   },
-   {
-    "n": 3,
-    "label": "Date of Occurrence",
-    "desc": "Required. The day it happened."
-   },
-   {
-    "n": 4,
-    "label": "Disaster Type",
-    "desc": "Required: Typhoon, Flooding, Storm Surge, El Niño, Drought, Red Tide, Fish Kill or Other."
-   },
-   {
-    "n": 5,
-    "label": "Volume Lost (kg)",
-    "desc": "Optional. The kg of fish lost, if known."
-   },
-   {
-    "n": 6,
-    "label": "Equipment Damaged",
-    "desc": "Optional. Tick the pond, cage, feeding, water-quality or power equipment that was damaged."
-   },
-   {
-    "n": 7,
-    "label": "Description of Damage",
-    "desc": "Optional notes about what was damaged."
-   },
-   {
-    "n": 8,
-    "label": "Photos",
-    "desc": "Take Photo uses the camera; Add More Photos chooses files (JPG, PNG or WEBP, up to 5 MB each, up to 10)."
-   },
-   {
-    "n": 9,
-    "label": "Log Disaster",
-    "desc": "Sends the report. The office is notified."
+    "label": "Details",
+    "desc": "How the estimate was made."
    }
   ]
  },
  "fisherfolk-assistance": {
   "audience": "fisherfolk",
-  "title": "Assistance Received (Fisherfolk)",
-  "purpose": "The help given to you.",
+  "title": "Assistance (Fisherfolk)",
+  "purpose": "Help recorded for you.",
   "image": "/manual/fisherfolk/assistance.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Current / History",
-    "desc": "Current is what is scheduled, what waits for you to confirm it, and what you reported as not received. History is what you received and confirmed, or that was resolved."
+    "label": "Page heading",
+    "desc": "Help recorded for you by the office or your organization."
    },
    {
     "n": 2,
-    "label": "Search box",
-    "desc": "Type to find an assistance. The table updates as you type."
+    "label": "Columns",
+    "desc": "What was given, how much, from which agency, on which day, and where it stands."
    },
    {
     "n": 3,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
+    "label": "Sections",
+    "desc": "Waiting for you, Being followed up, Scheduled and History."
+   },
+   {
+    "n": 4,
+    "label": "Received / Not received",
+    "desc": "Your answer for assistance that has reached its date."
    }
   ]
  },
  "fisherfolk-profile": {
   "audience": "fisherfolk",
-  "title": "My Profile (Fisherfolk)",
+  "title": "My profile (Fisherfolk)",
   "purpose": "What the office has on record about you.",
   "image": "/manual/fisherfolk/profile.png",
   "width": 1280,
-  "height": 900,
+  "height": 1300,
   "legend": [
    {
     "n": 1,
-    "label": "Change photo",
-    "desc": "The camera button on your picture changes your photo (JPG, PNG or WEBP, up to 5 MB)."
+    "label": "Your name and picture",
+    "desc": "Your name, Fisherfolk, and your RSBSA number. Change photo (or Change logo) replaces the picture at once."
    },
    {
     "n": 2,
-    "label": "Key to the icons",
-    "desc": "The pencil changes a detail at once. The arrows send a request that the office checks first. A padlock means it cannot be changed here."
+    "label": "Details you can change",
+    "desc": "Edit saves at once. Request change sends the new value to the office, and the row shows Waiting for approval until it is decided."
    },
    {
     "n": 3,
-    "label": "RSBSA number",
-    "desc": "Locked. Contact the office to have it corrected."
+    "label": "Fixed details",
+    "desc": "The padlock means only the office can correct it."
    },
    {
     "n": 4,
-    "label": "Personal information",
-    "desc": "Your name and barangay (a change request goes to the office, who approve it) and your contact number (changed at once with the pencil)."
+    "label": "Your change requests",
+    "desc": "Everything you asked to change: what it was, what you asked for, and whether it was approved or rejected (with the reason)."
    },
    {
     "n": 5,
-    "label": "Change Password",
-    "desc": "Optional. Press Edit to set a new password; it is never required."
-   },
-   {
-    "n": 6,
-    "label": "Log out",
-    "desc": "Signs you out of this device."
+    "label": "Password and Log out",
+    "desc": "Change password asks for the current one and the new one twice. Log out asks first."
    }
   ]
  },
  "org-home": {
   "audience": "org",
   "title": "Home (Organization)",
-  "purpose": "Your organization at a glance.",
+  "purpose": "What needs your organization today.",
   "image": "/manual/org/home.png",
   "width": 1280,
   "height": 800,
@@ -4116,7 +3856,7 @@ export default {
    {
     "n": 1,
     "label": "Menu",
-    "desc": "Home, My Organization and Assistance."
+    "desc": "Home, Members, Assistance and Equipment. More holds the other pages of your account. The page you are on is highlighted."
    },
    {
     "n": 2,
@@ -4125,373 +3865,203 @@ export default {
    },
    {
     "n": 3,
-    "label": "Bell and account menu",
-    "desc": "The bell shows your notices (for example a new assistance or a harvest coming up). Your name opens the account menu: your profile, Help, the User Manual and Log out."
+    "label": "Bell and your name",
+    "desc": "The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out."
    },
    {
     "n": 4,
-    "label": "Welcome banner",
+    "label": "Page heading",
     "desc": "The organization's name, the kind of account and today's date."
    },
    {
     "n": 5,
-    "label": "Members",
-    "desc": "A ring of your members by status, with the total in the middle."
+    "label": "To do today",
+    "desc": "Only what needs you now, the most urgent first. Each line has the button that does it."
    },
    {
     "n": 6,
-    "label": "Assistance reported this year",
-    "desc": "A chart of the assistance records per month this year."
-   },
-   {
-    "n": 7,
-    "label": "Assistance by type",
-    "desc": "The same assistance counted by type (seeds, fertilizer, cash...)."
-   },
-   {
-    "n": 8,
-    "label": "Shortcuts (1)",
-    "desc": "Distribute assistance opens the Assistance page; Members opens the members list; Officers opens the officers."
-   },
-   {
-    "n": 9,
-    "label": "Shortcuts (2)",
-    "desc": "Equipment opens the equipment you own; Borrowed equipment opens who borrowed what; Confirm for members opens the confirmations. When members are waiting for a confirmation, a card on this page says so: members who have no working account of their own cannot confirm that they received an assistance, so you confirm for them (Confirm for members)."
+    "label": "Summary",
+    "desc": "Three figures. A dash means that figure could not be read; Try again at the top reloads it."
    }
   ]
  },
  "org-members": {
   "audience": "org",
-  "title": "My Organization: Members",
-  "purpose": "The members of your organization.",
-  "image": "/manual/org/my-organization.png",
+  "title": "Members (Organization)",
+  "purpose": "Everyone in your organization.",
+  "image": "/manual/org/members.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Tabs",
-    "desc": "Members, Equipment, Borrowed (with the number of loans waiting), Borrowed History, Officers and Confirmed for Members. Equipment is a tab here, not a separate page."
+    "label": "Page heading",
+    "desc": "Members: active first, then those no longer active."
    },
    {
     "n": 2,
-    "label": "Import Members",
-    "desc": "Adds many members from a spreadsheet, with a preview first."
+    "label": "Add member / Import",
+    "desc": "Add member finds a registered person by name. Import adds many from a spreadsheet (download its template first)."
    },
    {
     "n": 3,
-    "label": "Add Member",
-    "desc": "Adds one registered farmer to the organization (next picture)."
+    "label": "Search box",
+    "desc": "Type to narrow the list to a member, an RSBSA number or a position. The words can be in any order."
    },
    {
     "n": 4,
-    "label": "Search box",
-    "desc": "Type to find a member by name. The table updates as you type."
+    "label": "Columns",
+    "desc": "The name, the RSBSA number, the position, the date joined and whether this is the person's main organization."
    },
    {
     "n": 5,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
-   },
-   {
-    "n": 6,
-    "label": "A member",
-    "desc": "Click a member to see their details, such as their position and when they joined."
+    "label": "Sections",
+    "desc": "Active and Inactive."
    }
   ]
  },
  "org-add-member": {
   "audience": "org",
-  "title": "Add Member window",
-  "purpose": "Adds one registered farmer to your organization.",
+  "title": "Add member (Organization)",
+  "purpose": "Only registered farmers or fisherfolk can be added.",
   "image": "/manual/org/add-member.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Search Farmer",
-    "desc": "Required. Type a name or RSBSA number and choose the farmer. Only registered farmers can be added."
-   },
-   {
-    "n": 2,
-    "label": "Date Joined",
-    "desc": "Required. The day the farmer joined. It cannot be in the future."
-   },
-   {
-    "n": 3,
-    "label": "Add Member",
-    "desc": "Saves the membership."
-   },
-   {
-    "n": 4,
-    "label": "Cancel",
-    "desc": "Closes the window; nothing is saved."
+    "label": "Add member",
+    "desc": "Search the name and pick the person, choose the position and the date joined, then Add Member. Someone already in another organization is shown, and can belong to both."
    }
   ]
  },
  "org-equipment": {
   "audience": "org",
-  "title": "My Organization: Equipment",
-  "purpose": "What the organization owns and who borrowed it.",
+  "title": "Equipment (Organization)",
+  "purpose": "What your organization owns, and what it lends.",
   "image": "/manual/org/equipment.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Equipment tab",
-    "desc": "Equipment is a tab of My Organization. Each item shows its units, their condition and how many are on loan."
+    "label": "Buttons",
+    "desc": "Lend equipment records units lent to several members at once. Import adds equipment from a spreadsheet. Add equipment adds one."
    },
    {
     "n": 2,
-    "label": "Import Equipment",
-    "desc": "Adds many items from a spreadsheet."
+    "label": "Items / Loans",
+    "desc": "Items is what you own. Loans lists requests and loans; its number is how many requests wait."
    },
    {
     "n": 3,
-    "label": "Add Equipment",
-    "desc": "Adds one item: the equipment, how many units and optionally the date acquired and remarks. New equipment starts as Good."
+    "label": "Columns",
+    "desc": "The equipment, its units, their condition, how many are out and how many can be lent now."
    },
    {
     "n": 4,
-    "label": "Search box",
-    "desc": "Type to find an item by name. The table updates as you type."
-   },
-   {
-    "n": 5,
-    "label": "Filters",
-    "desc": "Filters the items by Condition (Good, Needs Repair, Not Operational, Broken, Lost) and Availability (units available or not)."
-   },
-   {
-    "n": 6,
-    "label": "An item",
-    "desc": "Click an item to open it. There you can Lend units to a member, Change condition (Needs Repair, Not Operational, Broken or Lost) and Repair units that were fixed. Only units in Good condition can be lent."
-   },
-   {
-    "n": 7,
-    "label": "Borrowed tab",
-    "desc": "What is out, who borrowed it and what came back (next picture)."
-   }
-  ]
- },
- "org-borrowed": {
-  "audience": "org",
-  "title": "My Organization: Borrowed",
-  "purpose": "Equipment that is out, and what came back.",
-  "image": "/manual/org/borrowed.png",
-  "width": 1280,
-  "height": 800,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Lend equipment",
-    "desc": "Records that members borrowed equipment (picture after next)."
-   },
-   {
-    "n": 2,
-    "label": "Borrowed History",
-    "desc": "This tab lists what is still out (and the requests), one row per person. Everything that came back, with when and in what condition, is in the Borrowed History tab."
-   },
-   {
-    "n": 3,
-    "label": "Search box",
-    "desc": "Type to find a member. The table updates as you type."
-   },
-   {
-    "n": 4,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
-   },
-   {
-    "n": 5,
-    "label": "A borrower",
-    "desc": "Click a borrower to open their items. A request made by a member with an account shows Needs action: Approve or Reject it. For an item that came back, choose Mark returned and say what happened: Returned, Damaged (and how) or Not returned (the unit is recorded as Lost). An item past its return-by date shows Overdue."
-   }
-  ]
- },
- "org-lend": {
-  "audience": "org",
-  "title": "Lend equipment window",
-  "purpose": "Records that members borrowed equipment (for members who have no account to request it themselves).",
-  "image": "/manual/org/lend-equipment.png",
-  "width": 1280,
-  "height": 1000,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Date borrowed",
-    "desc": "Required. The day it was borrowed."
-   },
-   {
-    "n": 2,
-    "label": "Equipment",
-    "desc": "Required. The equipment and how many units are available. Only units in Good condition can be lent."
-   },
-   {
-    "n": 3,
-    "label": "Search member",
-    "desc": "Find a member by name."
-   },
-   {
-    "n": 4,
-    "label": "Tick the borrowers",
-    "desc": "Tick every member who borrowed it and give each one's number of units. Once all units are given out, no other member can be ticked."
-   },
-   {
-    "n": 5,
-    "label": "Lend another equipment",
-    "desc": "Adds a section for a different equipment (even to a member already ticked)."
-   },
-   {
-    "n": 6,
-    "label": "Record borrowed",
-    "desc": "Saves everything together as Borrowed."
+    "label": "Details",
+    "desc": "The units by condition, each with Change condition, Record repair, Lend, History and Remove."
    }
   ]
  },
  "org-officers": {
   "audience": "org",
-  "title": "My Organization: Officers",
-  "purpose": "The officers of the organization and their positions.",
+  "title": "Officers (Organization)",
+  "purpose": "Who holds each position now, under More.",
   "image": "/manual/org/officers.png",
   "width": 1280,
-  "height": 700,
+  "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Officers tab",
-    "desc": "The president, vice president, secretary, treasurer, auditor, board members and the other officers, with their term."
+    "label": "Officer history / Assign officer",
+    "desc": "Officer history lists everyone who held a position. Assign officer gives a free position to an active member."
    },
    {
     "n": 2,
-    "label": "Officer History",
-    "desc": "Every officer who held a position before, with the term dates and why it ended."
+    "label": "Columns",
+    "desc": "The officer, the position, the term, and whether the officer is a member (one who is not cannot receive assistance through you)."
    },
    {
     "n": 3,
-    "label": "Assign Officer",
-    "desc": "Choose a position and one of your members. Positions that are held are grayed out, and a member who already holds a position cannot be given another: end that term first (open the officer, End term early, give the reason: migrated or transferred registration, or Others)."
-   }
-  ]
- },
- "org-confirmed": {
-  "audience": "org",
-  "title": "My Organization: Confirmed for Members",
-  "purpose": "The record of what you confirmed for your members.",
-  "image": "/manual/org/confirmed.png",
-  "width": 1280,
-  "height": 700,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Confirmed for Members tab",
-    "desc": "When you confirm for members that they received an assistance, the confirmations are listed here, grouped by the moment and who confirmed, with the proof photos they share. These confirmations are final: they need no staff approval."
+    "label": "End term early",
+    "desc": "Ends a term before its date, with the reason, so the position can be given again."
    }
   ]
  },
  "org-assistance": {
   "audience": "org",
   "title": "Assistance (Organization)",
-  "purpose": "Gives assistance to your members and shows what was given.",
+  "purpose": "Assistance your organization gave its members.",
   "image": "/manual/org/assistance.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Current / History",
-    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up. History lists what your members received and confirmed, or that was resolved."
+    "label": "Distribute assistance",
+    "desc": "Asks first whether it goes to one member or to all members (see the picture after next)."
    },
    {
     "n": 2,
-    "label": "Confirm for Members",
-    "desc": "Opens the list of members who cannot confirm for themselves (next picture); Back to Current returns."
-   },
-   {
-    "n": 3,
-    "label": "Distribute to All Members",
-    "desc": "Gives the same assistance to every member in one step. Choose the type, source agency (required; Others lets you type one), quantity and its unit (required), date and description, then Review and confirm."
-   },
-   {
-    "n": 4,
-    "label": "Distribute to Individual",
-    "desc": "Gives an assistance to only the members you tick."
-   },
-   {
-    "n": 5,
-    "label": "Search box",
-    "desc": "Type to find a member. The table updates as you type."
-   },
-   {
-    "n": 6,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
-   },
-   {
-    "n": 7,
-    "label": "Columns",
-    "desc": "The date and time, the assistance, the quantity, how many members, the status and Action. Click a row to open the members who benefited."
+    "label": "To do / History / Confirm for members",
+    "desc": "To do: assistance still waiting. History: what was received. Confirm for members: members who cannot confirm for themselves."
    }
   ]
  },
  "org-confirm-members": {
   "audience": "org",
-  "title": "Confirm for Members",
-  "purpose": "Confirms, for members without a working account, that they received an assistance. When members are waiting, Select all ticks every member in the list, each row has a tick box, the columns are the date given, the member, the assistance type, the quantity and the status (the Actions menu of a row confirms one member), and Confirm for members confirms the ticked ones: you add proof photos and the confirmation is final, no staff approval is needed.",
+  "title": "Confirm for members (Organization)",
+  "purpose": "For members who have no working account.",
   "image": "/manual/org/confirm-members.png",
   "width": 1280,
-  "height": 800,
+  "height": 900,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Current",
-    "desc": "Returns to the Current list of assistance."
+    "label": "Confirm the ticked ones",
+    "desc": "How many are ticked, Select all, and the button that confirms them together with at least two proof photos."
    },
    {
     "n": 2,
-    "label": "Filters",
-    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
+    "label": "Already confirmed",
+    "desc": "What you confirmed for members, with the photos. These are final."
    }
   ]
  },
  "org-profile": {
   "audience": "org",
-  "title": "My Profile (Organization)",
-  "purpose": "Your organization's own details.",
+  "title": "Organization profile",
+  "purpose": "Your organization's details and account.",
   "image": "/manual/org/profile.png",
   "width": 1280,
-  "height": 1450,
+  "height": 1400,
   "legend": [
    {
     "n": 1,
-    "label": "Change logo",
-    "desc": "The camera button changes the organization's logo (JPG, PNG or WEBP)."
+    "label": "Your name and picture",
+    "desc": "The organization's name and logo, and its registration number. Change photo (or Change logo) replaces the picture at once."
    },
    {
     "n": 2,
-    "label": "Registration details",
-    "desc": "The registration number, the agency, the date organized and the date registered. They are locked (padlock): contact the office to correct them."
+    "label": "Details you can change",
+    "desc": "Edit saves at once. Request change sends the new value to the office, and the row shows Waiting for approval until it is decided."
    },
    {
     "n": 3,
-    "label": "Organization details",
-    "desc": "The name, barangay, street address, email and contact person. Request change sends a request that the office reviews before the change is made."
+    "label": "Fixed details",
+    "desc": "The padlock means only the office can correct it."
    },
    {
     "n": 4,
-    "label": "Contact number",
-    "desc": "Edit changes the contact number at once."
+    "label": "Your change requests",
+    "desc": "Everything you asked to change: what it was, what you asked for, and whether it was approved or rejected (with the reason)."
    },
    {
     "n": 5,
-    "label": "Account password",
-    "desc": "This is a shared account: changing the password affects everyone who uses it, so tell your officers the new password first. Change password sets a new one."
-   },
-   {
-    "n": 6,
-    "label": "Change requests",
-    "desc": "The changes you asked for and whether each was approved, rejected or is still pending."
+    "label": "Password and Log out",
+    "desc": "Change password asks for the current one and the new one twice. Log out asks first."
    }
   ]
  },
@@ -4564,84 +4134,38 @@ export default {
  "farmer-p-home": {
   "audience": "farmer",
   "title": "Home on a phone (Farmer)",
-  "purpose": "The same Home on a phone, with the menu along the bottom.",
+  "purpose": "The same Home, with the menu along the bottom.",
   "image": "/manual/farmer/phone-home.png",
   "phone": true,
   "width": 780,
-  "height": 3500,
+  "height": 2600,
   "legend": [
    {
     "n": 1,
-    "label": "Bell and account",
-    "desc": "The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out."
+    "label": "Bell",
+    "desc": "Your notices. A number on it says how many are new."
    },
    {
     "n": 2,
-    "label": "Welcome banner",
-    "desc": "Your name, the kind of account and the date."
+    "label": "To do today",
+    "desc": "What needs you now, with a big button for each."
    },
    {
     "n": 3,
-    "label": "Totals",
-    "desc": "Your farm parcels, active crops, total area and harvests this month."
+    "label": "My crops",
+    "desc": "Your crops in the field."
    },
    {
     "n": 4,
-    "label": "My crops by stage",
-    "desc": "A ring of your crops by stage (growing, harvested)."
-   },
-   {
-    "n": 5,
-    "label": "Harvest vs estimate",
-    "desc": "Your latest harvests against the estimate, in kg."
-   },
-   {
-    "n": 6,
-    "label": "Disasters by type",
-    "desc": "The disasters you reported, by type."
-   },
-   {
-    "n": 7,
     "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "farmer-p-menu": {
-  "audience": "farmer",
-  "title": "Account menu on a phone (Farmer)",
-  "purpose": "Opened with your initials at the top right.",
-  "image": "/manual/farmer/phone-menu.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "My Profile",
-    "desc": "Opens your profile: your details, your photo and your password."
-   },
-   {
-    "n": 2,
-    "label": "Help",
-    "desc": "Opens the questions and answers about your account and the office to contact."
-   },
-   {
-    "n": 3,
-    "label": "User Manual",
-    "desc": "Opens this manual: a picture of each screen with every button explained."
-   },
-   {
-    "n": 4,
-    "label": "Log out",
-    "desc": "Signs you out of this device."
+    "desc": "Home, Crops, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  },
  "farmer-p-crops": {
   "audience": "farmer",
-  "title": "Crop Monitoring on a phone (Farmer)",
-  "purpose": "Your parcels and crops as cards.",
+  "title": "Crops on a phone (Farmer)",
+  "purpose": "One card per crop.",
   "image": "/manual/farmer/phone-crops.png",
   "phone": true,
   "width": 780,
@@ -4650,86 +4174,24 @@ export default {
    {
     "n": 1,
     "label": "Search box",
-    "desc": "Type to find an item in the list."
+    "desc": "Narrows the cards to a crop or a place."
    },
    {
     "n": 2,
-    "label": "Filters",
-    "desc": "Opens the filter row."
-   },
-   {
-    "n": 3,
-    "label": "A parcel card",
-    "desc": "Tap a parcel to open the crops planted on it. Each crop has its own menu with Log Activity, Crop Details, Record Harvest and Report Disaster."
-   },
-   {
-    "n": 4,
-    "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "farmer-p-disaster": {
-  "audience": "farmer",
-  "title": "Disaster on a phone (Farmer)",
-  "purpose": "Report a disaster from the field.",
-  "image": "/manual/farmer/phone-disaster.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Disaster history",
-    "desc": "The disasters you reported before, with their status."
-   },
-   {
-    "n": 2,
-    "label": "Choose the crops",
-    "desc": "Step 1: tick every crop that was hit."
-   },
-   {
-    "n": 3,
-    "label": "Continue",
-    "desc": "Step 2: choose the disaster and the date, describe the damage and add photos taken with the phone camera."
-   },
-   {
-    "n": 4,
-    "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "farmer-p-forecast": {
-  "audience": "farmer",
-  "title": "Forecasting on a phone (Farmer)",
-  "purpose": "The expected harvest of your crops.",
-  "image": "/manual/farmer/phone-forecast.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Forecast / Yield analysis",
-    "desc": "Forecast looks ahead at your crops; Yield analysis compares the estimate with the actual harvest."
-   },
-   {
-    "n": 2,
-    "label": "Search box",
-    "desc": "Type to find an item in the list."
+    "label": "A crop",
+    "desc": "The crop, its status, its place and harvest date, with Log activity (or Record harvest) and Details as big buttons."
    },
    {
     "n": 3,
     "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
+    "desc": "Home, Crops, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  },
  "farmer-p-assistance": {
   "audience": "farmer",
   "title": "Assistance on a phone (Farmer)",
-  "purpose": "The help given to you.",
+  "purpose": "Answer for assistance with one tap.",
   "image": "/manual/farmer/phone-assistance.png",
   "phone": true,
   "width": 780,
@@ -4737,237 +4199,77 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Current / History",
-    "desc": "Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed. Tap an assistance to open its details and to confirm that you received it when it asks you to."
+    "label": "Assistance waiting for you",
+    "desc": "Received or Not received, right on the card."
    },
    {
     "n": 2,
     "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "farmer-p-profile": {
-  "audience": "farmer",
-  "title": "My Profile on a phone (Farmer)",
-  "purpose": "Your details on a phone.",
-  "image": "/manual/farmer/phone-profile.png",
-  "phone": true,
-  "width": 780,
-  "height": 2600,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Change photo",
-    "desc": "The camera button changes your photo."
-   },
-   {
-    "n": 2,
-    "label": "Log out",
-    "desc": "Signs you out of this device."
+    "desc": "Home, Crops, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  },
  "fisherfolk-p-home": {
   "audience": "fisherfolk",
   "title": "Home on a phone (Fisherfolk)",
-  "purpose": "Your cycles at a glance, with the menu along the bottom.",
+  "purpose": "The same Home, with the menu along the bottom.",
   "image": "/manual/fisherfolk/phone-home.png",
   "phone": true,
   "width": 780,
-  "height": 3500,
+  "height": 2400,
   "legend": [
    {
     "n": 1,
-    "label": "Bell and account",
-    "desc": "The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out."
+    "label": "Bell",
+    "desc": "Your notices. A number on it says how many are new."
    },
    {
     "n": 2,
-    "label": "Welcome banner",
-    "desc": "Your name, the kind of account and the date."
+    "label": "To do today",
+    "desc": "What needs you now, with a big button for each."
    },
    {
     "n": 3,
-    "label": "Totals",
-    "desc": "Your active cycles, ponds and cages, harvested cycles and open disasters."
-   },
-   {
-    "n": 4,
-    "label": "My cycles by stage",
-    "desc": "How many of your cycles are growing, near harvest or harvested."
-   },
-   {
-    "n": 5,
-    "label": "Harvest vs estimate",
-    "desc": "Your latest harvests against the estimate."
-   },
-   {
-    "n": 6,
-    "label": "Disasters by type",
-    "desc": "The disasters you reported, by type."
-   },
-   {
-    "n": 7,
-    "label": "Open cycle",
-    "desc": "Opens that production cycle."
-   },
-   {
-    "n": 8,
-    "label": "Report disaster",
-    "desc": "Starts a disaster report for that cycle."
-   },
-   {
-    "n": 9,
-    "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "fisherfolk-p-stocks": {
-  "audience": "fisherfolk",
-  "title": "Monitoring on a phone (Fisherfolk)",
-  "purpose": "Your stocks as cards.",
-  "image": "/manual/fisherfolk/phone-stocks.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Start Production Cycle",
-    "desc": "Starts a new production cycle: species, pond or cage, dates, fingerlings and where they came from."
-   },
-   {
-    "n": 2,
-    "label": "A stock card",
-    "desc": "Tap a stock to open its ponds or cages, its dates, the harvest and its menu (details, logs, force harvest)."
-   },
-   {
-    "n": 3,
-    "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "fisherfolk-p-disaster": {
-  "audience": "fisherfolk",
-  "title": "Disaster on a phone (Fisherfolk)",
-  "purpose": "Report a disaster from the pond side.",
-  "image": "/manual/fisherfolk/phone-disaster.png",
-  "phone": true,
-  "width": 780,
-  "height": 3000,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Disaster history",
-    "desc": "The disasters you reported before."
-   },
-   {
-    "n": 2,
-    "label": "Affected Stock",
-    "desc": "Choose the stocks that were hit, or Not linked to a stock for equipment damage only."
-   },
-   {
-    "n": 3,
-    "label": "Take Photo",
-    "desc": "Takes a photo of the damage with the phone camera."
+    "label": "My cycles",
+    "desc": "Your cycles in the water."
    },
    {
     "n": 4,
     "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "fisherfolk-p-forecast": {
-  "audience": "fisherfolk",
-  "title": "Forecasting on a phone (Fisherfolk)",
-  "purpose": "The expected harvest of your cycles.",
-  "image": "/manual/fisherfolk/phone-forecast.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Forecast / Yield analysis",
-    "desc": "Forecast looks ahead; Yield analysis compares the estimate with the actual harvest."
-   },
-   {
-    "n": 2,
-    "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "fisherfolk-p-assistance": {
-  "audience": "fisherfolk",
-  "title": "Assistance on a phone (Fisherfolk)",
-  "purpose": "The help given to you.",
-  "image": "/manual/fisherfolk/phone-assistance.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Current / History",
-    "desc": "Current: what is scheduled, waiting for you to confirm, or reported as not received. History: what you received and confirmed."
-   },
-   {
-    "n": 2,
-    "label": "Bottom menu",
-    "desc": "Home, Monitoring, Disaster, Forecasting and Assistance. Tap one to open it; the open one is highlighted."
+    "desc": "Home, Cycles, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  },
  "org-p-home": {
   "audience": "org",
   "title": "Home on a phone (Organization)",
-  "purpose": "Your organization on a phone.",
+  "purpose": "The same Home, with the menu along the bottom.",
   "image": "/manual/org/phone-home.png",
   "phone": true,
   "width": 780,
-  "height": 2800,
+  "height": 1688,
   "legend": [
    {
     "n": 1,
-    "label": "Bell and account",
-    "desc": "The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out."
+    "label": "Bell",
+    "desc": "Your notices. A number on it says how many are new."
    },
    {
     "n": 2,
-    "label": "Welcome banner",
-    "desc": "The organization's name and the date."
+    "label": "To do today",
+    "desc": "What needs you now, with a big button for each."
    },
    {
     "n": 3,
-    "label": "Members",
-    "desc": "Your members by status."
-   },
-   {
-    "n": 4,
-    "label": "Confirm for Members",
-    "desc": "Shown when members have no working account: you can confirm for them that they received an assistance."
-   },
-   {
-    "n": 5,
-    "label": "Shortcuts",
-    "desc": "Distribute assistance, Members, Officers, Equipment, Borrowed equipment and Confirm for members open those pages."
-   },
-   {
-    "n": 6,
     "label": "Bottom menu",
-    "desc": "Home, Organization and Assistance. Tap one to open it; the open one is highlighted."
+    "desc": "Home, Members, Assistance, Equipment and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  },
  "org-p-members": {
   "audience": "org",
-  "title": "My Organization on a phone",
-  "purpose": "Members, equipment, borrowed items and officers from the phone.",
+  "title": "Members on a phone (Organization)",
+  "purpose": "One card per member.",
   "image": "/manual/org/phone-members.png",
   "phone": true,
   "width": 780,
@@ -4975,79 +4277,18 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Tabs",
-    "desc": "Members, Equipment, Borrowed, Officers and Confirmed for Members. Swipe the tabs sideways to see them all."
+    "label": "Import / Add member",
+    "desc": "Add members one by one, or from a spreadsheet."
    },
    {
     "n": 2,
-    "label": "Import",
-    "desc": "Adds members (or equipment) from a spreadsheet."
+    "label": "A member",
+    "desc": "The name, the position and the date joined."
    },
    {
     "n": 3,
-    "label": "Add Member",
-    "desc": "Adds a registered farmer to the organization."
-   },
-   {
-    "n": 4,
-    "label": "Search box",
-    "desc": "Type to find an item in the list."
-   },
-   {
-    "n": 5,
-    "label": "Filters",
-    "desc": "Narrows the list."
-   },
-   {
-    "n": 6,
     "label": "Bottom menu",
-    "desc": "Home, Organization and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "org-p-assistance": {
-  "audience": "org",
-  "title": "Assistance on a phone (Organization)",
-  "purpose": "Give assistance to your members from the phone.",
-  "image": "/manual/org/phone-assistance.png",
-  "phone": true,
-  "width": 780,
-  "height": 1688,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Current / History",
-    "desc": "Current: what is scheduled or waiting. History: what was given and confirmed. Confirm for Members (a button in Current) is for the members you confirm for."
-   },
-   {
-    "n": 2,
-    "label": "Distribute to All Members",
-    "desc": "Gives the same assistance to every member."
-   },
-   {
-    "n": 3,
-    "label": "Distribute to Individual",
-    "desc": "Gives an assistance to the members you tick."
-   },
-   {
-    "n": 4,
-    "label": "Bottom menu",
-    "desc": "Home, Organization and Assistance. Tap one to open it; the open one is highlighted."
-   }
-  ]
- },
- "org-borrowed-history": {
-  "audience": "org",
-  "title": "My Organization: Borrowed History",
-  "purpose": "Everything that was lent and came back.",
-  "image": "/manual/org/borrowed-history.png",
-  "width": 1280,
-  "height": 700,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Borrowed History tab",
-    "desc": "Everything that was lent and has come back, on its own page. What is still out is in the Borrowed tab. With a search box and filters above it, the list has these columns: who borrowed it, the equipment, how many units, when it went out and when it came back, and the condition the units came back in (Returned late if it came back after its return-by date)."
+    "desc": "Home, Members, Assistance, Equipment and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  },
@@ -5418,6 +4659,405 @@ export default {
     "n": 3,
     "label": "Officers table",
     "desc": "The president, vice president, secretary, treasurer, auditor, board members and the other positions, with the term of each. End Term Early closes a term before its end date."
+   }
+  ]
+ },
+ "farmer-crop-details": {
+  "audience": "farmer",
+  "title": "Crop details (Farmer)",
+  "purpose": "One crop: its facts, its history and what you can do with it.",
+  "image": "/manual/farmer/crop-details.png",
+  "width": 1280,
+  "height": 900,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Crop details",
+    "desc": "The crop, its parcel, its dates and how far it has grown, then its activities, disasters and remarks."
+   },
+   {
+    "n": 2,
+    "label": "Buttons",
+    "desc": "Record Harvest opens once half of the growing time has passed; before that it says when."
+   }
+  ]
+ },
+ "farmer-disasters": {
+  "audience": "farmer",
+  "title": "Disasters (Farmer)",
+  "purpose": "Damage you reported, ongoing first.",
+  "image": "/manual/farmer/disasters.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Page heading",
+    "desc": "Every disaster you reported on your crops."
+   },
+   {
+    "n": 2,
+    "label": "Report a disaster",
+    "desc": "Starts a new report (see the next picture)."
+   },
+   {
+    "n": 3,
+    "label": "Columns",
+    "desc": "The disaster, the crop, the date, the area affected and the status."
+   },
+   {
+    "n": 4,
+    "label": "Sections",
+    "desc": "Ongoing, then Recovered. An ongoing report also has Mark recovered."
+   },
+   {
+    "n": 5,
+    "label": "Details",
+    "desc": "The report as it was saved, with Print and Download."
+   }
+  ]
+ },
+ "farmer-report-disaster": {
+  "audience": "farmer",
+  "title": "Report a disaster (Farmer)",
+  "purpose": "First choose the crops that were hit.",
+  "image": "/manual/farmer/report-disaster.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Choose the crops",
+    "desc": "Tick each crop that was damaged (Select all ticks them all), then Continue. The second window asks for the type, the date, the damage and photos, once for all of them."
+   }
+  ]
+ },
+ "farmer-more": {
+  "audience": "farmer",
+  "title": "More (Farmer)",
+  "purpose": "The rest of your account.",
+  "image": "/manual/farmer/more.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Pages",
+    "desc": "Forecast, Borrow equipment (when you belong to an organization), My profile, Help, the User Manual, and Log out."
+   }
+  ]
+ },
+ "fisherfolk-home": {
+  "audience": "fisherfolk",
+  "title": "Home (Fisherfolk)",
+  "purpose": "What needs you today, then your cycles.",
+  "image": "/manual/fisherfolk/home.png",
+  "width": 1280,
+  "height": 900,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Menu",
+    "desc": "Home, Cycles, Assistance and Disasters. More holds the other pages of your account. The page you are on is highlighted."
+   },
+   {
+    "n": 2,
+    "label": "Menu button",
+    "desc": "Hides the left menu to give the page more room, or shows it again."
+   },
+   {
+    "n": 3,
+    "label": "Bell and your name",
+    "desc": "The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out."
+   },
+   {
+    "n": 4,
+    "label": "Page heading",
+    "desc": "Your name, the kind of account and today's date."
+   },
+   {
+    "n": 5,
+    "label": "To do today",
+    "desc": "Only what needs you now, the most urgent first. Each line has the button that does it."
+   },
+   {
+    "n": 6,
+    "label": "My cycles",
+    "desc": "The cycles still in the water, each with Details."
+   },
+   {
+    "n": 7,
+    "label": "Summary",
+    "desc": "Three figures. A dash means that figure could not be read; Try again at the top reloads it."
+   }
+  ]
+ },
+ "fisherfolk-cycles": {
+  "audience": "fisherfolk",
+  "title": "Cycles (Fisherfolk)",
+  "purpose": "Your production cycles, ponds and cages.",
+  "image": "/manual/fisherfolk/cycles.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Page heading",
+    "desc": "My cycles: every production cycle of yours."
+   },
+   {
+    "n": 2,
+    "label": "Start a cycle",
+    "desc": "A new production cycle: the species, the culture system, the ponds or cages and the fingerlings stocked."
+   },
+   {
+    "n": 3,
+    "label": "Columns",
+    "desc": "The species and cycle number, the ponds and cages, the place, the dates and the status."
+   },
+   {
+    "n": 4,
+    "label": "Sections",
+    "desc": "Growing, Ready to harvest, Harvested and Lost."
+   },
+   {
+    "n": 5,
+    "label": "Log activity",
+    "desc": "Asks which log first: the Feeding Log or the Health Log."
+   },
+   {
+    "n": 6,
+    "label": "Details",
+    "desc": "The cycle with its ponds and cages (see the next picture)."
+   }
+  ]
+ },
+ "fisherfolk-log-choice": {
+  "audience": "fisherfolk",
+  "title": "Which log (Fisherfolk)",
+  "purpose": "Log activity asks first.",
+  "image": "/manual/fisherfolk/log-choice.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Feeding Log or Health Log",
+    "desc": "Feeding: the feed and how much. Health: sick or dead fish, water problems and treatment. A Health Log of deaths or disease can allow an early harvest."
+   }
+  ]
+ },
+ "fisherfolk-cycle-details": {
+  "audience": "fisherfolk",
+  "title": "Cycle details (Fisherfolk)",
+  "purpose": "One cycle and everything you can do with it.",
+  "image": "/manual/fisherfolk/cycle-details.png",
+  "width": 1280,
+  "height": 900,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Cycle details",
+    "desc": "The cycle, its ponds or cages (size, fingerlings, PCIC) and its totals."
+   },
+   {
+    "n": 2,
+    "label": "Buttons",
+    "desc": "Activity logs lists every feeding and health entry. Edit corrects the cycle. Print makes a one-page report of it."
+   },
+   {
+    "n": 3,
+    "label": "Force harvest",
+    "desc": "For an emergency (a typhoon coming, for example): harvest now, with the reason."
+   }
+  ]
+ },
+ "fisherfolk-disasters": {
+  "audience": "fisherfolk",
+  "title": "Disasters (Fisherfolk)",
+  "purpose": "Damage you reported on your ponds and cages.",
+  "image": "/manual/fisherfolk/disasters.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Page heading",
+    "desc": "Every disaster you reported."
+   },
+   {
+    "n": 2,
+    "label": "Report a disaster",
+    "desc": "Opens the report: the date and type, the ponds or cages hit, the fish lost, equipment damage and photos."
+   },
+   {
+    "n": 3,
+    "label": "Columns",
+    "desc": "The disaster, the stock it hit, the date, the volume lost and the status."
+   },
+   {
+    "n": 4,
+    "label": "Sections",
+    "desc": "Ongoing, then Recovered."
+   },
+   {
+    "n": 5,
+    "label": "Details",
+    "desc": "The report as it was saved, with Print and Download."
+   }
+  ]
+ },
+ "org-item-details": {
+  "audience": "org",
+  "title": "An item's details (Organization)",
+  "purpose": "One kind of equipment, by condition.",
+  "image": "/manual/org/item-details.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "By condition",
+    "desc": "Each condition opens onto its units: how many are out, who has them, and its buttons. Only units in Good condition can be lent."
+   }
+  ]
+ },
+ "org-loans": {
+  "audience": "org",
+  "title": "Loans (Organization)",
+  "purpose": "Borrow requests, what is out, and what came back.",
+  "image": "/manual/org/loans.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Columns",
+    "desc": "The equipment, who borrowed it, the units, the dates and the status. The rows come in sections: Requests, On loan (overdue ones first) and Returned."
+   },
+   {
+    "n": 2,
+    "label": "Approve / Reject",
+    "desc": "Your answer to a member's request. Reject asks for the reason, which the member sees."
+   },
+   {
+    "n": 3,
+    "label": "Mark returned",
+    "desc": "When units come back: returned, damaged or never returned."
+   }
+  ]
+ },
+ "org-distribute-choice": {
+  "audience": "org",
+  "title": "Distribute assistance (Organization)",
+  "purpose": "Who receives it?",
+  "image": "/manual/org/distribute-choice.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "One member or all members",
+    "desc": "One member: tick the members by name. All members: every current member gets the same. Both then ask what was given, by which agency and when."
+   }
+  ]
+ },
+ "farmer-p-more": {
+  "audience": "farmer",
+  "title": "More on a phone (Farmer)",
+  "purpose": "The fifth tab of the bottom menu.",
+  "image": "/manual/farmer/phone-more.png",
+  "phone": true,
+  "width": 780,
+  "height": 1688,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Pages",
+    "desc": "Forecast, Borrow equipment, My profile, Help, the User Manual and Log out."
+   },
+   {
+    "n": 2,
+    "label": "Bottom menu",
+    "desc": "Home, Crops, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
+   }
+  ]
+ },
+ "fisherfolk-p-cycles": {
+  "audience": "fisherfolk",
+  "title": "Cycles on a phone (Fisherfolk)",
+  "purpose": "One card per cycle.",
+  "image": "/manual/fisherfolk/phone-cycles.png",
+  "phone": true,
+  "width": 780,
+  "height": 1688,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Start a cycle",
+    "desc": "A new production cycle."
+   },
+   {
+    "n": 2,
+    "label": "A cycle",
+    "desc": "The species and cycle, its status, place and harvest date, with Log activity (or Record harvest) and Details."
+   },
+   {
+    "n": 3,
+    "label": "Bottom menu",
+    "desc": "Home, Cycles, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
+   }
+  ]
+ },
+ "fisherfolk-p-disasters": {
+  "audience": "fisherfolk",
+  "title": "Disasters on a phone (Fisherfolk)",
+  "purpose": "Report by the pond, with the phone camera.",
+  "image": "/manual/fisherfolk/phone-disasters.png",
+  "phone": true,
+  "width": 780,
+  "height": 1688,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Report a disaster",
+    "desc": "Opens the report; Take Photo uses the phone camera."
+   },
+   {
+    "n": 2,
+    "label": "A report",
+    "desc": "The disaster, the stock and the date, with Mark recovered and Details."
+   },
+   {
+    "n": 3,
+    "label": "Bottom menu",
+    "desc": "Home, Cycles, Assistance, Disasters and More. The open one is highlighted. More holds everything else, and Log out."
+   }
+  ]
+ },
+ "org-p-equipment": {
+  "audience": "org",
+  "title": "Equipment on a phone (Organization)",
+  "purpose": "Answer borrow requests with one tap.",
+  "image": "/manual/org/phone-equipment.png",
+  "phone": true,
+  "width": 780,
+  "height": 1688,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Items / Loans",
+    "desc": "The number on Loans is how many requests wait."
+   },
+   {
+    "n": 2,
+    "label": "A loan",
+    "desc": "Approve or Reject a request; Mark returned when the units come back."
+   },
+   {
+    "n": 3,
+    "label": "Bottom menu",
+    "desc": "Home, Members, Assistance, Equipment and More. The open one is highlighted. More holds everything else, and Log out."
    }
   ]
  }

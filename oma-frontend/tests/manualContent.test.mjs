@@ -48,9 +48,11 @@ assert.ok(all.reduce((sum, x) => sum + x.legend.length, 0) >= 900, 'the legends 
   assert.ok(phone.length >= 3, `${id} has phone screens`); n++
 })
 
-// the Organization guide shows the Equipment TAB of My Organization (the page /my-equipment is Access Denied to an organization account)
+// the Organization guide shows the organization's own Equipment page with its Items / Loans tabs (the page /my-equipment, a member's
+// Borrow equipment, is Access Denied to an organization account)
 const orgEquipment = manualFor('org').find((g) => g.id === 'equipment')
-assert.ok(orgEquipment && orgEquipment.screens.some((s) => s.id === 'org-equipment' && /Equipment tab/.test(s.legend.map((r) => r.label).join(' '))), 'org equipment guide shows the Equipment tab'); n++
+assert.ok(orgEquipment && orgEquipment.screens.some((s) => s.id === 'org-equipment' && /Items \/ Loans/.test(s.legend.map((r) => r.label).join(' '))), 'org equipment guide shows the Items and Loans tabs'); n++
+assert.ok(orgEquipment.screens.some((s) => s.id === 'org-loans'), 'and the Loans list'); n++
 
 // a Focal Person does not see the Admin-only guides
 const adminIds = manualFor('admin').map((g) => g.id)
@@ -69,7 +71,7 @@ eq(Object.keys(SCREENS).every((id) => SCREENS[id].image.startsWith('/manual/')),
 // the printable manual carries the intro, the numbered steps, the pictures and their tables
 const html = buildManualHtml({ audienceLabel: 'Organization', guides: manualFor('org'), intro: manualIntro('org'), baseUrl: 'http://x' })
 assert.ok(html.includes('How to read the pictures') && html.includes('Notes on the pictures'), 'print has the intro sections'); n++
-assert.ok(html.includes('<img src="http://x/manual/org/equipment.png"') && html.includes('Equipment tab'), 'print has the Equipment tab picture and its legend'); n++
+assert.ok(html.includes('<img src="http://x/manual/org/equipment.png"') && html.includes('Items / Loans'), 'print has the Equipment picture and its legend'); n++
 assert.ok(html.includes('class="tag">1</span>'), 'print has numbered legend rows'); n++
 
 console.log(`manualContent: ${n} checks passed`)

@@ -64,8 +64,8 @@ const help = new Set()
 const addHelp = (text) => sentences(text).forEach((s) => help.add(s))
 STEPS.forEach((s) => { addHelp(s.title); addHelp(s.desc) })
 SECTIONS.forEach((section) => section.items.forEach((item) => { addHelp(item.q); addHelp(item.a) }))
-for (const file of ['FarmerAccountPages.jsx', 'FisherfolkAccountPages.jsx', 'OrgAccountPages.jsx']) {
-  for (const m of read(`src/pages/Citizen/${file}`).matchAll(/'((?:[^'\\]|\\.){25,})'/g)) addHelp(m[1].replace(/\\'/g, "'"))
+for (const file of ['Citizen/FarmerAccountPages.jsx', 'Citizen/FisherfolkAccountPages.jsx', 'Citizen/OrgAccountPages.jsx', 'Account/helpAnswers.js']) {
+  for (const m of read(`src/pages/${file}`).matchAll(/'((?:[^'\\]|\\.){25,})'/g)) addHelp(m[1].replace(/\\'/g, "'"))
 }
 ok(help.size > 300, 'the Help wording was read')
 const manualText = []

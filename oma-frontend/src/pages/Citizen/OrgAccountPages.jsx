@@ -22,89 +22,15 @@ import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
+import { HELP } from '../Account/helpAnswers.js'
 import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 import { formatDate } from '../../utils/dateFormat.js'
-
-// ── Help ────────────────────────────────────────────────────────────────────────────────────────────────
-// Same shape as FARMER_HELP_EN (what CitizenHelpScreen reads). Contact details are placeholders until the
-// official office information is final, exactly as in the other help screens.
-const ORG_HELP_EN = {
-  title: 'Help',
-  subtitle: 'Answers to common questions about your organization account and how to use the system.',
-  faqHeading: 'FREQUENTLY ASKED QUESTIONS',
-  faq: [
-    {
-      key: 'add-member',
-      q: 'How do I add a member?',
-      a: 'Open My Organization and, on the Members tab, click Add Member. Search by name for a registered farmer or fisherfolk and pick them from the list. A person can belong to more than one organization, so someone already in another organization is only shown as information. If the person is in another organization that has no main one yet, OMAg staff set it for them.',
-    },
-    {
-      key: 'deactivate-member',
-      q: 'How do I remove a member?',
-      a: 'On the Members tab, click Deactivate next to their name and, if you like, give a reason. Their profile and history are not affected and you can reactivate them at any time. If they hold an officer position, deactivating them leaves that position vacant.',
-    },
-    {
-      key: 'assign-officer',
-      q: 'How do I assign an officer?',
-      a: 'In the Officers table on My Organization, click Assign Officer, choose a position and pick one of your active members. If someone already holds that position, open that officer and choose End term early (a reason is required), then assign the new one. Officer History shows everyone who held each position.',
-    },
-    {
-      key: 'equipment',
-      q: 'How do I keep our equipment list?',
-      a: 'Open the Equipment tab on My Organization. Add each item with its quantity and condition (Good, Needs Repair, Not Operational, Broken or Lost). Tap an item to change the condition of some of its units, record a repair (date, what was done, optional cost), lend it, see its history, or remove it. An item with loan or repair history cannot be removed.',
-    },
-    {
-      key: 'lend-equipment',
-      q: 'How do I lend equipment to a member?',
-      a: 'You can lend only the units that are in Good condition. Tap the item, choose Lend, pick the member, the number of units and an optional return-by date. Members with an account can also ask to borrow from their Borrow Equipment page; their requests appear on the Borrowed tab, where you can approve or reject them. When the units come back, open the loan, choose Mark returned and say what condition they are in.',
-    },
-    {
-      key: 'report-assistance',
-      q: 'What is the difference between reporting assistance to one member and to all members?',
-      a: 'On Assistance, Distribute to Individual is for assistance given to one member only. Distribute to All Members gives the same assistance to every current member in one step, and shows a preview of who will receive it before you confirm. A future date schedules the assistance instead of recording it as already given.',
-    },
-    {
-      key: 'confirm-for-members',
-      q: 'What is Confirm for Members?',
-      a: 'When assistance reaches its date, the member is asked to confirm they received it. For a member who has no working account to confirm with, you can do it here: it sends a confirmation request, with an optional photo, to OMAg staff, who review it before the assistance is marked as received.',
-    },
-    {
-      key: 'status-lifecycle',
-      q: 'What do Pending, Awaiting Confirmation, Received and Not Received mean?',
-      a: 'Pending means the date is still ahead. On the date it becomes Awaiting Confirmation and the member is asked to confirm. Received means it was confirmed. Not Received means the member said they did not get it, and OMAg staff will follow up.',
-    },
-    {
-      key: 'request-change',
-      q: 'How do I request a change to our organization details?',
-      a: 'Open My Profile. The logo and contact number change as soon as you save. The name, barangay and street address are reviewed by OMAg staff: click Request change, enter the new value, and it shows as pending until they decide.',
-    },
-  ],
-  contactHeading: 'CONTACT OMAG ARINGAY',
-  contactPlaceholderNote: 'The details below are placeholders - the official information is not final yet.',
-  contactOfficeLabel: 'Office',
-  contactOfficeValue: '[Office name - placeholder]',
-  contactAddressLabel: 'Address',
-  contactAddressValue: '[Full office address - placeholder]',
-  contactPhoneLabel: 'Phone',
-  contactPhoneValue: '[Phone number - placeholder]',
-  contactHoursLabel: 'Office Hours',
-  contactHoursValue: '[Office days and hours - placeholder]',
-  behaviorsHeading: 'FIELD BEHAVIORS',
-  behaviorInstantLabel: 'Instant edit',
-  behaviorInstantDesc: 'Logo, contact number - applied immediately',
-  behaviorRequestLabel: 'Request-a-change',
-  behaviorRequestDesc: 'Name, barangay, street address - needs staff approval',
-  behaviorReadonlyLabel: 'Read-only',
-  behaviorReadonlyDesc: 'Registration details - cannot be changed',
-  logoutCta: 'Log out',
-  backToProfile: 'Back to Profile',
-}
 
 export function OrgHelpPage() {
   const { isFisherfolkOrg } = useAuth()
   return (
     <PageLayout title="Help" subtitle="Questions and answers about your organization account.">
-      <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={ORG_HELP_EN} bare />
+      <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={HELP.org} bare />
     </PageLayout>
   )
 }
