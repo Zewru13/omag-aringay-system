@@ -1,13 +1,11 @@
 // Phone-size pictures (390 x 844) of the Farmer, Fisherfolk and Organization accounts, with the sign-in page.
-import { FA, FI, O, click, wait } from './common.mjs'
+import { FA, FI, O } from './common.mjs'
 
-const CARD = 'section, article, [class*="rounded-xl"], [class*="rounded-[1"]'
-const card = (text, tag = 'h2') => ({ text, tag, closest: CARD })
-const NAV = { css: 'nav', nth: 0 }
-const HEAD = { find: [{ css: 'button[aria-label*="otification"]' }, { css: 'header button[aria-haspopup=menu]' }], label: 'Bell and account', desc: 'The bell shows your notices. Your initials open the account menu: your profile, Help, the User Manual and Log out.' }
-const SEARCH = { find: { css: 'input[type=search]' }, label: 'Search box', desc: 'Type to find an item in the list.' }
-const BOTTOM = (items) => ({ find: NAV, label: 'Bottom menu', desc: `${items} Tap one to open it; the open one is highlighted.` })
-const phoneMenu = "document.querySelector('header button[aria-haspopup=menu]').click()"
+const NAV = { css: 'nav[aria-label="Main navigation"]' }
+const BELL = { find: { css: 'button[aria-label*="otification"]' }, label: 'Bell', desc: 'Your notices. A number on it says how many are new.' }
+const BOTTOM = (items) => ({ find: NAV, label: 'Bottom menu', desc: `${items} The open one is highlighted. More holds everything else, and Log out.` })
+const TODO = { find: { text: 'To do today', tag: 'h2', closest: 'section' }, label: 'To do today', desc: 'What needs you now, with a big button for each.' }
+const ROW1 = (label, desc) => ({ find: { css: 'main li', nth: 0 }, label, desc })
 
 export const PHONE = [
   { id: 'login', audience: 'all', anon: true, file: 'login.png', url: '/login', wait: 3500, title: 'Sign in', purpose: 'Every account signs in here.',
@@ -27,115 +25,65 @@ export const PHONE = [
     ] },
 
   // ───────────────────────────── Farmer ─────────────────────────────
-  FA({ id: 'farmer-p-home', phone: true, file: 'farmer/phone-home.png', url: '/my-account', wait: 6000, height: 1750, title: 'Home on a phone (Farmer)', purpose: 'The same Home on a phone, with the menu along the bottom.',
+  FA({ id: 'farmer-p-home', phone: true, file: 'farmer/phone-home.png', url: '/my-account', wait: 7000, height: 1300, title: 'Home on a phone (Farmer)', purpose: 'The same Home, with the menu along the bottom.',
     callouts: [
-      HEAD,
-      { find: { text: 'Welcome', tag: 'h1, h2, p, div', up: 1 }, label: 'Welcome banner', desc: 'Your name, the kind of account and the date.' },
-      { find: { text: 'Farm parcels', tag: 'p, span, div', up: 2 }, label: 'Totals', desc: 'Your farm parcels, active crops, total area and harvests this month.' },
-      { find: card('My crops by stage'), label: 'My crops by stage', desc: 'A ring of your crops by stage (growing, harvested).' },
-      { find: card('Harvest vs estimate'), label: 'Harvest vs estimate', desc: 'Your latest harvests against the estimate, in kg.' },
-      { find: card('Disasters by type'), label: 'Disasters by type', desc: 'The disasters you reported, by type.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
+      BELL, TODO,
+      { find: { text: 'My crops', tag: 'h2', closest: 'section' }, label: 'My crops', desc: 'Your crops in the field.' },
+      BOTTOM('Home, Crops, Assistance, Disasters and More.'),
     ] }),
-  FA({ id: 'farmer-p-menu', phone: true, file: 'farmer/phone-menu.png', url: '/my-account', wait: 6000, js: phoneMenu, after: 1000, title: 'Account menu on a phone (Farmer)', purpose: 'Opened with your initials at the top right.',
+  FA({ id: 'farmer-p-crops', phone: true, file: 'farmer/phone-crops.png', url: '/crop-monitoring', wait: 6000, title: 'Crops on a phone (Farmer)', purpose: 'One card per crop.',
     callouts: [
-      { find: { text: 'My Profile', tag: 'button, a' }, label: 'My Profile', desc: 'Opens your profile: your details, your photo and your password.' },
-      { find: { text: 'Help', tag: 'button, a', exact: true }, label: 'Help', desc: 'Opens the questions and answers about your account and the office to contact.' },
-      { find: { text: 'User Manual', tag: 'button, a' }, label: 'User Manual', desc: 'Opens this manual: a picture of each screen with every button explained.' },
-      { find: { text: 'Log out', tag: 'button, a' }, label: 'Log out', desc: 'Signs you out of this device.' },
+      { find: { css: 'main input[type=search]' }, label: 'Search box', desc: 'Narrows the cards to a crop or a place.' },
+      ROW1('A crop', 'The crop, its status, its place and harvest date, with Log activity (or Record harvest) and Details as big buttons.'),
+      BOTTOM('Home, Crops, Assistance, Disasters and More.'),
     ] }),
-  FA({ id: 'farmer-p-crops', phone: true, file: 'farmer/phone-crops.png', url: '/crop-monitoring', wait: 5000, title: 'Crop Monitoring on a phone (Farmer)', purpose: 'Your parcels and crops as cards.',
+  FA({ id: 'farmer-p-assistance', phone: true, file: 'farmer/phone-assistance.png', url: '/crop-assistance', wait: 6000, title: 'Assistance on a phone (Farmer)', purpose: 'Answer for assistance with one tap.',
     callouts: [
-      SEARCH,
-      { find: { text: 'Filters', tag: 'button', exact: true }, label: 'Filters', desc: 'Opens the filter row.' },
-      { find: { css: 'main button[aria-expanded]', nth: 0 }, label: 'A parcel card', desc: 'Tap a parcel to open the crops planted on it. Each crop has its own menu with Log Activity, Crop Details, Record Harvest and Report Disaster.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
+      ROW1('Assistance waiting for you', 'Received or Not received, right on the card.'),
+      BOTTOM('Home, Crops, Assistance, Disasters and More.'),
     ] }),
-  FA({ id: 'farmer-p-disaster', phone: true, file: 'farmer/phone-disaster.png', url: '/disaster', wait: 5000, title: 'Disaster on a phone (Farmer)', purpose: 'Report a disaster from the field.',
+  FA({ id: 'farmer-p-more', phone: true, file: 'farmer/phone-more.png', url: '/more', wait: 5000, title: 'More on a phone (Farmer)', purpose: 'The fifth tab of the bottom menu.',
     callouts: [
-      { find: { text: 'Disaster history', tag: 'button' }, label: 'Disaster history', desc: 'The disasters you reported before, with their status.' },
-      { find: { text: 'Select all', tag: 'span, label, div', up: 1 }, label: 'Choose the crops', desc: 'Step 1: tick every crop that was hit.' },
-      { find: { text: 'Continue', tag: 'button', exact: true }, label: 'Continue', desc: 'Step 2: choose the disaster and the date, describe the damage and add photos taken with the phone camera.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
-    ] }),
-  FA({ id: 'farmer-p-forecast', phone: true, file: 'farmer/phone-forecast.png', url: '/forecasting', wait: 5000, title: 'Forecasting on a phone (Farmer)', purpose: 'The expected harvest of your crops.',
-    callouts: [
-      { find: [{ text: 'Forecast', tag: 'button', exact: true }, { text: 'Yield analysis', tag: 'button' }], label: 'Forecast / Yield analysis', desc: 'Forecast looks ahead at your crops; Yield analysis compares the estimate with the actual harvest.' },
-      SEARCH,
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
-    ] }),
-  FA({ id: 'farmer-p-assistance', phone: true, file: 'farmer/phone-assistance.png', url: '/crop-assistance', wait: 5000, title: 'Assistance on a phone (Farmer)', purpose: 'The help given to you.',
-    callouts: [
-      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled, what waits for you to confirm, and what you reported as not received. History: what you received and confirmed. Tap an assistance to open its details and to confirm that you received it when it asks you to.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
-    ] }),
-  FA({ id: 'farmer-p-profile', phone: true, file: 'farmer/phone-profile.png', url: '/my-profile', wait: 5000, height: 1300, title: 'My Profile on a phone (Farmer)', purpose: 'Your details on a phone.',
-    callouts: [
-      { find: { css: 'button[aria-label="Change photo"]' }, label: 'Change photo', desc: 'The camera button changes your photo.' },
-      { find: { text: 'Log out', tag: 'span, button, a', up: 1 }, label: 'Log out', desc: 'Signs you out of this device.' },
+      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment, My profile, Help, the User Manual and Log out.' },
+      BOTTOM('Home, Crops, Assistance, Disasters and More.'),
     ] }),
 
   // ───────────────────────────── Fisherfolk ─────────────────────────────
-  FI({ id: 'fisherfolk-p-home', phone: true, file: 'fisherfolk/phone-home.png', url: '/my-account', wait: 6000, height: 1750, title: 'Home on a phone (Fisherfolk)', purpose: 'Your cycles at a glance, with the menu along the bottom.',
+  FI({ id: 'fisherfolk-p-home', phone: true, file: 'fisherfolk/phone-home.png', url: '/my-account', wait: 7000, height: 1200, title: 'Home on a phone (Fisherfolk)', purpose: 'The same Home, with the menu along the bottom.',
     callouts: [
-      HEAD,
-      { find: { text: 'Welcome', tag: 'h1, h2, p, div', up: 1 }, label: 'Welcome banner', desc: 'Your name, the kind of account and the date.' },
-      { find: { text: 'Active cycles', tag: 'p, span, div', up: 2 }, label: 'Totals', desc: 'Your active cycles, ponds and cages, harvested cycles and open disasters.' },
-      { find: card('My cycles by stage'), label: 'My cycles by stage', desc: 'How many of your cycles are growing, near harvest or harvested.' },
-      { find: card('Harvest vs estimate'), label: 'Harvest vs estimate', desc: 'Your latest harvests against the estimate.' },
-      { find: card('Disasters by type'), label: 'Disasters by type', desc: 'The disasters you reported, by type.' },
-      { find: { text: 'Open cycle', tag: 'button' }, label: 'Open cycle', desc: 'Opens that production cycle.' },
-      { find: { text: 'Report disaster', tag: 'button' }, label: 'Report disaster', desc: 'Starts a disaster report for that cycle.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
+      BELL, TODO,
+      { find: { text: 'My cycles', tag: 'h2', closest: 'section' }, label: 'My cycles', desc: 'Your cycles in the water.' },
+      BOTTOM('Home, Cycles, Assistance, Disasters and More.'),
     ] }),
-  FI({ id: 'fisherfolk-p-stocks', phone: true, file: 'fisherfolk/phone-stocks.png', url: '/fisheries-monitoring', wait: 5000, title: 'Monitoring on a phone (Fisherfolk)', purpose: 'Your stocks as cards.',
+  FI({ id: 'fisherfolk-p-cycles', phone: true, file: 'fisherfolk/phone-cycles.png', url: '/fisheries-monitoring', wait: 6000, title: 'Cycles on a phone (Fisherfolk)', purpose: 'One card per cycle.',
     callouts: [
-      { find: { text: 'Start Production Cycle', tag: 'button' }, label: 'Start Production Cycle', desc: 'Starts a new production cycle: species, pond or cage, dates, fingerlings and where they came from.' },
-      { find: { text: 'Tilapia', tag: 'h3, p, div, span', closest: CARD }, label: 'A stock card', desc: 'Tap a stock to open its ponds or cages, its dates, the harvest and its menu (details, logs, force harvest).' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
+      { find: { text: 'Start a cycle', tag: 'button', exact: true }, label: 'Start a cycle', desc: 'A new production cycle.' },
+      ROW1('A cycle', 'The species and cycle, its status, place and harvest date, with Log activity (or Record harvest) and Details.'),
+      BOTTOM('Home, Cycles, Assistance, Disasters and More.'),
     ] }),
-  FI({ id: 'fisherfolk-p-disaster', phone: true, file: 'fisherfolk/phone-disaster.png', url: '/disaster', wait: 5000, height: 1500, title: 'Disaster on a phone (Fisherfolk)', purpose: 'Report a disaster from the pond side.',
+  FI({ id: 'fisherfolk-p-disasters', phone: true, file: 'fisherfolk/phone-disasters.png', url: '/disaster', wait: 7000, title: 'Disasters on a phone (Fisherfolk)', purpose: 'Report by the pond, with the phone camera.',
     callouts: [
-      { find: { text: 'Disaster history', tag: 'button' }, label: 'Disaster history', desc: 'The disasters you reported before.' },
-      { find: { text: 'Affected Stock', tag: 'label', up: 1 }, label: 'Affected Stock', desc: 'Choose the stocks that were hit, or Not linked to a stock for equipment damage only.' },
-      { find: { text: 'Take Photo', tag: 'button' }, label: 'Take Photo', desc: 'Takes a photo of the damage with the phone camera.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
-    ] }),
-  FI({ id: 'fisherfolk-p-forecast', phone: true, file: 'fisherfolk/phone-forecast.png', url: '/fisheries-forecasting', wait: 5000, title: 'Forecasting on a phone (Fisherfolk)', purpose: 'The expected harvest of your cycles.',
-    callouts: [
-      { find: [{ text: 'Forecast', tag: 'button', exact: true }, { text: 'Yield analysis', tag: 'button' }], label: 'Forecast / Yield analysis', desc: 'Forecast looks ahead; Yield analysis compares the estimate with the actual harvest.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
-    ] }),
-  FI({ id: 'fisherfolk-p-assistance', phone: true, file: 'fisherfolk/phone-assistance.png', url: '/fisheries-assistance', wait: 5000, title: 'Assistance on a phone (Fisherfolk)', purpose: 'The help given to you.',
-    callouts: [
-      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled, waiting for you to confirm, or reported as not received. History: what you received and confirmed.' },
-      BOTTOM('Home, Monitoring, Disaster, Forecasting and Assistance.'),
+      { find: { text: 'Report a disaster', tag: 'button', exact: true }, label: 'Report a disaster', desc: 'Opens the report; Take Photo uses the phone camera.' },
+      ROW1('A report', 'The disaster, the stock and the date, with Mark recovered and Details.'),
+      BOTTOM('Home, Cycles, Assistance, Disasters and More.'),
     ] }),
 
   // ───────────────────────────── Organization ─────────────────────────────
-  O({ id: 'org-p-home', phone: true, file: 'org/phone-home.png', url: '/my-account', wait: 6000, height: 1400, title: 'Home on a phone (Organization)', purpose: 'Your organization on a phone.',
+  O({ id: 'org-p-home', phone: true, file: 'org/phone-home.png', url: '/my-account', wait: 7000, title: 'Home on a phone (Organization)', purpose: 'The same Home, with the menu along the bottom.',
     callouts: [
-      HEAD,
-      { find: { text: 'Welcome', tag: 'h1, h2, p, div', up: 1 }, label: 'Welcome banner', desc: 'The organization\'s name and the date.' },
-      { find: card('Members'), label: 'Members', desc: 'Your members by status.' },
-      { find: { text: 'Confirm for Members', tag: 'button', exact: true, nth: 0 }, label: 'Confirm for Members', desc: 'Shown when members have no working account: you can confirm for them that they received an assistance.' },
-      { find: { text: 'Distribute assistance', tag: 'span, a, button', up: 1 }, label: 'Shortcuts', desc: 'Distribute assistance, Members, Officers, Equipment, Borrowed equipment and Confirm for members open those pages.' },
-      BOTTOM('Home, Organization and Assistance.'),
+      BELL, TODO,
+      BOTTOM('Home, Members, Assistance, Equipment and More.'),
     ] }),
-  O({ id: 'org-p-members', phone: true, file: 'org/phone-members.png', url: '/my-organization', wait: 5000, title: 'My Organization on a phone', purpose: 'Members, equipment, borrowed items and officers from the phone.',
+  O({ id: 'org-p-members', phone: true, file: 'org/phone-members.png', url: '/my-organization', wait: 6000, title: 'Members on a phone (Organization)', purpose: 'One card per member.',
     callouts: [
-      { find: { text: 'Members', tag: 'button', exact: true }, label: 'Tabs', desc: 'Members, Equipment, Borrowed, Officers and Confirmed for Members. Swipe the tabs sideways to see them all.' },
-      { find: { text: 'Import', tag: 'button' }, label: 'Import', desc: 'Adds members (or equipment) from a spreadsheet.' },
-      { find: { text: 'Add Member', tag: 'button' }, label: 'Add Member', desc: 'Adds a registered farmer to the organization.' },
-      SEARCH,
-      { find: { text: 'Filters', tag: 'button', exact: true }, label: 'Filters', desc: 'Narrows the list.' },
-      BOTTOM('Home, Organization and Assistance.'),
+      { find: [{ text: 'Import', tag: 'button', exact: true }, { text: 'Add member', tag: 'button', exact: true }], label: 'Import / Add member', desc: 'Add members one by one, or from a spreadsheet.' },
+      ROW1('A member', 'The name, the position and the date joined.'),
+      BOTTOM('Home, Members, Assistance, Equipment and More.'),
     ] }),
-  O({ id: 'org-p-assistance', phone: true, file: 'org/phone-assistance.png', url: '/crop-assistance', wait: 5000, title: 'Assistance on a phone (Organization)', purpose: 'Give assistance to your members from the phone.',
+  O({ id: 'org-p-equipment', phone: true, file: 'org/phone-equipment.png', url: '/my-organization?tab=borrowed', wait: 6000, title: 'Equipment on a phone (Organization)', purpose: 'Answer borrow requests with one tap.',
     callouts: [
-      { find: [{ text: 'Current', tag: 'button', exact: true }, { text: 'History', tag: 'button', exact: true }], label: 'Current / History', desc: 'Current: what is scheduled or waiting. History: what was given and confirmed. Confirm for Members (a button in Current) is for the members you confirm for.' },
-      { find: { text: 'Distribute to All Members', tag: 'button' }, label: 'Distribute to All Members', desc: 'Gives the same assistance to every member.' },
-      { find: { text: 'Distribute to Individual', tag: 'button' }, label: 'Distribute to Individual', desc: 'Gives an assistance to the members you tick.' },
-      BOTTOM('Home, Organization and Assistance.'),
+      { find: { css: 'main [role=tablist]' }, label: 'Items / Loans', desc: 'The number on Loans is how many requests wait.' },
+      ROW1('A loan', 'Approve or Reject a request; Mark returned when the units come back.'),
+      BOTTOM('Home, Members, Assistance, Equipment and More.'),
     ] }),
 ]
