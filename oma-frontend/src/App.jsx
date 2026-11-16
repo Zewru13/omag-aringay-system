@@ -26,7 +26,7 @@ const FisherfolkHub = lazy(() => import("./pages/Fisherfolk/FisherfolkHub.jsx"))
 const FisheriesSettingsHub = lazy(() => import("./pages/FisheriesSettings/FisheriesSettingsHub.jsx"));
 const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePasswordPage.jsx"));
 const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
-const FisheriesMonitoringPage = lazy(() => import("./pages/Monitoring/FisheriesMonitoringPage.jsx"));
+const CyclesRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CyclesRoute })));
 const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
 const FisheriesForecastingTab = lazy(() => import("./pages/Monitoring/FisheriesForecastingTab.jsx"));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage.jsx"));
@@ -288,7 +288,7 @@ function App() {
             path="/fisheries-monitoring"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
-                <FisheriesMonitoringPage />
+                <CyclesRoute />
               </ProtectedRoute>
             }
           />
