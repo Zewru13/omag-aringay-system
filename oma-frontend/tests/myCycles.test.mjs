@@ -88,6 +88,7 @@ for (const piece of ['RecordList', 'ListTools', 'CycleDetailsWindow', 'ChooseLog
 }
 const details = read('../src/pages/Account/CycleDetailsWindow.jsx')
 for (const piece of ['CycleInfoSummary', 'Activity logs', 'Edit', 'Print', 'canForceHarvest', 'Force harvest', 'Harvest details']) ok(details.includes(piece), `Details holds ${piece}`)
+ok(details.includes('grid w-full grid-cols-2') && details.includes('sm:flex'), 'on a phone the buttons sit two per row, never squeezed into one')
 const choose = read('../src/pages/Account/ChooseLogWindow.jsx')
 ok(choose.includes('LOG_ACTIVITY_OPTIONS') && choose.includes('min-h-[56px]'), 'the log choice uses the same two logs, as big buttons')
 const routes = read('../src/pages/Account/accountRoutes.jsx')

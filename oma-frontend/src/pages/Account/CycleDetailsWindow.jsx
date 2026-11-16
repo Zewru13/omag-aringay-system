@@ -42,7 +42,8 @@ export default function CycleDetailsWindow({ rec, onClose, actions }) {
       onClose={onClose}
       maxWidth="max-w-3xl"
       footer={(
-        <div className="flex w-full flex-wrap justify-end gap-2 max-sm:[&>*]:min-h-[44px] max-sm:[&>*]:flex-1">
+        // Two per row on a phone (each 44px tall), one row on a larger screen.
+        <div className="grid w-full grid-cols-2 gap-2 max-sm:[&>*]:min-h-[44px] sm:flex sm:flex-wrap sm:justify-end">
           <Button type="button" variant="outline" onClick={onClose}>Close</Button>
           {buttons.map((b) => (
             <Button key={b.key} type="button" variant={b.danger ? 'danger' : 'outline'} onClick={b.onClick}>{b.label}</Button>
