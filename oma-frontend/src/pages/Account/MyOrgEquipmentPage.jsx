@@ -30,7 +30,7 @@ import useMyOrganization from './useMyOrganization.js'
 
 const ITEM_COLUMNS = [
   { key: 'label', label: 'Equipment', phone: 'title' },
-  { key: 'total', label: 'Units', align: 'right' },
+  { key: 'total', label: 'Units', align: 'right', phone: 'hide' },
   { key: 'condition', label: 'Condition', render: conditionText },
   { key: 'onLoan', label: 'On loan', align: 'right', phone: 'hide' },
   { key: 'available', label: 'Available', align: 'right' },

@@ -54,6 +54,7 @@ const page = read('../src/pages/Account/MyOrgEquipmentPage.jsx')
 for (const piece of ['TabBar', 'RecordList', 'EquipmentGroupBody', 'LendEquipmentForm', 'AddEquipmentModal', 'ImportFileModal', 'RejectDialog', 'ReturnDialog', '/approve/', 'ChangeConditionDialog', 'RepairDialog', 'LendDialog', 'EquipmentHistoryDialog', 'ConfirmDialog', 'equipment-loans/', 'openRequestCount', 'Add equipment', 'Lend equipment', 'Import', "'items'", "'loans'"]) {
   ok(page.includes(piece), `Equipment uses ${piece}`)
 }
+ok(page.includes("{ key: 'total', label: 'Units', align: 'right', phone: 'hide' }"), 'on a phone a row shows its condition and how many can be lent, not the total')
 const route = read('../src/pages/Account/MyOrganizationRoute.jsx')
 ok(route.includes("<MyOrgEquipmentPage tab={view.tab} />") && !page.includes("useState(initialTab)"), 'the router opens Equipment on the tab the link asked for')
 console.log(`ok - ${n} assertions`)
