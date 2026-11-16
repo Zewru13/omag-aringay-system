@@ -80,7 +80,8 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-function AddMemberModal({ type, organizationId, organizationName, own = false, held = new Set(), onClose, onSuccess }) {
+// Also opened from the organization account's own pages (pages/Account).
+export function AddMemberModal({ type, organizationId, organizationName, own = false, held = new Set(), onClose, onSuccess }) {
   const [search, setSearch] = useState("");
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`org-add-member:${type}:${organizationId}`);
@@ -419,7 +420,8 @@ function MemberSearchInput({ type, organizationId, onSelect, selected, holders =
 
 // ─── Assign Officer Modal ──────────────────────────────────────────────────────
 
-function AssignOfficerModal({ type, organizationId, existingOfficers, members = [], own = false, onClose, onSuccess }) {
+// Also opened from the organization account's own pages (pages/Account).
+export function AssignOfficerModal({ type, organizationId, existingOfficers, members = [], own = false, onClose, onSuccess }) {
   // A position somebody holds is greyed out in the list (an officer's, or a member's position on the membership), and anyone who already has a
   // position cannot be picked: one position per person, one person per position.
   const taken = heldPositions(existingOfficers, members);
@@ -553,7 +555,8 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, members = 
 // Confirm is disabled client-side until the reason is non-empty; the
 // backend enforces the same rule regardless.
 
-function EndTermModal({ type, officer, onClose, onSuccess }) {
+// Also opened from the organization account's own pages (pages/Account).
+export function EndTermModal({ type, officer, onClose, onSuccess }) {
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
   const draft = useDraftForm(`org-end-term:${officer.id}`);
   const [reason, setReason] = useDraftField(draft, 'reason', "");
@@ -651,7 +654,8 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
 
 // ─── Officer History Modal ──────────────────────────────────────────────────────
 
-function OfficerHistoryModal({ history, onClose }) {
+// Also opened from the organization account's own pages (pages/Account).
+export function OfficerHistoryModal({ history, onClose }) {
   return (
     <ModalShell title="Officer History" onClose={onClose} maxWidth="max-w-3xl">
       {history.length === 0 ? (
@@ -718,7 +722,8 @@ function OfficerHistoryModal({ history, onClose }) {
 
 // ─── Add Equipment Modal ──────────────────────────────────────────────────────
 
-function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
+// Also opened from the organization account's own pages (pages/Account).
+export function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   // Crop Settings > Equipment Types for a farmers organization, Fisheries Settings > Equipment Types for a fisherfolk one.
   const knownEquipment = type === "farmers" ? FARMERS_EQUIPMENT : FISHERFOLK_EQUIPMENT;
   const equipmentChoices = useEquipmentOptions(type === "farmers" ? "crop" : "fisheries", knownEquipment);
