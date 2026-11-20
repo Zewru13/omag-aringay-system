@@ -10,7 +10,8 @@ as an upcoming typhoon. One HarvestRecord per crop, each saved exactly like a si
             crops: [{ monitoring_record, area_harvested_hectares, quantity_harvested, unit_of_measure,
                       volume_kg (the total kg, only for a unit with no standard weight) }] }
 
-Staff only. A crop that is already harvested or lost, or whose planting date is only an estimate, is refused (as in Record Harvest).
+Staff, or a farmer account for its OWN crops only (a crop of anyone else is answered as "not found", as if it did not exist). A crop that is
+already harvested or lost, or whose planting date is only an estimate, is refused (as in Record Harvest).
 Every Admin account (not the one who recorded it) gets one notification for the whole event.
 """
 from datetime import date as _date, timedelta
@@ -24,7 +25,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator
+from accounts.permissions import IsStaffOrFarmer, scope_to_farmer
 from core.locking import assert_not_locked_by_other
 from core.notifications import _safe_bulk, build_owner_and_staff_notifications
 
@@ -73,7 +74,7 @@ def queue_forced_harvest_notice(harvest_ids, actor):
 
 
 class ForcedHarvestMultiCreateView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
 
     def post(self, request):
         body = request.data
@@ -102,7 +103,9 @@ class ForcedHarvestMultiCreateView(APIView):
         if code == 'other' and not str(detail).strip():
             raise ValidationError({'force_harvest_detail': 'Describe the reason.'})
 
-        records = {r.id: r for r in CropMonitoringRecord.objects.select_related('crop_type', 'farmer').filter(pk__in=ids)}
+        # A farmer account only reaches its own crops: any other id is simply missing from this lookup.
+        owned = scope_to_farmer(CropMonitoringRecord.objects.select_related('crop_type', 'farmer'), request.user, 'farmer_id')
+        records = {r.id: r for r in owned.filter(pk__in=ids)}
         if len(records) != len(ids):
             raise ValidationError({'crops': 'One of the crops could not be found.'})
 

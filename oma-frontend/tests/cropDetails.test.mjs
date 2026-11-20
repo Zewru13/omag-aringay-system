@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-const { summaryRows, activityLine, disasterLine, pestLine, harvestRows, detailActions, harvestManageActions, dash } = await import(new URL('../src/pages/Monitoring/cropDetails.js', import.meta.url).href)
+const { summaryRows, activityLine, disasterLine, pestLine, harvestRows, detailActions, canReportDisaster, harvestManageActions, dash } = await import(new URL('../src/pages/Monitoring/cropDetails.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -69,9 +69,18 @@ eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '100', unit_of_mea
 
 // ── the footer: details are read-only; the buttons open the forms
 eq(detailActions({ status: 'Planted' }, { isFarmer: false }).map((a) => a.key), ['activity', 'harvest', 'disaster'], 'a growing crop')
-eq(detailActions({ status: 'Harvested' }, { isFarmer: false }).map((a) => a.key), ['disaster'], 'harvested')
+eq(detailActions({ status: 'Harvested' }, { isFarmer: false }).map((a) => a.key), [], 'a harvested crop has nothing left to lose: no Report Disaster')
 eq(detailActions({ status: 'Total Loss' }, { isFarmer: false }).map((a) => a.key), ['disaster'], 'total loss')
 eq(detailActions({ status: 'Near Harvest' }, { isFarmer: true }).map((a) => a.key), ['activity', 'harvest', 'disaster'], 'a farmer account has the same buttons')
+eq(canReportDisaster({ status: 'Harvested' }), false, 'a harvested crop cannot be reported'); eq(canReportDisaster({ status: 'Planted' }), true, 'a growing one can')
+eq(canReportDisaster({ status: 'Total Loss' }), true, 'a Total Loss keeps the button, as before')
+
+// Force Harvest is offered only where the page asks for it (the farmer's Crops page; staff have it in the row menu), and only for a growing crop
+eq(detailActions({ status: 'Planted' }, { force: true }).map((a) => a.key), ['activity', 'harvest', 'force', 'disaster'], 'a growing crop, on the farmer page')
+eq(detailActions({ status: 'Near Harvest' }, { force: true }).map((a) => a.key), ['activity', 'harvest', 'force', 'disaster'], 'near harvest, on the farmer page')
+eq(detailActions({ status: 'Harvested' }, { force: true }).map((a) => a.key), [], 'a harvested crop: no Force Harvest and no Report Disaster')
+eq(detailActions({ status: 'Total Loss' }, { force: true }).map((a) => a.key), ['disaster'], 'a lost crop: no Force Harvest')
+eq(detailActions({ status: 'Planted' }).map((a) => a.key), ['activity', 'harvest', 'disaster'], 'without the option (staff) no Force Harvest button')
 
 // ── correcting a harvest: Edit and Delete, Admin only, only for a crop that is Harvested and has its harvest record
 const harvested = { status: 'Harvested', harvest_record_id: 12 }
@@ -88,6 +97,10 @@ const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').rep
 const modal = src('src/pages/Monitoring/CropDetailsModal.jsx')
 const page = src('src/pages/Monitoring/CropMonitoringPage.jsx')
 assert.ok(modal.includes('harvestManageActions') && modal.includes('useAuth') && modal.includes("onAction(a.key)"), 'Crop Details shows Edit and Delete in its Harvest section'); n++
+assert.ok(page.includes('canReportDisaster(rec)'), 'the staff row menu offers Report Disaster only for a crop that can be reported'); n++
+const mine = src('src/pages/Account/MyCropsPage.jsx')
+assert.ok(modal.includes('allowForce') && modal.includes("a.key === 'force'"), 'Crop Details can show a Force Harvest button when the page asks for it'); n++
+assert.ok(mine.includes('allowForce') && mine.includes("action === 'force'") && /<ForceHarvestCropsModal/.test(mine) && mine.includes('preselectId'), "the farmer's Crops page opens the Force Harvest window from Details, with that crop ticked"); n++
 assert.ok(page.includes("action === 'edit-harvest'") && page.includes("action === 'delete-harvest'"), 'the page handles both'); n++
 assert.ok(/<EditHarvestRecordModal\s+harvestId=\{harvestEditId\}/.test(page), 'Edit opens the Edit Harvest Record window'); n++
 assert.ok(page.includes('requireTypedConfirmation') && page.includes('Delete Harvest Record?'), 'Delete asks for confirmation'); n++

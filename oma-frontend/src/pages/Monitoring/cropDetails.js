@@ -94,11 +94,17 @@ export function harvestManageActions(record, { isAdmin } = {}) {
   return [{ key: 'edit-harvest', label: 'Edit' }, { key: 'delete-harvest', label: 'Delete' }]
 }
 
+// A harvested crop has nothing left in the field to lose, so a disaster cannot be reported on it (the server refuses it as well).
+export const canReportDisaster = (record) => record.status !== 'Harvested'
+
 // The buttons in the window's footer. The window itself is read-only; each button opens the form that does the work.
-export function detailActions(record) {
+// `force`: the page also offers Force Harvest, for a crop still growing (the farmer's Crops page; staff have it in the row menu).
+export function detailActions(record, { force = false } = {}) {
   const open = record.status !== 'Harvested' && record.status !== 'Total Loss'
+  const growing = record.status === 'Planted' || record.status === 'Near Harvest'
   return [
     ...(open ? [{ key: 'activity', label: 'Log Activity' }, { key: 'harvest', label: 'Record Harvest' }] : []),
-    { key: 'disaster', label: 'Report Disaster' },
+    ...(force && growing ? [{ key: 'force', label: 'Force Harvest' }] : []),
+    ...(canReportDisaster(record) ? [{ key: 'disaster', label: 'Report Disaster' }] : []),
   ]
 }

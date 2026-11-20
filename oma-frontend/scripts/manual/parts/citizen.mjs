@@ -53,7 +53,7 @@ export const CITIZEN = [
   FA({ id: 'farmer-crop-details', file: 'farmer/crop-details.png', url: '/crop-monitoring', wait: 6000, js: click('Details'), after: 2500, height: 900, title: 'Crop details (Farmer)', purpose: 'One crop: its facts, its history and what you can do with it.',
     callouts: [
       { find: WINDOW, label: 'Crop details', desc: 'The crop, its parcel, its dates and how far it has grown, then its activities, disasters and remarks.' },
-      { find: [btn('Log Activity'), btn('Record Harvest'), btn('Report Disaster')], label: 'Buttons', desc: 'Record Harvest opens once half of the growing time has passed; before that it says when.' },
+      { find: [btn('Log Activity'), btn('Record Harvest'), btn('Force Harvest'), btn('Report Disaster')], label: 'Buttons', desc: 'Record Harvest opens once half of the growing time has passed; before that it says when. Force Harvest harvests early when a storm or flood is coming. Report Disaster is not offered for a harvested crop.' },
     ] }),
   FA({ id: 'farmer-assistance', file: 'farmer/assistance.png', url: '/crop-assistance', wait: 6000, title: 'Assistance (Farmer)', purpose: 'Help recorded for you.',
     callouts: [

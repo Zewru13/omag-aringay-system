@@ -61,8 +61,8 @@ function HistoryTable({ title, items, empty, heads, testId }) {
 }
 
 // `readOnly`: no buttons that open forms (the window is only looked at, e.g. from a farmer's profile). `hideHistory`: only the crop and its harvest, no
-// activities, pest and disease reports, disasters or remarks.
-export default function CropDetailsModal({ record, onClose, onAction, readOnly = false, hideHistory = false }) {
+// activities, pest and disease reports, disasters or remarks. `allowForce`: also a Force Harvest button for a crop still growing (the farmer's Crops page).
+export default function CropDetailsModal({ record, onClose, onAction, readOnly = false, hideHistory = false, allowForce = false }) {
   const { isAdmin } = useAuth()
   const [data, setData] = useState({ key: null, logs: [], pests: [], disasters: [], remarks: [], harvest: null })
   const key = `${record.id}:${record.harvest_record_id || ''}`
@@ -85,7 +85,7 @@ export default function CropDetailsModal({ record, onClose, onAction, readOnly =
 
   const cycle = cycleProgress(record.date_planted, record.expected_harvest_date, todayISO())
   const harvest = harvestRows(data.harvest)
-  const actions = detailActions(record)
+  const actions = detailActions(record, { force: allowForce })
   const manageHarvest = readOnly ? [] : harvestManageActions(record, { isAdmin })
 
   return (
@@ -99,7 +99,7 @@ export default function CropDetailsModal({ record, onClose, onAction, readOnly =
         <>
           <Button type="button" variant="outline" onClick={onClose}>Close</Button>
           {!readOnly && actions.map((a) => (
-            <Button key={a.key} type="button" variant={a.key === 'disaster' ? 'outline' : 'primary'} onClick={() => onAction(a.key)}>{a.label}</Button>
+            <Button key={a.key} type="button" variant={a.key === 'disaster' ? 'outline' : a.key === 'force' ? 'danger' : 'primary'} onClick={() => onAction(a.key)}>{a.label}</Button>
           ))}
         </>
       )}

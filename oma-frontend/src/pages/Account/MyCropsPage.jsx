@@ -5,6 +5,7 @@ import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate } from '../../utils/dateFormat.js'
 import fetchAllPages from '../Citizen/fetchAllPages.js'
+import ForceHarvestCropsModal from '../CropInformation/ForceHarvestCropsModal.jsx'
 import CropDetailsModal from '../Monitoring/CropDetailsModal.jsx'
 import { DisasterReportModal, RecordHarvestFromMonitoringModal, ViewLogsModal } from '../Monitoring/CropMonitoringPage.jsx'
 import { harvestGateInfo } from '../Monitoring/harvestGateInfo.js'
@@ -17,7 +18,7 @@ import StatusBadge from './StatusBadge.jsx'
 
 // The farmer's Crops page: every crop the office has on record for them, in sections (Growing, Ready to harvest, Harvested, Lost).
 // Each row leads with what the farmer does next (Log activity, or Record harvest once the crop is ready) and Details. The forms are
-// the office's own windows (Log Activity, Record Harvest, Crop Details, Report Disaster); this page only lists and opens them.
+// the office's own windows (Log Activity, Record Harvest, Force Harvest, Crop Details, Report Disaster); this page only lists and opens them.
 // The backend limits the list to the farmer's own crops.
 
 const ALL_CROPS = 'Planted,Near Harvest,Harvested,Total Loss'
@@ -50,7 +51,7 @@ export default function MyCropsPage() {
   const [version, setVersion] = useState(0)
   const [search, setSearch] = useState('')
   const [year, setYear] = useState('')
-  const [open, setOpen] = useState(null)     // { kind: 'details' | 'activity' | 'harvest' | 'disaster', crop }
+  const [open, setOpen] = useState(null)     // { kind: 'details' | 'activity' | 'harvest' | 'force' | 'disaster', crop }
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
   const retry = () => { setState('loading'); reload() }
@@ -118,10 +119,12 @@ export default function MyCropsPage() {
         <CropDetailsModal
           record={open.crop}
           onClose={close}
+          allowForce
           onAction={(action) => {
             const crop = open.crop
             if (action === 'activity') setOpen({ kind: 'activity', crop })
             else if (action === 'disaster') setOpen({ kind: 'disaster', crop })
+            else if (action === 'force') setOpen({ kind: 'force', crop })
             else if (action === 'harvest') { close(); openHarvest(crop) }
             else close()
           }}
@@ -130,6 +133,15 @@ export default function MyCropsPage() {
       {open?.kind === 'activity' && <ViewLogsModal record={open.crop} onClose={close} onLogAdded={reload} />}
       {open?.kind === 'harvest' && <RecordHarvestFromMonitoringModal record={open.crop} onClose={close} onSuccess={reload} />}
       {open?.kind === 'disaster' && <DisasterReportModal record={open.crop} onClose={close} onSuccess={reload} />}
+      {open?.kind === 'force' && (
+        // The crops offered are the farmer's own (the server limits the list to them); this crop starts ticked.
+        <ForceHarvestCropsModal
+          farmer={{ id: open.crop.farmer, name: open.crop.farmer_name || open.crop.farmer_full_name || 'Farmer' }}
+          preselectId={open.crop.id}
+          onClose={close}
+          onDone={() => { close(); reload() }}
+        />
+      )}
     </AccountPage>
   )
 }
