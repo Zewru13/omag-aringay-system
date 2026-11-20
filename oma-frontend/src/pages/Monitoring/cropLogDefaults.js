@@ -63,3 +63,21 @@ export function suggestionNote(step) {
   const when = step.status === 'overdue' ? `${late} day${late === 1 ? '' : 's'} late` : 'due now'
   return `${step.activity_name} (Day ${step.day_after_planting}, ${when})`
 }
+
+// The step a new log would be tied to AND be late for, or null. The server marks a log late only when it is tied to an overdue step
+// (the earliest overdue one of the activity, see overdueStepDay) and the DATE of the activity is later than planting date + that step's
+// day + its grace window (window_days, 3 when not given). So the "Late log" caution follows the date picked, not today's schedule status:
+// a late entry for an activity that was itself done in time is not a late activity.
+const DEFAULT_WINDOW_DAYS = 3
+const addDaysISO = (iso, days) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+export function lateLogStep(activityType, activityDate, datePlanted, steps) {
+  if (!activityType || !activityDate || !datePlanted) return null
+  const overdue = (steps || []).filter((s) => s.activity_name === activityType && s.status === 'overdue').sort(byDay)[0]
+  if (!overdue) return null
+  const window = overdue.window_days ?? DEFAULT_WINDOW_DAYS
+  const deadline = addDaysISO(datePlanted, overdue.day_after_planting + window)
+  return activityDate > deadline ? overdue : null
+}

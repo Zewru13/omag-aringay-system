@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 // What the crop Log Activity form fills in for itself from the crop's schedule (and what it leaves alone).
-const { suggestedStep, stepForActivity, stepDefaults, fertilizerDefault, splitFertilizer, joinFertilizer, suggestionNote } =
+const { suggestedStep, stepForActivity, stepDefaults, fertilizerDefault, splitFertilizer, joinFertilizer, suggestionNote, lateLogStep } =
   await import(new URL('../src/pages/Monitoring/cropLogDefaults.js', import.meta.url).href)
 
 let n = 0
@@ -61,4 +61,23 @@ eq(suggestionNote(step('Pest Control', 25, 'due_now')), 'Pest Control (Day 25, d
 eq(suggestionNote(step('Pest Control', 25, 'overdue', { days_diff: -1 })), 'Pest Control (Day 25, 1 day late)', 'one day late')
 eq(suggestionNote(null), '', 'none')
 
+
+// ── the "Late log" caution follows the DATE picked, the way the server decides it: late only past planting + scheduled day + grace window
+{
+  const sched = [step('Weeding', 20, 'overdue', { window_days: 3 }), step('Weeding', 40, 'upcoming', { window_days: 3 })]
+  const planted = '2026-10-01'                       // day 20 = Oct 21, grace window to Oct 24
+  const late = (date, steps = sched, activity = 'Weeding') => lateLogStep(activity, date, planted, steps)
+  eq(late('2026-10-24'), null, 'the last day of the window is not late')
+  eq(late('2026-10-20'), null, 'an activity done before its day is not late')
+  eq(late('2026-10-25')?.day_after_planting, 20, 'one day past the window is late')
+  eq(late('2026-11-10')?.day_after_planting, 20, 'much later is late')
+  eq(lateLogStep('Weeding', '2026-10-25', planted, [step('Weeding', 20, 'overdue', { window_days: 7 })]), null, 'the own window of the step is used')
+  eq(lateLogStep('Weeding', '2026-10-25', planted, [step('Weeding', 20, 'overdue')])?.day_after_planting, 20, 'no window given: the server default of 3 days')
+  eq(late('2026-10-30', [step('Weeding', 20, 'due_now', { window_days: 3 })]), null, 'a step that is not overdue today never makes a late log')
+  eq(late('2026-10-30', sched, 'Pest Control'), null, 'another activity has no overdue step')
+  eq(late(''), null, 'no date picked yet')
+  eq(lateLogStep('Weeding', '2026-10-30', '', sched), null, 'no planting date')
+  eq(lateLogStep('', '2026-10-30', planted, sched), null, 'no activity')
+  eq(late('2026-10-25', [step('Weeding', 40, 'overdue', { window_days: 3 }), step('Weeding', 20, 'overdue', { window_days: 3 })])?.day_after_planting, 20, 'the earliest overdue step, as the saved log is tied to it')
+}
 console.log(`ok - ${n} assertions`)

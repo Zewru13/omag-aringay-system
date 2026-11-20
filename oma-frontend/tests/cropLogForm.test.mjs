@@ -44,4 +44,10 @@ eq(window_.includes("t.input_type === 'Fertilizer' && t.is_active"), true, 'only
 eq(/placeholder="e\.g\. 14-14-14 NPK/.test(page), false, 'the free-text box is gone')
 eq(window_.includes('options={fertilizerNames}'), true, 'the dropdown options')
 
+// ── the Late log caution follows the date picked; the draft is gone after Save and after Cancel
+eq(window_.includes('lateLogStep(activityShown, activityDate, record.date_planted, scheduleSteps)'), true, 'the caution is worked out from the picked date')
+eq(window_.includes("chosenStep?.status === 'overdue'"), false, 'and no longer from the schedule status of today')
+eq(window_.indexOf('resetForm()') < window_.indexOf('draft.clear()'), true, 'Save resets the form first and clears the draft last (a reset after the clear would start drafting again, and closing would keep it)')
+eq(/<Button[^>]*onClick=\{\(\) => \{ draft\.discard\(\); onClose\(\) \}\}>Cancel<\/Button>/.test(window_), true, 'Cancel throws the draft away')
+
 console.log(`ok - ${n} assertions`)
