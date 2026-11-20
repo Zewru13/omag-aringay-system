@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 const {
   makeAssistanceForm, withAssistanceType, typeName, quantityText, assistanceFormProblem, sourceAgencies, otherAgencyProblem, EMPTY_OTHER_AGENCY, organizationRequest, peopleRequest,
-  eligibleIds, reviewTotals, outcomeTotals, personOutcomeTotals, reportRecords, toggleInMap, MAX_RECIPIENTS,
+  eligibleIds, repeatWarningCount, reviewTotals, outcomeTotals, personOutcomeTotals, reportRecords, toggleInMap, MAX_RECIPIENTS,
 } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
 let n = 0
@@ -71,6 +71,14 @@ eq(peopleRequest(form({ source_agencies: ['DA'], description: 'Wet season' }), {
 }, 'farmers: the notes go as remarks')
 const fisher = peopleRequest(form({ assistance_type: 'Feed', description: 'Pond A' }), { idsKey: 'fisherfolk_ids', ids: [7], descriptionKey: 'description', dryRun: true, allowSeedFertilizer: false })
 eq([fisher.fisherfolk_ids, fisher.description, fisher.dry_run, fisher.seed_type, 'remarks' in fisher], [[7], 'Pond A', true, '', false], 'fisherfolk: description, never a seed type, a preview')
+
+// ── a repeat within 30 days is warned about, and confirmed when the staff member saves
+const confirmed = peopleRequest(form(), { idsKey: 'farmer_ids', ids: [1], confirmDuplicate: true })
+eq([confirmed.confirm_duplicate, 'confirm_duplicate' in peopleRequest(form(), { idsKey: 'farmer_ids', ids: [1] })], [true, false], 'the save carries the confirmation, the preview does not')
+const warned = { results: [{ person_id: 1, status: 'would_create', warning: 'Already received Seeds' }, { person_id: 2, status: 'would_create' }, { person_id: 3, status: 'would_create', warning: 'Already received Seeds' }] }
+eq(repeatWarningCount(warned, new Set([1, 2, 3])), 2, 'counts the ticked people who got it recently')
+eq(repeatWarningCount(warned, new Set([2, 3])), 1, 'an unticked person is not counted')
+eq([repeatWarningCount(undefined, new Set([1])), repeatWarningCount({ results: [] }, new Set())], [0, 0], 'nothing to warn about')
 
 // ── the review of organizations
 const preview = (...statuses) => ({ member_count: statuses.length, results: statuses.map((status, i) => ({ person_id: i + 1, status })) })

@@ -4,7 +4,7 @@ from core.pcic import PcicPhotoListMixin, photo_list
 import math
 from datetime import date, timedelta
 
-from core.validators import validate_not_future_date, validate_uploaded_image
+from core.validators import EARLIEST_RECORD_DATE, validate_not_future_date, validate_not_too_old, validate_uploaded_image
 from farmers.models import FarmParcel
 from farmers.serializers import _farmer_main_membership
 from farmers.area_rules import growing_area_problem
@@ -23,6 +23,8 @@ from .models import (
     PestDiseaseReport, PlantingRecord, SeedSource,
 )
 
+
+MAX_AREA_PLANTED_HA = Decimal("1000")   # no single crop record in Aringay is anywhere near this; it catches a slipped decimal point
 
 class HarvestUnitWeightSerializer(serializers.ModelSerializer):
     """One row of Settings > Harvest Units: the kg one unit weighs, for every crop or for one crop (which wins)."""
@@ -256,18 +258,8 @@ class CropInputTypeSerializer(serializers.ModelSerializer):
         model = CropInputType
         fields = ['id', 'name', 'description', 'is_active', 'crop_types', 'input_type', 'growth_stage']
         read_only_fields = ['id']
-
-    def create(self, validated_data):
-        days = validated_data.get('application_days', [])
-        if days:
-            validated_data['day_after_planting'] = min(days)
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        days = validated_data.get('application_days', instance.application_days)
-        if days:
-            validated_data['day_after_planting'] = min(days)
-        return super().update(instance, validated_data)
+        # An input type has no schedule of its own (the activity schedule lives on CropActivityStage), so there is nothing to derive on save.
+        # An earlier create/update here copied the stage serializer's day logic and crashed every edit with a server error.
 
 
 class MonitoringRemarkSerializer(serializers.ModelSerializer):
@@ -469,6 +461,12 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
         if monitoring_record and monitoring_record.area_planted_ha and area_affected_ha > monitoring_record.area_planted_ha:
             raise serializers.ValidationError({
                 'area_affected_ha': f'Area affected cannot exceed the {monitoring_record.area_planted_ha} ha planted.'
+            })
+        # A disaster cannot hit a crop that was not planted yet.
+        when = data.get('date_of_occurrence')
+        if when and monitoring_record and monitoring_record.date_planted and when < monitoring_record.date_planted:
+            raise serializers.ValidationError({
+                'date_of_occurrence': f'The disaster cannot be dated before the crop was planted ({monitoring_record.date_planted:%b %d, %Y}).'
             })
         # A Total Loss means the whole planted area is affected (compared as decimals, so 2 equals 2.00).
         if (data.get('is_total_loss') and monitoring_record and monitoring_record.area_planted_ha
@@ -714,6 +712,20 @@ class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerial
 
     def validate_date_planted(self, value):
         validate_not_future_date(value, 'Date planted')
+        validate_not_too_old(value, 'Date planted')
+        return value
+
+    def validate_area_planted_ha(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError('Area planted must be greater than 0.')
+        if value > MAX_AREA_PLANTED_HA:
+            raise serializers.ValidationError(f'Area planted cannot be more than {MAX_AREA_PLANTED_HA} ha.')
+        return value
+
+    def validate_year(self, value):
+        this_year = date.today().year
+        if value < EARLIEST_RECORD_DATE.year or value > this_year + 1:
+            raise serializers.ValidationError(f'Year must be between {EARLIEST_RECORD_DATE.year} and {this_year + 1}.')
         return value
     # expected_harvest_date deliberately NOT capped — it's server-computed
     # (date_planted + crop_type.days_to_harvest) and always forward-looking.

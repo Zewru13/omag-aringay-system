@@ -12,7 +12,7 @@ from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
 from core.idnumbers import by_id_key, id_key
 from core.seasons import season_for_date
-from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image, validate_contact_number
+from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image, validate_contact_number, validate_birthdate_range
 from monitoring.models import AquacultureProductionUnit
 
 from .models import (
@@ -184,12 +184,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         )) >= 60
 
     def validate_birthdate(self, value):
-        if value:
-            today = date.today()
-            age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
-            if age < 10:
-                raise serializers.ValidationError('Registrant must be at least 10 years old.')
-        return value
+        return validate_birthdate_range(value)
 
     def validate_contact_number(self, value):
         return validate_contact_format(value, self.instance)
@@ -289,12 +284,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {'rsbsa_number': {'validators': [validate_rsbsa]}, 'fisherfolk_type': {'required': False}}
 
     def validate_birthdate(self, value):
-        if value:
-            today = date.today()
-            age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
-            if age < 10:
-                raise serializers.ValidationError('Registrant must be at least 10 years old.')
-        return value
+        return validate_birthdate_range(value)
 
     def validate_contact_number(self, value):
         return validate_contact_format(value, self.instance)

@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from .quantity import quantity_problem
 from .models import (
     AssistanceAgency,
     AssistanceOption,
@@ -74,7 +75,16 @@ class NotInThePastMixin:
         return value
 
 
-class BeneficiaryRecordCreateSerializer(NotInThePastMixin, serializers.ModelSerializer):
+class QuantityRuleMixin:
+    """The quantity must be a real amount when it is filled in (see interventions.quantity)."""
+    def validate_quantity(self, value):
+        problem = quantity_problem(value)
+        if problem:
+            raise serializers.ValidationError(problem)
+        return value
+
+
+class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, serializers.ModelSerializer):
     confirmation_photos = serializers.SerializerMethodField()
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
@@ -162,7 +172,7 @@ class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
         read_only_fields = BeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['farmer']
 
 
-class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, serializers.ModelSerializer):
+class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
@@ -226,7 +236,7 @@ class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCre
         read_only_fields = FisherfolkBeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['fisherfolk']
 
 
-class OrganizationDistributionRequestSerializer(NotInThePastMixin, serializers.Serializer):
+class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleMixin, serializers.Serializer):
     """
     Per-organization bulk assistance distribution (associations app's
     Farmers/FisherfolkOrganizationDistributeAssistanceView). Validates only
