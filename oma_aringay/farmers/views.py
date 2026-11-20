@@ -9,13 +9,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator
+from accounts.permissions import IsAdmin, IsAdminOrEvaluator
 from accounts.models import User
 from accounts.utils import create_inactive_citizen_shell
 from associations.models import FarmersOrganizationMember
 from core.utils import day_range_bounds, filter_people_search, is_plain_int
 
-from . import area_rules
+from . import area_rules, deletion
 from .parcel_directory import directory_queryset
 from .models import Farmer, FarmCrop, FarmerMachinery, FarmMachinery, FarmParcel, ParcelClassification
 from .serializers import (
@@ -180,10 +180,24 @@ class FarmerDetailView(generics.RetrieveUpdateAPIView):
 
 
 class FarmerDeleteView(generics.DestroyAPIView):
+    """Remove a farmer that was registered by mistake. Admin only, and only a farmer with nothing recorded: no parcels, crops, assistance,
+    visits, machinery, organization memberships or loans (see farmers/deletion.py), and no working login. The waiting login that was made at
+    registration is removed with the farmer. Nothing on the screens calls this."""
     queryset = Farmer.objects.all()
     serializer_class = FarmerDetailSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsAdmin]
     lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        farmer = self.get_object()
+        with transaction.atomic():
+            reasons = deletion.reasons_to_keep(farmer)
+            if reasons:
+                return Response({'detail': 'This farmer cannot be deleted: ' + '; '.join(reasons) + '. Only a farmer with nothing recorded can be deleted.'},
+                                status=status.HTTP_409_CONFLICT)
+            deletion.remove_waiting_accounts(farmer)
+            farmer.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FarmParcelListView(generics.ListCreateAPIView):

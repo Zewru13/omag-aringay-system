@@ -19,7 +19,7 @@ import AssistanceDetailsFields from './AssistanceDetailsFields.jsx'
 import RecipientTable from './RecipientTable.jsx'
 import { buildAssistanceReportSpec } from './assistanceReport.js'
 import {
-  MAX_RECIPIENTS, assistanceFormProblem, eligibleIds, makeAssistanceForm, organizationRequest, outcomeTotals, peopleRequest, personOutcomeTotals,
+  MAX_RECIPIENTS, assistanceFormProblem, eligibleIds, repeatWarningCount, makeAssistanceForm, organizationRequest, outcomeTotals, peopleRequest, personOutcomeTotals,
   quantityText, reportRecords, reviewTotals, toggleInMap, typeName,
 } from './distributeFlow.js'
 
@@ -142,7 +142,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
     try {
       if (people) {
         const ids = [...selected[0]].filter((id) => eligibleIds(previews[0]).includes(id))
-        const { data } = await api.post(domain.bulkUrl, peopleRequest(form, { idsKey: domain.idsKey, ids, descriptionKey: domain.descriptionKey, allowSeedFertilizer: domain.allowSeedFertilizer }))
+        const { data } = await api.post(domain.bulkUrl, peopleRequest(form, { idsKey: domain.idsKey, ids, descriptionKey: domain.descriptionKey, allowSeedFertilizer: domain.allowSeedFertilizer, confirmDuplicate: true }))
         setOutcomes([{ results: data.results }])
         const made = personOutcomeTotals(data.results).created
         showToast(`${made} assistance record${made === 1 ? '' : 's'} created.`, made > 0 ? 'success' : 'error')
@@ -316,6 +316,7 @@ function PeopleReview({ preview, selected, onToggle, onSetAll }) {
   const eligible = eligibleIds(preview)
   const refused = results.filter((r) => r.status !== 'would_create')
   const chosenCount = [...selected].filter((id) => eligible.includes(id)).length
+  const repeatCount = repeatWarningCount(preview, selected)
   return (
     <>
       <div className="grid grid-cols-3 gap-3">
@@ -323,6 +324,12 @@ function PeopleReview({ preview, selected, onToggle, onSetAll }) {
         <StatTile value={chosenCount} label="Will receive" />
         <StatTile value={refused.length} label="Cannot receive" />
       </div>
+      {repeatCount > 0 && (
+        <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <span className="font-semibold">{repeatCount} ticked {repeatCount === 1 ? 'person already received' : 'people already received'} this type of assistance within 30 days.</span>{' '}
+          Untick anyone who should not get it again. Saving gives it to everyone who is still ticked.
+        </p>
+      )}
       <div className="rounded-2xl border border-[#E2E8E2] bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8E2] px-4 py-3">
           <p className="text-[13px] font-semibold text-[#1A2B1A]">Recipients <span className="font-normal text-[#4A5A4C]">— {chosenCount} of {eligible.length} selected</span></p>
@@ -343,6 +350,7 @@ function PeopleReview({ preview, selected, onToggle, onSetAll }) {
                     <span className="block text-[13px] font-medium text-[#1A2B1A]">{m.name || 'Unknown'}</span>
                     <span className="block text-[12px] text-[#7A8E7A]">{[m.id_number, m.barangay].filter(Boolean).join(' · ')}</span>
                     {refusedRow && <span className="block text-[12px] text-rose-700">{m.reason}</span>}
+                    {!refusedRow && m.warning && <span className="block text-[12px] text-amber-700">{m.warning}</span>}
                   </span>
                 </label>
               </li>

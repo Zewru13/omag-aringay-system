@@ -129,6 +129,31 @@ def validate_not_future_date(value, label='Date'):
         raise ValidationError(f'{label} cannot be in the future.')
 
 
+MIN_REGISTRANT_AGE = 10
+MAX_REGISTRANT_AGE = 110
+
+
+def validate_birthdate_range(value):
+    """A farmer's or fisherfolk's birthdate must give an age from 10 to 110 (a 1800 or a last-year birthdate is a typing slip)."""
+    if value:
+        today = date.today()
+        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
+        if age < MIN_REGISTRANT_AGE:
+            raise serializers.ValidationError(f'Registrant must be at least {MIN_REGISTRANT_AGE} years old.')
+        if age > MAX_REGISTRANT_AGE:
+            raise serializers.ValidationError(f'Please check the birthdate: it gives an age over {MAX_REGISTRANT_AGE} years.')
+    return value
+
+
+EARLIEST_RECORD_DATE = date(1990, 1, 1)   # nothing this system records happened before the 1990s
+
+
+def validate_not_too_old(value, label='Date'):
+    """A record date older than EARLIEST_RECORD_DATE is a typing slip (1970, 1900), not a real crop or farm event."""
+    if value and value < EARLIEST_RECORD_DATE:
+        raise ValidationError(f'{label} cannot be earlier than {EARLIEST_RECORD_DATE.year}.')
+
+
 # ─── Batch: profile picture / organization logo uploads ───────────────────
 # Deliberately BOTH checks, not either:
 #   - extension+mimetype is what the browser claims,

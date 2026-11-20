@@ -124,7 +124,7 @@ If photos disappear, turn "Public bucket" back on; nothing is lost. Do not set `
 | Setting | Value |
 | --- | --- |
 | Root directory | `oma_aringay` |
-| Python | 3.12 or 3.13 |
+| Python | 3.12 or 3.13 (set the `PYTHON_VERSION` environment variable, for example `3.13.1`; Django 5.2 does not support 3.14, and `manage.py check` warns `core.W001` if the backend runs on it) |
 | Build command | `pip install -r requirements.txt` |
 | Start command | `gunicorn oma_aringay.wsgi --workers 1 --threads 4 --bind 0.0.0.0:$PORT` |
 

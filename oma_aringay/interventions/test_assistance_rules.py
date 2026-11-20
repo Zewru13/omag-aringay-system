@@ -58,7 +58,7 @@ class DateRuleTests(APITestCase):
         self.assertEqual(BeneficiaryRecord.objects.count() + FisherfolkBeneficiaryRecord.objects.count(), 0)
 
     def test_today_and_future_dates_are_accepted(self):
-        for when in (today(), today() + timedelta(days=30)):
+        for when in (today(), today() + timedelta(days=60)):   # 60 days apart, so the 30-day repeat warning stays out of this test
             self.assertEqual(self.client.post(FARMER_ADHOC, self.farmer_payload(when), format='json').status_code, 201)
             res = self.client.post(FISHER_ADHOC, self.fisher_payload(when), format='json')
             self.assertEqual(res.status_code, 201, res.content)

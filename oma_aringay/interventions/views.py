@@ -38,6 +38,7 @@ from .models import (
     FisherfolkBeneficiaryConfirmationRequest,
     FisherfolkBeneficiaryRecord,
 )
+from .recent import confirmed_repeat, recent_assistance_warning
 from .distributions import build_distributions, filter_records, remove_records
 from .type_units import STARTING_UNITS, UNITS, in_catalog_order
 from .serializers import (
@@ -98,7 +99,25 @@ class BeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateA
         return obj.recorded_by_id
 
 
-class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
+class RecentAssistanceCheckMixin:
+    """A single ad-hoc entry that repeats the same assistance type for the same person within 30 days is answered with a 409 (code
+    `recent_assistance`) until the request says `confirm_duplicate: true`. The save itself is unchanged."""
+    person_field = 'farmer'
+    record_model = BeneficiaryRecord
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        person = data.get(self.person_field)
+        if person is not None and not confirmed_repeat(request.data):
+            warning = recent_assistance_warning(self.record_model, self.person_field, person.pk, data['assistance_type'], data['date_given'])
+            if warning:
+                return Response({'detail': warning, 'code': 'recent_assistance'}, status=drf_status.HTTP_409_CONFLICT)
+        return super().create(request, *args, **kwargs)
+
+
+class BeneficiaryAdHocListCreateView(RecentAssistanceCheckMixin, generics.ListCreateAPIView):
     serializer_class = BeneficiaryRecordCreateSerializer
     pagination_class = None
     org_linked_record_type = 'FARMERS_ORG'
@@ -169,7 +188,9 @@ class FisherfolkBeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.Retri
         return obj.recorded_by_id
 
 
-class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
+class FisherfolkBeneficiaryAdHocListCreateView(RecentAssistanceCheckMixin, generics.ListCreateAPIView):
+    person_field = 'fisherfolk'
+    record_model = FisherfolkBeneficiaryRecord
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
     pagination_class = None
     org_linked_record_type = 'FISHERFOLK_ORG'
@@ -424,8 +445,14 @@ class BulkIndividualAssistanceView(APIView):
                 message = '; '.join(f'{field}: {" ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
                 results.append({**row, 'status': 'error', 'reason': message})
                 continue
+            warning = recent_assistance_warning(
+                self.record_model, self.person_field, person.id, serializer.validated_data['assistance_type'], serializer.validated_data['date_given'])
+            extra = {'warning': warning} if warning else {}
             if dry_run:
-                results.append({**row, 'status': 'would_create'})
+                results.append({**row, 'status': 'would_create', **extra})
+                continue
+            if warning and not confirmed_repeat(request.data):
+                results.append({**row, 'status': 'needs_confirmation', **extra})
                 continue
             try:
                 with transaction.atomic():

@@ -86,7 +86,7 @@ export function organizationRequest(form, { dryRun = false, memberIds = null, al
 
 // The body of the request for selected people (POST .../adhoc/bulk/): `idsKey` is farmer_ids or fisherfolk_ids, `descriptionKey` the
 // field the notes go to (remarks for farmers, description for fisherfolk). Fisherfolk have no seed or fertilizer type.
-export function peopleRequest(form, { idsKey, ids, descriptionKey = 'remarks', dryRun = false, allowSeedFertilizer = true }) {
+export function peopleRequest(form, { idsKey, ids, descriptionKey = 'remarks', dryRun = false, allowSeedFertilizer = true, confirmDuplicate = false }) {
   return {
     assistance_type: typeName(form),
     source_agencies: sourceAgencies(form),
@@ -96,8 +96,13 @@ export function peopleRequest(form, { idsKey, ids, descriptionKey = 'remarks', d
     ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer }),
     [idsKey]: ids,
     ...(dryRun ? { dry_run: true } : {}),
+    // saving after the review means the staff member has seen the "got it within 30 days" warnings and chose to record them anyway
+    ...(confirmDuplicate ? { confirm_duplicate: true } : {}),
   }
 }
+
+// How many of the ticked people already received this type of assistance within 30 days (the review shows a warning on each).
+export const repeatWarningCount = (preview, selected) => (preview?.results || []).filter((m) => m.warning && selected.has(m.person_id)).length
 
 // ── the review of organizations: each one's preview ({ member_count, results: [{ person_id, status: would_create | would_block }] }) and
 // which members are ticked (a Set of person ids per organization).

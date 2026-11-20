@@ -1,6 +1,6 @@
 from datetime import date
 from core.idnumbers import by_id_key, id_key
-from core.validators import validate_contact_number
+from core.validators import validate_birthdate_range, validate_contact_number
 
 from rest_framework import serializers
 from core.pcic import PcicPhotoListMixin, photo_list
@@ -398,16 +398,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         ]
 
     def validate_birthdate(self, value):
-        if value:
-            today = date.today()
-            age = today.year - value.year - (
-                (today.month, today.day) < (value.month, value.day)
-            )
-            if age < 10:
-                raise serializers.ValidationError(
-                    'Registrant must be at least 10 years old.'
-                )
-        return value
+        return validate_birthdate_range(value)
 
     def validate_rsbsa_number(self, value):
         queryset = by_id_key(Farmer.objects.all(), 'rsbsa_number', value)
@@ -508,16 +499,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         return farmer
 
     def validate_birthdate(self, value):
-        if value:
-            today = date.today()
-            age = today.year - value.year - (
-                (today.month, today.day) < (value.month, value.day)
-            )
-            if age < 10:
-                raise serializers.ValidationError(
-                    'Registrant must be at least 10 years old.'
-                )
-        return value
+        return validate_birthdate_range(value)
 
     def validate_rsbsa_number(self, value):
         if by_id_key(Farmer.objects.all(), 'rsbsa_number', value).exists():

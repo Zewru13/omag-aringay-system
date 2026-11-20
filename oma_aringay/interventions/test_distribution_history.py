@@ -129,7 +129,7 @@ class DistributionHistoryTests(APITestCase):
     def test_two_distributions_are_two_groups_newest_first(self):
         for domain in DOMAINS:
             today = timezone.localdate()
-            old = self.distribute(domain, [0], when=today - timedelta(days=3), quantity='old')
+            old = self.distribute(domain, [0], when=today - timedelta(days=3), quantity='5 units')
             new = self.distribute(domain, [1], when=today)
             self.assertEqual([g['id'] for g in self.history(domain).data], [new, old])
 
