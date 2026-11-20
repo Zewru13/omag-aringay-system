@@ -119,11 +119,6 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
   const fullName = [record?.first_name, record?.middle_name, record?.last_name]
     .filter(Boolean).join(' ') || record?.label || labels.common.unknown
 
-  // Farmer has no "type" field on the backend; is_farm_laborer is the
-  // closest real distinction, so the identity card's mini "Uri" row is
-  // derived from that boolean rather than a field that doesn't exist.
-  const farmerTypeLabel = record?.is_farm_laborer ? P.farmLaborer : P.regularFarmer
-
   const civilStatusDisplay = P.civilStatusOptions[record?.civil_status] || record?.civil_status
 
   const handleFile = async (e) => {

@@ -38,7 +38,7 @@ function PageLayout({ title, action, children }) {
         const next = !prev
         try {
           localStorage.setItem('sidebar_collapsed', String(next))
-        } catch {}
+        } catch { /* storage unavailable: the choice is simply not remembered */ }
         return next
       })
     }
