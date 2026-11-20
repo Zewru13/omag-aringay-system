@@ -43,7 +43,7 @@ import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import CropDetailsModal from './CropDetailsModal.jsx'
 import { LogCell, LogHead, LogRow, LogTable, LogTh } from './LogFormTable.jsx'
-import { fertilizerDefault, joinFertilizer, splitFertilizer, stepForActivity, suggestedStep, suggestionNote } from './cropLogDefaults.js'
+import { fertilizerDefault, joinFertilizer, lateLogStep, splitFertilizer, stepForActivity, suggestedStep, suggestionNote } from './cropLogDefaults.js'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import ParcelViewModal from './ParcelViewModal.jsx'
 import EditParcelModal from '../Farmers/EditParcelModal.jsx'
@@ -567,8 +567,8 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
           showToast(err?.response?.data?.detail || 'The remedy was saved, but the disaster could not be marked as recovered.', 'error')
         }
       }
-      draft.clear()
       resetForm()
+      draft.clear()   // last: resetForm's changes would otherwise start the draft again, and closing the window would keep it
       onLogAdded()
       onClose()
     } catch (err) {
@@ -608,7 +608,8 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
     { hasDisaster: activeDisasters.length > 0, halfway: cycle ? cycle.halfway : true, keep: editingLogType || (activityTouched ? '' : (suggested?.activity_name || '')) },
   )
   const recommendedFertilizer = fertilizerNames.includes(record.recommended_input_type_name) ? record.recommended_input_type_name : ''
-  const lateStep = chosenStep?.status === 'overdue' ? chosenStep : null
+  // Late only when the DATE picked is past the activity's deadline (the server's rule), so it follows the date picker.
+  const lateStep = lateLogStep(activityShown, activityDate, record.date_planted, scheduleSteps)
 
   return (
     <>
@@ -911,7 +912,7 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
             )}
 
             <div className="flex justify-end gap-2">
-              <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { draft.discard(); onClose() }}>Cancel</Button>
               <Button type="button" size="sm" isLoading={isSubmitting} onClick={handleSubmit}>{editingLogId ? 'Save Changes' : 'Save'}</Button>
             </div>
             </>}

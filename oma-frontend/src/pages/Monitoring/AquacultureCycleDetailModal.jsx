@@ -226,7 +226,7 @@ export function FeedingLogTab({ cycleId, units = [], cycle, formOnly = false, on
   // What is typed in the form is a draft: still here when the cycle is opened again (see hooks/useDraftForm.js); it opens the form.
   const draft = useDraftForm(`feeding-log:${cycleId}`)
   const [showForm, setShowForm] = useState(draft.restored || formOnly)
-  const EMPTY_FEEDING_FORM = { feeding_date: formOnly ? todayISOLocal() : '', feed_type: '', feed_type_other: '', feed_custom: '', quantity_kg: '', notes: '' }
+  const EMPTY_FEEDING_FORM = { feeding_date: todayISOLocal(), feed_type: '', feed_type_other: '', feed_custom: '', quantity_kg: '', notes: '' }
   const [form, setForm] = useDraftField(draft, 'form', EMPTY_FEEDING_FORM)
   // false = the Feed Type shown is the system's suggestion; true = the user picked one (never overwritten).
   const [feedTouched, setFeedTouched] = useDraftField(draft, 'feedTouched', false)
@@ -312,6 +312,7 @@ export function FeedingLogTab({ cycleId, units = [], cycle, formOnly = false, on
       setForm(EMPTY_FEEDING_FORM)
       setFeedTouched(false)
       setUnitQty({})
+      draft.clear()   // last: the reset above would otherwise start the draft again, and closing the window would keep it
       if (formOnly) onSaved?.()
       else fetch()
     } catch { showToast('Failed to save.', 'error') }
@@ -449,7 +450,7 @@ export function FeedingLogTab({ cycleId, units = [], cycle, formOnly = false, on
           </LogTable>
 
           <div className="flex justify-end gap-2">
-            <Button type="button" size="sm" variant="ghost" onClick={() => (formOnly ? onCancel?.() : setShowForm(false))}>Cancel</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => { draft.discard(); if (formOnly) onCancel?.(); else setShowForm(false) }}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
           </div>
         </form>
@@ -498,7 +499,7 @@ export function HealthLogTab({ cycleId, units = [], onChanged, formOnly = false,
   const EMPTY_HEALTH_FORM = {
     production_units: [],       // ids of the affected ponds/cages (multi-select)
     unit_mortality: {},         // {unitId: count}, used when several units are selected with Fish Mortality
-    log_date: formOnly ? todayISOLocal() : '',
+    log_date: todayISOLocal(),
     observation: '',
     observation_other: '',
     mortality_count: '0',
@@ -588,6 +589,7 @@ export function HealthLogTab({ cycleId, units = [], onChanged, formOnly = false,
         showToast(selectedUnits.length > 1 ? `Health log added for ${selectedUnits.length} ponds/cages.` : 'Health log added.', 'success')
         setShowForm(false)
         resetForm()
+        draft.clear()   // last: the reset would otherwise start the draft again, and closing the window would keep it
         fetch()
         onChanged?.()
         onSaved?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
@@ -656,6 +658,7 @@ export function HealthLogTab({ cycleId, units = [], onChanged, formOnly = false,
       showToast(selectedUnits.length > 1 ? `Health log added for ${selectedUnits.length} ponds/cages.` : 'Health log added.', 'success')
       setShowForm(false)
       resetForm()
+      draft.clear()   // last (see above)
       fetch()
       onChanged?.()
       onSaved?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
@@ -899,7 +902,7 @@ export function HealthLogTab({ cycleId, units = [], onChanged, formOnly = false,
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="button" size="sm" variant="ghost" onClick={() => (formOnly ? onCancel?.() : setShowForm(false))}>Cancel</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => { draft.discard(); if (formOnly) onCancel?.(); else setShowForm(false) }}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
           </div>
         </form>
