@@ -872,6 +872,10 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
         ).prefetch_related('photos').order_by('-date_of_occurrence', '-id')
 
     def create(self, request, *args, **kwargs):
+        # A harvested stock has nothing left in the water to lose: no new disaster report on it.
+        harvested = StockingRecord.objects.filter(pk=self.kwargs['stocking_id'], status=StockingRecord.Status.HARVESTED).exists()
+        if harvested:
+            raise ValidationError({'stocking_record': 'This stock is already harvested, so a disaster cannot be reported on it.'})
         # Same contract as the general (no-stock) disaster create: optional 0-10 `photos`, validated before
         # anything is saved, and report + photos + response built in one transaction.
         _check_fisherfolk_disaster_type(request)

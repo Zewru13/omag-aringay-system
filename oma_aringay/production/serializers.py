@@ -459,6 +459,9 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             monitoring_id = self.context.get('view').kwargs.get('monitoring_id') if self.context.get('view') else None
             if monitoring_id:
                 monitoring_record = CropMonitoringRecord.objects.filter(pk=monitoring_id).first()
+        # A harvested crop has nothing left in the field to lose: no new disaster report on it (one saved earlier is left alone).
+        if self.instance is None and monitoring_record and monitoring_record.status == CropMonitoringRecord.Status.HARVESTED:
+            raise serializers.ValidationError({'monitoring_record': 'This crop is already harvested, so a disaster cannot be reported on it.'})
         if area_affected_ha is None:
             raise serializers.ValidationError({'area_affected_ha': 'Area affected is required.'})
         if area_affected_ha <= 0:

@@ -26,6 +26,7 @@ import { PCIC_FILTER_OPTIONS } from '../../utils/pcic.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import ForceHarvestCropsModal from '../CropInformation/ForceHarvestCropsModal.jsx'
+import { canReportDisaster } from './cropDetails.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
@@ -2089,7 +2090,8 @@ export default function CropMonitoringPage() {
           (isAdmin || isEvaluator) && (rec.status === 'Planted' || rec.status === 'Near Harvest') && {
             key: 'force-harvest', label: 'Force Harvest', icon: Zap, tone: 'rose', onClick: () => setForceRecord(rec),
           },
-          { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: () => setDisasterRecord(rec), tone: 'rose' },
+          // A harvested crop has nothing left to lose: no Report Disaster for it.
+          canReportDisaster(rec) && { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: () => setDisasterRecord(rec), tone: 'rose' },
           isAdmin && lockStatuses[rec.id] && {
             key: 'unlock', label: `Force Unlock (${lockStatuses[rec.id].locked_by?.name || 'locked'})`, icon: Unlock,
             onClick: () => handleForceUnlock(rec.id), tone: 'amber',

@@ -4678,7 +4678,7 @@ export default {
    {
     "n": 2,
     "label": "Buttons",
-    "desc": "Record Harvest opens once half of the growing time has passed; before that it says when."
+    "desc": "Record Harvest opens once half of the growing time has passed; before that it says when. Force Harvest harvests early when a storm or flood is coming. Report Disaster is not offered for a harvested crop."
    }
   ]
  },

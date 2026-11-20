@@ -247,7 +247,7 @@ const FARMER_GUIDES = [
       'Open Crops. The sections are Growing, Ready to harvest, Harvested and Lost. Search by crop or place, and pick a year when your crops span more than one.',
       'Each row leads with what to do next: Log activity while the crop grows, Record harvest once it is ready and allowed.',
       'Log activity opens already filled in from the crop\'s schedule (the activity that is due, its recommendations, the fertilizer type). Change anything, then Save.',
-      'Details shows the crop, its parcel and dates, its activities, disasters and remarks, with Log Activity, Record Harvest and Report Disaster.',
+      'Details shows the crop, its parcel and dates, its activities, disasters and remarks. Its buttons: Log Activity, Record Harvest, Force Harvest (for a crop still growing, when a storm or flood is coming) and Report Disaster (not for a harvested crop).',
     ],
   },
   {
