@@ -59,5 +59,6 @@ export function searchManual(guides, query, { limit = 12 } = {}) {
     .map((r, i) => ({ ...r, i }))
     .sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.rank - b.rank || a.i - b.i)
     .slice(0, limit)
+    // eslint-disable-next-line no-unused-vars -- rank and i only exist to order the list; they are dropped from the result
     .map(({ rank, i, ...r }) => r)
 }

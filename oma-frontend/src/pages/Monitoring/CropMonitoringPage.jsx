@@ -97,15 +97,6 @@ function formatMMSS(totalSeconds) {
   return `${m}:${String(r).padStart(2, '0')}`
 }
 
-const PRIORITY_BADGE = {
-  High:   'bg-rose-500 text-white',
-  Medium: 'bg-amber-500 text-white',
-  Low:    'bg-[#2D7A4F] text-white',
-  HIGH:   'bg-rose-500 text-white',
-  MEDIUM: 'bg-amber-500 text-white',
-  LOW:    'bg-[#2D7A4F] text-white',
-}
-
 const fmtDate = (v) => formatDate(v)
 
 function getGrowthStageLabel(datePlanted) {
@@ -120,15 +111,6 @@ function getGrowthStageLabel(datePlanted) {
   if (days > 45) stage = 'Reproductive'
   if (days > 75) stage = 'Ripening / Maturity'
   return { days, stage }
-}
-
-const DISASTER_ACTIVITY_MAP = {
-  'Drought':       'Irrigation / Watering',
-  'Flood':         'Field Monitoring',
-  'Typhoon':       'Field Monitoring',
-  'Strong Winds':  'Field Monitoring',
-  'Pest Outbreak': 'Pest Control',
-  'Other':         'Other',
 }
 
 // ── Disaster Responses Modal ──────────────────────────────────────────────────
