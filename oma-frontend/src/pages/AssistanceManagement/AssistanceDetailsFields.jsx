@@ -1,15 +1,60 @@
+import { Plus, Trash2 } from 'lucide-react'
+import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
 import { assistanceMinDate, isCashType, isTrainingType, typesWithCustom, unitsForType } from './assistanceFieldHelpers.js'
-import { withAssistanceType } from './distributeFlow.js'
+import { MAX_ASSISTANCES, makeAssistanceForm, withAssistanceType } from './distributeFlow.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import useAssistanceChoices from './useAssistanceChoices.js'
 import useAssistanceTypeUnits from './useAssistanceTypeUnits.js'
 
-// The assistance details of the distribution windows as a table form, the same fields whoever the recipients are: type, source agencies, the
-// quantity (or the cash amount, or the training days), the date and a description. `form` is made by makeAssistanceForm (distributeFlow.js).
-export default function AssistanceDetailsFields({ domain, form, setForm, today }) {
+// The assistance details of the distribution windows as table forms, the same fields whoever the recipients are. One block for each
+// assistance given (type, source agencies, the quantity or the cash amount or the training days), then one block for what is shared by all of
+// them: the date and a description. `form` is made by makeAssistanceForm (distributeFlow.js) and is the first assistance; `more` holds the
+// extra ones (Add Another Assistance), each a form of its own.
+export default function AssistanceDetailsFields({ domain, form, setForm, more = [], setMore, today }) {
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
+  const several = more.length > 0
+  const setExtra = (index, next) => setMore((list) => list.map((line, i) => (i === index ? (typeof next === 'function' ? next(line) : next) : line)))
+  const addAssistance = () => setMore((list) => [...list, { ...makeAssistanceForm(today), source_agencies: [...form.source_agencies] }])
+  const removeAssistance = (index) => setMore((list) => list.filter((_, i) => i !== index))
+
+  return (
+    <>
+      <AssistanceBlock domain={domain} title={several ? 'Assistance 1' : 'Assistance Details'} form={form} setForm={setForm} />
+      {more.map((line, i) => (
+        <AssistanceBlock key={i} domain={domain} title={`Assistance ${i + 2}`} form={line} setForm={(next) => setExtra(i, next)} onRemove={() => removeAssistance(i)} />
+      ))}
+      {setMore && more.length + 1 < MAX_ASSISTANCES && (
+        <div>
+          <Button type="button" variant="outline" icon={Plus} onClick={addAssistance}>Add Another Assistance</Button>
+          <p className="mt-1 text-[11px] text-[#7A8E7A]">Give more than one assistance to the same recipients in one step. Each has its own type, quantity and source agency.</p>
+        </div>
+      )}
+
+      <FormSection title={several ? 'Distribution Date and Description (all assistance)' : 'Distribution Date and Description'}>
+        <FormRows label="Date and description">
+          <FormRow>
+            <FormCell label="Distribution Date" required wide
+              hint={<p className="mt-1 text-[11px] text-[#7A8E7A]">Today or a later date. A future date schedules the distribution: it stays Pending until that date arrives.</p>}>
+              <input type="date" className={`${baseInputClasses} sm:max-w-xs`} aria-label="Distribution Date" value={form.date_given} min={assistanceMinDate({ today })}
+                onChange={(e) => set('date_given', e.target.value)} />
+            </FormCell>
+          </FormRow>
+          <FormRow>
+            <FormCell label="Description" wide>
+              <textarea rows={2} className={`${baseInputClasses} h-auto py-2`} aria-label="Description" value={form.description} onChange={(e) => set('description', e.target.value)} />
+            </FormCell>
+          </FormRow>
+        </FormRows>
+      </FormSection>
+    </>
+  )
+}
+
+// One assistance: its type, its source agencies and its quantity (or the amount for cash, the days for training).
+function AssistanceBlock({ domain, title, form, setForm, onRemove = null }) {
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
   const cash = isCashType(form.assistance_type)
   const training = isTrainingType(form.assistance_type)
@@ -19,8 +64,8 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
   const typeChoices = useAssistanceChoices(domain.allowSeedFertilizer ? 'crop' : 'fisheries')
 
   return (
-    <FormSection title="Assistance Details">
-      <FormRows label="Assistance details">
+    <FormSection title={title}>
+      <FormRows label={`${title} details`}>
         <FormRow>
           <FormCell label="Assistance Type" required wide>
             <ComboboxWithOther
@@ -64,20 +109,14 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
           )}
           <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={domain.allowSeedFertilizer} cell />
         </FormRow>
-
-        <FormRow>
-          <FormCell label="Distribution Date" required wide
-            hint={<p className="mt-1 text-[11px] text-[#7A8E7A]">Today or a later date. A future date schedules the distribution: it stays Pending until that date arrives.</p>}>
-            <input type="date" className={`${baseInputClasses} sm:max-w-xs`} aria-label="Distribution Date" value={form.date_given} min={assistanceMinDate({ today })}
-              onChange={(e) => set('date_given', e.target.value)} />
-          </FormCell>
-        </FormRow>
-        <FormRow>
-          <FormCell label="Description" wide>
-            <textarea rows={2} className={`${baseInputClasses} h-auto py-2`} aria-label="Description" value={form.description} onChange={(e) => set('description', e.target.value)} />
-          </FormCell>
-        </FormRow>
       </FormRows>
+      {onRemove && (
+        <div className="flex justify-end border-t border-[#F0F4F0] px-3 py-2">
+          <button type="button" onClick={onRemove} className="inline-flex min-h-9 items-center gap-1.5 text-[12.5px] font-medium text-rose-700 hover:underline">
+            <Trash2 size={14} aria-hidden="true" /> Remove {title}
+          </button>
+        </div>
+      )}
     </FormSection>
   )
 }
