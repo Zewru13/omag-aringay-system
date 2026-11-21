@@ -223,7 +223,7 @@ export const STAFF5 = [
       { find: { css: 'section[aria-label="My profile"]' }, label: 'Profile header', desc: 'Your photo, name, username, e-mail address and the date you joined. The tag at the top right and the chip below the name say whether you are an Admin or a Focal Person.' },
       { find: { css: 'button[aria-label="Upload a new photo"], button[title="Upload a new photo"]' }, label: 'Upload a new photo', desc: 'The camera button changes your profile photo (JPG, PNG or WEBP, up to 5 MB).' },
       { find: { css: 'button[title="Edit Profile"]' }, label: 'Edit Profile', desc: 'Changes your name, e-mail address, username and password. Changing the e-mail, username or password asks for your current password.' },
-      { find: { css: 'section[aria-label="Account Information"]' }, label: 'Account Information', desc: 'Your full name, e-mail address, username, contact number, role and the date you joined.' },
+      { find: { css: 'section[aria-label="Contact"]' }, label: 'Contact', desc: 'Your contact number. Your name, username, e-mail address, role and the date you joined are in the profile header.' },
       { find: { css: 'section[aria-label="Account Status"]' }, label: 'Account Status', desc: 'Whether the account is active, whether the e-mail address is verified, and whether the password must be changed, each with what it means.' },
       { find: { css: 'section[aria-label="Role & Access"]' }, label: 'Role & Access', desc: 'Your role and what it can do in the system.' },
     ] }),
