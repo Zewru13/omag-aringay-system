@@ -3530,8 +3530,8 @@ export default {
    },
    {
     "n": 4,
-    "label": "Account Information",
-    "desc": "Your full name, e-mail address, username, contact number, role and the date you joined."
+    "label": "Contact",
+    "desc": "Your contact number. Your name, username, e-mail address, role and the date you joined are in the profile header."
    },
    {
     "n": 5,

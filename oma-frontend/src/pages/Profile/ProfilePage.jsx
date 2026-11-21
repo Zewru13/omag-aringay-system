@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { AtSign, CalendarDays, Edit, KeyRound, Mail, MailCheck, Phone, Shield, ShieldCheck, User, UserCog } from "lucide-react"
+import { CalendarDays, Edit, KeyRound, Mail, MailCheck, Phone, Shield, ShieldCheck } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import PageLayout from "../../components/Layout/PageLayout.jsx"
 import Button from "../../components/UI/Button.jsx"
@@ -232,14 +232,10 @@ function ProfilePage() {
           />
 
           <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
-            <InfoCard icon={User} title="Account Information">
+            {/* The banner above already shows the name, e-mail, username, role and date joined, so only the contact number is here. */}
+            <InfoCard icon={Phone} title="Contact">
               <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
-                <FieldItem icon={User} label="Full Name" value={profile?.full_name} />
-                <FieldItem icon={Mail} label="Email Address" value={profile?.email} />
-                <FieldItem icon={AtSign} label="Username" value={profile?.username} />
                 <FieldItem icon={Phone} label="Contact Number" value={profile?.contact_number} />
-                <FieldItem icon={UserCog} label="Role" value={roleLabel} />
-                <FieldItem icon={CalendarDays} label="Date Joined" value={formatDate(profile?.date_joined)} />
               </div>
             </InfoCard>
 
@@ -262,8 +258,7 @@ function ProfilePage() {
               </InfoCard>
 
               <InfoCard icon={Shield} title="Role & Access">
-                <p className="text-[13px] font-medium text-[#1A2B1A]">{roleLabel}</p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-[#4A5E4A]">{roleSummary(profile?.role)}</p>
+                <p className="text-[12.5px] leading-relaxed text-[#4A5E4A]">{roleSummary(profile?.role)}</p>
               </InfoCard>
             </div>
           </div>

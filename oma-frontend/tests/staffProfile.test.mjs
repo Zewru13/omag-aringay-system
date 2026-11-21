@@ -21,7 +21,9 @@ ok(good.every((s) => s.label && s.detail), 'every line says what it is and what 
 
 const page = read('src/pages/Profile/ProfilePage.jsx')
 ok(/<ProfileHero/.test(page) && /<AvatarBox/.test(page), 'the page opens with the hero and the photo')
-ok(/title="Account Information"/.test(page) && /title="Account Status"/.test(page) && /title="Role &amp; Access"|title="Role & Access"/.test(page), 'cards: Account Information, Account Status, Role & Access')
+ok(/title="Contact"/.test(page) && /title="Account Status"/.test(page) && /title="Role &amp; Access"|title="Role & Access"/.test(page), 'cards: Contact, Account Status, Role & Access')
+ok(!/label="Full Name"|label="Email Address"|label="Username"|label="Role"|label="Date Joined"/.test(page.split('{isEditOpen')[0]), 'the name, e-mail, username, role and date joined are in the banner only, not repeated in a card')
+ok(!/<p className="text-\[13px\] font-medium text-\[#1A2B1A\]">\{roleLabel\}<\/p>/.test(page), 'the Role & Access card does not say the role again')
 ok(/aria-label="Edit profile"|>Edit profile</.test(page) || /iconOnly[^>]*>Edit Profile</.test(page), 'the edit icon stays')
 ok(/handlePickPhoto/.test(page) && /handlePhotoChange/.test(page), 'the photo upload still works')
 ok(!/<DetailTable/.test(page), 'the old single table is replaced')
