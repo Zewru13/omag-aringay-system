@@ -34,7 +34,7 @@ export const STEPS = [
   },
   {
     title: 'Generate reports',
-    desc: 'Reports is one page: choose the report in the Report type box and set its filters. The paper preview shows it as it will print. Pick who signs it in the Signatories block above the buttons, then print it or download it.',
+    desc: 'Reports is one page: choose the report in the Report type box and set its filters. The paper preview shows it as it will print. Press Enter Signatories in the block above the buttons to say who signs it, then print it or download it.',
   },
 ]
 
@@ -216,7 +216,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I choose who signs a report?',
-        a: 'Above the Print Report and Download Report buttons, the Signatories block has four lists: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Pick a name in each list; None leaves that line empty. The names are printed under their lines at the foot of the printed and downloaded report. What you choose is for that printout only, so choose again the next time. The names come from the list the Admin keeps.',
+        a: 'Above the Print Report and Download Report buttons, the Signatories block shows who signs each line: Prepared by (your own name to start with), Checked by, Noted by and Approved by. Press Enter Signatories to open a table with a row for each line. In a row, pick a saved signer or type a name, and fill in the Position / Designation. Your own Prepared by line starts as Administrator or Focal Person, depending on your account, and you can change it. A line with no name is left off. The signers are printed under their lines at the foot of the printed and downloaded report. What you enter is for that printout only, so enter it again the next time. The saved signers are the list the Admin keeps.',
       },
       {
         q: 'How do I force harvest crops before a typhoon?',

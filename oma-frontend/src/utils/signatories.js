@@ -23,10 +23,14 @@ export function signatoryError({ name, role }) {
 // The saved signers a dropdown offers: the active rows of one role, in the order the server sent them.
 export const signatoryOptions = (list, role) => (list || []).filter((s) => s.role === role && s.is_active !== false)
 
-// "Me": the logged-in user's name. The position stays empty so the printed report keeps its own default line for the preparer.
+// The position the Prepared by line starts with, by the kind of account that is logged in. The person can edit it in the Signatories window.
+export const ACCOUNT_POSITIONS = { ADMIN: 'Administrator', EVALUATOR: 'Focal Person' }
+export const defaultPositionFor = (user) => ACCOUNT_POSITIONS[user?.role] || ''
+
+// "Me": the logged-in user's name and the default position of their kind of account.
 export function meSignatory(user) {
   const name = String(user?.full_name || '').trim()
-  return name ? { name, position: '' } : null
+  return name ? { name, position: defaultPositionFor(user) } : null
 }
 
 // A dropdown's value becomes the pick: '' is none, 'me' is the user, anything else is a saved row's id (as text). A pick keeps the
@@ -52,4 +56,58 @@ export function signatureParams(selection) {
     if (position) params[positionKey] = position
   })
   return params
+}
+
+// ── The Signatories window ─────────────────────────────────────────────────────────────
+
+// What the window shows: one { name, position } per role. Prepared by starts as the logged-in user with the position of their kind of
+// account; the other three start empty. `edits` holds only what the person changed ({ role: { name?, position? } }), so a box they did
+// not touch keeps its default.
+const EMPTY = { name: '', position: '' }
+
+export function signerRows(user, edits) {
+  const me = meSignatory(user)
+  const rows = {}
+  SIGNATORY_ROLES.forEach(({ value }) => {
+    const start = value === 'prepared' && me ? me : EMPTY
+    const edit = edits?.[value] || {}
+    rows[value] = {
+      name: edit.name !== undefined ? edit.name : start.name,
+      position: edit.position !== undefined ? edit.position : start.position,
+    }
+  })
+  return rows
+}
+
+// Typing in one box of one row.
+export const editSigner = (edits, role, field, value) => ({ ...edits, [role]: { ...(edits?.[role] || {}), [field]: value } })
+
+// The saved-signer dropdown of a row: '' empties the row, 'me' goes back to the default (the logged-in user for Prepared by), a saved row's
+// id fills the name and the position (both can still be edited). An id that is not in the list changes nothing.
+export function pickSavedSigner(edits, role, list, value) {
+  if (!value) return { ...edits, [role]: { ...EMPTY } }
+  if (value === 'me') {
+    const next = { ...edits }
+    delete next[role]
+    return next
+  }
+  const row = signatoryOptions(list, role).find((s) => String(s.id) === String(value))
+  return row ? { ...edits, [role]: { name: row.name, position: row.position || '' } } : edits
+}
+
+// What the dropdown shows for a row now: 'me' while it is the default Prepared by, a saved signer's id while it equals that signer, otherwise
+// '' (typed by hand, or empty).
+export function savedChoiceOf(row, list, role, user) {
+  const same = (a) => String(a?.name || '').trim() === String(row?.name || '').trim() && String(a?.position || '') === String(row?.position || '')
+  if (role === 'prepared' && same(meSignatory(user))) return 'me'
+  const found = signatoryOptions(list, role).find(same)
+  return found ? String(found.id) : ''
+}
+
+// "Name, position" for the line under the buttons; empty when nobody signs that line.
+export function signerSummary(row) {
+  const name = String(row?.name || '').trim()
+  if (!name) return ''
+  const position = String(row?.position || '').trim()
+  return position ? `${name}, ${position}` : name
 }

@@ -1,38 +1,106 @@
-import { Download, Printer } from 'lucide-react'
+import { useState } from 'react'
+import { Download, PenLine, Printer } from 'lucide-react'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import { SIGNATORY_ROLES, meSignatory, signatoryOptions } from '../../utils/signatories.js'
+import { SIGNATORY_ROLES, meSignatory, savedChoiceOf, signatoryOptions, signerSummary } from '../../utils/signatories.js'
+import { EntryCell, EntryHead, EntryRow, EntryTable, EntryTh } from '../../components/UI/EntryTable.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 
 export const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
 // The pieces every report on the Reports page shares: the Signatories block, the Print / PDF / Excel button row, and the preview table.
 
-// ── Signatories block ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── Signatories block ────────────────────────────────────────────────────────────────
 
-// The four signers of the printed report, picked from the saved list (Admin > Signatories). `signatories` is the result of useSignatories().
-// Print and Preview PDF carry the picks; Download Excel has no signature block.
+// The four signers of the printed report. The block shows who signs each line and one button; the button opens a floating table with a row
+// per role: pick a saved signer (Admin > Signatories) or type the name, and the Position / Designation, which starts filled in by the kind
+// of account and can be edited. `signatories` is the result of useSignatories(). Print and Preview PDF carry the rows; Download Excel has
+// no signature block.
 export function SignatoriesPanel({ signatories }) {
-  const { list, user, choices, setChoice } = signatories
-  const me = meSignatory(user)
+  const [open, setOpen] = useState(false)
+  const { rows } = signatories
   return (
     <fieldset className="rounded-xl border border-[#E2E8E2] bg-white p-4 print:hidden">
       <legend className="px-1 text-[13px] font-semibold text-[#1A2B1A]">Signatories</legend>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {SIGNATORY_ROLES.map(({ value, label }) => (
-          <div key={value}>
-            <label htmlFor={`signatory-${value}`} className={labelCls}>{label}</label>
-            <select id={`signatory-${value}`} className={baseInputClasses} value={choices[value]} onChange={(e) => setChoice(value, e.target.value)}>
-              <option value="">— None —</option>
-              {value === 'prepared' && me && <option value="me">{me.name} (me)</option>}
-              {signatoryOptions(list, value).map((s) => (
-                <option key={s.id} value={String(s.id)}>{s.name}{s.position ? ` — ${s.position}` : ''}</option>
-              ))}
-            </select>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <dl className="grid min-w-0 flex-1 grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
+          {SIGNATORY_ROLES.map(({ value, label }) => (
+            <div key={value} className="min-w-0">
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">{label}</dt>
+              <dd className="truncate text-[13px] text-[#1A2B1A]">{signerSummary(rows[value]) || '—'}</dd>
+            </div>
+          ))}
+        </dl>
+        <Button type="button" variant="outline" icon={PenLine} onClick={() => setOpen(true)}>Enter Signatories</Button>
       </div>
-      <p className="mt-2 text-[11.5px] text-[#7A8E7A]">Filled in from Manage Signatories. Change a line here for this printout only.</p>
+      {open && <SignatoriesWindow signatories={signatories} onClose={() => setOpen(false)} />}
     </fieldset>
+  )
+}
+
+function SignatoriesWindow({ signatories, onClose }) {
+  const { list, user, rows, setField, pickSaved } = signatories
+  const me = meSignatory(user)
+  return (
+    <ModalShell
+      title="Signatories"
+      subtitle="Who signs this report. Pick a saved signer or type a name; the position can be changed."
+      icon={PenLine}
+      onClose={onClose}
+      maxWidth="max-w-4xl"
+      footer={<Button type="button" onClick={onClose}>Done</Button>}
+    >
+      <EntryTable label="Signatories" testId="signatories-window">
+        <EntryHead>
+          <EntryTh>Signing line</EntryTh>
+          <EntryTh>Saved signer</EntryTh>
+          <EntryTh>Name</EntryTh>
+          <EntryTh>Position / Designation</EntryTh>
+        </EntryHead>
+        <tbody>
+          {SIGNATORY_ROLES.map(({ value, label }) => (
+            <EntryRow key={value}>
+              <EntryCell className="text-[13px] font-semibold text-[#1A2B1A] md:w-36">{label}</EntryCell>
+              <EntryCell label="Saved signer">
+                <select
+                  aria-label={`${label}: saved signer`}
+                  className={baseInputClasses}
+                  value={savedChoiceOf(rows[value], list, value, user)}
+                  onChange={(e) => pickSaved(value, e.target.value)}
+                >
+                  <option value="">{savedChoiceOf(rows[value], list, value, user) === '' && rows[value].name ? 'Typed by hand' : '— None —'}</option>
+                  {value === 'prepared' && me && <option value="me">{me.name} (me)</option>}
+                  {signatoryOptions(list, value).map((s) => (
+                    <option key={s.id} value={String(s.id)}>{s.name}{s.position ? ` — ${s.position}` : ''}</option>
+                  ))}
+                </select>
+              </EntryCell>
+              <EntryCell label="Name">
+                <input
+                  type="text"
+                  aria-label={`${label}: name`}
+                  className={baseInputClasses}
+                  value={rows[value].name}
+                  onChange={(e) => setField(value, 'name', e.target.value)}
+                  placeholder="Full name"
+                />
+              </EntryCell>
+              <EntryCell label="Position / Designation">
+                <input
+                  type="text"
+                  aria-label={`${label}: position or designation`}
+                  className={baseInputClasses}
+                  value={rows[value].position}
+                  onChange={(e) => setField(value, 'position', e.target.value)}
+                  placeholder="Position or designation"
+                />
+              </EntryCell>
+            </EntryRow>
+          ))}
+        </tbody>
+      </EntryTable>
+      <p className="mt-3 text-[11.5px] text-[#7A8E7A]">A line with no name is left off the printout. Changes here apply to this printout only; saved signers are kept in Manage Signatories.</p>
+    </ModalShell>
   )
 }
 

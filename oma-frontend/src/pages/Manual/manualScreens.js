@@ -2831,7 +2831,7 @@ export default {
    {
     "n": 3,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 4,
@@ -2886,7 +2886,7 @@ export default {
    {
     "n": 6,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 7,
@@ -2931,7 +2931,7 @@ export default {
    {
     "n": 4,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 5,
@@ -2976,7 +2976,7 @@ export default {
    {
     "n": 4,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 5,
@@ -3026,7 +3026,7 @@ export default {
    {
     "n": 5,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 6,
@@ -3081,7 +3081,7 @@ export default {
    {
     "n": 6,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 7,
@@ -4338,7 +4338,7 @@ export default {
    {
     "n": 3,
     "label": "Signatories",
-    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Choose a name from each list, or leave it on None. The names print at the foot of Print and Preview PDF (Download Excel has no signature lines). The choice is for this printout only; the Admin keeps the names under Admin > Signatories."
+    "desc": "Who signs the report: Prepared by (you, to start with), Checked by, Noted by and Approved by. Enter Signatories opens a table where you pick a saved signer or type a name and fill in the Position / Designation (your own line starts as Administrator or Focal Person; you can change it). A line you leave without a name is not printed. The signers print at the foot of Print and Preview PDF (Download Excel has no signature lines). What you enter is for this printout only; the Admin keeps the saved names under Admin > Signatories."
    },
    {
     "n": 4,

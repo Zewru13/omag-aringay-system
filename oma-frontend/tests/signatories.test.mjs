@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const { SIGNATORY_ROLES, roleLabel, signatoryError, signatoryOptions, meSignatory, resolvePick, signatureParams } = await import(new URL('../src/utils/signatories.js', import.meta.url).href)
+const { SIGNATORY_ROLES, roleLabel, signatoryError, signatoryOptions, meSignatory, resolvePick, signatureParams, defaultPositionFor, signerRows, editSigner, pickSavedSigner, savedChoiceOf, signerSummary } = await import(new URL('../src/utils/signatories.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -63,6 +63,46 @@ eq(signatureParams({
 eq(Object.keys(signatureParams({ noted: { id: 1, name: 'Ana Cruz', position: '' } })), ['noted_by'], 'picks carry names, never ids')
 eq(new URLSearchParams(signatureParams({ noted: { name: 'R&D <Chief>', position: '' } })).get('noted_by'), 'R&D <Chief>', 'special characters survive the query string')
 eq(signatureParams({ noted: { name: '   ', position: 'x' } }), {}, 'a blank name is no signer')
+
+// ── The Signatories window: one row per role, the position filled in by the kind of account and editable ────────────────────────────────
+eq([defaultPositionFor({ role: 'ADMIN' }), defaultPositionFor({ role: 'EVALUATOR' }), defaultPositionFor({ role: 'CITIZEN' }), defaultPositionFor(null)], ['Administrator', 'Focal Person', '', ''], 'the default position follows the account type')
+eq(meSignatory({ full_name: 'Hajay Salazar', role: 'ADMIN' }), { name: 'Hajay Salazar', position: 'Administrator' }, 'an Admin prepares as Administrator')
+eq(meSignatory({ full_name: 'Ana Cruz', role: 'EVALUATOR' }), { name: 'Ana Cruz', position: 'Focal Person' }, 'a Focal Person prepares as Focal Person')
+
+const admin = { full_name: 'Hajay Salazar', role: 'ADMIN' }
+eq(signerRows(admin, {}), {
+  prepared: { name: 'Hajay Salazar', position: 'Administrator' }, checked: { name: '', position: '' },
+  noted: { name: '', position: '' }, approved: { name: '', position: '' },
+}, 'Prepared by starts as the logged-in user with the default position; the others are empty')
+eq(signerRows(null, {}).prepared, { name: '', position: '' }, 'no user yet: an empty Prepared by')
+
+// editing a box changes only that box; the other keeps its default
+let edits = editSigner({}, 'prepared', 'position', 'Records Officer')
+eq(signerRows(admin, edits).prepared, { name: 'Hajay Salazar', position: 'Records Officer' }, 'the default position can be edited')
+edits = editSigner(edits, 'prepared', 'name', 'Dee Lim')
+eq(signerRows(admin, edits).prepared, { name: 'Dee Lim', position: 'Records Officer' }, 'and so can the name')
+eq(signerRows(admin, editSigner({}, 'prepared', 'position', '')).prepared.position, '', 'a position cleared on purpose stays empty (the printout then uses its own default line)')
+eq(signerRows(admin, editSigner({}, 'noted', 'name', 'Ana Cruz')).noted, { name: 'Ana Cruz', position: '' }, 'typing a name for another role')
+eq(editSigner({ noted: { name: 'x' } }, 'prepared', 'name', 'y').noted, { name: 'x' }, 'editing one role leaves the others')
+
+// picking a saved signer fills both boxes (still editable); picking nothing / me goes back to the default
+edits = pickSavedSigner({}, 'noted', list, '1')
+eq(signerRows(admin, edits).noted, { name: 'Ana Cruz', position: 'Municipal Agriculturist' }, 'a saved signer fills the name and the position')
+eq(signerRows(admin, editSigner(edits, 'noted', 'position', 'Acting Agriculturist')).noted, { name: 'Ana Cruz', position: 'Acting Agriculturist' }, 'the picked position can still be edited')
+eq(signerRows(admin, pickSavedSigner(edits, 'noted', list, '')).noted, { name: '', position: '' }, 'choosing none empties the row')
+eq(signerRows(admin, pickSavedSigner(editSigner({}, 'prepared', 'name', 'Dee Lim'), 'prepared', list, 'me', admin)).prepared, { name: 'Hajay Salazar', position: 'Administrator' }, 'me puts the logged-in user and the default position back')
+eq(signerRows(admin, pickSavedSigner({}, 'noted', list, '999')).noted, { name: '', position: '' }, 'a row that is not in the list picks nothing')
+
+// which saved signer a row matches (for the dropdown), and the one-line summary
+eq(savedChoiceOf({ name: 'Ana Cruz', position: 'Municipal Agriculturist' }, list, 'noted', admin), '1', 'a row equal to a saved signer shows that signer')
+eq(savedChoiceOf({ name: 'Ana Cruz', position: 'Someone else' }, list, 'noted', admin), '', 'an edited row is no longer that signer')
+eq(savedChoiceOf({ name: 'Hajay Salazar', position: 'Administrator' }, list, 'prepared', admin), 'me', 'the default Prepared by shows as me')
+eq(signerSummary({ name: 'Ana Cruz', position: 'Municipal Agriculturist' }), 'Ana Cruz, Municipal Agriculturist', 'a summary of a row')
+eq(signerSummary({ name: 'Ana Cruz', position: '' }), 'Ana Cruz', 'a name without a position')
+eq(signerSummary({ name: '', position: 'x' }), '', 'no name, no signer')
+
+// the printout's parameters follow the rows
+eq(signatureParams(signerRows(admin, edits)), { prepared_by: 'Hajay Salazar', prepared_role: 'Administrator', noted_by: 'Ana Cruz', noted_role: 'Municipal Agriculturist' }, 'the parameters come from the rows')
 
 // no Order: a role's names are listed alphabetically, and the table and the form have no Order box
 const page = readFileSync(new URL('../src/pages/Signatories/SignatoriesPage.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
