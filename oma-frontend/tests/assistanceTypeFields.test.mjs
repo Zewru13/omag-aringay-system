@@ -10,7 +10,7 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 const today = '2026-10-27'
 
 // ── which dropdown an assistance type needs
-eq(typeFieldFor('crop', 'Seeds'), { key: 'seed_type', choices: 'seed', label: 'Type of Seed', where: 'Crop Settings > Crop Options' }, 'seeds: the crops')
+eq(typeFieldFor('crop', 'Seeds'), { key: 'seed_type', choices: 'seed', label: 'Type of Seed', where: 'Assistance Settings' }, 'seeds: the crops')
 eq(typeFieldFor('crop', 'Fertilizer').key, 'fertilizer_type', 'fertilizer')
 eq(typeFieldFor('crop', 'Equipment').choices, 'equipment', 'equipment')
 eq(typeFieldFor('crop', 'Cash Assistance'), null, 'cash needs none')

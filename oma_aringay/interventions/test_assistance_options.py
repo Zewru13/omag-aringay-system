@@ -1,16 +1,14 @@
 """The lists behind the assistance forms' dropdowns: equipment types, units (crop and fisheries) and fishing gear (fisheries), managed in
 Crop Settings / Fisheries Settings, and one endpoint that hands a form every dropdown it needs (seed types from the crops, fertilizers
-from the input types, feed types, species...)."""
+the lists of Assistance Settings)."""
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
 from associations.models import FisherfolkOrganization, FisherfolkOrganizationMember
-from fisheries.models import FeedType, SpeciesCategory, SpeciesOption
 from interventions.models import AssistanceOption, FisherfolkBeneficiaryRecord
 from interventions.test_distribution_history import make_org, make_person
-from production.models import CropInputType, CropType
 
 User = get_user_model()
 OPTIONS = '/api/interventions/options/'
@@ -25,9 +23,10 @@ class AssistanceOptionTests(APITestCase):
         cls.citizen = User.objects.create_user(username='ao-cit', password='pw', role='CITIZEN', email='aoc@x.test')
 
     def setUp(self):
-        # The migrations start the Equipment Types lists with the organization forms' names (test_equipment_defaults.py) and the Types of Training
-        # lists with real courses (test_training_type.py); these tests are about how a list is managed, so they begin from empty ones.
-        AssistanceOption.objects.filter(kind__in=('equipment', 'training')).delete()
+        # The migrations start the Equipment Types lists with the organization forms' names (test_equipment_defaults.py), the Types of Training
+        # lists with real courses (test_training_type.py) and the seed, fertilizer, feed and fingerling lists with a copy of the crops, Input Types,
+        # Feed Types and Species (test_assistance_item_lists.py); these tests are about how a list is managed, so they begin from empty ones.
+        AssistanceOption.objects.all().delete()
         self.client.force_authenticate(self.staff)
 
     def add(self, domain, kind, name):
@@ -78,14 +77,9 @@ class AssistanceOptionTests(APITestCase):
     # ── the dropdowns a form needs ───────────────────────────────────────────
 
     def test_the_crop_form_gets_seed_fertilizer_equipment_and_unit_lists(self):
-        CropType.objects.all().delete()
-        CropType.objects.create(name='Zebra Rice', days_to_harvest=100)
-        CropType.objects.create(name='Alpha Corn', days_to_harvest=90)
-        CropType.objects.create(name='Retired Crop', days_to_harvest=90, is_active=False)
-        CropInputType.objects.all().delete()
-        CropInputType.objects.create(name='Urea', input_type='Fertilizer')
-        CropInputType.objects.create(name='Retired Mix', input_type='Fertilizer', is_active=False)
-        CropInputType.objects.create(name='Glyphosate', input_type='Herbicide')
+        self.add('crop', 'seed', 'Zebra Rice')
+        self.add('crop', 'seed', 'Alpha Corn')
+        self.add('crop', 'fertilizer', 'Urea')
         self.add('crop', 'equipment', 'Hand Tractor')
         self.add('crop', 'unit', 'sack')
         self.add('fisheries', 'unit', 'drum')
@@ -93,11 +87,8 @@ class AssistanceOptionTests(APITestCase):
         self.assertEqual(data, {'seed': ['Alpha Corn', 'Zebra Rice'], 'fertilizer': ['Urea'], 'equipment': ['Hand Tractor'], 'unit': ['sack'], 'training': [], 'types': []})
 
     def test_the_fisheries_form_gets_feed_gear_fingerling_equipment_and_unit_lists(self):
-        FeedType.objects.all().delete()
-        FeedType.objects.create(name='Starter Feed')
-        category = SpeciesCategory.objects.get_or_create(name='Test Fish')[0]
-        SpeciesOption.objects.all().delete()
-        SpeciesOption.objects.create(species_name='Tilapia', category=category, culture_environment='Freshwater', culture_duration_days=120, default_survival_rate_pct=80, default_avg_body_weight_kg=0.25)
+        self.add('fisheries', 'feed', 'Starter Feed')
+        self.add('fisheries', 'fingerling', 'Tilapia')
         self.add('fisheries', 'gear', 'Gill Net')
         self.add('fisheries', 'equipment', 'Aerator')
         self.add('fisheries', 'unit', 'kg')

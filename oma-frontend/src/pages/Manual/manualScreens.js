@@ -3316,12 +3316,12 @@ export default {
    {
     "n": 4,
     "label": "Assistance Types",
-    "desc": "Every type of assistance, crop and fisheries. A type with a quantity box shows the units its Unit box offers (Seeds: kg, sack, bag, bundle); Training shows how many types of training it has and opens the list of them. Add Assistance, above the table, adds a type of your own for crop assistance, fisheries assistance or both; the types you added can be renamed, given other units or deleted. Cash Assistance has no unit."
+    "desc": "Every type of assistance, crop and fisheries. A type with a quantity box shows the units its Unit box offers (Seeds: kg, sack, bag, bundle); Seeds, Fertilizer, Equipment, Feed, Fingerlings, Fishing Gear and Training also show how many names their list has and open it from the row menu (Edit Types of Seed and so on). Add Assistance, above the table, adds a type of your own for crop assistance, fisheries assistance or both; the types you added can be renamed, given other units or deleted. Cash Assistance has no unit."
    },
    {
     "n": 5,
     "label": "Details",
-    "desc": "The units offered for that type (or how many types of training Training has). The pencil opens a window to change them; a type needs at least one unit."
+    "desc": "The units offered for that type and how many names its list has (Training shows only that count). The row menu changes the units or opens the list; a type needs at least one unit."
    }
   ]
  },
