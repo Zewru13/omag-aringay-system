@@ -560,8 +560,8 @@ export default {
    },
    {
     "n": 8,
-    "label": "Contact & Address",
-    "desc": "The contact number, barangay, municipality and province."
+    "label": "Contact",
+    "desc": "The contact number. The barangay, municipality and province are in the profile header."
    },
    {
     "n": 9,
@@ -745,13 +745,13 @@ export default {
    },
    {
     "n": 7,
-    "label": "Contact & Address",
-    "desc": "The contact number, barangay and municipality."
+    "label": "Contact",
+    "desc": "The contact number. The barangay and municipality are in the profile header."
    },
    {
     "n": 8,
-    "label": "Registration & IDs",
-    "desc": "The RSBSA number, the Fish-R and Boat-R registration numbers, the PhilSys number and the date registered."
+    "label": "Other IDs",
+    "desc": "The Fish-R and Boat-R registration numbers and the PhilSys number. The RSBSA number and the date registered are in the profile header."
    },
    {
     "n": 9,
@@ -1020,13 +1020,13 @@ export default {
    },
    {
     "n": 3,
-    "label": "Registered Information",
-    "desc": "The registration number and agency, the dates organized and registered, and when it was added to the system."
+    "label": "Organization Details",
+    "desc": "The date the organization was organized and when it was added to the system. The registration number, agency, date registered and address are in the profile header."
    },
    {
     "n": 4,
     "label": "Contact",
-    "desc": "The contact person, contact number, e-mail, barangay and street address."
+    "desc": "The contact person, contact number and e-mail."
    },
    {
     "n": 5,
@@ -1086,7 +1086,7 @@ export default {
    {
     "n": 1,
     "label": "Confirmed for Members",
-    "desc": "When the organization confirms for its members that they received an assistance, the confirmations are listed here, grouped by the moment and the person who confirmed, with the proof photos they attached."
+    "desc": "A table with a row for each assistance the organization confirmed for its members. Click a row to see who was confirmed and their proof photos; the row menu prints or downloads the report of the whole assistance, and each member has a report of their own."
    }
   ]
  },
@@ -3320,8 +3320,8 @@ export default {
    },
    {
     "n": 5,
-    "label": "Applicable Units",
-    "desc": "The units offered for that type. The pencil opens a window to tick the units; at least one is needed."
+    "label": "Details",
+    "desc": "The units offered for that type (or how many types of training Training has). The pencil opens a window to change them; a type needs at least one unit."
    }
   ]
  },

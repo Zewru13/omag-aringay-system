@@ -156,7 +156,7 @@ export const STAFF5 = [
       { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Row menu', desc: 'Edit and Delete for the agency.' },
       { find: { text: 'Add Agency', tag: 'button' }, label: 'Add Agency', desc: 'Opens a new row at the top: type the agency name and press Save.' },
       { find: { text: 'Assistance Types', tag: 'h2', closest: H }, label: 'Assistance Types', desc: 'Every type of assistance, crop and fisheries. A type with a quantity box shows the units its Unit box offers (Seeds: kg, sack, bag, bundle); Training shows how many types of training it has and opens the list of them. Add Assistance, above the table, adds a type of your own for crop assistance, fisheries assistance or both; the types you added can be renamed, given other units or deleted. Cash Assistance has no unit.' },
-      { find: { text: 'APPLICABLE UNITS', tag: 'th' }, label: 'Applicable Units', desc: 'The units offered for that type. The pencil opens a window to tick the units; at least one is needed.' },
+      { find: { text: 'DETAILS', tag: 'th' }, label: 'Details', desc: 'The units offered for that type (or how many types of training Training has). The pencil opens a window to change them; a type needs at least one unit.' },
     ] }),
   A({ id: 'admin-classification-settings', file: 'admin/classification-settings.png', url: '/classification-settings', title: 'Admin > Classification Settings', purpose: 'The parcel classifications.',
     callouts: [
