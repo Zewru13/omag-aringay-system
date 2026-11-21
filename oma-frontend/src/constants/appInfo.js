@@ -13,3 +13,8 @@ export const MAIN_DEVELOPER = {
 }
 export const CO_DEVELOPER = { name: 'Carl Jhoaquin B. Inong' }
 export const SCHOOL = 'Saint Louis College'
+
+// The office's own contact details, shown in Help > About This System.
+export const OFFICE_CONTACT = {
+  emails: ['agriculture2503aringay@gmail.com', 'lgu_aringay@yahoo.com'],
+}
