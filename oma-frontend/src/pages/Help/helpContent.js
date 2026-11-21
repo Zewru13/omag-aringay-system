@@ -179,7 +179,7 @@ export const SECTIONS = [
     items: [
       {
         q: 'What are the ways to give assistance?',
-        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Organizations gives one assistance to the members of the organizations you tick in a table of registered organizations. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days), date and description.',
+        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Organizations gives one assistance to the members of the organizations you tick in a table of registered organizations. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days and the type of training), date and description. The types of training come from the list in Assistance Settings, where you can add, rename or delete them.',
       },
       {
         q: 'How does a distribution go, and can I print it?',

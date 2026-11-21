@@ -39,7 +39,7 @@ eq(assistanceFormProblem(form({ quantity_amount: '' }), { today }), 'Enter the q
 eq(assistanceFormProblem(form({ quantity_amount: '0' }), { today }), 'Enter a quantity of more than 0.', 'quantity above 0')
 eq(assistanceFormProblem(form({ quantity_unit: '' }), { today }), 'Choose the unit of the quantity.', 'unit needed')
 eq(assistanceFormProblem(form({ assistance_type: 'Cash Assistance', cash_amount: '10', quantity_amount: '' }), { today }), '', 'cash has no quantity box')
-eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '2', quantity_amount: '' }), { today }), '', 'training has no quantity box')
+eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '2', training_type: 'Farm Business School', quantity_amount: '' }), { today }), '', 'training has no quantity box')
 eq(sourceAgencies(form({ source_agencies: ['DA', 'PCIC'], source_other_on: true, source_other: ' Brgy. Council ' })), ['DA', 'PCIC', 'Brgy. Council'], 'the typed agency joins the chosen ones')
 eq(sourceAgencies(form({ source_agencies: ['DA'], source_other_on: false, source_other: 'ignored' })), ['DA'], 'unticked Others is ignored')
 eq(sourceAgencies(form({ source_agencies: ['DA'], source_other_on: true, source_other: 'da' })), ['DA'], 'not repeated')
@@ -51,12 +51,12 @@ eq(assistanceFormProblem(form({ assistance_type: 'Cash Assistance', cash_amount:
 eq(assistanceFormProblem(form({ assistance_type: 'Cash Assistance', cash_amount: '250.50' }), { today }), '', 'cash with an amount')
 eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '' }), { today }), 'Enter a valid training duration (1-3 days).', 'training needs days')
 eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '4' }), { today }), 'Enter a valid training duration (1-3 days).', 'training 1 to 3 days')
-eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '2' }), { today }), '', 'training with days')
+eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_days: '2', training_type: 'Farm Business School' }), { today }), '', 'training with days and its type')
 
 // ── what is sent to an organization
 eq(organizationRequest(form({ source_agencies: ['DA'], description: 'x' }), { dryRun: true }), {
   assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, quantity: '2 sacks', description: 'x',
-  training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', dry_run: true,
+  training_duration_days: null, training_type: '', equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', dry_run: true,
 }, 'an organization preview')
 eq(organizationRequest(form(), { memberIds: [3, 4] }).member_ids, [3, 4], 'the chosen members go with the real request')
 assert.ok(!('dry_run' in organizationRequest(form(), { memberIds: [3] }))); n++
@@ -67,7 +67,7 @@ eq(organizationRequest(form({ assistance_type: 'Training', training_duration_day
 // ── what is sent for selected people
 eq(peopleRequest(form({ source_agencies: ['DA'], description: 'Wet season' }), { idsKey: 'farmer_ids', ids: [1, 2], descriptionKey: 'remarks' }), {
   assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, quantity: '2 sacks', remarks: 'Wet season',
-  training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', farmer_ids: [1, 2],
+  training_duration_days: null, training_type: '', equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', farmer_ids: [1, 2],
 }, 'farmers: the notes go as remarks')
 const fisher = peopleRequest(form({ assistance_type: 'Feed', description: 'Pond A' }), { idsKey: 'fisherfolk_ids', ids: [7], descriptionKey: 'description', dryRun: true, allowSeedFertilizer: false })
 eq([fisher.fisherfolk_ids, fisher.description, fisher.dry_run, fisher.seed_type, 'remarks' in fisher], [[7], 'Pond A', true, '', false], 'fisherfolk: description, never a seed type, a preview')

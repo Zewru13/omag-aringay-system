@@ -110,6 +110,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     ...EMPTY_OTHER_AGENCY,   // "Others": an agency that is not in the list, typed here
     year: record.year,
     training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
+    training_type: record.training_type || '',
     equipment_type: record.equipment_type || '',
     seed_type: record.seed_type || '',
     fertilizer_type: record.fertilizer_type || '',
@@ -511,6 +512,7 @@ export default function CropAssistancePage({ asTab = false }) {
             { label: 'Farmer', value: viewing.farmer_full_name },
             { label: 'Organization', value: viewing.attributed_organization_name },
             { label: 'Assistance Type', value: viewing.assistance_type },
+            ...(viewing.assistance_type === 'Training' ? [{ label: 'Type of Training', value: viewing.training_type }] : []),
             { label: 'Source Agency', value: (viewing.source_agencies || []).join(', ') },
             { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
             { label: 'Date Received', value: formatDate(viewing.date_given) },

@@ -2,7 +2,7 @@
 // and one person's history. Pure (no screen, no network); the print itself is printSpec() and the download is the same document laid out as a
 // PDF by the server (utils/specPdf.js), so the two always agree. Layouts come from utils/listReport.js, like the other list reports.
 import { buildDetailReportSpec, buildListReportSpec } from '../../utils/listReport.js'
-import { formatAssistanceQuantity } from './assistanceFieldHelpers.js'
+import { assistanceTypeText, formatAssistanceQuantity } from './assistanceFieldHelpers.js'
 import { agenciesText, distributionRowLabel } from './distributionsTableRows.js'
 
 const SECTORS = { crop: 'Crop (Farmers)', fisheries: 'Fisheries (Fisherfolk)' }
@@ -27,7 +27,7 @@ export function buildDistributionsReportSpec({ noun, distributions, filters = []
       rows: distributions.map((g) => [
         fmtDate(g.date_given),
         distributionRowLabel(organizationName ? { ...g, organization_name: null } : g, noun),
-        g.assistance_type,
+        assistanceTypeText(g),
         agenciesText(g.source_agencies),
         formatAssistanceQuantity(g.assistance_type, g.quantity),
         g.member_count ?? (g.members || []).length,
@@ -62,7 +62,7 @@ export function buildDistributionRecordSpec({ domain = 'crop', noun, distributio
       ['Sector', SECTORS[domain] || ''],
       ['Given to', givenTo],
       ['Date given', fmtDate(g.date_given)],
-      ['Assistance type', g.assistance_type],
+      ['Assistance type', assistanceTypeText(g)],
       ['Source agency', agenciesText(g.source_agencies)],
       ['Quantity', formatAssistanceQuantity(g.assistance_type, g.quantity)],
       ['Status', g.summary_status],

@@ -31,6 +31,7 @@ export function assistanceMinDate({ today, original = '' } = {}) {
 
 export const EMPTY_TYPE_CONDITIONAL_FIELDS = {
   training_duration_days: '',
+  training_type: '',   // Training: the kind of training given, from the Types of Training list in Assistance Settings
   equipment_type: '',
   seed_type: '',
   fertilizer_type: '',
@@ -44,12 +45,14 @@ export const TYPE_FIELDS = {
     Seeds:      { key: 'seed_type',       choices: 'seed',       label: 'Type of Seed',       where: 'Crop Settings > Crop Options' },
     Fertilizer: { key: 'fertilizer_type', choices: 'fertilizer', label: 'Type of Fertilizer', where: 'Crop Settings > Input Types (category Fertilizer)' },
     Equipment:  { key: 'equipment_type',  choices: 'equipment',  label: 'Type of Equipment',  where: 'Crop Settings > Equipment Types' },
+    Training:   { key: 'training_type',   choices: 'training',   label: 'Type of Training',   where: 'Assistance Settings' },
   },
   fisheries: {
     Equipment:           { key: 'equipment_type', choices: 'equipment',  label: 'Type of Equipment',          where: 'Fisheries Settings > Equipment Types' },
     Feed:                { key: 'item_type',      choices: 'feed',       label: 'Type of Feed',               where: 'Fisheries Settings > Feed Types' },
     'Fishing Gear':      { key: 'item_type',      choices: 'gear',       label: 'Type of Fishing Gear',       where: 'Fisheries Settings > Fishing Gear' },
     'Fingerlings/Seeds': { key: 'item_type',      choices: 'fingerling', label: 'Type of Fingerlings / Species', where: 'Fisheries Settings > Species' },
+    Training:            { key: 'training_type',  choices: 'training',   label: 'Type of Training',           where: 'Assistance Settings' },
   },
 }
 // The unit of the quantity in a distribution (2 sack): one fixed list for crop and fisheries assistance, no setting to maintain.
@@ -100,6 +103,9 @@ export function cashAmountError(type, quantity) {
   return Number.isFinite(amount) && amount > 0 && String(quantity ?? '').trim() !== '' ? '' : 'Enter the amount of cash given.'
 }
 
+// The assistance type as a table cell or report line: Training names its type of training ("Training — Farm Business School").
+export const assistanceTypeText = (group) => (group?.assistance_type === 'Training' && group.item ? `Training — ${group.item}` : group?.assistance_type)
+
 export const isTrainingType = (t) => t === 'Training'
 export const isEquipmentType = (t) => t === 'Equipment'
 export const isSeedsType = (t) => t === 'Seeds'
@@ -119,6 +125,7 @@ export function buildTypeConditionalPayload(assistanceType, form, { allowSeedFer
   const item = !allowSeedFertilizer && typeFieldFor('fisheries', assistanceType)?.key === 'item_type'
   return {
     training_duration_days: training && form.training_duration_days ? Number(form.training_duration_days) : null,
+    training_type: training ? (form.training_type || '').trim() : '',
     equipment_type: equipment ? (form.equipment_type || '').trim() : '',
     seed_type: seeds ? (form.seed_type || '').trim() : '',
     fertilizer_type: fertilizer ? (form.fertilizer_type || '').trim() : '',

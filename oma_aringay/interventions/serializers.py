@@ -84,7 +84,21 @@ class QuantityRuleMixin:
         return value
 
 
-class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, serializers.ModelSerializer):
+class TrainingTypeRuleMixin:
+    """Training names its type of training (a new record must; an older one can be edited without), and no other type keeps one. An import
+    (context `training_type_optional`) may leave it out."""
+    def validate(self, data):
+        data = super().validate(data)
+        kind = data.get('assistance_type', getattr(self.instance, 'assistance_type', ''))
+        if kind != 'Training':
+            if 'training_type' in data or self.instance is None:
+                data['training_type'] = ''
+        elif self.instance is None and not str(data.get('training_type') or '').strip() and not self.context.get('training_type_optional'):
+            raise serializers.ValidationError({'training_type': 'Choose the type of training.'})
+        return data
+
+
+class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, serializers.ModelSerializer):
     confirmation_photos = serializers.SerializerMethodField()
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
@@ -112,6 +126,7 @@ class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, se
             'year',
             'training_duration_days',
             'equipment_type',
+            'training_type',
             'seed_type',
             'fertilizer_type',
             'attributed_organization_name',
@@ -172,7 +187,7 @@ class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
         read_only_fields = BeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['farmer']
 
 
-class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, serializers.ModelSerializer):
+class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
@@ -202,6 +217,7 @@ class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRul
             'year',
             'training_duration_days',
             'equipment_type',
+            'training_type',
             'item_type',
             'attributed_fisherfolk_organization_name',
             'status',
@@ -236,7 +252,7 @@ class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCre
         read_only_fields = FisherfolkBeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['fisherfolk']
 
 
-class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleMixin, serializers.Serializer):
+class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, serializers.Serializer):
     """
     Per-organization bulk assistance distribution (associations app's
     Farmers/FisherfolkOrganizationDistributeAssistanceView). Validates only
@@ -269,6 +285,7 @@ class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleM
         required=False, allow_null=True, default=None, min_value=1, max_value=3,
     )
     equipment_type = serializers.CharField(required=False, allow_blank=True, default='')
+    training_type = serializers.CharField(required=False, allow_blank=True, default='', max_length=150)
     item_type = serializers.CharField(required=False, allow_blank=True, default='')
     seed_type = serializers.CharField(required=False, allow_blank=True, default='')
     fertilizer_type = serializers.CharField(required=False, allow_blank=True, default='')
