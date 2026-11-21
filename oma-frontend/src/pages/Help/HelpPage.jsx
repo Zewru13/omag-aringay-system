@@ -84,11 +84,6 @@ function HelpPage() {
             <p className="text-[12px] text-[#7A8E7A] mt-0.5">
               Aringay, La Union
             </p>
-            {OFFICE_CONTACT.emails.map((email, i) => (
-              <p key={email} className={`text-[12px] text-[#7A8E7A] break-all ${i === 0 ? "mt-2" : ""}`}>
-                <a href={`mailto:${email}`} className="hover:text-[#1B4D2E] hover:underline">{email}</a>
-              </p>
-            ))}
           </div>
           <div className="bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
             <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-2">
@@ -100,6 +95,16 @@ function HelpPage() {
             <p className="text-[12px] text-[#7A8E7A] mt-0.5">
               La Union, Region I
             </p>
+          </div>
+          <div className="bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
+            <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-2">
+              Office Contact
+            </p>
+            {OFFICE_CONTACT.emails.map((email) => (
+              <p key={email} className="text-[13px] font-medium text-[#1A2B1A] break-all">
+                <a href={`mailto:${email}`} className="hover:text-[#1B4D2E] hover:underline">{email}</a>
+              </p>
+            ))}
           </div>
           <div className="col-span-2 bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
             <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-3">
