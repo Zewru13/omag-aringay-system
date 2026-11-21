@@ -112,7 +112,7 @@ export default function MyOrgAssistancePage({ kind }) {
           />
           <section aria-labelledby="already-confirmed" className="pt-2">
             <h2 id="already-confirmed" className="mb-2 text-[15px] font-semibold text-text-primary">Already confirmed</h2>
-            {orgId && <ConfirmedForMembersPanel key={confirmVersion} type={org.type} organizationId={orgId} />}
+            {orgId && <ConfirmedForMembersPanel key={confirmVersion} type={org.type} organizationId={orgId} organizationName={orgRecord?.name || ''} />}
           </section>
         </div>
       )}

@@ -10,6 +10,9 @@ const fmt = (value) => (value
 
 export const beneficiaryName = (record) => record.farmer_full_name || record.fisherfolk_full_name || record.name || '—'
 
+// The assistance's name in a report: its type, and the item when there is one ("Seeds — Palay (Rice)"). Quantities are still formatted by type.
+const assistanceLabel = (r) => (r.item ? `${r.assistance_type || 'Assistance'} — ${r.item}` : r.assistance_type)
+
 const unique = (values) => [...new Set(values.filter(Boolean))]
 const byText = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })
 
@@ -33,7 +36,7 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
       title: 'Summary',
       rows: [
         ['Beneficiaries', String(records.length)],
-        ['Assistance', unique(records.map((r) => r.assistance_type)).sort(byText).join(', ')],
+        ['Assistance', unique(records.map(assistanceLabel)).sort(byText).join(', ')],
         ...(agencies.length ? [['Source agencies', agencies.join(', ')]] : []),
         ...(dateGiven ? [['Date given', dateGiven]] : []),
       ],
@@ -44,7 +47,7 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
         head: ['No.', 'Beneficiary', ...(orgColumn ? ['Organization'] : []), 'Barangay', 'Assistance', 'Quantity / Amount', 'Source Agency', 'Date Given'],
         rows: sorted.map((r, i) => [
           String(i + 1), beneficiaryName(r), ...(orgColumn ? [r.organization_name || '—'] : []),
-          r.farmer_barangay || r.fisherfolk_barangay || r.barangay || '—', r.assistance_type || '—',
+          r.farmer_barangay || r.fisherfolk_barangay || r.barangay || '—', assistanceLabel(r) || '—',
           String(formatAssistanceQuantity(r.assistance_type, r.quantity) || '—'), (r.source_agencies || []).join(', ') || '—', fmt(r.date_given) || '—',
         ]),
         boldRows: new Set(),

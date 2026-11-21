@@ -85,7 +85,7 @@ const STAFF_GUIDES = (focal) => [
       'In the Members section press Add Members: a table lists the registered farmers who are not members yet. Search, tick the people, choose each one\'s position (Member or an officer position; a position that is already taken is grayed out) and press Add selected. Import members attaches a spreadsheet instead. Everything is saved when you press Add Organization.',
       'Edit organization opens the same form, with a Members section to add more members later.',
       'View organization profile opens the organization page. At the top are the name, registration number, address, date registered and agency, with an icon that makes a new random password for the organization\'s login account (shown once). Below are the Registered Information and the Contact.',
-      'Members, Equipment Inventory, Confirmed for Members and Officers are four cards; View opens each in a window. Members lists the members (Add Member, Import Members, Set as main). Equipment Inventory lists the equipment (Add Equipment, Import Equipment, Remove). Confirmed for Members is the record of what the organization confirmed for its members.',
+      'Members, Equipment Inventory, Confirmed for Members and Officers are four cards; View opens each in a window. Members lists the members (Add Member, Import Members, Set as main). Equipment Inventory lists the equipment (Add Equipment, Import Equipment, Remove). Confirmed for Members is a table with a row for each assistance the organization confirmed: click a row to see who was confirmed, and use its menu to print or download the report of the whole assistance or of one member.',
       'In Officers, Assign Officer gives a position to a member: positions that are held are grayed out, and a member who already holds a position cannot be given another, so end that term first (End Term Early). Officer History lists the earlier officers.',
     ],
   },
@@ -426,7 +426,7 @@ const ORG_GUIDES = [
     steps: [
       'Open Assistance. To do lists assistance still waiting; History lists what was received or settled, with Print Report.',
       'Distribute assistance asks first: one member or all members. Then fill in the type, the source agency, the quantity and the date, review it and confirm. A future date schedules it.',
-      'Confirm for members lists members without a working account whose assistance waits. Tick them (or Select all), press the confirm button and add at least two proof photos. Already confirmed lists what you confirmed; it is final.',
+      'Confirm for members lists members without a working account whose assistance waits. Tick them (or Select all), press the confirm button and add at least two proof photos. Already confirmed is a table of the assistance you confirmed, one row each: click a row to see which members were confirmed and their photos, and print or download the report of the whole assistance or of one member. It is final.',
     ],
   },
   {

@@ -1206,7 +1206,7 @@ function OrganizationDetailPage({ own = false }) {
 
               {/* The history of what this organization confirmed for its members (final, no staff review) */}
               {section === "confirmed" && (
-                <ConfirmedForMembersPanel type={type} organizationId={organization.id} />
+                <ConfirmedForMembersPanel type={type} organizationId={organization.id} organizationName={organization.name} />
               )}
 
               {/* Officers tab (an organization's own page) */}

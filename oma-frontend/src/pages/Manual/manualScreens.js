@@ -4026,7 +4026,7 @@ export default {
    {
     "n": 2,
     "label": "Already confirmed",
-    "desc": "What you confirmed for members, with the photos. These are final."
+    "desc": "A table of what you confirmed, one row for each assistance. Click a row to see who was confirmed and their photos; Print Report and Download Report make the report of the whole assistance or of one member. These are final."
    }
   ]
  },

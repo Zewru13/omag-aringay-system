@@ -39,7 +39,7 @@ from .models import (
     FisherfolkBeneficiaryRecord,
 )
 from .recent import confirmed_repeat, recent_assistance_warning
-from .distributions import build_distributions, filter_records, remove_records
+from .distributions import build_distributions, filter_records, group_id, record_item, remove_records
 from .type_units import STARTING_UNITS, UNITS, in_catalog_order
 from .serializers import (
     AccountlessConfirmableSerializer,
@@ -853,6 +853,38 @@ class OrgConfirmedForMembersView(generics.ListAPIView):
         return model.objects.filter(submitted_by_organization_id=org_id, status=model.Status.APPROVED).select_related(
             'beneficiary_record', person, 'submitted_by', 'reviewed_by',
         ).prefetch_related('photos').order_by('-reviewed_at', '-id')
+
+
+class OrgConfirmedAssistancesView(OrgConfirmedForMembersView):
+    """The same history as OrgConfirmedForMembersView, but one row per ASSISTANCE instead of one per member: the records of one distribution
+    (or of one old group of identical records) are a row with the members of it that this organization confirmed, newest confirmation
+    first, ten rows a page. Same permissions as the per-member history."""
+
+    def list(self, request, *args, **kwargs):
+        person_attr = self._domain()[3].split('__')[1]
+        groups = {}
+        for req in self.get_queryset():                     # newest confirmation first
+            rec = req.beneficiary_record
+            person = getattr(rec, person_attr)
+            gid = group_id(rec)
+            group = groups.get(gid)
+            confirmed_at = req.reviewed_at or req.submitted_at
+            if group is None:
+                group = groups[gid] = {
+                    'id': gid, 'assistance_type': rec.assistance_type, 'item': record_item(rec), 'quantity': rec.quantity,
+                    'source_agencies': list(rec.source_agencies or []), 'date_given': rec.date_given, 'confirmed_at': confirmed_at, 'members': [],
+                }
+            group['members'].append({
+                'request_id': req.id, 'record_id': rec.id, 'name': person.full_name, 'rsbsa': person.rsbsa_number, 'barangay': person.barangay,
+                'confirmed_at': confirmed_at, 'confirmed_by': getattr(req.submitted_by, 'full_name', '') or '',
+                'photo_urls': [request.build_absolute_uri(p.image.url) for p in req.photos.all()],
+            })
+        rows = sorted(groups.values(), key=lambda g: g['confirmed_at'], reverse=True)
+        page = self.paginate_queryset(rows)
+        for group in page:
+            group['members'].sort(key=lambda m: m['name'].lower())
+            group['member_count'] = len(group['members'])
+        return self.get_paginated_response(page)
 
 
 class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
