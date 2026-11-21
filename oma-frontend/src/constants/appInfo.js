@@ -3,3 +3,13 @@
 // core.constants.SYSTEM_TITLE for PDFs and emails.
 export const SYSTEM_TITLE =
   'INTEGRATED AGRICULTURAL MONITORING MANAGEMENT SYSTEM FOR THE OFFICE OF MUNICIPAL AGRICULTURIST OF AGRINGAY, LA UNION'
+
+// Who built the system, shown in Help > About This System. The main developer is the person the office contacts about
+// extending or changing the system.
+export const MAIN_DEVELOPER = {
+  name: 'John Michael E. Marzan',
+  email: 'marzanmr70@gmail.com',
+  phone: '09455979837',
+}
+export const CO_DEVELOPER = { name: 'Carl Jhoaquin B. Inong' }
+export const SCHOOL = 'Saint Louis College'

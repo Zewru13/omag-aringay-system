@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Info, BookOpen, HelpCircle, ChevronDown } from "lucide-react";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
-import { SYSTEM_TITLE } from "../../constants/appInfo.js";
+import { SYSTEM_TITLE, MAIN_DEVELOPER, CO_DEVELOPER, SCHOOL } from "../../constants/appInfo.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { ROLE_LABELS, helpFor } from "./helpContent.js";
 
@@ -91,16 +91,27 @@ function HelpPage() {
               La Union, Region I
             </p>
           </div>
-          <div className="bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
-            <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-2">
+          <div className="col-span-2 bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
+            <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-3">
               System Developed By
             </p>
-            <p className="text-[13px] font-medium text-[#1A2B1A]">
-              John Michael E. Marzan And Jhoaquin Carl B. Inong
-            </p>
-            <p className="text-[12px] text-[#7A8E7A] mt-0.5">
-              Saint Louis College
-            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[11px] font-semibold text-[#1B4D2E] mb-1">Main Developer</p>
+                <p className="text-[13px] font-medium text-[#1A2B1A]">{MAIN_DEVELOPER.name}</p>
+                <p className="text-[12px] text-[#7A8E7A] mt-0.5 break-all">
+                  <a href={`mailto:${MAIN_DEVELOPER.email}`} className="hover:text-[#1B4D2E] hover:underline">{MAIN_DEVELOPER.email}</a>
+                </p>
+                <p className="text-[12px] text-[#7A8E7A]">
+                  <a href={`tel:${MAIN_DEVELOPER.phone}`} className="hover:text-[#1B4D2E] hover:underline">{MAIN_DEVELOPER.phone}</a>
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-[#1B4D2E] mb-1">Co-Developer</p>
+                <p className="text-[13px] font-medium text-[#1A2B1A]">{CO_DEVELOPER.name}</p>
+              </div>
+            </div>
+            <p className="text-[12px] text-[#7A8E7A] mt-3">{SCHOOL}</p>
           </div>
         </div>
       </div>
