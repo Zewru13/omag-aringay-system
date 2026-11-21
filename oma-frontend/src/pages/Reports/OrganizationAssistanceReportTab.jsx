@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { typesWithCustom } from '../AssistanceManagement/assistanceFieldHelpers.js'
+import useAssistanceChoices from '../AssistanceManagement/useAssistanceChoices.js'
 import DocumentReport from './DocumentReport.jsx'
 import OrgAssistanceFilterFields from './OrgAssistanceFilterFields.jsx'
 import { labelCls } from './ReportParts.jsx'
@@ -21,6 +23,8 @@ export default function OrganizationAssistanceReportTab() {
   const [agencies, setAgencies] = useState([])
   const set = (k, v) => { setFilters(f => ({ ...f, [k]: v })); setPicked(null) }
   const current = orgKind(kind)
+  const cropChoices = useAssistanceChoices('crop')            // the types added in Assistance Settings join the built-in ones
+  const fisheriesChoices = useAssistanceChoices('fisheries')
 
   useEffect(() => {
     let alive = true
@@ -59,7 +63,7 @@ export default function OrganizationAssistanceReportTab() {
             activeCount={activeOrgFilterCount(filters)}
             className=""
           >
-            <OrgAssistanceFilterFields filters={filters} set={set} types={current.types} agencies={agencies} />
+            <OrgAssistanceFilterFields filters={filters} set={set} types={typesWithCustom(current.types, (current.id.includes('fisherfolk') ? fisheriesChoices : cropChoices)?.types)} agencies={agencies} />
           </FilterPanel>
         </div>
       )}

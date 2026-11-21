@@ -29,6 +29,7 @@ from . import org_confirmation
 from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
     AssistanceAgency,
+    AssistanceCustomType,
     AssistanceOption,
     AssistanceTypeUnits,
     BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
@@ -41,9 +42,12 @@ from .models import (
 from .recent import confirmed_repeat, recent_assistance_warning
 from .distributions import build_distributions, filter_records, group_id, record_item, remove_records
 from .type_units import STARTING_UNITS, UNITS, in_catalog_order
+from .types import custom_names, domain_of, valid_type_names
 from .serializers import (
     AccountlessConfirmableSerializer,
     AssistanceAgencySerializer,
+    AssistanceCustomTypeCreateSerializer,
+    AssistanceCustomTypeSerializer,
     AssistanceOptionSerializer,
     BeneficiaryConfirmationRequestSerializer,
     BeneficiaryRecordCreateSerializer,
@@ -1138,6 +1142,7 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
         return Response({'error': f'Invalid file: {exc}'}, status=400)
 
     valid_types = {label.upper(): value for value, label in record_model.AssistanceType.choices}
+    valid_types.update({name.upper(): name for name in custom_names(domain_of(record_model))})
 
     errors = []
     rows_out = []
@@ -1173,7 +1178,7 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
 
         assistance_type = valid_types.get(type_raw.upper())
         if not assistance_type:
-            valid_list = ', '.join(v for v, _ in record_model.AssistanceType.choices)
+            valid_list = ', '.join(valid_type_names(domain_of(record_model)))
             invalid(row_num, f'Invalid Assistance Type "{type_raw}". Use one of: {valid_list}.')
             continue
 
@@ -1232,7 +1237,7 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             text_field: item['text_value'],
         }
         # An imported file carries assistance that already happened, so the "today or later" rule of the forms does not apply.
-        serializer = serializer_class(data=payload, context={'allow_past_dates': True})
+        serializer = serializer_class(data=payload, context={'allow_past_dates': True, 'training_type_optional': True})
         if not serializer.is_valid():
             detail = '; '.join(f'{field}: {"; ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
             invalid(row_num, detail or 'Invalid row.')
@@ -1341,7 +1346,7 @@ class AssistanceAgencyListCreateView(generics.ListCreateAPIView):
 
 
 class AssistanceOptionListCreateView(generics.ListCreateAPIView):
-    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear). Everyone signed in reads
+    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear|training). Everyone signed in reads
     them; only staff change them."""
     serializer_class = AssistanceOptionSerializer
     pagination_class = None
@@ -1390,6 +1395,8 @@ class AssistanceChoicesView(APIView):
                 'fertilizer': self._sorted(CropInputType.objects.filter(is_active=True, input_type='Fertilizer').values_list('name', flat=True)),
                 'equipment': self._options('crop', 'equipment'),
                 'unit': self._options('crop', 'unit'),
+                'training': self._options('crop', 'training'),
+                'types': custom_names('crop'),
             })
         if domain == 'fisheries':
             return Response({
@@ -1398,8 +1405,57 @@ class AssistanceChoicesView(APIView):
                 'gear': self._options('fisheries', 'gear'),
                 'equipment': self._options('fisheries', 'equipment'),
                 'unit': self._options('fisheries', 'unit'),
+                'training': self._options('fisheries', 'training'),
+                'types': custom_names('fisheries'),
             })
         raise ValidationError({'domain': ['Use crop or fisheries.']})
+
+
+class AssistanceCustomTypeListCreateView(APIView):
+    """The assistance types added in Assistance Settings (?domain=crop|fisheries narrows the list). Everyone signed in reads; staff add.
+    POST {name, domains: ['crop', 'fisheries'], units?: [...]} adds the name for every chosen domain, or for none (all or nothing)."""
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get(self, request):
+        rows = AssistanceCustomType.objects.all()
+        if request.query_params.get('domain'):
+            rows = rows.filter(domain=request.query_params['domain'])
+        return Response(AssistanceCustomTypeSerializer(rows.order_by('domain', 'name'), many=True).data)
+
+    def post(self, request):
+        form = AssistanceCustomTypeCreateSerializer(data=request.data)
+        form.is_valid(raise_exception=True)
+        data = form.validated_data
+        with transaction.atomic():
+            rows = [AssistanceCustomType.objects.create(domain=domain, name=data['name']) for domain in data['domains']]
+            if data.get('units'):
+                for row in rows:
+                    AssistanceTypeUnits.objects.update_or_create(
+                        domain=row.domain, assistance_type=row.name, defaults={'units': in_catalog_order(data['units'])})
+        return Response(AssistanceCustomTypeSerializer(rows, many=True).data, status=drf_status.HTTP_201_CREATED)
+
+
+class AssistanceCustomTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Rename or delete one added assistance type. Assistance already recorded keeps the name it was saved with."""
+    serializer_class = AssistanceCustomTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = AssistanceCustomType.objects.all()
+    http_method_names = ['get', 'patch', 'delete']
+
+    def perform_update(self, serializer):
+        old = serializer.instance.name
+        with transaction.atomic():
+            row = serializer.save()
+            AssistanceTypeUnits.objects.filter(domain=row.domain, assistance_type=old).update(assistance_type=row.name)
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            AssistanceTypeUnits.objects.filter(domain=instance.domain, assistance_type=instance.name).delete()
+            instance.delete()
 
 
 class AssistanceTypeUnitsView(APIView):
@@ -1421,9 +1477,10 @@ class AssistanceTypeUnitsView(APIView):
     @staticmethod
     def _rows(domain):
         saved = {r.assistance_type: r.units for r in AssistanceTypeUnits.objects.filter(domain=domain)}
+        starting = {**STARTING_UNITS[domain], **{name: list(UNITS) for name in custom_names(domain)}}   # an added type starts with every unit
         return [
             {'domain': domain, 'assistance_type': name, 'units': in_catalog_order(saved.get(name, start)), 'is_default': name not in saved}
-            for name, start in STARTING_UNITS[domain].items()
+            for name, start in starting.items()
         ]
 
     def get(self, request):
@@ -1432,7 +1489,7 @@ class AssistanceTypeUnitsView(APIView):
     def put(self, request):
         domain = self._domain(request.data.get('domain'))
         name = request.data.get('assistance_type')
-        if name not in STARTING_UNITS[domain]:
+        if name not in STARTING_UNITS[domain] and name not in custom_names(domain):
             raise ValidationError({'assistance_type': ['This type has no unit box in this domain.']})
         units = request.data.get('units')
         if not isinstance(units, list) or not units:

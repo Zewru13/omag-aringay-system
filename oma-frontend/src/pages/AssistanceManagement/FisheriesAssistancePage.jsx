@@ -113,6 +113,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     description: record.description || '',
     remarks: record.remarks || '',
     training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
+    training_type: record.training_type || '',
     equipment_type: record.equipment_type || '',
     item_type: record.item_type || '',
   }
@@ -552,6 +553,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
             { label: 'Assistance Type', value: viewing.assistance_type },
             { label: 'Item Type', value: viewing.item_type || viewing.equipment_type },
+            ...(viewing.assistance_type === 'Training' ? [{ label: 'Type of Training', value: viewing.training_type }] : []),
             { label: 'Source Agency', value: (viewing.source_agencies || []).join(', ') },
             { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
             { label: 'Date Received', value: formatDate(viewing.date_given) },

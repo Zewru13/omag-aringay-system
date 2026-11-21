@@ -179,7 +179,7 @@ export const SECTIONS = [
     items: [
       {
         q: 'What are the ways to give assistance?',
-        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Organizations gives one assistance to the members of the organizations you tick in a table of registered organizations. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days), date and description.',
+        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Organizations gives one assistance to the members of the organizations you tick in a table of registered organizations. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days and the type of training), date and description. The types of training come from the list in Assistance Settings, where you can add, rename or delete them.',
       },
       {
         q: 'How does a distribution go, and can I print it?',
@@ -188,6 +188,14 @@ export const SECTIONS = [
       {
         q: 'How do I read the assistance table?',
         a: 'Each row is one distribution, named after who it was given to: the organization, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Clicking a row lists the members who benefited under it, each with a barangay and a status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
+      },
+      {
+        q: 'How do I add a new type of assistance?',
+        a: 'An Admin opens Admin > Assistance Settings and presses Add Assistance above the Assistance Types table. Type the name, choose whether it applies to crop assistance, fisheries assistance or both, tick the units its quantity box should offer and press Add Assistance. The new type then appears in the Assistance Type box of every assistance form it applies to, before Other. Renaming or deleting it later never changes assistance that was already recorded.',
+      },
+      {
+        q: 'How do I add a type of training?',
+        a: 'In Assistance Settings, press the edit button of the Training row of the Assistance Types table (there is one for crop and one for fisheries). The window lists the types of training; add, rename or delete them there. The Type of Training box appears when Training is chosen in an assistance form.',
       },
       {
         q: 'Why was a member blocked?',

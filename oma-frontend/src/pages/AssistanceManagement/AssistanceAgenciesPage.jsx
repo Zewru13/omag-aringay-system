@@ -139,7 +139,7 @@ export default function AssistanceAgenciesPage() {
   }
 
   return (
-    <PageLayout title="Assistance Settings" subtitle="The source agencies and the units offered when assistance is recorded or distributed.">
+    <PageLayout title="Assistance Settings" subtitle="The source agencies and the types of assistance (with their units and types of training) offered when assistance is recorded or distributed.">
       <div className="space-y-4">
         {error && <ErrorMessage message={error} />}
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">

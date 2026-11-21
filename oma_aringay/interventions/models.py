@@ -25,7 +25,7 @@ class AssistanceOption(models.Model):
     """A name in one of the lists behind the assistance forms' dropdowns, managed in Crop Settings / Fisheries Settings: the types of
     equipment and the units of both domains, and fishing gear for fisheries. Records keep the name they were saved with, so renaming or
     deleting one here never changes past assistance."""
-    DOMAIN_KINDS = {'crop': ('equipment', 'unit'), 'fisheries': ('equipment', 'unit', 'gear')}
+    DOMAIN_KINDS = {'crop': ('equipment', 'unit', 'training'), 'fisheries': ('equipment', 'unit', 'gear', 'training')}
 
     domain = models.CharField(max_length=10)
     kind = models.CharField(max_length=12)
@@ -37,6 +37,21 @@ class AssistanceOption(models.Model):
 
     def __str__(self):
         return f'{self.domain} {self.kind}: {self.name}'
+
+
+class AssistanceCustomType(models.Model):
+    """A type of assistance an Admin or Focal Person added in Assistance Settings > Add Assistance, for crop assistance, fisheries assistance
+    or both (one row per domain). It is offered next to the built-in types, takes a quantity with units, and is valid wherever assistance is
+    recorded. Records keep the name they were saved with, so renaming or deleting one never changes past assistance."""
+    domain = models.CharField(max_length=10)
+    name = models.CharField(max_length=30)   # an assistance record's own type column holds 30 characters
+
+    class Meta:
+        ordering = ['name']
+        constraints = [models.UniqueConstraint(fields=['domain', 'name'], name='unique_assistance_custom_type')]
+
+    def __str__(self):
+        return f'{self.domain}: {self.name}'
 
 
 class AssistanceTypeUnits(models.Model):
@@ -193,6 +208,8 @@ class BeneficiaryRecord(models.Model):
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(3)],
     )
     equipment_type = models.CharField(max_length=150, blank=True)
+    # Training only: the kind of training given, from the Types of Training list in Assistance Settings. Records keep the name they were saved with.
+    training_type = models.CharField(max_length=150, blank=True)
     # Farmer-only: Seeds/Fertilizer aren't Fisherfolk AssistanceType values
     # (fisherfolk's closest analog, Fingerlings/Seeds, is one combined type,
     # not split) — no FisherfolkBeneficiaryRecord equivalent by design.
@@ -339,6 +356,8 @@ class FisherfolkBeneficiaryRecord(models.Model):
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(3)],
     )
     equipment_type = models.CharField(max_length=150, blank=True)
+    # Training only: the kind of training given, from the Types of Training list in Assistance Settings. Records keep the name they were saved with.
+    training_type = models.CharField(max_length=150, blank=True)
     # The kind of thing given for Feed, Fishing Gear and Fingerlings/Seeds (a feed type, a gear type, a species), picked from the
     # lists in Fisheries Settings.
     item_type = models.CharField(max_length=150, blank=True)

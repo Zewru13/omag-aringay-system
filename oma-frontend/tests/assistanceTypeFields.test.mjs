@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  typeFieldFor, choicesWith, ASSISTANCE_UNITS, unitsForType, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS,
+  typeFieldFor, choicesWith, ASSISTANCE_UNITS, unitsForType, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS, assistanceTypeText, typesWithCustom,
 } = await import(new URL('../src/pages/AssistanceManagement/assistanceFieldHelpers.js', import.meta.url).href)
 const { makeAssistanceForm, quantityText, assistanceFormProblem, withAssistanceType, organizationRequest, peopleRequest } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
@@ -60,14 +60,40 @@ eq(withAssistanceType(form(), 'Fertilizer').quantity_unit, '', 'another type sta
 
 // ── what is sent
 eq(buildTypeConditionalPayload('Seeds', { ...EMPTY_TYPE_CONDITIONAL_FIELDS, seed_type: ' Palay (Rice) ', equipment_type: 'stale' }),
-  { training_duration_days: null, equipment_type: '', seed_type: 'Palay (Rice)', fertilizer_type: '', item_type: '' }, 'crop seeds')
+  { training_duration_days: null, training_type: '', equipment_type: '', seed_type: 'Palay (Rice)', fertilizer_type: '', item_type: '' }, 'crop seeds')
 eq(buildTypeConditionalPayload('Feed', { ...EMPTY_TYPE_CONDITIONAL_FIELDS, item_type: ' Starter Feed ', seed_type: 'stale' }, { allowSeedFertilizer: false }),
-  { training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', item_type: 'Starter Feed' }, 'fisheries feed')
+  { training_duration_days: null, training_type: '', equipment_type: '', seed_type: '', fertilizer_type: '', item_type: 'Starter Feed' }, 'fisheries feed')
 eq(buildTypeConditionalPayload('Equipment', { ...EMPTY_TYPE_CONDITIONAL_FIELDS, equipment_type: 'Aerator', item_type: 'stale' }, { allowSeedFertilizer: false }).item_type, '', 'equipment sends no type of item')
 eq(buildTypeConditionalPayload('Cash Assistance', { ...EMPTY_TYPE_CONDITIONAL_FIELDS, item_type: 'stale' }, { allowSeedFertilizer: false }).item_type, '', 'a stale item type is never sent')
 eq(organizationRequest(form({ seed_type: 'Corn (Mais)' })).seed_type, 'Corn (Mais)', 'an organization request carries the seed type')
 eq(organizationRequest(form({ assistance_type: 'Feed', quantity_unit: 'kg', item_type: 'Starter Feed' }), { allowSeedFertilizer: false }).item_type, 'Starter Feed', 'and the fisheries item type')
 eq(peopleRequest(form({ assistance_type: 'Fishing Gear', item_type: 'Gill Net' }), { idsKey: 'fisherfolk_ids', ids: [1], descriptionKey: 'description', allowSeedFertilizer: false }).item_type, 'Gill Net', 'people request item type')
 eq(peopleRequest(form(), { idsKey: 'farmer_ids', ids: [1] }).quantity, '2 sack', 'the quantity as a number and unit')
+
+// ── the type of training: its own dropdown for Training, in both domains, kept only on a Training record
+for (const domain of ['crop', 'fisheries']) {
+  eq(typeFieldFor(domain, 'Training'), { key: 'training_type', choices: 'training', label: 'Type of Training', where: 'Assistance Settings' }, `${domain}: Training asks for its type of training`)
+}
+eq(EMPTY_TYPE_CONDITIONAL_FIELDS.training_type, '', 'the blank form has no type of training')
+eq(buildTypeConditionalPayload('Training', { training_duration_days: '2', training_type: '  Rice Production Training ' }).training_type, 'Rice Production Training', 'a Training request carries it, trimmed')
+eq(buildTypeConditionalPayload('Seeds', { training_type: 'left over', seed_type: 'Palay (Rice)' }).training_type, '', 'no other type keeps one')
+eq(withAssistanceType(form({ assistance_type: 'Training', training_type: 'Rice Production Training' }), 'Seeds').training_type, '', 'changing the type clears it')
+eq(assistanceFormProblem(form({ assistance_type: 'Training', quantity_amount: '', quantity_unit: '', training_duration_days: '2' }), { today }), 'Choose the type of training.', 'a new Training distribution must name it')
+eq(assistanceFormProblem(form({ assistance_type: 'Training', quantity_amount: '', quantity_unit: '', training_duration_days: '2', training_type: 'Farm Business School' }), { today }), '', 'and is complete once it does')
+eq(organizationRequest(form({ assistance_type: 'Training', training_duration_days: '1', training_type: 'Farm Business School' })).training_type, 'Farm Business School', 'an organization request carries it')
+eq(peopleRequest(form({ assistance_type: 'Training', training_duration_days: '1', training_type: 'Tilapia Production' }), { idsKey: 'fisherfolk_ids', ids: [1], descriptionKey: 'description', allowSeedFertilizer: false }).training_type, 'Tilapia Production', 'and so does the request for selected people')
+// the assistance as a table cell or a report line names the type of training
+eq(assistanceTypeText({ assistance_type: 'Training', item: 'Farm Business School' }), 'Training — Farm Business School', 'Training shows its type of training')
+eq(assistanceTypeText({ assistance_type: 'Seeds', item: 'Palay (Rice)' }), 'Seeds', 'other types keep their plain name')
+eq(assistanceTypeText({ assistance_type: 'Training', item: '' }), 'Training', 'an older Training with none')
+
+// ── assistance types added in Assistance Settings (Add Assistance) are offered next to the built-in ones, before Other
+const built = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
+eq(typesWithCustom(built, ['Pesticide', 'Soil Test Kit']), ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Pesticide', 'Soil Test Kit', 'Other'], 'added types go before Other')
+eq(typesWithCustom(built, []), built, 'nothing added: the same list')
+eq(typesWithCustom(built, undefined), built, 'the list not loaded yet: the same list')
+eq(typesWithCustom(built, ['Seeds', 'Pesticide']), ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Pesticide', 'Other'], 'a name already in the list is not repeated')
+eq(typesWithCustom(['Seeds', 'Feed'], ['Net Kit']), ['Seeds', 'Feed', 'Net Kit'], 'a list with no Other takes them at the end')
+eq(built.length, 6, 'the built-in list itself is never changed')
 
 console.log(`ok - ${n} assertions`)
