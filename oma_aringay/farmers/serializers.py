@@ -1,5 +1,6 @@
 from datetime import date
 from core.idnumbers import by_id_key, id_key
+from core.uniqueness import UniqueNameMixin
 from core.validators import validate_birthdate_range, validate_contact_number
 
 from rest_framework import serializers
@@ -122,22 +123,11 @@ class FarmParcelDirectorySerializer(serializers.ModelSerializer):
         return ' '.join(part for part in (f.first_name, f.last_name) if part)
 
 
-class ParcelClassificationSerializer(serializers.ModelSerializer):
+class ParcelClassificationSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = ParcelClassification
         fields = ['id', 'name']
         read_only_fields = ['id']
-
-    def validate_name(self, value):
-        name = ' '.join((value or '').split())
-        if not name:
-            raise serializers.ValidationError('Enter the classification name.')
-        clash = ParcelClassification.objects.filter(name__iexact=name)
-        if self.instance is not None:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            raise serializers.ValidationError('That classification is already in the list.')
-        return name
 
 
 class FarmParcelSerializer(serializers.ModelSerializer):

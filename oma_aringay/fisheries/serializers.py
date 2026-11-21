@@ -11,6 +11,7 @@ from accounts.utils import citizen_account_info
 from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
 from core.idnumbers import by_id_key, id_key
+from core.uniqueness import UniqueNameMixin
 from core.seasons import season_for_date
 from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image, validate_contact_number, validate_birthdate_range
 from monitoring.models import AquacultureProductionUnit
@@ -403,32 +404,21 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
 
 # ─── Species ──────────────────────────────────────────────────────────────────
 
-class FingerlingSourceSerializer(serializers.ModelSerializer):
+class FingerlingSourceSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model  = FingerlingSource
         fields = ['id', 'name', 'date_created']
         read_only_fields = ['id', 'date_created']
 
-    def validate_name(self, value):
-        name = ' '.join((value or '').split())
-        if not name:
-            raise serializers.ValidationError('Enter the fingerling source name.')
-        taken = FingerlingSource.objects.filter(name__iexact=name)
-        if self.instance is not None:
-            taken = taken.exclude(pk=self.instance.pk)
-        if taken.exists():
-            raise serializers.ValidationError('That fingerling source already exists.')
-        return name
 
-
-class SpeciesCategorySerializer(serializers.ModelSerializer):
+class SpeciesCategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model  = SpeciesCategory
         fields = ['id', 'name', 'date_created']
         read_only_fields = ['id', 'date_created']
 
 
-class FisheriesActivityTypeSerializer(serializers.ModelSerializer):
+class FisheriesActivityTypeSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = FisheriesActivityType
         fields = ['id', 'name']
@@ -1048,14 +1038,14 @@ class PondSerializer(PcicPhotoListMixin, serializers.ModelSerializer):
         return annotated if annotated is not None else obj.stocking_records.count()
 
 
-class FeedTypeSerializer(serializers.ModelSerializer):
+class FeedTypeSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = FeedType
         fields = ['id', 'name', 'description', 'species_options', 'growth_stage']
         read_only_fields = ['id']
 
 
-class DiseaseTypeSerializer(serializers.ModelSerializer):
+class DiseaseTypeSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = DiseaseType
         fields = ['id', 'name', 'description', 'species_options']

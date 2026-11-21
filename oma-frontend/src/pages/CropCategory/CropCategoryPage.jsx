@@ -110,7 +110,7 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
       draft.clear()
       onSaved(); onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to save.', 'error')
+      showToast(err?.response?.data?.name?.[0] || err?.response?.data?.detail || 'Failed to save.', 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -213,7 +213,7 @@ export default function CropCategoryPage({ asTab = false }) {
       addSubcat.close()
       await fetchAll()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to save.', 'error')
+      showToast(err?.response?.data?.name?.[0] || err?.response?.data?.detail || 'Failed to save.', 'error')
     } finally {
       addSubcat.setIsSaving(false)
     }
