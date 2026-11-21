@@ -1145,7 +1145,7 @@ function OrganizationDetailPage({ own = false }) {
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Acquired</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Remarks</th>
                             {canManage && (
-                              <th className="px-4 py-[11px]" />
+                              <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Action</th>
                             )}
                           </tr>
                         </thead>
@@ -1310,7 +1310,7 @@ function OrganizationDetailPage({ own = false }) {
                           <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term Start</th>
                           <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term End</th>
                           {isStaff && (
-                            <th className="px-4 py-[11px]" />
+                            <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Action</th>
                           )}
                         </tr>
                       </thead>
@@ -1395,12 +1395,10 @@ function OrganizationDetailPage({ own = false }) {
                 />
 
                 <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-                  <InfoCard icon={Landmark} title="Registered Information" accent={themeColor} soft={themeBg}>
+                  {/* The banner above already shows the registration number, agency, date registered and address, so they are not repeated here. */}
+                  <InfoCard icon={Landmark} title="Organization Details" accent={themeColor} soft={themeBg}>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                      <FieldItem label="Registration Number" value={organization.registration_number} />
-                      <FieldItem label="Registration Agency" value={agencyLabel(organization.registration_agency)} />
                       <FieldItem icon={CalendarDays} label="Date Organized" value={formatDate(organization.date_organized)} />
-                      <FieldItem icon={CalendarDays} label="Date Registered" value={formatDate(organization.date_registered)} />
                       <FieldItem icon={CalendarDays} label="Added to System" value={formatDate(organization.date_created)} />
                       {/* Farmers Organizations only, and no create/edit/import path fills them: shown only when a value exists. */}
                       {organization.dole_registration_number && <FieldItem label="DOLE Registration No." value={organization.dole_registration_number} />}
@@ -1413,8 +1411,6 @@ function OrganizationDetailPage({ own = false }) {
                       <FieldItem icon={UserRound} label="Contact Person" value={organization.contact_person} />
                       <FieldItem icon={Phone} label="Contact Number" value={organization.contact_number} />
                       <FieldItem icon={Mail} label="Email" value={organization.email_address} />
-                      <FieldItem icon={MapPin} label="Barangay" value={organization.barangay} />
-                      <FieldItem icon={MapPin} label="Street Address" value={organization.street_address} />
                     </div>
                   </InfoCard>
                 </div>

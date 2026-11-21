@@ -461,12 +461,10 @@ function FarmerDetailPage() {
                   </div>
                 </InfoCard>
 
-                <InfoCard icon={MapPin} title="Contact & Address">
+                {/* The banner above already shows the barangay, municipality and province, so only the contact number is here. */}
+                <InfoCard icon={Phone} title="Contact">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
                     <FieldItem icon={Phone} label="Contact Number" value={farmer.contact_number} />
-                    <FieldItem icon={MapPin} label="Barangay" value={farmer.barangay} />
-                    <FieldItem icon={MapPin} label="Municipality" value={farmer.municipality} />
-                    <FieldItem icon={MapPin} label="Province" value={farmer.province} />
                   </div>
                 </InfoCard>
               </div>

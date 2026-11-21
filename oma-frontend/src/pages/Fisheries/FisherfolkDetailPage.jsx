@@ -346,21 +346,18 @@ function FisherfolkDetailPage() {
                   </div>
                 </InfoCard>
 
-                <InfoCard icon={MapPin} title="Contact & Address" accent="#155E82" soft="#EAF1F5">
+                {/* The banner above already shows the barangay, municipality, RSBSA number and date registered, so they are not repeated in these cards. */}
+                <InfoCard icon={Phone} title="Contact" accent="#155E82" soft="#EAF1F5">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
                     <FieldItem icon={Phone} label="Contact Number" value={fisherfolk.contact_number} />
-                    <FieldItem icon={MapPin} label="Barangay" value={fisherfolk.barangay} />
-                    <FieldItem icon={MapPin} label="Municipality" value={fisherfolk.municipality} />
                   </div>
                 </InfoCard>
 
-                <InfoCard icon={IdCard} title="Registration & IDs" accent="#155E82" soft="#EAF1F5">
+                <InfoCard icon={IdCard} title="Other IDs" accent="#155E82" soft="#EAF1F5">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-3">
-                    <FieldItem icon={IdCard} label="RSBSA Number" value={fisherfolk.rsbsa_number} />
                     <FieldItem icon={IdCard} label="Fish Registration No. (Fish-R)" value={fisherfolk.fish_registration_number} />
                     <FieldItem icon={IdCard} label="Boat Registration No. (Boat-R)" value={fisherfolk.boat_registration_number} />
                     <FieldItem icon={IdCard} label="PhilSys / National ID No." value={fisherfolk.philsys_number} />
-                    <FieldItem icon={CalendarDays} label="Date Registered" value={formatDate(fisherfolk.date_registered)} />
                   </div>
                 </InfoCard>
               </div>
