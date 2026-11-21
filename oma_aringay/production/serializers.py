@@ -4,6 +4,7 @@ from core.pcic import PcicPhotoListMixin, photo_list
 import math
 from datetime import date, timedelta
 
+from core.uniqueness import UniqueNameMixin
 from core.validators import EARLIEST_RECORD_DATE, validate_not_future_date, validate_not_too_old, validate_uploaded_image
 from farmers.models import FarmParcel
 from farmers.serializers import _farmer_main_membership
@@ -59,14 +60,14 @@ class HarvestUnitWeightSerializer(serializers.ModelSerializer):
         return data
 
 
-class SeedSourceSerializer(serializers.ModelSerializer):
+class SeedSourceSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = SeedSource
         fields = ['id', 'name', 'is_active']
         read_only_fields = ['id']
 
 
-class ActivityTypeSerializer(serializers.ModelSerializer):
+class ActivityTypeSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = ActivityType
         fields = ['id', 'name']
@@ -135,14 +136,15 @@ class CropVarietySerializer(serializers.ModelSerializer):
         return data
 
 
-class CropCategorySerializer(serializers.ModelSerializer):
+class CropCategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = CropCategory
         fields = ['id', 'name', 'date_created']
         read_only_fields = ['id', 'date_created']
 
 
-class CropSubcategorySerializer(serializers.ModelSerializer):
+class CropSubcategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
+    unique_name_scope = ('category',)
     category_name = serializers.CharField(source='category.name', read_only=True)
 
     class Meta:
@@ -253,7 +255,7 @@ class CropActivityStageSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class CropInputTypeSerializer(serializers.ModelSerializer):
+class CropInputTypeSerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = CropInputType
         fields = ['id', 'name', 'description', 'is_active', 'crop_types', 'input_type', 'growth_stage']

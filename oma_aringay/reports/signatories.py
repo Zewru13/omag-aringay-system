@@ -4,6 +4,7 @@ from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator
+from core.uniqueness import UniqueNameMixin
 
 from .models import Signatory
 
@@ -13,7 +14,8 @@ ROLE_ORDER = Case(
 )
 
 
-class SignatorySerializer(serializers.ModelSerializer):
+class SignatorySerializer(UniqueNameMixin, serializers.ModelSerializer):
+    unique_name_scope = ('role',)   # the same person may sign in more than one role
     # allow_blank is off and DRF trims whitespace, so a blank or whitespace-only name is a 400.
     name = serializers.CharField(max_length=150)
     position = serializers.CharField(max_length=150, required=False, allow_blank=True)

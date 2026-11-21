@@ -42,7 +42,7 @@ class FingerlingSourceSettingsTests(APITestCase):
         self.assertEqual(self.client.post(URL, {'name': '   '}, format='json').status_code, 400)
         r = self.client.post(URL, {'name': 'bfar'}, format='json')
         self.assertEqual(r.status_code, 400)
-        self.assertIn('already exists', r.data['name'][0])
+        self.assertIn('already in this list', r.data['name'][0])
         keep = FingerlingSource.objects.create(name='Coop Hatchery')
         self.assertEqual(self.client.patch(f'{URL}{keep.pk}/', {'name': 'Own production'}, format='json').status_code, 400)
         self.assertEqual(self.client.patch(f'{URL}{keep.pk}/', {'name': 'COOP HATCHERY'}, format='json').status_code, 200)   # itself is fine

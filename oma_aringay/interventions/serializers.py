@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.uniqueness import UniqueNameMixin, clashing_name
 from .models import AssistanceCustomType
 from .quantity import quantity_problem
 from .types import DOMAINS, built_in_clash, domain_of, valid_type_names
@@ -14,25 +15,15 @@ from .models import (
 )
 
 
-class AssistanceAgencySerializer(serializers.ModelSerializer):
+class AssistanceAgencySerializer(UniqueNameMixin, serializers.ModelSerializer):
     class Meta:
         model = AssistanceAgency
         fields = ['id', 'name']
         read_only_fields = ['id']
 
-    def validate_name(self, value):
-        name = ' '.join((value or '').split())
-        if not name:
-            raise serializers.ValidationError('Enter the agency name.')
-        clash = AssistanceAgency.objects.filter(name__iexact=name)
-        if self.instance is not None:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            raise serializers.ValidationError('That agency is already in the list.')
-        return name
 
-
-class AssistanceOptionSerializer(serializers.ModelSerializer):
+class AssistanceOptionSerializer(UniqueNameMixin, serializers.ModelSerializer):
+    unique_name_scope = ('domain', 'kind')   # a name is only compared inside its own list
     class Meta:
         model = AssistanceOption
         fields = ['id', 'domain', 'kind', 'name']
@@ -45,16 +36,7 @@ class AssistanceOptionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('A name cannot be moved to another list.')
         if kind not in AssistanceOption.DOMAIN_KINDS.get(domain, ()):
             raise serializers.ValidationError('There is no such list.')
-        name = ' '.join((data.get('name', getattr(self.instance, 'name', '')) or '').split())
-        if not name:
-            raise serializers.ValidationError({'name': 'Enter a name.'})
-        clash = AssistanceOption.objects.filter(domain=domain, kind=kind, name__iexact=name)
-        if self.instance is not None:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            raise serializers.ValidationError({'name': 'That name is already in the list.'})
-        data['name'] = name
-        return data
+        return super().validate(data)   # the name: tidied and not already in this list (core.uniqueness)
 
 
 def _photo_list(obj, request):
@@ -96,11 +78,12 @@ def _custom_type_name(value, domain, exclude_pk=None):
         raise serializers.ValidationError('The name can be at most 30 characters.')
     if built_in_clash(name):
         raise serializers.ValidationError(f'"{name}" is already an assistance type.')
-    clash = AssistanceCustomType.objects.filter(domain=domain, name__iexact=name)
+    others = AssistanceCustomType.objects.filter(domain=domain)
     if exclude_pk is not None:
-        clash = clash.exclude(pk=exclude_pk)
-    if clash.exists():
-        raise serializers.ValidationError(f'"{name}" is already in the {domain} assistance list.')
+        others = others.exclude(pk=exclude_pk)
+    existing = clashing_name(others, 'name', name)
+    if existing:
+        raise serializers.ValidationError(f'"{existing}" is already in the {domain} assistance list.')
     return name
 
 
