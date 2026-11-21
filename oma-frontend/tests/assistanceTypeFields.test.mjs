@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  typeFieldFor, choicesWith, ASSISTANCE_UNITS, unitsForType, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS, assistanceTypeText,
+  typeFieldFor, choicesWith, ASSISTANCE_UNITS, unitsForType, quantityWithUnit, buildTypeConditionalPayload, EMPTY_TYPE_CONDITIONAL_FIELDS, assistanceTypeText, typesWithCustom,
 } = await import(new URL('../src/pages/AssistanceManagement/assistanceFieldHelpers.js', import.meta.url).href)
 const { makeAssistanceForm, quantityText, assistanceFormProblem, withAssistanceType, organizationRequest, peopleRequest } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
@@ -86,5 +86,14 @@ eq(peopleRequest(form({ assistance_type: 'Training', training_duration_days: '1'
 eq(assistanceTypeText({ assistance_type: 'Training', item: 'Farm Business School' }), 'Training — Farm Business School', 'Training shows its type of training')
 eq(assistanceTypeText({ assistance_type: 'Seeds', item: 'Palay (Rice)' }), 'Seeds', 'other types keep their plain name')
 eq(assistanceTypeText({ assistance_type: 'Training', item: '' }), 'Training', 'an older Training with none')
+
+// ── assistance types added in Assistance Settings (Add Assistance) are offered next to the built-in ones, before Other
+const built = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
+eq(typesWithCustom(built, ['Pesticide', 'Soil Test Kit']), ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Pesticide', 'Soil Test Kit', 'Other'], 'added types go before Other')
+eq(typesWithCustom(built, []), built, 'nothing added: the same list')
+eq(typesWithCustom(built, undefined), built, 'the list not loaded yet: the same list')
+eq(typesWithCustom(built, ['Seeds', 'Pesticide']), ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Pesticide', 'Other'], 'a name already in the list is not repeated')
+eq(typesWithCustom(['Seeds', 'Feed'], ['Net Kit']), ['Seeds', 'Feed', 'Net Kit'], 'a list with no Other takes them at the end')
+eq(built.length, 6, 'the built-in list itself is never changed')
 
 console.log(`ok - ${n} assertions`)

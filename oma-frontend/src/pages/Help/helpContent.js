@@ -190,6 +190,14 @@ export const SECTIONS = [
         a: 'Each row is one distribution, named after who it was given to: the organization, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Clicking a row lists the members who benefited under it, each with a barangay and a status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
       },
       {
+        q: 'How do I add a new type of assistance?',
+        a: 'An Admin opens Admin > Assistance Settings and presses Add Assistance above the Assistance Types table. Type the name, choose whether it applies to crop assistance, fisheries assistance or both, tick the units its quantity box should offer and press Add Assistance. The new type then appears in the Assistance Type box of every assistance form it applies to, before Other. Renaming or deleting it later never changes assistance that was already recorded.',
+      },
+      {
+        q: 'How do I add a type of training?',
+        a: 'In Assistance Settings, press the edit button of the Training row of the Assistance Types table (there is one for crop and one for fisheries). The window lists the types of training; add, rename or delete them there. The Type of Training box appears when Training is chosen in an assistance form.',
+      },
+      {
         q: 'Why was a member blocked?',
         a: 'A person who already received the same assistance type from a different organization in the last 30 days cannot receive it again from another one. Only one organization\'s distribution of that type counts per person in that window.',
       },
