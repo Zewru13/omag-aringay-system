@@ -1145,7 +1145,7 @@ function OrganizationDetailPage({ own = false }) {
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Acquired</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Remarks</th>
                             {canManage && (
-                              <th className="px-4 py-[11px]" />
+                              <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Action</th>
                             )}
                           </tr>
                         </thead>
@@ -1310,7 +1310,7 @@ function OrganizationDetailPage({ own = false }) {
                           <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term Start</th>
                           <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term End</th>
                           {isStaff && (
-                            <th className="px-4 py-[11px]" />
+                            <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Action</th>
                           )}
                         </tr>
                       </thead>
