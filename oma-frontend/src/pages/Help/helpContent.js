@@ -194,6 +194,10 @@ export const SECTIONS = [
         a: 'An Admin opens Admin > Assistance Settings and presses Add Assistance above the Assistance Types table. Type the name, choose whether it applies to crop assistance, fisheries assistance or both, tick the units its quantity box should offer and press Add Assistance. The new type then appears in the Assistance Type box of every assistance form it applies to, before Other. Renaming or deleting it later never changes assistance that was already recorded.',
       },
       {
+        q: 'How do I give more than one assistance to the same people at once?',
+        a: 'In either distribute window press Add Another Assistance under the first assistance (up to five in all). Every assistance has its own type, quantity and source agency; the date and the description are filled in once for all of them. The review lists each assistance in its own section, so you can untick a person for one of them without changing the others, and the 30-day warnings are checked for each type. Confirm and Distribute saves every assistance as a distribution of its own. A type can be chosen once in a distribution; to give the same type again, start another distribution. Remove Assistance takes a block away.',
+      },
+      {
         q: 'How do I add a type of training?',
         a: 'In Assistance Settings, press the edit button of the Training row of the Assistance Types table (there is one for crop and one for fisheries). The window lists the types of training; add, rename or delete them there. The Type of Training box appears when Training is chosen in an assistance form.',
       },

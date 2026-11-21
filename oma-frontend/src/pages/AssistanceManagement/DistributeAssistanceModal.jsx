@@ -302,7 +302,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
               {lines.length > 1
                 ? `${totals.records} assistance record${totals.records === 1 ? '' : 's'} in all`
                 : `To ${totals.records} selected ${people ? (totals.records === 1 ? domain.personLabel.toLowerCase() : domain.peopleLabel) : `member${totals.records === 1 ? '' : 's'}`}`}
-              {!people && ` of ${totals.organizations} organization${totals.organizations === 1 ? '' : 's'}`}
+              {!people && ` ${lines.length > 1 ? 'across' : 'of'} ${totals.organizations} organization${totals.organizations === 1 ? '' : 's'}`}
             </p>
             <p className="mt-0.5 text-[13px] text-[#B7CBBB]">on <span className="font-semibold text-white">{formatDateLong(form.date_given)}</span></p>
           </div>
