@@ -23,7 +23,7 @@ export const makeAssistanceForm = (today) => ({
 
 // Changing the assistance type clears what belonged to the old one, so nothing stale is ever sent for the new one.
 export const withAssistanceType = (form, type) => ({
-  ...form, assistance_type: type, quantity_amount: '', quantity_unit: '', cash_amount: '', training_duration_days: '', equipment_type: '', seed_type: '', fertilizer_type: '',
+  ...form, assistance_type: type, quantity_amount: '', quantity_unit: '', cash_amount: '', training_duration_days: '', training_type: '', equipment_type: '', seed_type: '', fertilizer_type: '',
 })
 
 // The "Others" source agency of a form: a tick, and the agency typed for it. Every form that chooses a source agency has these two fields
@@ -67,7 +67,9 @@ export function assistanceFormProblem(form, { today }) {
     if (!(Number(amount) > 0)) return 'Enter a quantity of more than 0.'
     if (!form.quantity_unit) return 'Choose the unit of the quantity.'
   }
-  return validateTrainingDuration(form.assistance_type, form)
+  const durationProblem = validateTrainingDuration(form.assistance_type, form)
+  if (durationProblem) return durationProblem
+  return isTrainingType(form.assistance_type) && !String(form.training_type || '').trim() ? 'Choose the type of training.' : ''
 }
 
 // The body of an organization's request (POST .../distribute-assistance/). `dryRun` previews; `memberIds` chooses the real one's recipients.

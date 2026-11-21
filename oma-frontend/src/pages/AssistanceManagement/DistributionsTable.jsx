@@ -9,7 +9,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadSpecReport, printSpecReport } from '../../utils/specActions.js'
 import { buildDistributionRecordSpec } from './assistanceHistoryReport.js'
-import { formatAssistanceQuantity } from './assistanceFieldHelpers.js'
+import { assistanceTypeText, formatAssistanceQuantity } from './assistanceFieldHelpers.js'
 import { agenciesText, distributionRowLabel } from './distributionsTableRows.js'
 
 // The staff view of assistance on the Crop and Fisheries Assistance pages: one row per distribution, named after the organization it went to
@@ -116,6 +116,7 @@ export default function DistributionsTable({ url, noun, filters, version = 0, on
       </span>
     ),
     agencies_cell: <span title={(g.source_agencies || []).join(', ')}>{agenciesText(g.source_agencies)}</span>,
+    assistance_type: assistanceTypeText(g),
     quantity_cell: formatAssistanceQuantity(g.assistance_type, g.quantity) || '—',
     summary_cell: <StatusPill tone={SUMMARY_TONE[g.summary_status] || 'slate'}>{g.summary_status}</StatusPill>,
     name_title: distributionRowLabel(g, noun),

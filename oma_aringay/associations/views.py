@@ -1074,6 +1074,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
         type_fields = {
             'training_duration_days': data.get('training_duration_days'),
             'equipment_type': data.get('equipment_type', ''),
+            'training_type': data.get('training_type', ''),
         }
         if record_model is not BeneficiaryRecord:
             type_fields['item_type'] = data.get('item_type', '')

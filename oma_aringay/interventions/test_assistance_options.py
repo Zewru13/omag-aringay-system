@@ -25,9 +25,9 @@ class AssistanceOptionTests(APITestCase):
         cls.citizen = User.objects.create_user(username='ao-cit', password='pw', role='CITIZEN', email='aoc@x.test')
 
     def setUp(self):
-        # The migrations start the Equipment Types lists with the organization forms' names (test_equipment_defaults.py); these tests are about
-        # how a list is managed, so they begin from an empty one.
-        AssistanceOption.objects.filter(kind='equipment').delete()
+        # The migrations start the Equipment Types lists with the organization forms' names (test_equipment_defaults.py) and the Types of Training
+        # lists with real courses (test_training_type.py); these tests are about how a list is managed, so they begin from empty ones.
+        AssistanceOption.objects.filter(kind__in=('equipment', 'training')).delete()
         self.client.force_authenticate(self.staff)
 
     def add(self, domain, kind, name):
@@ -90,7 +90,7 @@ class AssistanceOptionTests(APITestCase):
         self.add('crop', 'unit', 'sack')
         self.add('fisheries', 'unit', 'drum')
         data = self.client.get(CHOICES, {'domain': 'crop'}).json()
-        self.assertEqual(data, {'seed': ['Alpha Corn', 'Zebra Rice'], 'fertilizer': ['Urea'], 'equipment': ['Hand Tractor'], 'unit': ['sack']})
+        self.assertEqual(data, {'seed': ['Alpha Corn', 'Zebra Rice'], 'fertilizer': ['Urea'], 'equipment': ['Hand Tractor'], 'unit': ['sack'], 'training': []})
 
     def test_the_fisheries_form_gets_feed_gear_fingerling_equipment_and_unit_lists(self):
         FeedType.objects.all().delete()
@@ -103,7 +103,7 @@ class AssistanceOptionTests(APITestCase):
         self.add('fisheries', 'unit', 'kg')
         self.add('crop', 'equipment', 'Plow')
         data = self.client.get(CHOICES, {'domain': 'fisheries'}).json()
-        self.assertEqual(data, {'feed': ['Starter Feed'], 'fingerling': ['Tilapia'], 'gear': ['Gill Net'], 'equipment': ['Aerator'], 'unit': ['kg']})
+        self.assertEqual(data, {'feed': ['Starter Feed'], 'fingerling': ['Tilapia'], 'gear': ['Gill Net'], 'equipment': ['Aerator'], 'unit': ['kg'], 'training': []})
 
     def test_a_form_needs_a_domain_and_any_signed_in_account_may_ask(self):
         self.assertEqual(self.client.get(CHOICES).status_code, 400)

@@ -1232,7 +1232,7 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             text_field: item['text_value'],
         }
         # An imported file carries assistance that already happened, so the "today or later" rule of the forms does not apply.
-        serializer = serializer_class(data=payload, context={'allow_past_dates': True})
+        serializer = serializer_class(data=payload, context={'allow_past_dates': True, 'training_type_optional': True})
         if not serializer.is_valid():
             detail = '; '.join(f'{field}: {"; ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
             invalid(row_num, detail or 'Invalid row.')
@@ -1341,7 +1341,7 @@ class AssistanceAgencyListCreateView(generics.ListCreateAPIView):
 
 
 class AssistanceOptionListCreateView(generics.ListCreateAPIView):
-    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear). Everyone signed in reads
+    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear|training). Everyone signed in reads
     them; only staff change them."""
     serializer_class = AssistanceOptionSerializer
     pagination_class = None
@@ -1390,6 +1390,7 @@ class AssistanceChoicesView(APIView):
                 'fertilizer': self._sorted(CropInputType.objects.filter(is_active=True, input_type='Fertilizer').values_list('name', flat=True)),
                 'equipment': self._options('crop', 'equipment'),
                 'unit': self._options('crop', 'unit'),
+                'training': self._options('crop', 'training'),
             })
         if domain == 'fisheries':
             return Response({
@@ -1398,6 +1399,7 @@ class AssistanceChoicesView(APIView):
                 'gear': self._options('fisheries', 'gear'),
                 'equipment': self._options('fisheries', 'equipment'),
                 'unit': self._options('fisheries', 'unit'),
+                'training': self._options('fisheries', 'training'),
             })
         raise ValidationError({'domain': ['Use crop or fisheries.']})
 

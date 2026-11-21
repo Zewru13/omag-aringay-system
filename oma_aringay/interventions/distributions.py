@@ -31,7 +31,7 @@ def group_id(record):
 
 def record_item(record):
     """The name of the thing given (the seed, the fertilizer, the equipment or the item), or '' when the type has none."""
-    for field in ('seed_type', 'fertilizer_type', 'equipment_type', 'item_type'):
+    for field in ('seed_type', 'fertilizer_type', 'equipment_type', 'item_type', 'training_type'):
         value = getattr(record, field, '')
         if value:
             return value
@@ -57,6 +57,7 @@ def build_distributions(records, person_field):
             group = groups[gid] = {
                 'id': gid,
                 'assistance_type': record.assistance_type,
+                'item': record_item(record),
                 'source_agencies': list(record.source_agencies or []),
                 'quantity': record.quantity,
                 'date_given': record.date_given,
