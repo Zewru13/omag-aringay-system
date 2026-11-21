@@ -218,7 +218,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  Stocking disasters    : {disaster_count:>3}')
         self.stdout.write(f'  Fishing trips         : {FishingTripLog.objects.filter(fisherfolk__in=capture_and_inland_ff).count():>3}')
         self.stdout.write(f'  Trip species entries  : {TripSpeciesEntry.objects.filter(fishing_trip__fisherfolk__in=capture_and_inland_ff).count():>3}')
-        self.stdout.write(f'  Assistance records    : {FisherfolkBeneficiaryRecord.objects.filter(program__isnull=True, fisherfolk__in=fisherfolk).count():>3}')
+        self.stdout.write(f'  Assistance records    : {FisherfolkBeneficiaryRecord.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(f'  Fisherfolk disasters  : {FisheriesDisasterReport.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(self.style.SUCCESS('================================================'))
         self.stdout.write(self.style.SUCCESS('  Done! Run --flush to reset.'))
@@ -562,10 +562,8 @@ class Command(BaseCommand):
     # ── Assistance ───────────────────────────────────────────────────────────
 
     def _create_assistance(self, fisherfolk, admin_user):
-        # Batch 6: assistance records now live in interventions.FisherfolkBeneficiaryRecord
-        # (program=null — this seed command was never program-aware, so ad-hoc is the
-        # correct equivalent of the retired FisheriesAssistanceRecord it used to create).
-        if FisherfolkBeneficiaryRecord.objects.filter(program__isnull=True, fisherfolk__in=fisherfolk).exists():
+        # Assistance records live in interventions.FisherfolkBeneficiaryRecord (given straight to the person, no organization).
+        if FisherfolkBeneficiaryRecord.objects.filter(fisherfolk__in=fisherfolk).exists():
             self.stdout.write('  Assistance records already seeded — skipping (use --flush to reset).')
             return 0
 
@@ -580,7 +578,6 @@ class Command(BaseCommand):
             ff = fisherfolk[spec['ff_idx']]
             date_received = today - timedelta(days=spec['days_ago'])
             record = FisherfolkBeneficiaryRecord.objects.create(
-                program=None,
                 fisherfolk=ff,
                 assistance_type=spec['atype'],
                 description=f'{spec["atype"]} support provided under the LGU fisheries assistance program.',
