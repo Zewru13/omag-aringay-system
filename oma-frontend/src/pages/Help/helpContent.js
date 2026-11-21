@@ -198,6 +198,14 @@ export const SECTIONS = [
         a: 'In Assistance Settings, press the edit button of the Training row of the Assistance Types table (there is one for crop and one for fisheries). The window lists the types of training; add, rename or delete them there. The Type of Training box appears when Training is chosen in an assistance form.',
       },
       {
+        q: 'How do I add a type of seed, fertilizer, equipment, feed, fingerlings or fishing gear?',
+        a: 'In Assistance Settings, find the row of that assistance in the Assistance Types table and open its menu: Edit Types of Seed, Edit Types of Fertilizer, Edit Types of Equipment, Edit Types of Feed, Edit Types of Fingerlings or Edit Types of Fishing Gear. Add, rename or delete the names in the window. They are the choices of the item box of that assistance when you distribute it or import it, followed by Other. Each list started as a copy of the crops, input types, feed types and species at the time it was introduced and no longer follows them. Renaming or deleting a name never changes assistance already recorded. A name cannot be added twice to the same list, whatever its capitals, spaces or punctuation.',
+      },
+      {
+        q: 'Why does the system refuse a name I add in a settings page?',
+        a: 'Every list in the settings (assistance types, source agencies, seed sources, categories, species, feed types, equipment types, activity types, classifications, signatories and the others) accepts a name once. "Rice  Seed", "rice seed" and "Rice-Seed" count as the same name, so the second one is refused with a message naming the entry that already has it. Edit that entry instead, or choose a different name.',
+      },
+      {
         q: 'Why was a member blocked?',
         a: 'A person who already received the same assistance type from a different organization in the last 30 days cannot receive it again from another one. Only one organization\'s distribution of that type counts per person in that window.',
       },

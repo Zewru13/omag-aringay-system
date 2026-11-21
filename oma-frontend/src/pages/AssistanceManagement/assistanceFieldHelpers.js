@@ -42,16 +42,16 @@ export const EMPTY_TYPE_CONDITIONAL_FIELDS = {
 // see GET /interventions/assistance-choices/), its label and where an Admin manages that list.
 export const TYPE_FIELDS = {
   crop: {
-    Seeds:      { key: 'seed_type',       choices: 'seed',       label: 'Type of Seed',       where: 'Crop Settings > Crop Options' },
-    Fertilizer: { key: 'fertilizer_type', choices: 'fertilizer', label: 'Type of Fertilizer', where: 'Crop Settings > Input Types (category Fertilizer)' },
-    Equipment:  { key: 'equipment_type',  choices: 'equipment',  label: 'Type of Equipment',  where: 'Crop Settings > Equipment Types' },
+    Seeds:      { key: 'seed_type',       choices: 'seed',       label: 'Type of Seed',       where: 'Assistance Settings' },
+    Fertilizer: { key: 'fertilizer_type', choices: 'fertilizer', label: 'Type of Fertilizer', where: 'Assistance Settings' },
+    Equipment:  { key: 'equipment_type',  choices: 'equipment',  label: 'Type of Equipment',  where: 'Assistance Settings' },
     Training:   { key: 'training_type',   choices: 'training',   label: 'Type of Training',   where: 'Assistance Settings' },
   },
   fisheries: {
-    Equipment:           { key: 'equipment_type', choices: 'equipment',  label: 'Type of Equipment',          where: 'Fisheries Settings > Equipment Types' },
-    Feed:                { key: 'item_type',      choices: 'feed',       label: 'Type of Feed',               where: 'Fisheries Settings > Feed Types' },
-    'Fishing Gear':      { key: 'item_type',      choices: 'gear',       label: 'Type of Fishing Gear',       where: 'Fisheries Settings > Fishing Gear' },
-    'Fingerlings/Seeds': { key: 'item_type',      choices: 'fingerling', label: 'Type of Fingerlings / Species', where: 'Fisheries Settings > Species' },
+    Equipment:           { key: 'equipment_type', choices: 'equipment',  label: 'Type of Equipment',          where: 'Assistance Settings' },
+    Feed:                { key: 'item_type',      choices: 'feed',       label: 'Type of Feed',               where: 'Assistance Settings' },
+    'Fishing Gear':      { key: 'item_type',      choices: 'gear',       label: 'Type of Fishing Gear',       where: 'Assistance Settings' },
+    'Fingerlings/Seeds': { key: 'item_type',      choices: 'fingerling', label: 'Type of Fingerlings / Species', where: 'Assistance Settings' },
     Training:            { key: 'training_type',  choices: 'training',   label: 'Type of Training',           where: 'Assistance Settings' },
   },
 }

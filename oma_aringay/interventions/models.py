@@ -25,7 +25,10 @@ class AssistanceOption(models.Model):
     """A name in one of the lists behind the assistance forms' dropdowns, managed in Crop Settings / Fisheries Settings: the types of
     equipment and the units of both domains, and fishing gear for fisheries. Records keep the name they were saved with, so renaming or
     deleting one here never changes past assistance."""
-    DOMAIN_KINDS = {'crop': ('equipment', 'unit', 'training'), 'fisheries': ('equipment', 'unit', 'gear', 'training')}
+    DOMAIN_KINDS = {
+        'crop': ('equipment', 'unit', 'training', 'seed', 'fertilizer'),
+        'fisheries': ('equipment', 'unit', 'gear', 'training', 'feed', 'fingerling'),
+    }
 
     domain = models.CharField(max_length=10)
     kind = models.CharField(max_length=12)

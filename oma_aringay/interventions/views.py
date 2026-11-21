@@ -1346,7 +1346,7 @@ class AssistanceAgencyListCreateView(generics.ListCreateAPIView):
 
 
 class AssistanceOptionListCreateView(generics.ListCreateAPIView):
-    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear|training). Everyone signed in reads
+    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear|training|seed|fertilizer|feed|fingerling). Everyone signed in reads
     them; only staff change them."""
     serializer_class = AssistanceOptionSerializer
     pagination_class = None
@@ -1372,9 +1372,9 @@ class AssistanceOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class AssistanceChoicesView(APIView):
-    """Every dropdown an assistance form needs, in one answer (?domain=crop|fisheries). Crop: seed (the crops in Crop Settings), fertilizer
-    (the Fertilizer entries of Input Types), equipment, unit. Fisheries: feed (Feed Types), fingerling (Species), gear, equipment, unit.
-    Everyone signed in may ask, because an organization account fills in the same forms."""
+    """Every dropdown an assistance form needs, in one answer (?domain=crop|fisheries): the lists managed in Assistance Settings. Crop: seed,
+    fertilizer, equipment, unit, training. Fisheries: feed, fingerling, gear, equipment, unit, training. Plus `types`, the assistance types added
+    with Add Assistance. Everyone signed in may ask, because an organization account fills in the same forms."""
     permission_classes = [IsAuthenticated]
 
     @staticmethod
@@ -1386,13 +1386,11 @@ class AssistanceChoicesView(APIView):
         return AssistanceChoicesView._sorted(AssistanceOption.objects.filter(domain=domain, kind=kind).values_list('name', flat=True))
 
     def get(self, request):
-        from fisheries.models import FeedType, SpeciesOption
-        from production.models import CropInputType, CropType
         domain = request.query_params.get('domain')
         if domain == 'crop':
             return Response({
-                'seed': self._sorted(CropType.objects.filter(is_active=True).values_list('name', flat=True)),
-                'fertilizer': self._sorted(CropInputType.objects.filter(is_active=True, input_type='Fertilizer').values_list('name', flat=True)),
+                'seed': self._options('crop', 'seed'),
+                'fertilizer': self._options('crop', 'fertilizer'),
                 'equipment': self._options('crop', 'equipment'),
                 'unit': self._options('crop', 'unit'),
                 'training': self._options('crop', 'training'),
@@ -1400,8 +1398,8 @@ class AssistanceChoicesView(APIView):
             })
         if domain == 'fisheries':
             return Response({
-                'feed': self._sorted(FeedType.objects.values_list('name', flat=True)),
-                'fingerling': self._sorted(SpeciesOption.objects.values_list('species_name', flat=True)),
+                'feed': self._options('fisheries', 'feed'),
+                'fingerling': self._options('fisheries', 'fingerling'),
                 'gear': self._options('fisheries', 'gear'),
                 'equipment': self._options('fisheries', 'equipment'),
                 'unit': self._options('fisheries', 'unit'),

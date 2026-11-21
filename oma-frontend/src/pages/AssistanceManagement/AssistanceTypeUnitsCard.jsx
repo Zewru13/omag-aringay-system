@@ -18,8 +18,8 @@ import { resetAssistanceChoices } from './useAssistanceChoices.js'
 import { resetAssistanceTypeUnits } from './useAssistanceTypeUnits.js'
 
 // Assistance Settings, second card: the types of assistance. Each type that has a quantity box shows the units its Unit box offers (Seeds: kg,
-// sack, bag, bundle; not piece or set) and can have them changed; Training shows how many types of training it offers and opens the list of
-// them; Add Assistance adds a type of its own (for crop assistance, fisheries assistance or both), which can be renamed, given other units or
+// sack, bag, bundle; not piece or set) and can have them changed. A type that offers an item dropdown (Seeds, Fertilizer, Equipment, Feed,
+// Fingerlings, Fishing Gear, Training) shows how many names its list holds and opens the list (Types of Seed, ...). Add Assistance adds a type of its own (for crop assistance, fisheries assistance or both), which can be renamed, given other units or
 // deleted. Cash Assistance (an amount in pesos) has no unit. Changing a type never changes assistance that was already recorded: a record
 // keeps the name and the quantity it was saved with.
 const COLUMNS = [
@@ -213,29 +213,30 @@ function EditAssistanceModal({ row, onClose, onSaved }) {
   )
 }
 
-// The Training form: its types of training (the list the Type of Training box of the forms offers).
-function TrainingModal({ row, onClose }) {
-  const crop = row.domain === 'crop'
+// The list behind an assistance type's item box (Types of Seed, Types of Fertilizer, Types of Equipment, Types of Feed, Types of Fingerlings, Types
+// of Fishing Gear, Types of Training): add, rename and delete its names. Assistance already recorded keeps the name it was saved with.
+function ListModal({ row, onClose }) {
+  const { list } = row
   return (
     <ModalShell
-      title="Training"
-      subtitle={`${DOMAIN_LABELS[row.domain]} assistance: the types of training offered when Training is chosen`}
+      title={list.title}
+      subtitle={`${DOMAIN_LABELS[row.domain]} assistance: the choices of the ${list.singular} box when ${row.assistance_type} is given`}
       icon={ListPlus}
       onClose={onClose}
       maxWidth="max-w-3xl"
       footer={<Button type="button" onClick={onClose}>Done</Button>}
     >
-      <AssistanceOptionsTab domain={row.domain} kind="training" title="Types of Training" singular="Type of Training" example={crop ? 'Rice Production Training' : 'Tilapia Production'} />
+      <AssistanceOptionsTab domain={row.domain} kind={list.kind} title={list.title} singular={list.singular} example={list.example} />
     </ModalShell>
   )
 }
 
 export default function AssistanceTypeUnitsCard() {
   const { showToast } = useToast()
-  const [parts, setParts] = useState({ units: {}, custom: [], training: {} })
+  const [parts, setParts] = useState({ units: {}, custom: [], lists: {} })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [dialog, setDialog] = useState(null)   // { kind: 'units' | 'add' | 'edit' | 'training' | 'delete', row? }
+  const [dialog, setDialog] = useState(null)   // { kind: 'units' | 'add' | 'edit' | 'list' | 'delete', row? }
   const [version, setVersion] = useState(0)
 
   useEffect(() => {
@@ -244,15 +245,15 @@ export default function AssistanceTypeUnitsCard() {
     Promise.all([
       Promise.all(domains.map((domain) => api.get('/interventions/assistance-type-units/', { params: { domain } }))),
       api.get('/interventions/assistance-types/'),
-      Promise.all(domains.map((domain) => api.get('/interventions/options/', { params: { domain, kind: 'training' } }))),
+      Promise.all(domains.map((domain) => api.get('/interventions/options/', { params: { domain } }))),   // every list of the domain, counted by kind
     ])
-      .then(([unitAnswers, customAnswer, trainingAnswers]) => {
+      .then(([unitAnswers, customAnswer, optionAnswers]) => {
         if (!alive) return
         const listOf = (r) => (Array.isArray(r.data) ? r.data : (r.data.results || []))
         setParts({
           units: Object.fromEntries(domains.map((d, i) => [d, unitAnswers[i].data])),
           custom: listOf(customAnswer),
-          training: Object.fromEntries(domains.map((d, i) => [d, listOf(trainingAnswers[i]).length])),
+          lists: Object.fromEntries(domains.map((d, i) => [d, listOf(optionAnswers[i]).reduce((counts, o) => ({ ...counts, [o.kind]: (counts[o.kind] || 0) + 1 }), {})])),
         })
         setError('')
       })
@@ -265,14 +266,15 @@ export default function AssistanceTypeUnitsCard() {
   const rows = assistanceTypeRows(parts)
 
   const data = rows.map((row) => {
+    const listAction = row.list ? [{ key: 'list', label: `Edit ${row.list.title}`, icon: ListPlus, onClick: () => setDialog({ kind: 'list', row }) }] : []
     const actions = row.kind === 'training'
-      ? [{ key: 'training', label: 'Edit Types of Training', icon: Pencil, onClick: () => setDialog({ kind: 'training', row }) }]
+      ? listAction
       : row.kind === 'custom'
         ? [
           { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setDialog({ kind: 'edit', row }) },
           { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDialog({ kind: 'delete', row }), tone: 'rose' },
         ]
-        : [{ key: 'units', label: 'Edit Units', icon: Pencil, onClick: () => setDialog({ kind: 'units', row }) }]
+        : [{ key: 'units', label: 'Edit Units', icon: Pencil, onClick: () => setDialog({ kind: 'units', row }) }, ...listAction]
     return { ...row, domain_label: DOMAIN_LABELS[row.domain], details_cell: detailsText(row), actions: <RowActions actions={actions} /> }
   })
 
@@ -291,7 +293,7 @@ export default function AssistanceTypeUnitsCard() {
       {dialog?.kind === 'add' && <AddAssistanceModal onClose={() => setDialog(null)} onSaved={refresh} />}
       {dialog?.kind === 'units' && <UnitsModal row={dialog.row} onClose={() => setDialog(null)} onSaved={refresh} />}
       {dialog?.kind === 'edit' && <EditAssistanceModal row={dialog.row} onClose={() => setDialog(null)} onSaved={refresh} />}
-      {dialog?.kind === 'training' && <TrainingModal row={dialog.row} onClose={() => { setDialog(null); refresh() }} />}
+      {dialog?.kind === 'list' && <ListModal row={dialog.row} onClose={() => { setDialog(null); refresh() }} />}
       {dialog?.kind === 'delete' && (
         <ConfirmDialog
           title="Delete Assistance"
