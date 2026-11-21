@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-// The organization profile (Admin / Focal Person): hero with the name, registration number and place; Registered Information and Contact cards; Members,
+// The organization profile (Admin / Focal Person): hero with the name, registration number and place; Organization Details and Contact cards (nothing the banner already shows); Members,
 // Equipment Inventory, Confirmed for Members and Officers as View cards. An organization's own page ("My Organization") keeps its tabs.
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -16,7 +16,8 @@ eq(addressText({}), '', 'nothing')
 const page = read('src/pages/Organizations/OrganizationDetailPage.jsx')
 ok(/<ProfileHero/.test(page), 'the staff view opens with the hero')
 ok(!/Back to Organizations/.test(page), 'no Back to Organizations')
-ok(/title="Registered Information"/.test(page) && /title="Contact"/.test(page), 'Registered Information and Contact are InfoCards')
+ok(/title="Organization Details"/.test(page) && /title="Contact"/.test(page), 'Organization Details and Contact are InfoCards')
+ok(!/label="Registration Number"|label="Registration Agency"|label="Date Registered"|label="Barangay"|label="Street Address"/.test(page), 'the registration number, agency, date registered and address are in the banner only, not repeated in a card')
 for (const title of ['Members', 'Equipment Inventory', 'Confirmed for Members', 'Officers']) {
   ok(new RegExp(`<ViewSection[\\s\\S]{0,260}title="${title}"`).test(page), `${title} is a View card`)
 }
