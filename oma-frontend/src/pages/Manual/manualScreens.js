@@ -2558,7 +2558,7 @@ export default {
  "admin-distribute": {
   "audience": "admin",
   "title": "Distribute to Organizations window",
-  "purpose": "Gives one assistance to the members of several organizations.",
+  "purpose": "Gives one or more assistance to the members of several organizations.",
   "image": "/manual/admin/distribute.png",
   "width": 1280,
   "height": 1300,
@@ -2580,26 +2580,31 @@ export default {
    },
    {
     "n": 4,
+    "label": "Add Another Assistance",
+    "desc": "Gives a second (up to five) assistance to the same organizations in one step. Each assistance has its own type, quantity and source agency; the date and description are shared. The same type cannot be chosen twice. Remove Assistance takes one away again."
+   },
+   {
+    "n": 5,
     "label": "Distribution Date",
     "desc": "Required. Today or a later date. A later date schedules the distribution: it stays Pending until then."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Description",
     "desc": "Optional notes about the assistance."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Search organizations",
     "desc": "Find an organization by name."
    },
    {
-    "n": 7,
+    "n": 8,
     "label": "Tick boxes",
     "desc": "Tick each organization to give it the assistance, or the top box to tick every organization on the page. Your ticks are kept across pages. The table shows the barangay and the number of members."
    },
    {
-    "n": 8,
+    "n": 9,
     "label": "Review Distribution",
     "desc": "Checks with the server what would happen and saves nothing: it shows who would be blocked (a person who got the same type from another organization in the last 30 days), lets you untick people, then Confirm and Distribute saves it. The result has Print Report."
    }
@@ -2608,7 +2613,7 @@ export default {
  "admin-distribute-farmers": {
   "audience": "admin",
   "title": "Distribute Farmer Assistance window",
-  "purpose": "Gives one assistance to the individual farmers you choose.",
+  "purpose": "Gives one or more assistance to the individual farmers you choose.",
   "image": "/manual/admin/distribute-farmers.png",
   "width": 1280,
   "height": 1300,
@@ -2616,7 +2621,7 @@ export default {
    {
     "n": 1,
     "label": "Same details",
-    "desc": "Assistance type, source agency, quantity and unit, distribution date and description: exactly as in Distribute to Organizations."
+    "desc": "Assistance type, source agency, quantity and unit, distribution date and description: exactly as in Distribute to Organizations, including Add Another Assistance to give more than one in a single step."
    },
    {
     "n": 2,
