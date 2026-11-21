@@ -29,6 +29,15 @@ def group_id(record):
     return 'legacy-' + hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]
 
 
+def record_item(record):
+    """The name of the thing given (the seed, the fertilizer, the equipment or the item), or '' when the type has none."""
+    for field in ('seed_type', 'fertilizer_type', 'equipment_type', 'item_type'):
+        value = getattr(record, field, '')
+        if value:
+            return value
+    return ''
+
+
 def summary_status(counts):
     if counts[DistributionStatus.NOT_RECEIVED]:
         return 'Needs follow-up'

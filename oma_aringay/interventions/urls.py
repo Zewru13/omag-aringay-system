@@ -6,6 +6,7 @@ from .views import (
     BeneficiaryAdHocDetailView,
     BeneficiaryAdHocListCreateView,
     BeneficiaryConfirmationRequestDecisionView,
+    OrgConfirmedAssistancesView,
     OrgConfirmedForMembersView,
     BeneficiaryConfirmationRequestListView,
     BeneficiaryConfirmOnBehalfBulkView,
@@ -203,6 +204,11 @@ urlpatterns = [
         'confirmed-for-members/<str:org_type>/<int:pk>/',
         OrgConfirmedForMembersView.as_view(),
         name='org-confirmed-for-members',
+    ),
+    path(
+        'confirmed-for-members/<str:org_type>/<int:pk>/assistances/',
+        OrgConfirmedAssistancesView.as_view(),
+        name='org-confirmed-assistances',
     ),
     path(
         'beneficiary-confirmation-requests/',
