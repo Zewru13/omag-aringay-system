@@ -1,9 +1,10 @@
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
-import { assistanceMinDate, isCashType, isTrainingType, unitsForType } from './assistanceFieldHelpers.js'
+import { assistanceMinDate, isCashType, isTrainingType, typesWithCustom, unitsForType } from './assistanceFieldHelpers.js'
 import { withAssistanceType } from './distributeFlow.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import useAssistanceChoices from './useAssistanceChoices.js'
 import useAssistanceTypeUnits from './useAssistanceTypeUnits.js'
 
 // The assistance details of the distribution windows as a table form, the same fields whoever the recipients are: type, source agencies, the
@@ -14,6 +15,8 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
   const training = isTrainingType(form.assistance_type)
   // The Unit box offers the units set for this type in Assistance Settings (Seeds: not piece or set).
   const unitsByType = useAssistanceTypeUnits(domain.allowSeedFertilizer ? 'crop' : 'fisheries')
+  // The types offered: the built-in ones and the ones added in Assistance Settings.
+  const typeChoices = useAssistanceChoices(domain.allowSeedFertilizer ? 'crop' : 'fisheries')
 
   return (
     <FormSection title="Assistance Details">
@@ -21,7 +24,7 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
         <FormRow>
           <FormCell label="Assistance Type" required wide>
             <ComboboxWithOther
-              options={domain.assistanceTypeOptions.filter((o) => o !== 'Other')}
+              options={typesWithCustom(domain.assistanceTypeOptions, typeChoices?.types).filter((o) => o !== 'Other')}
               value={form.assistance_type}
               otherValue={form.assistance_type_other}
               onChange={(v) => setForm((f) => withAssistanceType(f, v))}

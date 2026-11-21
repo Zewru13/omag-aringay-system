@@ -106,6 +106,15 @@ export function cashAmountError(type, quantity) {
 // The assistance type as a table cell or report line: Training names its type of training ("Training — Farm Business School").
 export const assistanceTypeText = (group) => (group?.assistance_type === 'Training' && group.item ? `Training — ${group.item}` : group?.assistance_type)
 
+// The assistance types a form offers: the built-in ones, with the types added in Assistance Settings (Add Assistance) before "Other". `custom`
+// is the `types` list of GET /interventions/assistance-choices/ (undefined until it has loaded). The built-in list is never changed.
+export function typesWithCustom(builtIn, custom = []) {
+  const extra = (custom || []).filter((name) => !builtIn.includes(name))
+  if (extra.length === 0) return builtIn
+  const at = builtIn.indexOf('Other')
+  return at === -1 ? [...builtIn, ...extra] : [...builtIn.slice(0, at), ...extra, ...builtIn.slice(at)]
+}
+
 export const isTrainingType = (t) => t === 'Training'
 export const isEquipmentType = (t) => t === 'Equipment'
 export const isSeedsType = (t) => t === 'Seeds'

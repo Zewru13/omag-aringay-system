@@ -1,7 +1,9 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from .models import AssistanceCustomType
 from .quantity import quantity_problem
+from .types import DOMAINS, built_in_clash, domain_of, valid_type_names
 from .models import (
     AssistanceAgency,
     AssistanceOption,
@@ -84,6 +86,67 @@ class QuantityRuleMixin:
         return value
 
 
+def _custom_type_name(value, domain, exclude_pk=None):
+    """A tidy, valid name for a custom assistance type of `domain`: not blank, not longer than a record can hold, not a built-in type, not one
+    this domain already has."""
+    name = ' '.join(str(value or '').split())
+    if not name:
+        raise serializers.ValidationError('Enter the name of the assistance.')
+    if len(name) > 30:
+        raise serializers.ValidationError('The name can be at most 30 characters.')
+    if built_in_clash(name):
+        raise serializers.ValidationError(f'"{name}" is already an assistance type.')
+    clash = AssistanceCustomType.objects.filter(domain=domain, name__iexact=name)
+    if exclude_pk is not None:
+        clash = clash.exclude(pk=exclude_pk)
+    if clash.exists():
+        raise serializers.ValidationError(f'"{name}" is already in the {domain} assistance list.')
+    return name
+
+
+class AssistanceCustomTypeSerializer(serializers.ModelSerializer):
+    """One added assistance type of one domain; only its name can change."""
+    class Meta:
+        model = AssistanceCustomType
+        fields = ['id', 'domain', 'name']
+        read_only_fields = ['id', 'domain']
+
+    def validate_name(self, value):
+        return _custom_type_name(value, self.instance.domain, exclude_pk=self.instance.pk)
+
+
+class AssistanceCustomTypeCreateSerializer(serializers.Serializer):
+    """Add Assistance: one name for crop assistance, fisheries assistance or both, with the units its quantity box offers (optional)."""
+    name = serializers.CharField(allow_blank=True)
+    domains = serializers.ListField(child=serializers.ChoiceField(choices=list(DOMAINS)), allow_empty=False)
+    units = serializers.ListField(child=serializers.CharField(), required=False)
+
+    def validate_units(self, value):
+        from .type_units import UNITS
+        if any(u not in UNITS for u in value):
+            raise serializers.ValidationError(f'Units are: {", ".join(UNITS)}.')
+        return value
+
+    def validate(self, data):
+        data['domains'] = list(dict.fromkeys(data['domains']))
+        name = ' '.join(str(data.get('name') or '').split())
+        for domain in data['domains']:
+            data['name'] = _custom_type_name(name, domain)
+        return data
+
+
+class AssistanceTypeRuleMixin:
+    """The assistance type is one of the domain's built-in types or a type added in Assistance Settings. A record keeps the type it already
+    has, so an old record of a type that was later deleted can still be edited."""
+    type_domain = 'crop'
+
+    def validate_assistance_type(self, value):
+        unchanged = self.instance is not None and getattr(self.instance, 'assistance_type', '') == value
+        if value and not unchanged and value not in valid_type_names(self.type_domain):
+            raise serializers.ValidationError(f'"{value}" is not an assistance type. Add it in Assistance Settings first.')
+        return value
+
+
 class TrainingTypeRuleMixin:
     """Training names its type of training (a new record must; an older one can be edited without), and no other type keeps one. An import
     (context `training_type_optional`) may leave it out."""
@@ -98,7 +161,9 @@ class TrainingTypeRuleMixin:
         return data
 
 
-class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, serializers.ModelSerializer):
+class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, AssistanceTypeRuleMixin, serializers.ModelSerializer):
+    type_domain = 'crop'
+    assistance_type = serializers.CharField(max_length=30, required=False, allow_blank=True)
     confirmation_photos = serializers.SerializerMethodField()
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
@@ -187,7 +252,9 @@ class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
         read_only_fields = BeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['farmer']
 
 
-class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, serializers.ModelSerializer):
+class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, AssistanceTypeRuleMixin, serializers.ModelSerializer):
+    type_domain = 'fisheries'
+    assistance_type = serializers.CharField(max_length=30, required=False, allow_blank=True)
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
@@ -293,7 +360,7 @@ class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleM
     member_ids = serializers.ListField(child=serializers.IntegerField(), required=False, allow_empty=True)
 
     def validate_assistance_type(self, value):
-        valid_choices = dict(self.context['model'].AssistanceType.choices)
+        valid_choices = valid_type_names(domain_of(self.context['model']))
         if value not in valid_choices:
             raise serializers.ValidationError(
                 f'Invalid assistance type. Must be one of: {", ".join(valid_choices)}.'

@@ -35,6 +35,7 @@ from associations.models import FarmersOrganization, FisherfolkOrganization
 from core.utils import build_name_search_q, build_text_search_q
 from interventions.distributions import group_id, summary_status
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
+from interventions.types import domain_of, valid_type_names
 
 from .documents import individual_of, make_document, respond, text, with_row_refs
 from .period import period_text
@@ -104,7 +105,8 @@ def _records(kind, request, org_id):
         qs = qs.filter(date_given__lte=to)
     kind_type = request.query_params.get('assistance_type', '').strip()
     if kind_type:
-        if kind_type not in cfg['record'].AssistanceType.values:
+        # a built-in type, one added in Assistance Settings, or one that was added and later deleted but is still on some record
+        if kind_type not in valid_type_names(domain_of(cfg['record'])) and not cfg['record'].objects.filter(assistance_type=kind_type).exists():
             raise ValidationError({'assistance_type': ['Not an assistance type.']})
         qs = qs.filter(assistance_type=kind_type)
     search = request.query_params.get('search', '').strip()

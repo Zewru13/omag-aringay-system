@@ -39,6 +39,21 @@ class AssistanceOption(models.Model):
         return f'{self.domain} {self.kind}: {self.name}'
 
 
+class AssistanceCustomType(models.Model):
+    """A type of assistance an Admin or Focal Person added in Assistance Settings > Add Assistance, for crop assistance, fisheries assistance
+    or both (one row per domain). It is offered next to the built-in types, takes a quantity with units, and is valid wherever assistance is
+    recorded. Records keep the name they were saved with, so renaming or deleting one never changes past assistance."""
+    domain = models.CharField(max_length=10)
+    name = models.CharField(max_length=30)   # an assistance record's own type column holds 30 characters
+
+    class Meta:
+        ordering = ['name']
+        constraints = [models.UniqueConstraint(fields=['domain', 'name'], name='unique_assistance_custom_type')]
+
+    def __str__(self):
+        return f'{self.domain}: {self.name}'
+
+
 class AssistanceTypeUnits(models.Model):
     """The units one type of assistance offers in the quantity box (see interventions/type_units.py). A type with no row offers its starting
     units. Records keep the quantity text they were saved with ("2 sack"), so changing the units never changes past assistance."""

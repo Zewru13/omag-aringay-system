@@ -14,7 +14,6 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { SettingsFields, SettingsField } from '../../components/UI/SettingsFormTable.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import AssistanceOptionsTab from './AssistanceOptionsTab.jsx'
 import AssistanceTypeUnitsCard from './AssistanceTypeUnitsCard.jsx'
 import { resetAssistanceAgencies } from './useAssistanceAgencies.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
@@ -140,7 +139,7 @@ export default function AssistanceAgenciesPage() {
   }
 
   return (
-    <PageLayout title="Assistance Settings" subtitle="The source agencies, the units and the types of training offered when assistance is recorded or distributed.">
+    <PageLayout title="Assistance Settings" subtitle="The source agencies and the types of assistance (with their units and types of training) offered when assistance is recorded or distributed.">
       <div className="space-y-4">
         {error && <ErrorMessage message={error} />}
         <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -149,8 +148,6 @@ export default function AssistanceAgenciesPage() {
           {!isLoading && <AddRowFooter onClick={add.open} disabled={add.isOpen} label="Add Agency" />}
         </div>
         <AssistanceTypeUnitsCard />
-        <AssistanceOptionsTab domain="crop" kind="training" title="Types of Training (Crop)" singular="Type of Training" example="Rice Production Training" />
-        <AssistanceOptionsTab domain="fisheries" kind="training" title="Types of Training (Fisheries)" singular="Type of Training" example="Tilapia Production" />
       </div>
 
       {editing && <AgencyModal agency={editing} onClose={() => setEditing(null)} onSaved={refresh} />}

@@ -10,8 +10,10 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
 import { emptyAssistanceText } from './assistanceGroups.js'
+import { typesWithCustom } from './assistanceFieldHelpers.js'
 import { buildDistributionsReportSpec, historyFilterPairs } from './assistanceHistoryReport.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
+import useAssistanceChoices from './useAssistanceChoices.js'
 import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 
 // An organization's assistance history as distributions: one row per distribution, expandable to the members it went to.
@@ -85,6 +87,7 @@ function MemberList({ item, onRemove }) {
 
 export default function OrgDistributionHistory({ domain = 'crop', group = 'current', refreshKey = 0, onChanged, organizationName = '' }) {
   const config = DOMAINS[domain]
+  const typeChoices = useAssistanceChoices(domain === 'fisheries' ? 'fisheries' : 'crop')
   const agencies = useAssistanceAgencies()
   const { showToast } = useToast()
   const [filters, setFilters] = useState(EMPTY_FILTERS)
@@ -181,7 +184,7 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
         </select>
         <select className={SELECT} value={filters.assistance_type} onChange={setFilter('assistance_type')} aria-label="Assistance type">
           <option value="">All assistance types</option>
-          {config.types.map((t) => <option key={t} value={t}>{t}</option>)}
+          {typesWithCustom(config.types, typeChoices?.types).map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <select className={SELECT} value={filters.source_agency} onChange={setFilter('source_agency')} aria-label="Source agency">
           <option value="">All source agencies</option>

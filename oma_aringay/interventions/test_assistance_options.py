@@ -90,7 +90,7 @@ class AssistanceOptionTests(APITestCase):
         self.add('crop', 'unit', 'sack')
         self.add('fisheries', 'unit', 'drum')
         data = self.client.get(CHOICES, {'domain': 'crop'}).json()
-        self.assertEqual(data, {'seed': ['Alpha Corn', 'Zebra Rice'], 'fertilizer': ['Urea'], 'equipment': ['Hand Tractor'], 'unit': ['sack'], 'training': []})
+        self.assertEqual(data, {'seed': ['Alpha Corn', 'Zebra Rice'], 'fertilizer': ['Urea'], 'equipment': ['Hand Tractor'], 'unit': ['sack'], 'training': [], 'types': []})
 
     def test_the_fisheries_form_gets_feed_gear_fingerling_equipment_and_unit_lists(self):
         FeedType.objects.all().delete()
@@ -103,7 +103,7 @@ class AssistanceOptionTests(APITestCase):
         self.add('fisheries', 'unit', 'kg')
         self.add('crop', 'equipment', 'Plow')
         data = self.client.get(CHOICES, {'domain': 'fisheries'}).json()
-        self.assertEqual(data, {'feed': ['Starter Feed'], 'fingerling': ['Tilapia'], 'gear': ['Gill Net'], 'equipment': ['Aerator'], 'unit': ['kg'], 'training': []})
+        self.assertEqual(data, {'feed': ['Starter Feed'], 'fingerling': ['Tilapia'], 'gear': ['Gill Net'], 'equipment': ['Aerator'], 'unit': ['kg'], 'training': [], 'types': []})
 
     def test_a_form_needs_a_domain_and_any_signed_in_account_may_ask(self):
         self.assertEqual(self.client.get(CHOICES).status_code, 400)

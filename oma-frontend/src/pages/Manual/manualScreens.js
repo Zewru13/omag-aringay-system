@@ -3315,8 +3315,8 @@ export default {
    },
    {
     "n": 4,
-    "label": "Units by Assistance Type",
-    "desc": "For each type of assistance that has a quantity box, the units its Unit box offers (Seeds: kg, sack, bag, bundle). Cash Assistance and Training have no unit."
+    "label": "Assistance Types",
+    "desc": "Every type of assistance, crop and fisheries. A type with a quantity box shows the units its Unit box offers (Seeds: kg, sack, bag, bundle); Training shows how many types of training it has and opens the list of them. Add Assistance, above the table, adds a type of your own for crop assistance, fisheries assistance or both; the types you added can be renamed, given other units or deleted. Cash Assistance has no unit."
    },
    {
     "n": 5,

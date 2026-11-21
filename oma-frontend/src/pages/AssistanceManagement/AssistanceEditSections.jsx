@@ -2,8 +2,9 @@ import { Trash2 } from 'lucide-react'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/FormTable.jsx'
-import { assistanceMinDate, isCashType, isTrainingType } from './assistanceFieldHelpers.js'
+import { assistanceMinDate, choicesWith, isCashType, isTrainingType, typesWithCustom } from './assistanceFieldHelpers.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import useAssistanceChoices from './useAssistanceChoices.js'
 
 // The fields of Edit Assistance Record as a table form, for crop and fisheries alike (`domain`). The window, its drafts, the saving and the
 // deleting stay with each page; what is drawn is written once here.
@@ -13,6 +14,7 @@ import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistan
 //   years                                               crop only: the Year choices
 export default function AssistanceEditSections({ domain, form, set, setAssistanceType, typeOptions, today, originalDate, years = [] }) {
   const crop = domain === 'crop'
+  const typeChoices = useAssistanceChoices(domain)   // the types added in Assistance Settings join the built-in ones
   const cash = isCashType(form.assistance_type)
   const training = isTrainingType(form.assistance_type)
   const typeLabel = cash ? 'Amount (₱)' : 'Quantity'
@@ -25,7 +27,7 @@ export default function AssistanceEditSections({ domain, form, set, setAssistanc
             <FormCell label="Assistance Type" required>
               <select className={baseInputClasses} aria-label="Assistance Type" value={form.assistance_type} onChange={(e) => setAssistanceType(e.target.value)}>
                 {!crop && <option value="">Select Assistance Type</option>}
-                {typeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                {choicesWith(typesWithCustom(typeOptions, typeChoices?.types), form.assistance_type).map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </FormCell>
             <FormCell label="Date Given" required>
