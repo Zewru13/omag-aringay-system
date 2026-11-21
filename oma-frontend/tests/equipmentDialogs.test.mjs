@@ -42,7 +42,9 @@ for (const heading of ['Date', 'Units', 'What Was Done', 'Member', 'Status']) ok
 
 // Distribute Assistance: the details are a table form
 const details = read('src/pages/AssistanceManagement/AssistanceDetailsFields.jsx')
-ok(/<FormSection title="Assistance Details"/.test(details), 'Assistance Details is a table section')
+ok(/<FormSection title=\{title\}>/.test(details) && details.includes("'Assistance Details'"), 'each assistance (Assistance Details) is a table section')
+ok(details.includes('Distribution Date and Description'), 'the date and the description are one section shared by all the assistance')
+ok(details.includes('Add Another Assistance'), 'more than one assistance can be given in one distribution')
 for (const label of ['Assistance Type', 'Source Agency', 'Distribution Date', 'Description']) ok(details.includes(`label="${label}"`), `details field ${label}`)
 ok(!details.includes('pillLabel'), 'no stand-alone pill labels in the table form')
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 const {
   makeAssistanceForm, withAssistanceType, typeName, quantityText, assistanceFormProblem, sourceAgencies, otherAgencyProblem, EMPTY_OTHER_AGENCY, organizationRequest, peopleRequest,
   eligibleIds, repeatWarningCount, reviewTotals, outcomeTotals, personOutcomeTotals, reportRecords, toggleInMap, MAX_RECIPIENTS,
+  MAX_ASSISTANCES, assistanceLines, assistanceLinesProblem, lineSummary, reviewTotalsAll, outcomeCreated,
 } = await import(new URL('../src/pages/AssistanceManagement/distributeFlow.js', import.meta.url).href)
 
 let n = 0
@@ -113,6 +114,42 @@ eq(records.map((r) => [r.id, r.name, r.barangay, r.assistance_type, r.quantity, 
   [[11, 'Ana Cruz', 'Alaska', 'Seeds', '1 sack', 'Alaska Farmers'], [12, 'Ben Dizon', 'Basca', 'Seeds', '1 sack', 'Basca Growers']], 'created records only, with the organization')
 eq([records[0].source_agencies, records[0].date_given], [['DA'], today], 'agencies and date')
 eq(reportRecords([], form(), {}), [], 'nothing created, nothing to print')
+
+// ── several assistance in one distribution: each has its own type, quantity and source agency; the date and the description are shared
+const second = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Fertilizer', source_agencies: ['PCIC'], quantity_amount: '5', quantity_unit: 'bags', date_given: '1999-01-01', description: 'ignored', ...over })
+const lines = assistanceLines(form({ description: 'Wet season', date_given: '2026-11-02' }), [second()])
+eq(lines.length, 2, 'the first assistance and the extra one')
+eq(lines.map((l) => [l.assistance_type, l.date_given, l.description]), [['Seeds', '2026-11-02', 'Wet season'], ['Fertilizer', '2026-11-02', 'Wet season']], 'the extra one takes the shared date and description')
+eq(assistanceLines(form(), undefined).length, 1, 'an old draft without extra assistance is one assistance')
+eq(MAX_ASSISTANCES, 5, 'most assistance in one distribution')
+eq(assistanceLinesProblem(assistanceLines(form(), []), { today }), '', 'one complete assistance')
+eq(assistanceLinesProblem(assistanceLines(form({ quantity_amount: '' }), []), { today }), 'Enter the quantity per recipient.', 'one assistance: the plain sentence')
+eq(assistanceLinesProblem(assistanceLines(form(), [second({ quantity_amount: '' })]), { today }), 'Assistance 2: Enter the quantity per recipient.', 'with several, the sentence names the assistance')
+eq(assistanceLinesProblem(assistanceLines(form({ source_agencies: [] }), [second()]), { today }), 'Assistance 1: Choose the source agency.', 'the first is named too')
+eq(assistanceLinesProblem(assistanceLines(form(), [second({ assistance_type: ' seeds ' })]), { today }), 'Seeds is chosen twice. Give each type of assistance once in a distribution.', 'one type once')
+eq(assistanceLinesProblem(assistanceLines(form({ assistance_type: 'Other', assistance_type_other: 'Tools' }), [second({ assistance_type: 'Other', assistance_type_other: 'tools' })]), { today }), 'Tools is chosen twice. Give each type of assistance once in a distribution.', 'an Other type is compared by its name')
+eq(assistanceLinesProblem(assistanceLines(form({ assistance_type: 'Other', assistance_type_other: 'Tools' }), [second({ assistance_type: 'Other', assistance_type_other: 'Nets' })]), { today }), '', 'two different Other types')
+eq(assistanceLinesProblem(assistanceLines(form(), [second(), second({ assistance_type: 'Cash Assistance', cash_amount: '100', quantity_amount: '' })]), { today }), '', 'three different types')
+eq(lineSummary(form()), 'Seeds · 2 sacks', 'a line in the review: the type and the quantity')
+eq(lineSummary(form({ assistance_type: 'Training', training_duration_days: '2', training_type: 'Farm Business School' })), 'Training · 2 day(s)', 'training shows its days')
+eq(lineSummary(form({ assistance_type: 'Cash Assistance', cash_amount: '500' })), 'Cash Assistance · ₱500 per head', 'cash shows its amount')
+
+// the review totals of every assistance together (previews and ticks are one list per assistance)
+const peopleLine = (...statuses) => [preview(...statuses)]
+eq(reviewTotalsAll([peopleLine('would_create', 'would_create', 'would_block'), peopleLine('would_create', 'would_block', 'would_block')], [[new Set([1, 2])], [new Set([1])]]),
+  { organizations: 1, records: 3, blocked: 3 }, 'records and blocked add up over the assistance')
+eq(reviewTotalsAll([[preview('would_create'), preview('would_create')], [preview('would_create'), preview('would_block')]], [[new Set([1]), new Set()], [new Set(), new Set()]]),
+  { organizations: 1, records: 1, blocked: 1 }, 'an organization counts once however many assistance it gets')
+eq(reviewTotalsAll([], []), { organizations: 0, records: 0, blocked: 0 }, 'nothing')
+eq(outcomeCreated([[{ results: [{ status: 'created' }, { status: 'blocked' }] }], [{ results: [{ status: 'created' }, { status: 'created' }] }, { failed: 'x' }]]), 3, 'records created over every assistance')
+eq(outcomeCreated([]), 0, 'nothing created')
+
+// the report of a distribution of several assistance has every record, each with its own type and quantity
+const both = [
+  ...reportRecords([{ status: 'created', record_id: 1, name: 'Ana', barangay: 'Alaska' }], form({ source_agencies: ['DA'] }), {}),
+  ...reportRecords([{ status: 'created', record_id: 2, name: 'Ana', barangay: 'Alaska' }], second(), {}),
+]
+eq(both.map((r) => [r.id, r.assistance_type, r.quantity, r.source_agencies]), [[1, 'Seeds', '2 sacks', ['DA']], [2, 'Fertilizer', '5 bags', ['PCIC']]], 'the same person, two assistance')
 
 // ── the "Others" source agency is offered wherever a source agency is chosen: the Distribute window and both Edit Assistance windows
 eq(EMPTY_OTHER_AGENCY, { source_other_on: false, source_other: '' }, 'an edit form starts with Others unticked')

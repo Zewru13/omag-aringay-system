@@ -72,6 +72,55 @@ export function assistanceFormProblem(form, { today }) {
   return isTrainingType(form.assistance_type) && !String(form.training_type || '').trim() ? 'Choose the type of training.' : ''
 }
 
+// ── several assistance in one distribution. The first is `form`; `more` holds the extra ones (each a form made by makeAssistanceForm). Each
+// has its own type, quantity and source agencies, but the date and the description are one for the whole distribution (the first form's), and
+// the recipients are the same. Each assistance is saved as its own distribution.
+export const MAX_ASSISTANCES = 5
+
+export const assistanceLines = (form, more = []) => [form, ...(more || []).map((line) => ({ ...line, date_given: form.date_given, description: form.description }))]
+
+const sameType = (a, b) => typeName(a).trim().toLowerCase() === typeName(b).trim().toLowerCase()
+
+// What is wrong with the assistance of a distribution ('' when nothing). With several, the sentence says which one.
+export function assistanceLinesProblem(lines, { today }) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const problem = assistanceFormProblem(lines[i], { today })
+    if (problem) return lines.length > 1 ? `Assistance ${i + 1}: ${problem}` : problem
+  }
+  for (let i = 1; i < lines.length; i += 1) {
+    const earlier = lines.slice(0, i).find((line) => sameType(line, lines[i]))
+    if (earlier) return `${typeName(earlier)} is chosen twice. Give each type of assistance once in a distribution.`
+  }
+  return ''
+}
+
+// One assistance of the distribution in a line of the review: its type and what each recipient gets.
+export function lineSummary(form) {
+  const what = quantityText(form) || (form.training_duration_days ? `${form.training_duration_days} day(s)` : '')
+  return [typeName(form), what].filter(Boolean).join(' · ')
+}
+
+// The review totals of every assistance together: `previewsByLine` and `selectedByLine` hold, for each assistance, what reviewTotals takes.
+// An organization counts once however many of the assistance it receives.
+export function reviewTotalsAll(previewsByLine, selectedByLine) {
+  const totals = { organizations: 0, records: 0, blocked: 0 }
+  const receiving = new Set()
+  previewsByLine.forEach((previews, line) => {
+    const selected = selectedByLine[line] || []
+    const one = reviewTotals(previews, selected)
+    totals.records += one.records
+    totals.blocked += one.blocked
+    previews.forEach((preview, i) => {
+      if ((selected[i] ? [...selected[i]] : []).some((id) => eligibleIds(preview).includes(id))) receiving.add(i)
+    })
+  })
+  totals.organizations = receiving.size
+  return totals
+}
+
+// How many records every assistance of the distribution created (`outcomesByLine`: what outcomeTotals takes, for each assistance).
+export const outcomeCreated = (outcomesByLine) => outcomesByLine.reduce((sum, outcomes) => sum + outcomeTotals(outcomes).created, 0)
+
 // The body of an organization's request (POST .../distribute-assistance/). `dryRun` previews; `memberIds` chooses the real one's recipients.
 export function organizationRequest(form, { dryRun = false, memberIds = null, allowSeedFertilizer = true } = {}) {
   return {
