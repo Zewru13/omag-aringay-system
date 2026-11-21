@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Info, BookOpen, HelpCircle, ChevronDown } from "lucide-react";
+import { Info, BookOpen, HelpCircle, ChevronDown, Search, X } from "lucide-react";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
-import { SYSTEM_TITLE, MAIN_DEVELOPER, CO_DEVELOPER, SCHOOL } from "../../constants/appInfo.js";
+import { SYSTEM_TITLE, MAIN_DEVELOPER, CO_DEVELOPER, SCHOOL, OFFICE_CONTACT } from "../../constants/appInfo.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { ROLE_LABELS, helpFor } from "./helpContent.js";
+import { filterFaqSections } from "./helpSearch.js";
 
-function FaqItem({ question, answer }) {
+function FaqItem({ question, answer, searching }) {
   const [open, setOpen] = useState(false);
+  const shown = open || searching;
 
   return (
     <div className="border-b border-[#F0F4F0] last:border-0">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(!shown)}
         className="flex items-center justify-between w-full py-3.5 text-left hover:text-[#1B4D2E] transition-colors"
       >
         <span className="text-[13px] font-medium text-[#1A2B1A] pr-4">
@@ -20,11 +22,11 @@ function FaqItem({ question, answer }) {
         </span>
         <ChevronDown
           className={`w-4 h-4 text-[#A8BCA8] flex-shrink-0 transition-transform duration-200 ${
-            open ? "rotate-180" : "rotate-0"
+            shown ? "rotate-180" : "rotate-0"
           }`}
         />
       </button>
-      {open && (
+      {shown && (
         <div className="pb-3.5">
           <p className="text-[13px] text-[#4A5E4A] leading-relaxed">{answer}</p>
         </div>
@@ -37,6 +39,9 @@ function HelpPage() {
   const { isAdmin } = useAuth();
   const role = isAdmin ? "ADMIN" : "EVALUATOR";
   const { steps, sections } = helpFor(role);
+  const [faqQuery, setFaqQuery] = useState("");
+  const searching = faqQuery.trim() !== "";
+  const shownSections = filterFaqSections(sections, faqQuery);
   return (
     <PageLayout
       title="Help"
@@ -79,6 +84,11 @@ function HelpPage() {
             <p className="text-[12px] text-[#7A8E7A] mt-0.5">
               Aringay, La Union
             </p>
+            {OFFICE_CONTACT.emails.map((email, i) => (
+              <p key={email} className={`text-[12px] text-[#7A8E7A] break-all ${i === 0 ? "mt-2" : ""}`}>
+                <a href={`mailto:${email}`} className="hover:text-[#1B4D2E] hover:underline">{email}</a>
+              </p>
+            ))}
           </div>
           <div className="bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
             <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-2">
@@ -170,13 +180,41 @@ function HelpPage() {
           </div>
         </div>
 
+        <div className="relative mb-5">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A8BCA8]" aria-hidden="true" />
+          <input
+            type="text"
+            value={faqQuery}
+            onChange={(e) => setFaqQuery(e.target.value)}
+            placeholder="Search the questions"
+            aria-label="Search the frequently asked questions"
+            className="w-full rounded-lg border border-[#E2E8E2] bg-white py-2 pl-9 pr-9 text-[13px] text-[#1A2B1A] placeholder:text-[#A8BCA8] focus:border-[#1B4D2E] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/15"
+          />
+          {searching && (
+            <button
+              type="button"
+              onClick={() => setFaqQuery("")}
+              aria-label="Clear the search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#7A8E7A] hover:text-[#1B4D2E]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {searching && shownSections.length === 0 && (
+          <p role="status" className="py-6 text-center text-[13px] text-[#7A8E7A]">
+            No question matches &ldquo;{faqQuery.trim()}&rdquo;. Try fewer or different words, or open the User Manual.
+          </p>
+        )}
+
         <div className="space-y-6">
-          {sections.map((section) => (
+          {shownSections.map((section) => (
             <section key={section.title} aria-label={section.title}>
               <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7A8E7A]">{section.title}</h3>
               <div>
                 {section.items.map((faq) => (
-                  <FaqItem key={faq.q} question={faq.q} answer={faq.a} />
+                  <FaqItem key={faq.q} question={faq.q} answer={faq.a} searching={searching} />
                 ))}
               </div>
             </section>
