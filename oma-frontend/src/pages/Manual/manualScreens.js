@@ -4025,13 +4025,18 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Confirm the ticked ones",
-    "desc": "How many are ticked, Select all, and the button that confirms them together with at least two proof photos."
+    "label": "Search members",
+    "desc": "Type the name of a member, a barangay or an assistance to narrow the list. What you already ticked stays ticked."
    },
    {
     "n": 2,
-    "label": "Already confirmed",
-    "desc": "A table of what you confirmed, one row for each assistance. Click a row to see who was confirmed and their photos; Print Report and Download Report make the report of the whole assistance or of one member. These are final."
+    "label": "Assistance heading",
+    "desc": "What was given: the type, the date, the quantity and the agency, and how many members are listed under it. The box in the heading ticks every member of that assistance."
+   },
+   {
+    "n": 3,
+    "label": "Confirm the ticked ones",
+    "desc": "How many are ticked, Select all, and the button that confirms them together with at least two proof photos."
    }
   ]
  },

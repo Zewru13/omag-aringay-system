@@ -196,8 +196,9 @@ export const CITIZEN = [
     ] }),
   O({ id: 'org-confirm-members', file: 'org/confirm-members.png', url: '/crop-assistance?tab=confirm', wait: 6000, height: 900, title: 'Confirm for members (Organization)', purpose: 'For members who have no working account.',
     callouts: [
+      { find: { css: 'main input[type=search]' }, label: 'Search members', desc: 'Type the name of a member, a barangay or an assistance to narrow the list. What you already ticked stays ticked.' },
+      { find: { css: 'main th[scope=colgroup]' }, label: 'Assistance heading', desc: 'What was given: the type, the date, the quantity and the agency, and how many members are listed under it. The box in the heading ticks every member of that assistance.' },
       { find: { css: '[data-testid=confirm-action-bar]' }, label: 'Confirm the ticked ones', desc: 'How many are ticked, Select all, and the button that confirms them together with at least two proof photos.' },
-      { find: { text: 'Already confirmed', tag: 'h2', closest: 'section' }, label: 'Already confirmed', desc: 'A table of what you confirmed, one row for each assistance. Click a row to see who was confirmed and their photos; Print Report and Download Report make the report of the whole assistance or of one member. These are final.' },
     ] }),
   O({ id: 'org-distribute-choice', file: 'org/distribute-choice.png', url: '/crop-assistance', wait: 6000, js: click('Distribute assistance'), after: 1500, title: 'Distribute assistance (Organization)', purpose: 'Who receives it?',
     callouts: [

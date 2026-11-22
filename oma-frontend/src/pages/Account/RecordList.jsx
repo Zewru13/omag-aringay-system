@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { TABLE_HEAD_CELL, TABLE_HEAD_ROW } from '../../components/UI/tableStyles.js'
 import { EmptyNote, LoadFailed, LoadingRows } from './ListStates.jsx'
@@ -13,7 +14,8 @@ import { cellText, groupRows, phoneParts, selectionState } from './recordList.js
 //   empty     { title, hint } shown when there are no rows
 //   actions   optional (row) => [{ label, primary?, to?, onClick? }]: at most two buttons a row, the main one first
 //   selectable optional { selected: Set of ids, onToggle(row), onToggleAll(), label(row), canSelect?(row) }: a tick box on each row
-//             (before the name on a phone, a first column on a computer, with a header box that ticks every row)
+//             (before the name on a phone, a first column on a computer, with a header box that ticks every row). With `onToggleGroup(rows)` a
+//             section heading gets a box too, which ticks every row of that section.
 
 const BUTTON = 'press-scale inline-flex min-h-[44px] items-center justify-center rounded-[var(--radius-sm)] px-4 text-center transition-colors md:min-h-9 md:px-3'
 const BUTTON_TONE = {
@@ -37,9 +39,23 @@ function RowBox({ selectable, row }) {
   return <input type="checkbox" className={BOX} aria-label={selectable.label(row)} checked={selectable.selected.has(row.id)} onChange={() => selectable.onToggle(row)} />
 }
 
-function SectionLabel({ group }) {
+// The box of a section heading: ticked when every row that can be ticked is, dashed when some are; null when none of its rows can be ticked.
+function GroupBox({ selectable, group }) {
+  const ref = useRef(null)
+  const { all, some } = selectionState(group.rows, selectable.selected, selectable.canSelect)
+  useEffect(() => { if (ref.current) ref.current.indeterminate = some && !all }, [some, all])
+  if (group.rows.every((row) => selectable.canSelect && !selectable.canSelect(row))) return null
+  return <input ref={ref} type="checkbox" className={BOX} aria-label={`Select every row of ${group.label}`} checked={all} onChange={() => selectable.onToggleGroup(group.rows)} />
+}
+
+function SectionLabel({ group, selectable }) {
   if (!group.label) return null
-  return <h3 className="px-1 pb-1.5 pt-1 text-[13px] font-semibold text-text-secondary">{group.label} ({group.rows.length})</h3>
+  const box = selectable?.onToggleGroup ? <GroupBox selectable={selectable} group={group} /> : null
+  return (
+    <h3 className="flex items-center gap-2 px-1 pb-1.5 pt-1 text-[13px] font-semibold text-text-secondary">
+      {box}<span>{group.label} ({group.rows.length})</span>
+    </h3>
+  )
 }
 
 export default function RecordList({ columns, rows, sections, state = 'ready', onRetry, what, empty, actions, selectable }) {
@@ -57,7 +73,7 @@ export default function RecordList({ columns, rows, sections, state = 'ready', o
       <div className="space-y-3 md:hidden">
         {groups.map((group) => (
           <section key={group.key}>
-            <SectionLabel group={group} />
+            <SectionLabel group={group} selectable={selectable} />
             <ul className="space-y-2">
               {group.rows.map((row) => {
                 const rowActions = actions ? actions(row) : []
@@ -108,7 +124,10 @@ export default function RecordList({ columns, rows, sections, state = 'ready', o
                 {group.label && (
                   <tr className="border-b border-border bg-surface-2">
                     <th scope="colgroup" colSpan={columns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)} className="px-4 py-2 text-left text-[12px] font-semibold text-text-secondary">
-                      {group.label} ({group.rows.length})
+                      <span className="flex items-center gap-3">
+                        {selectable?.onToggleGroup && <GroupBox selectable={selectable} group={group} />}
+                        <span>{group.label} ({group.rows.length})</span>
+                      </span>
                     </th>
                   </tr>
                 )}

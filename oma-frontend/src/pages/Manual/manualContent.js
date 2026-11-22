@@ -426,7 +426,7 @@ const ORG_GUIDES = [
     steps: [
       'Open Assistance. To do lists assistance still waiting; History lists what was received or settled, with Print Report.',
       'Distribute assistance asks first: one member or all members. Then fill in the type, the source agency, the quantity and the date, review it and confirm. A future date schedules it.',
-      'Confirm for members lists members without a working account whose assistance waits. Tick them (or Select all), press the confirm button and add at least two proof photos. Already confirmed is a table of the assistance you confirmed, one row each: click a row to see which members were confirmed and their photos, and print or download the report of the whole assistance or of one member. It is final.',
+      'Confirm for members lists members without a working account whose assistance waits, one block for each assistance: its type, date, quantity and agency in the heading, then the members it can be confirmed for. The search box finds a member by name, barangay or assistance. Tick the members (the box in a heading ticks that whole assistance, or use Select all), press the confirm button and add at least two proof photos. Already confirmed is a table of the assistance you confirmed, one row each: click a row to see which members were confirmed and their photos, and print or download the report of the whole assistance or of one member. It is final.',
     ],
   },
   {
