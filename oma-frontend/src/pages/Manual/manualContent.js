@@ -404,7 +404,7 @@ const ORG_GUIDES = [
     screens: ['org-members', 'org-add-member', 'org-officers'],
     steps: [
       'Open Members. Active members come first, then those no longer active. Search by name, RSBSA number or position.',
-      'Add member finds a registered farmer or fisherfolk by name; choose the position and the date joined. Import adds many from a spreadsheet.',
+      'Add member finds registered farmers or fisherfolk by name: pick one, search for the next and pick again, then add them all in one step with the date joined. Import adds many from a spreadsheet.',
       'Open More, then Officers. Assign officer gives a free position to an active member: one position per person. End term early frees a position, with the reason. Officer history lists everyone who held one.',
     ],
   },

@@ -18,7 +18,7 @@ const windowOf = (name) => {
 ok(src.includes("from '../../components/UI/FormTable.jsx'") || src.includes('from "../../components/UI/FormTable.jsx"'), 'the page uses the shared table form')
 
 const forms = {
-  AddMemberModal: { sections: ['Member'], labels: ['Search', 'Position', 'Date Joined'] },
+  AddMemberModal: { sections: ['Find Members', 'Members to Add', 'Date Joined'], labels: ['Search', 'Date Joined'] },
   AssignOfficerModal: { sections: ['Officer'], labels: ['Position', 'Member'] },
   EndTermModal: { sections: ['Officer', 'Term'], labels: ['Reason'] },
   AddEquipmentModal: { sections: ['Equipment'], labels: ['Equipment Name', 'Quantity', 'Acquisition Date', 'Remarks'] },

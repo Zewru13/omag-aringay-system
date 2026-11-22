@@ -157,14 +157,14 @@ export const CITIZEN = [
   O({ id: 'org-members', file: 'org/members.png', url: '/my-organization', wait: 6000, title: 'Members (Organization)', purpose: 'Everyone in your organization.',
     callouts: [
       TITLE('Members: active first, then those no longer active.'),
-      { find: [btn('Add member'), btn('Import')], label: 'Add member / Import', desc: 'Add member finds a registered person by name. Import adds many from a spreadsheet (download its template first).' },
+      { find: [btn('Add member'), btn('Import')], label: 'Add member / Import', desc: 'Add member finds registered people by name, several at a time. Import adds many from a spreadsheet (download its template first).' },
       SEARCH_BOX('a member, an RSBSA number or a position'),
       COLUMNS('The name, the RSBSA number, the position, the date joined and whether this is the person\'s main organization.'),
       SECTIONS('Active and Inactive.'),
     ] }),
   O({ id: 'org-add-member', file: 'org/add-member.png', url: '/my-organization', wait: 6000, js: click('Add member'), after: 1500, title: 'Add member (Organization)', purpose: 'Only registered farmers or fisherfolk can be added.',
     callouts: [
-      { find: WINDOW, label: 'Add member', desc: 'Search the name and pick the person, choose the position and the date joined, then Add Member. Someone already in another organization is shown, and can belong to both.' },
+      { find: WINDOW, label: 'Add member', desc: 'Search a name and pick the person, then search for the next and pick again: everyone picked is listed under Members to Add. Choose the date joined and add them all together. Someone already in another organization is shown, and can belong to both.' },
     ] }),
   O({ id: 'org-equipment', file: 'org/equipment.png', url: '/my-organization?tab=equipment', wait: 6000, title: 'Equipment (Organization)', purpose: 'What your organization owns, and what it lends.',
     callouts: [
