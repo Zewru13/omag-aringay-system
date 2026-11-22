@@ -45,4 +45,36 @@ eq(sel.confirmProblem(0, 5), 'Pick at least one member.', 'nobody picked')
 eq(sel.confirmProblem(3, 1), 'Add at least 2 photos as proof.', 'not enough photos')
 eq(sel.confirmProblem(3, 2), '', 'enough')
 
+// the Confirm for Members list shows each assistance first, then the members who can be confirmed for it
+const mk = (id, name, type, date, qty, extra = {}) => ({ id, farmer_full_name: name, farmer_barangay: 'Poblacion', assistance_type: type, date_given: date, quantity: qty, source_agencies: ['DA'], ...extra })
+const list = [
+  mk(1, 'Ana Reyes', 'Seeds', '2026-11-20', '5 kg'),
+  mk(2, 'Ben Cruz', 'Seeds', '2026-11-20', '5 kg'),
+  mk(3, 'Cora Dizon', 'Fertilizer', '2026-11-18', '2 sack'),
+  mk(4, 'Dan Lim', 'Seeds', '2026-11-20', '5 kg', { source_agencies: ['DAR'] }),
+  mk(5, 'Eve Sy', 'Seeds', '2026-11-20', '5 kg', { latest_request_status: 'PENDING' }),
+]
+const groups = sel.assistanceGroups(list)
+eq(groups.map((g) => [g.assistance_type, g.records.map((r) => r.id)]), [['Seeds', [1, 2, 5]], ['Fertilizer', [3]], ['Seeds', [4]]], 'members are grouped by what was given, in the order the server sent them')
+eq(groups[0].title, 'Seeds', 'the type is the title')
+eq(sel.groupLabel(groups[0]), 'Seeds · Nov 20, 2026 · 5 kg · DA', 'the heading: type, date, quantity, agency (the list adds the count)')
+eq(list.filter((r) => sel.assistanceKey(r) === groups[0].key).map((r) => r.id), [1, 2, 5], 'a record knows its own group')
+eq(sel.groupDetails(groups[0]), 'Nov 20, 2026 · 5 kg · DA · 3 members', 'the line under the title: date, quantity, agency, how many members')
+eq(sel.groupDetails(groups[1]), 'Nov 18, 2026 · 2 sack · DA · 1 member', 'one member')
+eq(sel.assistanceGroups([]), [], 'no records, no groups')
+
+// the search: every word, any order, on the member, the barangay or the assistance
+const nameOf = (r) => r.farmer_full_name
+eq(sel.filterConfirmRecords(list, '', nameOf).length, 5, 'an empty search keeps everyone')
+eq(sel.filterConfirmRecords(list, 'cruz ben', nameOf).map((r) => r.id), [2], 'words in any order find the member')
+eq(sel.filterConfirmRecords(list, 'fertilizer', nameOf).map((r) => r.id), [3], 'the assistance type can be searched')
+eq(sel.filterConfirmRecords(list, 'poblacion seeds', nameOf).map((r) => r.id), [1, 2, 4, 5], 'the barangay and the type together')
+eq(sel.filterConfirmRecords(list, 'zzz', nameOf), [], 'nothing matches')
+
+// picking a whole assistance at once (only the ones that can be picked)
+eq([...sel.toggleGroup(new Set(), groups[0].records)].sort(), [1, 2], 'the box of an assistance picks its members, leaving out the one waiting for review')
+eq([...sel.toggleGroup(new Set([1, 2, 3]), groups[0].records)].sort(), [3], 'a second click on it unpicks them and keeps the picks of other assistance')
+eq([...sel.toggleGroup(new Set([1]), groups[0].records)].sort(), [1, 2], 'a partly picked assistance becomes fully picked')
+eq([...sel.toggleGroup(new Set(), [list[4]])], [], 'a group with nothing pickable picks nothing')
+
 console.log(`orgConfirmSelection: ${n} checks passed`)
