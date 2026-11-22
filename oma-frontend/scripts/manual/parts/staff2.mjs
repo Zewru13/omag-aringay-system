@@ -121,7 +121,7 @@ export const STAFF2 = [
     js: `document.querySelector('section[aria-label="Members"] button').click(); ${wait(2000)}`, after: 800, title: 'Organization profile: Members', purpose: 'The members of the organization.',
     callouts: [
       { find: { text: 'Import Members', tag: 'button' }, label: 'Import Members', desc: 'Adds many members from a spreadsheet, with a preview first.' },
-      { find: { text: 'Add Member', tag: 'button', exact: true }, label: 'Add Member', desc: 'Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member.' },
+      { find: { text: 'Add Member', tag: 'button', exact: true }, label: 'Add Member', desc: 'Opens a window: search a registered farmer and pick the person, search again and pick as many as you need, choose each one\'s position (one that is taken is grayed out) and the date joined, then add them all together.' },
       { find: { css: '.modal-content table' }, label: 'Members table', desc: 'Full name, RSBSA number, position, date joined and Main (marks the organization that is this member\'s main one when they belong to several; Set as main changes it).' },
     ] }),
   A({ id: 'admin-org-equipment', file: 'admin/org-equipment.png', url: '/organizations/farmers/1', wait: 6000, height: 900,

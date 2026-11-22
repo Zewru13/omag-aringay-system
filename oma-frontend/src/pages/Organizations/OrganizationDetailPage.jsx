@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Building2, CalendarDays, HandHelping, Landmark, Mail, MapPin, Package, Phone, Plus, Search, Trash2, Upload, UserCog, UserRound, UserX } from "lucide-react";
+import { Building2, CalendarDays, Check, HandHelping, Landmark, Mail, MapPin, Package, Phone, Plus, Search, Trash2, Upload, UserCog, UserRound, UserX } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
@@ -30,7 +30,9 @@ import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
 import LendEquipmentForm from "./LendEquipmentForm.jsx";
 import { END_TERM_OTHER_LABEL, END_TERM_REASONS, endTermRequest } from "./endTermReasons.js";
 import OrgCompactList from "./OrgCompactList.jsx";
-import { OFFICER_POSITIONS, firstFreeOfficerPosition, heldPositions, holdersByPerson, positionLabel } from "./positionRules.js";
+import { OFFICER_POSITIONS, firstFreeOfficerPosition, heldPositions, holdersByPerson, positionLabel, takenForLine } from "./positionRules.js";
+import { addBatch, addButtonLabel, batchMessage, isChosen, positionLines, setChosenPosition, toggleChosen } from "./memberBatch.js";
+import { memberRefusal } from "./registrationMembers.js";
 import useEquipmentOptions from "../../hooks/useEquipmentOptions.js";
 import { equipmentToServer } from "../../utils/equipmentNames.js";
 import { FARMERS_EQUIPMENT, FISHERFOLK_EQUIPMENT } from "./registrationEquipment.js";
@@ -81,31 +83,34 @@ const localToday = () => {
 };
 
 // Also opened from the organization account's own pages (pages/Account).
+// Several people can be added in one step: search a name, pick the person, search another, pick again, then Add. The people picked stay in the
+// table below the search while the search changes. Each is sent on its own (see memberBatch.js), so one refusal does not stop the others.
 export function AddMemberModal({ type, organizationId, organizationName, own = false, held = new Set(), onClose, onSuccess }) {
+  const { showToast } = useToast();
   const [search, setSearch] = useState("");
   // What is typed is a draft: still here when the form is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(`org-add-member:${type}:${organizationId}`);
-  const [selected, setSelected] = useDraftField(draft, 'selected', null);
-  const [position, setPosition] = useDraftField(draft, 'position', "Member");
+  const draft = useDraftForm(`org-add-members:${type}:${organizationId}`);
+  const [chosen, setChosen] = useDraftField(draft, 'chosen', []);
   // An organization adds members as of today (the same default its older portal used); staff enter the date.
   const [dateJoined, setDateJoined] = useDraftField(draft, 'dateJoined', own ? localToday() : "");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Set when the server refuses the add until staff choose whether this
-  // organization becomes the person's main (the person's other active
-  // memberships have no main). Holds those other organizations' names.
-  const [mainChoice, setMainChoice] = useState(null);
+  // Set when the server refuses people until staff choose whether this organization becomes their main (their other active memberships have no
+  // main). `queue` holds them, asked one at a time; `run` keeps what was already added or refused in this step.
+  const [queue, setQueue] = useState([]);
+  const [run, setRun] = useState({ total: 0, added: 0, failures: [] });
   const [submittedIsMain, setSubmittedIsMain] = useState(undefined);
+  const mainChoice = queue[0] || null;
 
   const searchEndpoint = type === "farmers" ? "/farmers/" : "/fisheries/fisherfolk/";
   const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
-  const idLabel = "rsbsa_number";
   const idDisplayLabel = "RSBSA No.";
   // The organization-scoped candidate search returns a masked id hint instead of the full registry number.
-  const idOf = (item) => (own ? item.id_hint : item[idLabel]);
+  const idOf = (item) => (own ? item.id_hint : item.rsbsa_number);
+  const plural = type === "farmers" ? "farmers" : "fisherfolk";
 
   // Suggestions appear as staff type a name or ID number; the only people
-  // offered are registry records, and one must be picked from the list.
+  // offered are registry records, and each is picked from the list.
   const { results, isSearching, hasSearched } = useSuggestSearch(
     search,
     (q) => (own
@@ -114,53 +119,94 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
       .then((r) => (Array.isArray(r.data) ? r.data : (r.data.results || []))),
   );
 
-  // `isMain` is only sent once staff have answered the main-organization
-  // choice; the first attempt omits it and lets the server decide.
-  const submitMember = async (isMain) => {
+  const payloadOf = (entry, isMain) => ({
+    [memberKey]: entry.person.id,
+    position: own ? "Member" : entry.position,
+    date_joined: dateJoined,
+    ...(isMain === undefined ? {} : { is_main: isMain }),
+  });
+  const post = (payload) => api.post(`/organizations/${type}/${organizationId}/members/`, payload);
+
+  // The step is over when nobody is left to ask: tell what happened. Everything went in -> close; otherwise keep the refused people on the list.
+  const finish = (summary) => {
+    setRun({ total: 0, added: 0, failures: [] });
+    setQueue([]);
+    if (summary.added > 0) onSuccess();
+    const outcome = batchMessage(summary.total, summary.failures);
+    if (outcome.text) showToast(outcome.text, outcome.kind === "ok" ? "success" : "error");
+    if (summary.failures.length === 0) {
+      draft.clear();
+      onClose();
+      return;
+    }
+    const left = new Set(summary.failures.map((f) => f.entry.person.id));
+    setChosen((list) => list.filter((c) => left.has(c.person.id)));
+    setError(`Not added: ${summary.failures.map((f) => `${f.name} ${f.reason}`).join("; ")}.`);
+  };
+
+  const submitPick = async () => {
     setError("");
-    setSubmittedIsMain(isMain);
     setIsSubmitting(true);
     try {
-      await api.post(`/organizations/${type}/${organizationId}/members/`, {
-        [memberKey]: selected.id,
-        position,
-        date_joined: dateJoined,
-        ...(isMain === undefined ? {} : { is_main: isMain }),
-      });
-      draft.clear();
-      onSuccess();
-      onClose();
-    } catch (err) {
-      const data = err.response?.data;
-      if (data?.main_choice_required && own) {
-        // Choosing a person's main organization is OMAg staff's call, not the organization's.
-        setError("This person is already in another organization and has no main one yet. Ask OMAg staff to set it first.");
-      } else if (data?.main_choice_required) {
-        setMainChoice({
-          otherNames: (data.other_organizations || []).map((o) => o.organization_name),
-        });
+      const { added, failed, needMain } = await addBatch({ chosen, post, body: (entry) => payloadOf(entry), own });
+      const summary = { total: chosen.length, added: added.length, failures: failed };
+      if (needMain.length > 0) {
+        setRun(summary);
+        setQueue(needMain);
+        setChosen((list) => list.filter((c) => !added.some((a) => a.person.id === c.person.id)));
       } else {
-        setError(data?.detail || "Unable to add member.");
+        finish(summary);
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // The answer to the main-organization question for the first person in the queue (null = skip them).
+  const answerMain = async (isMain) => {
+    const { entry } = mainChoice;
+    setSubmittedIsMain(isMain);
+    setIsSubmitting(true);
+    let next = { ...run };
+    try {
+      if (isMain === null) {
+        next = { ...next, failures: [...next.failures, { entry, name: entry.person.full_name, reason: "was not added (main organization not chosen)" }] };
+      } else {
+        try {
+          await post(payloadOf(entry, isMain));
+          next = { ...next, added: next.added + 1 };
+        } catch (err) {
+          next = { ...next, failures: [...next.failures, { entry, name: entry.person.full_name, reason: err.response?.data?.detail || memberRefusal(err.response?.data) }] };
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+    const rest = queue.slice(1);
+    if (rest.length > 0) {
+      setRun(next);
+      setQueue(rest);
+    } else {
+      finish(next);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!selected) {
-      setError("Please search for and select a member first.");
+    if (chosen.length === 0) {
+      setError(`Search for and pick at least one ${type === "farmers" ? "farmer" : "fisherfolk"} first.`);
       return;
     }
     if (!dateJoined) {
       setError("Date joined is required.");
       return;
     }
-    submitMember();
+    submitPick();
   };
 
   if (mainChoice) {
+    const person = mainChoice.entry.person;
+    const left = queue.length - 1;
     return (
       <ModalShell
         title="Choose Main Organization"
@@ -168,13 +214,13 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
         maxWidth="max-w-xl"
         footer={
           <>
-            <Button onClick={() => setMainChoice(null)} disabled={isSubmitting} type="button" variant="outline">
-              Cancel
+            <Button onClick={() => answerMain(null)} disabled={isSubmitting} type="button" variant="outline">
+              Skip this person
             </Button>
-            <Button onClick={() => submitMember(false)} isLoading={isSubmitting && submittedIsMain === false} disabled={isSubmitting} type="button" variant="outline">
+            <Button onClick={() => answerMain(false)} isLoading={isSubmitting && submittedIsMain === false} disabled={isSubmitting} type="button" variant="outline">
               Add, but not as main
             </Button>
-            <Button onClick={() => submitMember(true)} isLoading={isSubmitting && submittedIsMain === true} disabled={isSubmitting} type="button" variant="primary">
+            <Button onClick={() => answerMain(true)} isLoading={isSubmitting && submittedIsMain === true} disabled={isSubmitting} type="button" variant="primary">
               Make {organizationName} their main
             </Button>
           </>
@@ -185,17 +231,17 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
             title="Main Organization"
             columns={1}
             fields={[
-              { label: "Member", value: selected.full_name },
+              { label: "Member", value: person.full_name },
               { label: "Already in", value: mainChoice.otherNames.join(", ") },
               { label: "Adding to", value: organizationName },
             ]}
           />
           <p className="text-[14px] leading-relaxed text-[#1A2B1A]">
-            {selected.full_name} has no main organization yet. Should {organizationName} be
+            {person.full_name} has no main organization yet. Should {organizationName} be
             their main?
           </p>
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
-            They have not been added yet. Cancel to go back and change the details.
+            {left > 0 ? `${left} more ${left === 1 ? "person needs" : "people need"} the same answer after this one. ` : ""}They have not been added yet. Skip them to leave them out.
           </p>
         </div>
       </ModalShell>
@@ -204,72 +250,76 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
 
   return (
     <ModalShell
-      title="Add Member"
-      maxWidth="max-w-2xl"
+      title="Add Members"
+      subtitle={`Search and pick as many registered ${plural} as you need, then add them together.`}
+      maxWidth="max-w-3xl"
       onClose={onClose}
       footer={
         <>
           <Button onClick={onClose} type="button" variant="outline">
             Cancel
           </Button>
-          <Button isLoading={isSubmitting} type="submit" form="add-member-form" variant="primary">
-            Add Member
+          <Button isLoading={isSubmitting} disabled={chosen.length === 0} type="submit" form="add-member-form" variant="primary">
+            {addButtonLabel(chosen.length)}
           </Button>
         </>
       }
     >
       <form id="add-member-form" className="space-y-3" onSubmit={handleSubmit}>
         <DraftBanner draft={draft} />
-        <FormSection title="Member">
-          <FormRows label="Member">
+        <FormSection title="Find Members">
+          <FormRows label="Find members">
             <FormRow>
-              <FormCell label={`Search ${type === "farmers" ? "Farmer" : "Fisherfolk"}`} required wide>
+              <FormCell label={`Search ${type === "farmers" ? "Farmer" : "Fisherfolk"}`} wide>
                 <input
                   className={baseInputClasses}
                   placeholder="Name or ID number..."
                   aria-label={`Search ${type === "farmers" ? "Farmer" : "Fisherfolk"}`}
                   autoComplete="off"
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+                  onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => {
                     // Enter picks the first suggestion instead of submitting the form.
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      if (results[0]) setSelected(results[0]);
+                      if (results[0] && !isChosen(chosen, results[0].id)) setChosen((list) => toggleChosen(list, results[0]));
                     }
                   }}
                 />
                 <p className="mt-1.5 text-[12px] text-[#7A8E7A]">
-                  Only registered {type === "farmers" ? "farmers" : "fisherfolk"} can be added — pick one from the list.
+                  Only registered {plural} can be added. Pick a person from the list, then search for the next one: everyone you pick stays in the table below.
                 </p>
 
-                {/* Results */}
+                {/* Results: a click picks the person, a second click takes them off again */}
                 {results.length > 0 && (
                   <div className={`mt-2 max-h-48 overflow-y-auto rounded-xl border border-[#E2E8E2] transition-opacity duration-150 ${isSearching ? "opacity-60" : ""}`}>
-                    {results.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelected(item)}
-                        className={`w-full rounded-lg p-2 text-left text-[13px] transition-colors ${
-                          selected?.id === item.id
-                            ? "bg-[#EBF5EE] font-semibold text-[#1B4D2E]"
-                            : "hover:bg-[#F9FAF9]"
-                        }`}
-                      >
-                        <span className="font-medium text-[#1A2B1A]">
-                          {item.full_name}
-                        </span>
-                        <span className="ml-2 text-[#7A8E7A]">
-                          {idDisplayLabel}: {idOf(item)}
-                        </span>
-                        {own && item.current_organizations?.length > 0 && (
-                          <span className="mt-0.5 block text-[11px] text-[#7A8E7A]">
-                            Also in: {item.current_organizations.map((o) => o.name).join(", ")}
+                    {results.map((item) => {
+                      const picked = isChosen(chosen, item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          aria-pressed={picked}
+                          onClick={() => setChosen((list) => toggleChosen(list, item))}
+                          className={`flex w-full items-start gap-2 rounded-lg p-2 text-left text-[13px] transition-colors ${
+                            picked ? "bg-[#EBF5EE] font-semibold text-[#1B4D2E]" : "hover:bg-[#F9FAF9]"
+                          }`}
+                        >
+                          <span aria-hidden="true" className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${picked ? "border-[#1B4D2E] bg-[#1B4D2E] text-white" : "border-slate-300 bg-white"}`}>
+                            {picked && <Check size={12} />}
                           </span>
-                        )}
-                      </button>
-                    ))}
+                          <span>
+                            <span className="font-medium text-[#1A2B1A]">{item.full_name}</span>
+                            <span className="ml-2 text-[#7A8E7A]">{idDisplayLabel}: {idOf(item)}</span>
+                            {own && item.current_organizations?.length > 0 && (
+                              <span className="mt-0.5 block text-[11px] text-[#7A8E7A]">
+                                Also in: {item.current_organizations.map((o) => o.name).join(", ")}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -278,35 +328,75 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
                     No results. Try a different name or ID.
                   </p>
                 )}
-
-                {selected && (
-                  <p className="mt-2 rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
-                    Selected: {selected.full_name} ({idOf(selected)})
-                  </p>
-                )}
               </FormCell>
             </FormRow>
+          </FormRows>
+        </FormSection>
+
+        <FormSection title="Members to Add">
+          {chosen.length === 0 ? (
+            <p className="px-3 py-3 text-[13px] text-[#7A8E7A]">Nobody picked yet. Search above and pick the people to add.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[28rem] text-sm" aria-label="Members to add">
+                <thead className="bg-[#F0F4F0]">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Member</th>
+                    {!own && <th className="w-48 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Position</th>}
+                    <th className="w-12 px-3 py-2"><span className="sr-only">Remove</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chosen.map((c) => {
+                    const off = takenForLine(held, positionLines(chosen), c.person.id);
+                    return (
+                      <tr key={c.person.id} className="border-t border-[#F0F4F0]">
+                        <td className="px-3 py-2">
+                          <span className="block text-[13px] font-medium text-[#1A2B1A]">{c.person.full_name}</span>
+                          <span className="block text-[11.5px] text-[#7A8E7A]">{idDisplayLabel}: {idOf(c.person)}</span>
+                        </td>
+                        {!own && (
+                          <td className="px-3 py-2">
+                            <select
+                              className={baseInputClasses}
+                              aria-label={`Position of ${c.person.full_name}`}
+                              value={c.position}
+                              onChange={(e) => setChosen((list) => setChosenPosition(list, c.person.id, e.target.value))}
+                            >
+                              {POSITIONS.map((p) => (
+                                <option key={p} value={p} disabled={p !== "Member" && off.has(p)}>
+                                  {positionLabel(p, off)}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            title={`Remove ${c.person.full_name}`}
+                            aria-label={`Remove ${c.person.full_name}`}
+                            onClick={() => setChosen((list) => list.filter((x) => x.person.id !== c.person.id))}
+                            className="rounded-md p-1.5 text-rose-500 hover:bg-rose-50"
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </FormSection>
+
+        <FormSection title="Date Joined">
+          <FormRows label="Date joined">
             <FormRow>
-              {/* Position (an organization adds a plain member; officers are assigned from the Officers table) */}
-              {!own && (
-                <FormCell label="Position">
-                  <select
-                    className={baseInputClasses}
-                    aria-label="Position"
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                  >
-                    {POSITIONS.map((p) => (
-                      <option key={p} value={p} disabled={p !== "Member" && held.has(p)}>
-                        {positionLabel(p, held)}
-                      </option>
-                    ))}
-                  </select>
-                </FormCell>
-              )}
-              <FormCell label="Date Joined" required wide={own}>
+              <FormCell label="Date Joined" required wide>
                 <input
-                  className={baseInputClasses}
+                  className={`${baseInputClasses} sm:max-w-xs`}
                   required
                   type="date"
                   aria-label="Date Joined"
@@ -314,6 +404,7 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
                   max={localToday()}
                   onChange={(e) => setDateJoined(e.target.value)}
                 />
+                <p className="mt-1.5 text-[12px] text-[#7A8E7A]">The same date is used for everyone added together.</p>
               </FormCell>
             </FormRow>
           </FormRows>

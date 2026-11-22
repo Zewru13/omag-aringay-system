@@ -76,7 +76,7 @@ export const PHONE = [
     ] }),
   O({ id: 'org-p-members', phone: true, file: 'org/phone-members.png', url: '/my-organization', wait: 6000, title: 'Members on a phone (Organization)', purpose: 'One card per member.',
     callouts: [
-      { find: [{ text: 'Import', tag: 'button', exact: true }, { text: 'Add member', tag: 'button', exact: true }], label: 'Import / Add member', desc: 'Add members one by one, or from a spreadsheet.' },
+      { find: [{ text: 'Import', tag: 'button', exact: true }, { text: 'Add member', tag: 'button', exact: true }], label: 'Import / Add member', desc: 'Add several members at once by searching and picking each, or from a spreadsheet.' },
       ROW1('A member', 'The name, the position and the date joined.'),
       BOTTOM('Home, Members, Assistance, Equipment and More.'),
     ] }),

@@ -3906,7 +3906,7 @@ export default {
    {
     "n": 2,
     "label": "Add member / Import",
-    "desc": "Add member finds a registered person by name. Import adds many from a spreadsheet (download its template first)."
+    "desc": "Add member finds registered people by name, several at a time. Import adds many from a spreadsheet (download its template first)."
    },
    {
     "n": 3,
@@ -3936,7 +3936,7 @@ export default {
    {
     "n": 1,
     "label": "Add member",
-    "desc": "Search the name and pick the person, choose the position and the date joined, then Add Member. Someone already in another organization is shown, and can belong to both."
+    "desc": "Search a name and pick the person, then search for the next and pick again: everyone picked is listed under Members to Add. Choose the date joined and add them all together. Someone already in another organization is shown, and can belong to both."
    }
   ]
  },
@@ -4283,7 +4283,7 @@ export default {
    {
     "n": 1,
     "label": "Import / Add member",
-    "desc": "Add members one by one, or from a spreadsheet."
+    "desc": "Add several members at once by searching and picking each, or from a spreadsheet."
    },
    {
     "n": 2,
@@ -4633,7 +4633,7 @@ export default {
    {
     "n": 2,
     "label": "Add Member",
-    "desc": "Opens a window: search a registered farmer, choose the position (one that is taken is grayed out) and the date joined, then Add Member."
+    "desc": "Opens a window: search a registered farmer and pick the person, search again and pick as many as you need, choose each one's position (one that is taken is grayed out) and the date joined, then add them all together."
    },
    {
     "n": 3,

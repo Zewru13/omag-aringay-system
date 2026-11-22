@@ -1443,7 +1443,7 @@ export const labels = {
       {
         key: 'add-member',
         q: 'How do I add a member?',
-        a: 'On Home, tap "Add Member". Search by the name or barangay of a registered farmer or fisherfolk, then tap "Add". A farmer or fisherfolk can be a member of more than one organization at the same time — if they already belong to another organization, you will only see it as information, not a warning, and they are not removed from it automatically.',
+        a: 'On Home, tap "Add Member". Search by the name or barangay of a registered farmer or fisherfolk and tap the person to pick them; search again for the next person and tap them too. Everyone you pick stays in the list below, and one tap on "Add" at the bottom adds them all together. A farmer or fisherfolk can be a member of more than one organization at the same time — if they already belong to another organization, you will only see it as information, not a warning, and they are not removed from it automatically.',
       },
       {
         key: 'assign-officer',
