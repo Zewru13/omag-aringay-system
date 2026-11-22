@@ -17,6 +17,12 @@ export const positionLines = (chosen) => chosen.map((c) => ({ _uid: c.person.id,
 
 export const addButtonLabel = (count) => (count === 0 ? 'Add Members' : `Add ${count} Member${count === 1 ? '' : 's'}`)
 
+// The server's own sentence ("This farmer is already a member of this organization.") as the end of "<name> could not be added (...)".
+const refusalReason = (data) => {
+  const said = memberRefusal(data)
+  return said === 'could not be added' ? said : `could not be added (${String(said).replace(/\.+$/, '')})`
+}
+
 // Sends every picked person (body(entry) is what the server takes for one). Returns who was added, who was refused (with the reason) and who the
 // server holds back until staff say whether this organization is their main one (an organization account cannot answer that: for it, it is a refusal).
 export async function addBatch({ chosen, post, body, own = false }) {
@@ -34,7 +40,7 @@ export async function addBatch({ chosen, post, body, own = false }) {
       } else if (data?.main_choice_required) {
         failed.push({ entry, name: entry.person.full_name, reason: 'is already in another organization and has no main one yet. Ask OMAg staff to set it first.' })
       } else {
-        failed.push({ entry, name: entry.person.full_name, reason: data?.detail || memberRefusal(data) })
+        failed.push({ entry, name: entry.person.full_name, reason: refusalReason(data) })
       }
     }
   }
