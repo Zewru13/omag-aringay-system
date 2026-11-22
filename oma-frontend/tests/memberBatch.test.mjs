@@ -36,7 +36,7 @@ eq([result.added.map((c) => c.person.id), result.failed, result.needMain], [[1, 
 
 result = await b.addBatch({ chosen, body, post: async (p) => { if (p.farmer === 1) answer({ detail: 'Ana Reyes is already a member.' }) } })
 eq(result.added.map((c) => c.person.id), [2], 'the second is added although the first was refused')
-eq(result.failed, [{ entry: chosen[0], name: 'Ana Reyes', reason: 'Ana Reyes is already a member.' }], 'the refusal names the person and the reason')
+eq(result.failed, [{ entry: chosen[0], name: 'Ana Reyes', reason: 'could not be added (Ana Reyes is already a member)' }], 'the refusal names the person and the reason, as a sentence that reads on after the name')
 
 // the main-organization question is staff's: it is asked afterwards, not lost
 result = await b.addBatch({ chosen, body, post: async (p) => { if (p.farmer === 2) answer({ main_choice_required: true, other_organizations: [{ organization_name: 'Org X' }] }) } })
