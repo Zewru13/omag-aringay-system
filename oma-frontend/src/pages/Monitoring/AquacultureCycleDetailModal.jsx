@@ -25,33 +25,11 @@ import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 import { LogCell, LogHead, LogRow, LogTable, LogTh } from './LogFormTable.jsx'
 import {
-  HEALTH_OBSERVATION_OPTIONS, HEALTH_RECOMMENDED_TREATMENT, HEALTH_TREATMENT_OPTIONS, isForceObservation, unitEntryNeeds, unitLabel, validateUnitEntry,
+  FEED_TYPE_CHOICES, HEALTH_OBSERVATION_OPTIONS, HEALTH_RECOMMENDED_TREATMENT, HEALTH_TREATMENT_OPTIONS, OTHER_FEED_OPTIONS, isForceObservation, unitEntryNeeds,
+  unitLabel, validateUnitEntry,
 } from './cycleLogForms.js'
 
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
-// Feed Type choices for the Feeding Log. The backend stores feed_type as plain free text (no choices), so the
-// submitted value is always a plain string: one of these names, or a custom name typed by the user.
-const FEED_TYPE_CHOICES = [
-  'Starter/Fingerling Feed',
-  'Grower Feed',
-  'Production Feed',
-  'Finisher Feed',
-  'Natural Pond Food',
-  'Others',
-]
-// "Others" -> second dropdown. These are alternative/supplemental feed examples documented for particular
-// aquaculture systems/species - not feeds that suit every species. "Custom Feed" asks for a typed name.
-const OTHER_FEED_OPTIONS = [
-  'Rice Bran',
-  'Cooked Broken Rice',
-  'Trash Fish',
-  'Chopped/Blanched Chicken Entrails + Rice Bran',
-  'Stale Bread/Bakery Waste',
-  'Corn Bran',
-  'Natural Pond Food/Algae',
-  'Plant/Leaf Meal',
-  'Custom Feed',
-]
 
 // SUGGESTED Feed Type (never required - the user can always pick something else).
 //  - Hito / Asian catfish (SEAFDEC): formulated crumble for the first 2 months, formulated pellets from the

@@ -4842,6 +4842,11 @@ export default {
    },
    {
     "n": 6,
+    "label": "Log on many cycles",
+    "desc": "The same feeding or the same observation in several cycles: fill it in once, tick the cycles (or their ponds and cages) and it is saved on all of them."
+   },
+   {
+    "n": 7,
     "label": "Details",
     "desc": "The cycle with its ponds and cages (see the next picture)."
    }

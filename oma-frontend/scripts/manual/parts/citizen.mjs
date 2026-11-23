@@ -111,6 +111,7 @@ export const CITIZEN = [
       COLUMNS('The species and cycle number, the ponds and cages, the place, the dates and the status.'),
       SECTIONS('Growing, Ready to harvest, Harvested and Lost.'),
       { find: btn('Log activity'), label: 'Log activity', desc: 'Asks which log first: the Feeding Log or the Health Log.' },
+      { find: btn('Log on many cycles'), label: 'Log on many cycles', desc: 'The same feeding or the same observation in several cycles: fill it in once, tick the cycles (or their ponds and cages) and it is saved on all of them.' },
       { find: btn('Details'), label: 'Details', desc: 'The cycle with its ponds and cages (see the next picture).' },
     ] }),
   FI({ id: 'fisherfolk-log-choice', file: 'fisherfolk/log-choice.png', url: '/fisheries-monitoring', wait: 6000, js: click('Log activity'), after: 1500, title: 'Which log (Fisherfolk)', purpose: 'Log activity asks first.',

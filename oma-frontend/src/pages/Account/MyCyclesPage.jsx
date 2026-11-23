@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Fish } from 'lucide-react'
+import { ClipboardList, Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
@@ -18,6 +18,7 @@ import CycleActivityLogsModal from '../Monitoring/CycleActivityLogsModal.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import { cycleReport } from '../Monitoring/listReports.js'
 import LogActivityModal from '../Monitoring/LogActivityModal.jsx'
+import LogOnManyCyclesModal from '../Monitoring/LogOnManyCyclesModal.jsx'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import AccountPage from './AccountPage.jsx'
 import { inYear, searchRows, yearsOf } from './accountSearch.js'
@@ -34,6 +35,7 @@ import StatusBadge from './StatusBadge.jsx'
 // the office's own window; this page only lists and opens them. The backend limits the list to the fisherfolk's own cycles.
 
 const ALL_CYCLES = 'Stocked,Near Harvest,Late,Harvested,Total Loss'
+const GROWING = ['Stocked', 'Near Harvest', 'Late']   // the cycles that still take a log
 
 const COLUMNS = [
   { key: 'title', label: 'Species', phone: 'title', render: cycleTitle },
@@ -61,7 +63,7 @@ export default function MyCyclesPage() {
   const [version, setVersion] = useState(0)
   const [search, setSearch] = useState('')
   const [year, setYear] = useState('')
-  // The open window: { kind: 'details' | 'choose-log' | 'log' | 'harvest' | 'edit' | 'force' | 'logs' | 'harvests' | 'start', rec, ... }
+  // The open window: { kind: 'details' | 'choose-log' | 'log' | 'many' | 'harvest' | 'edit' | 'force' | 'logs' | 'harvests' | 'start', rec, ... }
   const [open, setOpen] = useState(null)
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
@@ -140,7 +142,15 @@ export default function MyCyclesPage() {
     <AccountPage
       title="My cycles"
       helper="Your fish production cycles, ponds and cages."
-      action={<Button icon={Fish} onClick={() => setOpen({ kind: 'start' })}>Start a cycle</Button>}
+      action={(
+        <div className="grid grid-cols-1 gap-2 sm:flex">
+          {/* The same feeding or observation in several cycles is logged once, not cycle by cycle. */}
+          {state === 'ready' && cycles.filter((c) => c.production_cycle && GROWING.includes(c.status)).length > 1 && (
+            <Button variant="outline" icon={ClipboardList} onClick={() => setOpen({ kind: 'many' })}>Log on many cycles</Button>
+          )}
+          <Button icon={Fish} onClick={() => setOpen({ kind: 'start' })}>Start a cycle</Button>
+        </div>
+      )}
     >
       {state === 'ready' && cycles.length > 0 && (
         <ListTools search={search} onSearch={setSearch} placeholder="Search species or place" years={yearsOf(cycles, cycleDate)} year={year} onYear={setYear} />
@@ -177,6 +187,7 @@ export default function MyCyclesPage() {
       {shown?.kind === 'log' && (
         <LogActivityModal kind={shown.logKind} cycle={shown.cycle} subtitle={[cycleTitle(rec), shown.cycle.cycle_name].filter(Boolean).join(' · ')} onClose={close} onSaved={done} />
       )}
+      {shown?.kind === 'many' && <LogOnManyCyclesModal onClose={close} onDone={done} />}
       {shown?.kind === 'harvest' && <RecordStockingHarvestModal record={rec} onClose={close} onSuccess={done} />}
       {shown?.kind === 'edit' && <EditStockingModal record={rec} speciesList={species} onClose={close} onSaved={done} />}
       {shown?.kind === 'logs' && <CycleActivityLogsModal record={rec} onClose={close} />}
