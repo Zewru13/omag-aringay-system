@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ClipboardList } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import Button from '../../components/UI/Button.jsx'
 import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate } from '../../utils/dateFormat.js'
 import fetchAllPages from '../Citizen/fetchAllPages.js'
 import ForceHarvestCropsModal from '../CropInformation/ForceHarvestCropsModal.jsx'
+import { growingCrops } from '../Monitoring/bulkCropLog.js'
 import CropDetailsModal from '../Monitoring/CropDetailsModal.jsx'
+import LogActivityManyCropsModal from '../Monitoring/LogActivityManyCropsModal.jsx'
 import { DisasterReportModal, RecordHarvestFromMonitoringModal, ViewLogsModal } from '../Monitoring/CropMonitoringPage.jsx'
 import { harvestGateInfo } from '../Monitoring/harvestGateInfo.js'
 import AccountPage from './AccountPage.jsx'
@@ -51,7 +55,7 @@ export default function MyCropsPage() {
   const [version, setVersion] = useState(0)
   const [search, setSearch] = useState('')
   const [year, setYear] = useState('')
-  const [open, setOpen] = useState(null)     // { kind: 'details' | 'activity' | 'harvest' | 'force' | 'disaster', crop }
+  const [open, setOpen] = useState(null)     // { kind: 'details' | 'activity' | 'many' | 'harvest' | 'force' | 'disaster', crop }
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
   const retry = () => { setState('loading'); reload() }
@@ -98,7 +102,12 @@ export default function MyCropsPage() {
   const narrowed = Boolean(search.trim() || year)
 
   return (
-    <AccountPage title="My crops" helper="Every crop the office has on record for you.">
+    <AccountPage
+      title="My crops"
+      helper="Every crop the office has on record for you."
+      // The same work done on many crops in a day is logged once, not crop by crop.
+      action={state === 'ready' && growingCrops(crops).length > 1 ? <Button icon={ClipboardList} onClick={() => setOpen({ kind: 'many' })}>Log activity on many crops</Button> : null}
+    >
       {state === 'ready' && crops.length > 0 && (
         <ListTools search={search} onSearch={setSearch} placeholder="Search crop or place" years={yearsOf(crops, cropDate)} year={year} onYear={setYear} />
       )}
@@ -131,6 +140,7 @@ export default function MyCropsPage() {
         />
       )}
       {open?.kind === 'activity' && <ViewLogsModal record={open.crop} onClose={close} onLogAdded={reload} />}
+      {open?.kind === 'many' && <LogActivityManyCropsModal onClose={close} onDone={() => { close(); reload() }} />}
       {open?.kind === 'harvest' && <RecordHarvestFromMonitoringModal record={open.crop} onClose={close} onSuccess={reload} />}
       {open?.kind === 'disaster' && <DisasterReportModal record={open.crop} onClose={close} onSuccess={reload} />}
       {open?.kind === 'force' && (

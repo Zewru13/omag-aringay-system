@@ -321,7 +321,9 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         date_of_activity = data.get('date_of_activity')
-        monitoring_record = data.get('monitoring_record')
+        # The crop the log belongs to: named in the data, handed in by the caller (a log made on several crops at once), or taken from the
+        # URL / the instance being edited below.
+        monitoring_record = data.get('monitoring_record') or self.context.get('monitoring_record')
         if not monitoring_record:
             monitoring_id = self.context.get('view').kwargs.get('monitoring_id') if self.context.get('view') else None
             if monitoring_id:

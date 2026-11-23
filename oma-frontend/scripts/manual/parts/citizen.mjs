@@ -48,6 +48,7 @@ export const CITIZEN = [
       COLUMNS('The crop and variety, the area in hectares, the place, the dates and the status. A red triangle beside the status means a disaster is still open on it.'),
       SECTIONS('Growing, Ready to harvest, Harvested and Lost, each with how many.'),
       { find: btn('Log activity'), label: 'Log activity', desc: 'Records what you did on the crop. The form starts with the activity that is due.' },
+      { find: btn('Log activity on many crops'), label: 'Log activity on many crops', desc: 'The same work done on several crops: choose the activity and the date once, tick the crops, and it is saved on every one of them.' },
       { find: btn('Details'), label: 'Details', desc: 'Everything about the crop, with its own buttons (see the next picture).' },
     ] }),
   FA({ id: 'farmer-crop-details', file: 'farmer/crop-details.png', url: '/crop-monitoring', wait: 6000, js: click('Details'), after: 2500, height: 900, title: 'Crop details (Farmer)', purpose: 'One crop: its facts, its history and what you can do with it.',
