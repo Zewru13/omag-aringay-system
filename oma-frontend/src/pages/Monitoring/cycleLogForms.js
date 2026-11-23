@@ -7,6 +7,30 @@ export const LOG_ACTIVITY_OPTIONS = [
   { key: 'health', label: 'Health Log' },
 ]
 
+// Feed Type choices for the Feeding Log. The backend stores feed_type as plain free text (no choices), so the
+// submitted value is always a plain string: one of these names, or a custom name typed by the user.
+export const FEED_TYPE_CHOICES = [
+  'Starter/Fingerling Feed',
+  'Grower Feed',
+  'Production Feed',
+  'Finisher Feed',
+  'Natural Pond Food',
+  'Others',
+]
+// "Others" -> second dropdown. These are alternative/supplemental feed examples documented for particular
+// aquaculture systems/species - not feeds that suit every species. "Custom Feed" asks for a typed name.
+export const OTHER_FEED_OPTIONS = [
+  'Rice Bran',
+  'Cooked Broken Rice',
+  'Trash Fish',
+  'Chopped/Blanched Chicken Entrails + Rice Bran',
+  'Stale Bread/Bakery Waste',
+  'Corn Bran',
+  'Natural Pond Food/Algae',
+  'Plant/Leaf Meal',
+  'Custom Feed',
+]
+
 export const unitLabel = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
 
 export const HEALTH_OBSERVATION_OPTIONS = [

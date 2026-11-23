@@ -88,7 +88,8 @@ class AquacultureFeedingLogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'unit_quantities': 'The pond/cage breakdown cannot be edited after logging.'})
         if rows:
             view = self.context.get('view')
-            cycle_id = view.kwargs.get('cycle_id') if view is not None else None
+            # The cycle: handed in by the caller (a feeding made on several cycles at once) or named in the URL.
+            cycle_id = self.context.get('cycle_id') or (view.kwargs.get('cycle_id') if view is not None else None)
             valid_ids = set(AquacultureProductionUnit.objects.filter(production_cycle_id=cycle_id).values_list('id', flat=True))
             seen = set()
             for row in rows:
@@ -146,7 +147,7 @@ class AquacultureHealthLogSerializer(serializers.ModelSerializer):
         # The affected pond/cage must be one of THIS cycle's own production units, and is required
         # whenever the cycle has any (cycles without units keep the plain behaviour - nothing is invented).
         view = self.context.get('view')
-        cycle_id = view.kwargs.get('cycle_id') if view is not None else getattr(self.instance, 'production_cycle_id', None)
+        cycle_id = self.context.get('cycle_id') or (view.kwargs.get('cycle_id') if view is not None else getattr(self.instance, 'production_cycle_id', None))
         unit = data.get('production_unit')
         if unit is not None and unit.production_cycle_id != cycle_id:
             raise serializers.ValidationError({'production_unit': 'Selected pond/cage does not belong to this production cycle.'})
