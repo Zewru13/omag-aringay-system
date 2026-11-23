@@ -23,6 +23,7 @@ import AquacultureCycleDetailModal, { CycleInfoSummary } from '../Monitoring/Aqu
 import LogActivityModal from '../Monitoring/LogActivityModal.jsx'
 import LogOnManyCyclesModal from '../Monitoring/LogOnManyCyclesModal.jsx'
 import CycleActivityLogsModal from '../Monitoring/CycleActivityLogsModal.jsx'
+import Button from '../../components/UI/Button.jsx'
 import LogActivityButton from './LogActivityButton.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
@@ -330,7 +331,7 @@ function StockingRowActions({
 // Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card expands its
 // ponds/cages as compact cards (same as the table row); the buttons are full-height touch targets for the
 // same actions the row menu offers (Cycle details, View Details, Edit, Record Harvest with the same gate).
-function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onLogActivity, onLogMany, onOpenCycle, onViewDetails, onEdit, onPrint, onRecordHarvest, onForceHarvest }) {
+function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onLogActivity, onOpenCycle, onViewDetails, onEdit, onPrint, onRecordHarvest, onForceHarvest }) {
   const canEdit = row.status !== 'Harvested'
   const canHarvest = row.status !== 'Total Loss' && row.status !== 'Harvested'
   const harvestGate = harvestGateInfo(row)
@@ -380,7 +381,7 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
           </dl>
           <div className="border-t border-[#F0F4F0] pt-3">
             <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits}
-              headerAction={unitsState?.status === 'ok' && unitsState.hasCycle ? <LogActivityButton onChoose={onLogActivity} onMany={onLogMany} /> : null} />
+              headerAction={unitsState?.status === 'ok' && unitsState.hasCycle ? <LogActivityButton onChoose={onLogActivity} /> : null} />
           </div>
           <div className="grid grid-cols-2 gap-2 border-t border-[#F0F4F0] pt-3 min-[420px]:flex">
             <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
@@ -452,7 +453,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [viewingCycle,   setViewingCycle]   = useState(null)
   const [activityLogsRec, setActivityLogsRec] = useState(null)   // the record whose ⋮ > Activity Logs window is open
   const [logging,         setLogging]        = useState(null)   // Log Activity: { kind: 'feeding' | 'health', cycle, subtitle }
-  const [manyLogRec,      setManyLogRec]     = useState(null)   // Log Activity > Log on Many Cycles: the stocking whose fisherfolk's cycles are listed
+  const [manyLogOpen,     setManyLogOpen]    = useState(false)  // the button above the table: Log on Many Cycles (asks for the fisherfolk first)
   const [forceRec,       setForceRec]       = useState(null)   // the record whose ⋮ > Force Harvest form is open
   // ?forced=<id> (an emergency Force Harvest notification): open that saved Force Harvest's details.
   const linkedForcedId = searchParams.get('forced')
@@ -699,6 +700,12 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       <div className="space-y-4">
         {/* Search + Filters are staff tools; a fisherfolk account sees only its own records, so it gets the
             table directly (search/status/season/year stay at their defaults). */}
+        {/* The same feeding or observation in several cycles of one fisherfolk is logged once: the button asks for the fisherfolk, then lists their active cycles. */}
+        {!isFisherfolk && (
+          <div className="flex justify-end">
+            <Button type="button" icon={ClipboardList} onClick={() => setManyLogOpen(true)} className="w-full sm:w-auto">Log on Many Cycles</Button>
+          </div>
+        )}
         {!isFisherfolk && (
         <FilterPanel
           search={search}
@@ -768,7 +775,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 onToggle={() => toggleExpanded(row._rec)}
                 onRetryUnits={() => retryUnits(row.id)}
                 onLogActivity={(kind) => startLogActivity(row._rec, kind)}
-                onLogMany={row._rec?.fisherfolk && !isFisherfolk ? () => setManyLogRec(row._rec) : null}
                 onOpenCycle={() => handleViewCycle(row._rec)}
                 onViewDetails={() => setViewingRec(row._rec)}
                 onEdit={() => setEditingRec(row._rec)}
@@ -834,7 +840,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                         <tr className="border-b border-[#E2E8E2]">
                           <td colSpan={columns.length} className="p-0">
                             <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)}
-                              headerAction={unitsState(row.id)?.status === 'ok' && unitsState(row.id).hasCycle ? <LogActivityButton onChoose={(kind) => startLogActivity(row._rec, kind)} onMany={row._rec?.fisherfolk && !isFisherfolk ? () => setManyLogRec(row._rec) : null} /> : null} />
+                              headerAction={unitsState(row.id)?.status === 'ok' && unitsState(row.id).hasCycle ? <LogActivityButton onChoose={(kind) => startLogActivity(row._rec, kind)} /> : null} />
                           </td>
                         </tr>
                       )}
@@ -903,13 +909,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
       {activityLogsRec && <CycleActivityLogsModal record={activityLogsRec} onClose={() => setActivityLogsRec(null)} />}
 
-      {manyLogRec && (
-        <LogOnManyCyclesModal
-          fisherfolk={{ id: manyLogRec.fisherfolk, name: manyLogRec.fisherfolk_name || 'Fisherfolk' }}
-          preselectId={manyLogRec.production_cycle}
-          onClose={() => setManyLogRec(null)}
-          onDone={() => { setManyLogRec(null); fetchRecords(page) }}
-        />
+      {manyLogOpen && (
+        <LogOnManyCyclesModal pickFisherfolk onClose={() => setManyLogOpen(false)} onDone={() => { setManyLogOpen(false); fetchRecords(page) }} />
       )}
 
       {logging && (
