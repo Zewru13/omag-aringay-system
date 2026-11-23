@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .bulk_logs import CropActivityBulkLogView
 from .forced_harvest import ForcedHarvestDetailView, ForcedHarvestMultiCreateView
 from .views import (
     ActivityStageNameSuggestionsView,
@@ -110,6 +111,7 @@ urlpatterns = [
     path('monitoring/<int:monitoring_id>/suggestions/', CropActivitySuggestionsView.as_view(), name='monitoring-suggestions'),
     path('yield-analysis/', YieldAnalysisView.as_view(), name='yield-analysis'),
     path('yield-analysis/summary/', YieldAnalysisSummaryView.as_view(), name='yield-analysis-summary'),
+    path('monitoring/bulk-logs/', CropActivityBulkLogView.as_view(), name='monitoring-bulk-logs'),
     path('monitoring/<int:monitoring_id>/logs/', CropActivityLogListCreateView.as_view(), name='monitoring-logs'),
     path('monitoring/<int:monitoring_id>/disasters/', CropDisasterReportListCreateView.as_view(), name='monitoring-disasters'),
     path('disasters/multi/', CropDisasterReportMultiCreateView.as_view(), name='crop-disaster-multi'),

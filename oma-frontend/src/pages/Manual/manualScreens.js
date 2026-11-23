@@ -3670,6 +3670,11 @@ export default {
    },
    {
     "n": 6,
+    "label": "Log activity on many crops",
+    "desc": "The same work done on several crops: choose the activity and the date once, tick the crops, and it is saved on every one of them."
+   },
+   {
+    "n": 7,
     "label": "Details",
     "desc": "Everything about the crop, with its own buttons (see the next picture)."
    }
