@@ -1476,7 +1476,7 @@ export default {
    {
     "n": 6,
     "label": "Actions menu",
-    "desc": "The three dots of a crop: Log Activity, Crop Details, Force Harvest and Report Disaster (next picture)."
+    "desc": "The three dots of a crop: Log Activity, Log Activity on Many Crops, Crop Details, Force Harvest and Report Disaster (next picture)."
    },
    {
     "n": 7,
