@@ -7,14 +7,19 @@ const modal = read('../src/pages/Monitoring/LogActivityManyCropsModal.jsx')
 let n = 0
 const ok = (cond, label) => { assert.ok(cond, label); n++ }
 
-// the office opens the many-crops window from a crop's menu, for that crop's farmer, with that crop ticked
-ok(page.includes("label: 'Log Activity on Many Crops'"), 'Crop Monitoring has the menu item')
-ok(/\(isAdmin \|\| isEvaluator\) && rec\.farmer && \(rec\.status === 'Planted' \|\| rec\.status === 'Near Harvest'\)/.test(page), 'staff only, for a growing crop that has a farmer')
-ok(page.includes('<LogActivityManyCropsModal') && page.includes('preselectId={manyLogRecord.id}'), 'the crop whose menu it was starts ticked')
-// the window lists only that farmer's crops, and keeps a draft per farmer
+// the office reaches it from a button ABOVE the table (staff only), not from a row's three-dot menu
+ok(page.includes('>Log Activity on Many Crops</Button>'), 'Crop Monitoring has the button')
+ok(/\(isAdmin \|\| isEvaluator\) && \(\s*<div className="flex justify-end">/.test(page), 'staff only, in a row above the filters')
+ok(!page.includes("label: 'Log Activity on Many Crops'"), 'it is not an item of the Actions menu')
+ok(page.includes('<LogActivityManyCropsModal pickFarmer'), 'the window first asks for the farmer')
+// the window: a farmer step (registered farmers), then that farmer's growing crops, with a way back
+ok(modal.includes('function ChooseFarmerWindow') && modal.includes('`/farmers/?search=${encodeURIComponent(q)}`'), 'a search of the registered farmers')
+ok(modal.includes('if (pickFarmer && !chosen) return <ChooseFarmerWindow'), 'no farmer yet: the farmer step')
+ok(modal.includes('key={chosen ? chosen.id : \'own\'}'), 'another farmer is another window (its own draft and ticks)')
+ok(modal.includes('Change farmer'), 'a way back to the search')
+// the list is narrowed to the farmer, a draft is kept per farmer, and a farmer account (no farmer prop) still sees its own crops
 ok(modal.includes('...(farmer ? { farmer: farmer.id } : {})'), 'the list is narrowed to the farmer')
 ok(modal.includes('`crop-log-many:f${farmer.id}`'), 'one draft per farmer')
-// a farmer account still sees its own crops without a farmer prop
-ok(modal.includes("farmer = null, preselectId = null"), 'the farmer account passes no farmer')
+ok(modal.includes('farmer = null, pickFarmer = false'), 'the farmer account passes no farmer')
 
 console.log(`bulkCropLogStaff: ${n} checks passed`)

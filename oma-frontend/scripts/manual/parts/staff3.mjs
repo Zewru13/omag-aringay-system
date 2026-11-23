@@ -87,7 +87,7 @@ export const STAFF3 = [
       { find: COLS, label: 'Columns', desc: 'Crop, variety, farmer, organization, barangay, date planted, expected harvest, actual harvest (kg harvested and how it compares with the estimate), Logs (how many activities were recorded), PCIC insured, status and Actions.' },
       { find: { css: 'tbody tr:first-child [role=img]' }, label: 'PCIC Insured check', desc: 'A round check: green with a white check when the crop has PCIC insurance, an empty circle when it has none. View form opens the uploaded PCIC form in a window inside the system (a PDF or photo, with zoom) and Close brings you back. The insurance is changed in the crop\'s Edit form (photos of the form are asked for).' },
       { find: { css: 'tbody tr:first-child button[aria-label="Record Harvest"]' }, label: 'Record Harvest', desc: 'The wheat button records the harvest. It is grayed out until at least half of the crop growing time has passed: hold the pointer on it to see why, and use Force Harvest in the menu instead.' },
-      { find: { css: 'tbody tr:first-child td:last-child button', last: true }, label: 'Actions menu', desc: 'The three dots of a crop: Log Activity, Log Activity on Many Crops, Crop Details, Force Harvest and Report Disaster (next picture).' },
+      { find: { css: 'tbody tr:first-child td:last-child button', last: true }, label: 'Actions menu', desc: 'The three dots of a crop: Log Activity, Crop Details, Force Harvest and Report Disaster (next picture).' },
       { ...PAGER_ROW, find: PAGER },
     ] }),
   A({ id: 'admin-crop-filters', file: 'admin/crop-filters.png', url: '/crop-monitoring', js: click('Filters'), after: 1200, title: 'Crop Monitoring filters', purpose: 'Narrow the crops.',
