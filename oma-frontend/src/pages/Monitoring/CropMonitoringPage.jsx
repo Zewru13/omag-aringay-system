@@ -26,6 +26,7 @@ import { PCIC_FILTER_OPTIONS } from '../../utils/pcic.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import ForceHarvestCropsModal from '../CropInformation/ForceHarvestCropsModal.jsx'
+import LogActivityManyCropsModal from './LogActivityManyCropsModal.jsx'
 import { canReportDisaster } from './cropDetails.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
@@ -1915,6 +1916,7 @@ export default function CropMonitoringPage() {
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
   const [forceRecord,      setForceRecord]      = useState(null)   // the crop whose ⋮ > Force Harvest opened the forced harvest window
+  const [manyLogRecord,    setManyLogRecord]    = useState(null)   // the crop whose ⋮ > Log Activity on Many Crops opened the window for its farmer
 
   // Handle ?filter=for_harvest from dashboard
   useEffect(() => {
@@ -2067,6 +2069,10 @@ export default function CropMonitoringPage() {
         actions={[
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
             key: 'activity', label: 'Log Activity', icon: ClipboardList, onClick: () => setViewLogsRecord(rec),
+          },
+          // The same work done on several crops of this farmer: logged once, ticked on a list of the farmer's growing crops.
+          (isAdmin || isEvaluator) && rec.farmer && (rec.status === 'Planted' || rec.status === 'Near Harvest') && {
+            key: 'log-many', label: 'Log Activity on Many Crops', icon: ClipboardList, onClick: () => setManyLogRecord(rec),
           },
           { key: 'details', label: 'Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
           // Force Harvest: staff only. Several crops of this farmer that are not ready yet, harvested together because of something coming.
@@ -2319,6 +2325,15 @@ export default function CropMonitoringPage() {
           record={harvestRecord}
           onClose={() => setHarvestRecord(null)}
           onSuccess={refreshAll}
+        />
+      )}
+
+      {manyLogRecord && (
+        <LogActivityManyCropsModal
+          farmer={{ id: manyLogRecord.farmer, name: manyLogRecord.farmer_name || manyLogRecord.farmer_full_name || 'Farmer' }}
+          preselectId={manyLogRecord.id}
+          onClose={() => setManyLogRecord(null)}
+          onDone={() => { setManyLogRecord(null); refreshAll() }}
         />
       )}
 

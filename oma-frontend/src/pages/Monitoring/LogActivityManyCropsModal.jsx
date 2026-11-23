@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ClipboardList, Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
@@ -22,15 +22,17 @@ import {
 // (the same boxes as a single crop's Log Activity), tick the crops it was done on, and it is saved on every one of them. The server checks each
 // crop exactly like its own Log Activity window and saves all or none: if one crop cannot take it (for example it was planted after that date), the
 // message names the crop and nothing is saved, so it can be unticked and the rest saved.
+// A farmer account sees its own crops. The office opens it from a crop's menu in Crop Monitoring for that crop's `farmer` ({ id, name }): the
+// farmer's growing crops are listed and `preselectId` (the crop whose menu it was) starts ticked.
 const GROWING_STATUSES = 'Planted,Near Harvest'
 const BOX = 'h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 accent-[#1B4D2E] focus:ring-[#1B4D2E]/30'
 const listOf = (data) => (Array.isArray(data) ? data : data?.results || [])
 
-export default function LogActivityManyCropsModal({ onClose, onDone }) {
+export default function LogActivityManyCropsModal({ farmer = null, preselectId = null, onClose, onDone }) {
   const { showToast } = useToast()
   const today = todayISO()
   // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm('crop-log-many')
+  const draft = useDraftForm(farmer ? `crop-log-many:f${farmer.id}` : 'crop-log-many')
   const [activity, setActivity] = useDraftField(draft, 'activity', '')
   const [activityOther, setActivityOther] = useDraftField(draft, 'activityOther', '')
   const [date, setDate] = useDraftField(draft, 'date', today)
@@ -54,7 +56,7 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
 
   useEffect(() => {
     let alive = true
-    fetchAllPages('/production/monitoring/', { status: GROWING_STATUSES })
+    fetchAllPages('/production/monitoring/', { status: GROWING_STATUSES, ...(farmer ? { farmer: farmer.id } : {}) })
       .then((rows) => alive && setCrops(growingCrops(rows)))
       .catch(() => alive && setCrops(false))
     api.get('/production/activity-types/')
@@ -64,9 +66,16 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
       .then((r) => alive && setFertilizerNames(listOf(r.data).filter((t) => t.input_type === 'Fertilizer' && t.is_active).map((t) => t.name)))
       .catch(() => alive && setFertilizerNames([]))
     return () => { alive = false }
-  }, [])
+  }, [farmer])
 
   const available = useMemo(() => (Array.isArray(crops) ? crops : []), [crops])
+  // The crop whose menu opened this window starts ticked (once, when the crops have loaded).
+  const preselected = useRef(false)
+  useEffect(() => {
+    if (preselectId === null || preselected.current || !Array.isArray(crops)) return
+    preselected.current = true
+    if (crops.some((c) => c.id === preselectId)) setPicked((p) => ({ ...p, [preselectId]: true }))
+  }, [crops, preselectId, setPicked])
   const shown = useMemo(() => filterCrops(available, search), [available, search])
   // Only crops that still exist on the list stay ticked (a crop harvested meanwhile drops out).
   const availableIds = useMemo(() => new Set(available.map((c) => c.id)), [available])
@@ -108,7 +117,7 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
   return (
     <ModalShell
       title="Log Activity on Many Crops"
-      subtitle="Done the same thing on several crops? Log it once and tick the crops."
+      subtitle={farmer ? `${farmer.name} · done the same thing on several crops? Log it once and tick the crops.` : 'Done the same thing on several crops? Log it once and tick the crops.'}
       icon={ClipboardList}
       onClose={onClose}
       maxWidth="max-w-3xl"
@@ -198,7 +207,7 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
             {crops === null && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading your crops…</p>}
             {failed && <p role="alert" className="px-1 py-6 text-center text-[13px] text-rose-600">Your crops could not be loaded. Close this window and try again.</p>}
             {Array.isArray(crops) && available.length === 0 && (
-              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">No crop is growing right now, so there is nothing to log on.</p>
+              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">{farmer ? `${farmer.name} has no crop growing right now, so there is nothing to log on.` : 'No crop is growing right now, so there is nothing to log on.'}</p>
             )}
             {available.length > 0 && (
               <>
