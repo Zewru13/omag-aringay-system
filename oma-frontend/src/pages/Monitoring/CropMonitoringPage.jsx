@@ -1916,7 +1916,7 @@ export default function CropMonitoringPage() {
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
   const [forceRecord,      setForceRecord]      = useState(null)   // the crop whose ⋮ > Force Harvest opened the forced harvest window
-  const [manyLogRecord,    setManyLogRecord]    = useState(null)   // the crop whose ⋮ > Log Activity on Many Crops opened the window for its farmer
+  const [manyLogOpen,      setManyLogOpen]      = useState(false)  // the button above the table: Log Activity on Many Crops (asks for the farmer first)
 
   // Handle ?filter=for_harvest from dashboard
   useEffect(() => {
@@ -2070,10 +2070,6 @@ export default function CropMonitoringPage() {
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
             key: 'activity', label: 'Log Activity', icon: ClipboardList, onClick: () => setViewLogsRecord(rec),
           },
-          // The same work done on several crops of this farmer: logged once, ticked on a list of the farmer's growing crops.
-          (isAdmin || isEvaluator) && rec.farmer && (rec.status === 'Planted' || rec.status === 'Near Harvest') && {
-            key: 'log-many', label: 'Log Activity on Many Crops', icon: ClipboardList, onClick: () => setManyLogRecord(rec),
-          },
           { key: 'details', label: 'Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
           // Force Harvest: staff only. Several crops of this farmer that are not ready yet, harvested together because of something coming.
           (isAdmin || isEvaluator) && (rec.status === 'Planted' || rec.status === 'Near Harvest') && {
@@ -2112,6 +2108,12 @@ export default function CropMonitoringPage() {
   return (
     <PageLayout title="Crop Monitoring" subtitle={isFarmer ? 'Track activities and progress for your crops.' : 'Track activities and progress for each crop.'}>
       <div className="space-y-4">
+        {/* The same work done on many crops of one farmer is logged once: the button asks for the farmer, then lists that farmer's growing crops. */}
+        {(isAdmin || isEvaluator) && (
+          <div className="flex justify-end">
+            <Button type="button" icon={ClipboardList} onClick={() => setManyLogOpen(true)} className="w-full sm:w-auto">Log Activity on Many Crops</Button>
+          </div>
+        )}
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
@@ -2328,13 +2330,8 @@ export default function CropMonitoringPage() {
         />
       )}
 
-      {manyLogRecord && (
-        <LogActivityManyCropsModal
-          farmer={{ id: manyLogRecord.farmer, name: manyLogRecord.farmer_name || manyLogRecord.farmer_full_name || 'Farmer' }}
-          preselectId={manyLogRecord.id}
-          onClose={() => setManyLogRecord(null)}
-          onDone={() => { setManyLogRecord(null); refreshAll() }}
-        />
+      {manyLogOpen && (
+        <LogActivityManyCropsModal pickFarmer onClose={() => setManyLogOpen(false)} onDone={() => { setManyLogOpen(false); refreshAll() }} />
       )}
 
       {forceRecord && (
