@@ -9,7 +9,6 @@ import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/Fo
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
-import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import { todayISO } from '../../utils/localDate.js'
 import {
   activeCycles, buildFeedingPayload, buildHealthPayload, cycleTickState, doneMessage, feedTotal, feedingProblem, fillAll, filterCycles, healthProblem,
@@ -19,7 +18,7 @@ import {
   FEED_TYPE_CHOICES, HEALTH_OBSERVATION_OPTIONS, HEALTH_RECOMMENDED_TREATMENT, HEALTH_TREATMENT_OPTIONS, LOG_ACTIVITY_OPTIONS, OTHER_FEED_OPTIONS, isForceObservation,
 } from './cycleLogForms.js'
 
-// "Log on many cycles" (the fisherfolk's Cycles page, and the button above the Aquaculture Monitoring table, which first asks which fisherfolk): the same feeding, or the same observation, made
+// "Log on many cycles" (the fisherfolk's Cycles page; the office does not have it): the same feeding, or the same observation, made
 // on the ponds and cages of several production cycles is logged once. Choose Feeding Log or Health Log, fill in the details once, tick the cycles
 // (Feeding: then the kg of each pond and cage, with a fill-all box) or the ponds and cages (Health: with the count of dead fish for each one
 // when the observation is Fish Mortality), then save. The server saves all or none: if something cannot be saved (a pond that already has a Health
@@ -34,55 +33,11 @@ function CycleBox({ state, label, onToggle }) {
   return <input ref={ref} type="checkbox" className={BOX} checked={state === 'all'} onChange={onToggle} aria-label={label} />
 }
 
-// The first step for the office: which fisherfolk's cycles. Registered fisherfolk only, found by name or RSBSA number.
-function ChooseFisherfolkWindow({ onChoose, onClose }) {
-  const [term, setTerm] = useState('')
-  const { results, isSearching, hasSearched } = useSuggestSearch(
-    term,
-    (q) => api.get(`/fisheries/fisherfolk/?search=${encodeURIComponent(q)}`).then((r) => listOf(r.data)),
-  )
-  return (
-    <ModalShell title="Log on Many Cycles" subtitle="Choose the fisherfolk whose cycles you are logging." icon={ClipboardList} onClose={onClose} maxWidth="max-w-lg"
-      footer={<Button type="button" variant="outline" onClick={onClose}>Cancel</Button>}>
-      <FormSection title="Fisherfolk">
-        <FormRows label="Fisherfolk">
-          <FormRow>
-            <FormCell label="Search Fisherfolk" required wide>
-              <input className={baseInputClasses} autoFocus autoComplete="off" aria-label="Search Fisherfolk" placeholder="Name or RSBSA number..." value={term} onChange={(e) => setTerm(e.target.value)} />
-              <p className="mt-1.5 text-[12px] text-[#7A8E7A]">Only registered fisherfolk. Pick one from the list.</p>
-              {results.length > 0 && (
-                <ul className={`mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#E2E8E2] transition-opacity duration-150 ${isSearching ? 'opacity-60' : ''}`} aria-label="Fisherfolk">
-                  {results.map((f) => (
-                    <li key={f.id}>
-                      <button type="button" onClick={() => onChoose({ id: f.id, name: f.full_name })} className="block w-full rounded-lg p-2 text-left text-[13px] transition-colors hover:bg-[#F9FAF9]">
-                        <span className="font-medium text-[#1A2B1A]">{f.full_name}</span>
-                        <span className="ml-2 text-[#7A8E7A]">{[f.rsbsa_number, f.barangay].filter(Boolean).join(' · ')}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {hasSearched && results.length === 0 && <p className="mt-2 text-[13px] text-[#7A8E7A]">No fisherfolk found. Try another name or number.</p>}
-            </FormCell>
-          </FormRow>
-        </FormRows>
-      </FormSection>
-    </ModalShell>
-  )
-}
-
-export default function LogOnManyCyclesModal({ fisherfolk = null, pickFisherfolk = false, preselectId = null, onClose, onDone }) {
-  const [chosen, setChosen] = useState(fisherfolk)
-  if (pickFisherfolk && !chosen) return <ChooseFisherfolkWindow onChoose={setChosen} onClose={onClose} />
-  // key: another fisherfolk is another window (its own draft, its own ticks).
-  return <ManyCyclesWindow key={chosen ? chosen.id : 'own'} fisherfolk={chosen} preselectId={preselectId} onClose={onClose} onDone={onDone} onChange={pickFisherfolk ? () => setChosen(null) : null} />
-}
-
-function ManyCyclesWindow({ fisherfolk, preselectId, onClose, onDone, onChange }) {
+export default function LogOnManyCyclesModal({ onClose, onDone }) {
   const { showToast } = useToast()
   const today = todayISO()
   // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(fisherfolk ? `cycle-log-many:f${fisherfolk.id}` : 'cycle-log-many')
+  const draft = useDraftForm('cycle-log-many')
   const [kind, setKind] = useDraftField(draft, 'kind', 'feeding')
   const [feedForm, setFeedForm] = useDraftField(draft, 'feedForm', { date: today, feedType: '', feedOther: '', feedCustom: '', notes: '' })
   const [healthForm, setHealthForm] = useDraftField(draft, 'healthForm', { date: today, observation: '', observationOther: '', treatment: '', notes: '' })
@@ -100,25 +55,14 @@ function ManyCyclesWindow({ fisherfolk, preselectId, onClose, onDone, onChange }
 
   useEffect(() => {
     let alive = true
-    api.get('/monitoring/aquaculture-cycles/', { params: { status: 'Active', ...(fisherfolk ? { fisherfolk: fisherfolk.id } : {}) } })
+    api.get('/monitoring/aquaculture-cycles/', { params: { status: 'Active' } })
       .then((r) => alive && setCycles(activeCycles(listOf(r.data))))
       .catch(() => alive && setCycles(false))
     return () => { alive = false }
-  }, [fisherfolk])
+  }, [])
 
   const available = useMemo(() => (Array.isArray(cycles) ? cycles : []), [cycles])
   const shown = useMemo(() => filterCycles(available, search), [available, search])
-  // The cycle whose menu opened this window starts ticked (once, when the cycles have loaded).
-  const preselected = useRef(false)
-  useEffect(() => {
-    if (preselectId === null || preselected.current || !Array.isArray(cycles)) return
-    preselected.current = true
-    const hit = cycles.find((c) => c.id === preselectId)
-    if (!hit) return
-    setTicked((t) => ({ ...t, [hit.id]: true }))
-    setPicked((p) => toggleCycleUnits(p, hit))
-  }, [cycles, preselectId, setTicked, setPicked])
-
   const feeding = kind === 'feeding'
   const tickedCount = available.filter((c) => ticked[c.id]).length
   const pickedCount = pickedUnits(available, picked).length
@@ -168,7 +112,7 @@ function ManyCyclesWindow({ fisherfolk, preselectId, onClose, onDone, onChange }
   return (
     <ModalShell
       title="Log on Many Cycles"
-      subtitle={`${fisherfolk ? `${fisherfolk.name} · ` : ''}Did the same feeding or saw the same thing in several cycles? Log it once.`}
+      subtitle="Did the same feeding or saw the same thing in several cycles? Log it once."
       icon={ClipboardList}
       onClose={onClose}
       maxWidth="max-w-4xl"
@@ -182,12 +126,6 @@ function ManyCyclesWindow({ fisherfolk, preselectId, onClose, onDone, onChange }
       <form id="log-many-cycles-form" onSubmit={submit} className="space-y-3">
         <DraftBanner draft={draft} />
 
-        {onChange && (
-          <p className="flex flex-wrap items-center justify-between gap-2 px-1 text-[13px] text-[#4A5E4A]">
-            <span>Cycles of <span className="font-semibold text-[#1A2B1A]">{fisherfolk.name}</span></span>
-            <button type="button" onClick={onChange} className="font-medium text-[#1B4D2E] underline-offset-2 hover:underline">Change fisherfolk</button>
-          </p>
-        )}
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Which log">
           {LOG_ACTIVITY_OPTIONS.map((option) => {
             const Icon = ICONS[option.key]
@@ -300,7 +238,7 @@ function ManyCyclesWindow({ fisherfolk, preselectId, onClose, onDone, onChange }
             {cycles === null && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading the cycles…</p>}
             {failed && <p role="alert" className="px-1 py-6 text-center text-[13px] text-rose-600">The cycles could not be loaded. Close this window and try again.</p>}
             {Array.isArray(cycles) && available.length === 0 && (
-              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">{fisherfolk ? `${fisherfolk.name} has` : 'You have'} no active cycle with ponds or cages, so there is nothing to log on.</p>
+              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">You have no active cycle with ponds or cages, so there is nothing to log on.</p>
             )}
             {available.length > 0 && (
               <>

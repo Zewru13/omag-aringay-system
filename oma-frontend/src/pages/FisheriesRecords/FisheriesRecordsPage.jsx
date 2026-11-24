@@ -21,9 +21,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { ownershipLabel } from '../../utils/ownership.js'
 import AquacultureCycleDetailModal, { CycleInfoSummary } from '../Monitoring/AquacultureCycleDetailModal.jsx'
 import LogActivityModal from '../Monitoring/LogActivityModal.jsx'
-import LogOnManyCyclesModal from '../Monitoring/LogOnManyCyclesModal.jsx'
 import CycleActivityLogsModal from '../Monitoring/CycleActivityLogsModal.jsx'
-import Button from '../../components/UI/Button.jsx'
 import LogActivityButton from './LogActivityButton.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
@@ -453,7 +451,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [viewingCycle,   setViewingCycle]   = useState(null)
   const [activityLogsRec, setActivityLogsRec] = useState(null)   // the record whose ⋮ > Activity Logs window is open
   const [logging,         setLogging]        = useState(null)   // Log Activity: { kind: 'feeding' | 'health', cycle, subtitle }
-  const [manyLogOpen,     setManyLogOpen]    = useState(false)  // the button above the table: Log on Many Cycles (asks for the fisherfolk first)
   const [forceRec,       setForceRec]       = useState(null)   // the record whose ⋮ > Force Harvest form is open
   // ?forced=<id> (an emergency Force Harvest notification): open that saved Force Harvest's details.
   const linkedForcedId = searchParams.get('forced')
@@ -700,12 +697,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       <div className="space-y-4">
         {/* Search + Filters are staff tools; a fisherfolk account sees only its own records, so it gets the
             table directly (search/status/season/year stay at their defaults). */}
-        {/* The same feeding or observation in several cycles of one fisherfolk is logged once: the button asks for the fisherfolk, then lists their active cycles. */}
-        {!isFisherfolk && (
-          <div className="flex justify-end">
-            <Button type="button" icon={ClipboardList} onClick={() => setManyLogOpen(true)} className="w-full sm:w-auto">Log on Many Cycles</Button>
-          </div>
-        )}
         {!isFisherfolk && (
         <FilterPanel
           search={search}
@@ -908,10 +899,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       )}
 
       {activityLogsRec && <CycleActivityLogsModal record={activityLogsRec} onClose={() => setActivityLogsRec(null)} />}
-
-      {manyLogOpen && (
-        <LogOnManyCyclesModal pickFisherfolk onClose={() => setManyLogOpen(false)} onDone={() => { setManyLogOpen(false); fetchRecords(page) }} />
-      )}
 
       {logging && (
         <LogActivityModal

@@ -1,7 +1,7 @@
 """One activity logged on many crops at once: POST /api/production/monitoring/bulk-logs/.
 
 A farmer who did the same thing on many crops in a day logs it once. The log is saved on every crop named, each exactly like a log
-made on that crop's own window (same checks, same late rule); a farmer account reaches only its OWN crops. All or nothing: if one
+made on that crop's own window (same checks, same late rule); only a farmer account can use it, and it reaches only its OWN crops. All or nothing: if one
 crop cannot take the log, nothing is saved and the answer names that crop."""
 import itertools
 from datetime import date, timedelta
@@ -89,7 +89,7 @@ class BulkCropLogTests(APITestCase):
     def test_a_fisherfolk_account_cannot_use_it(self):
         self.client.force_authenticate(self.fisher_user)
         r = self.post([self.crop()])
-        self.assertIn(r.status_code, (400, 403), r.content)
+        self.assertEqual(r.status_code, 403, r.content)
         self.assertEqual(CropActivityLog.objects.count(), 0)
 
     def test_one_crop_that_cannot_take_the_log_stops_everything(self):
@@ -148,11 +148,11 @@ class BulkCropLogTests(APITestCase):
         self.assertEqual(log.target_day, 10)
         self.assertTrue(log.is_late)
 
-    def test_staff_can_log_for_any_crops(self):
+    def test_the_office_does_not_log_on_many_crops(self):
         self.client.force_authenticate(self.admin)
         r = self.post([self.crop(), self.crop(self.ben)])
-        self.assertEqual(r.status_code, 201, r.content)
-        self.assertEqual(CropActivityLog.objects.count(), 2)
+        self.assertEqual(r.status_code, 403, r.content)
+        self.assertEqual(CropActivityLog.objects.count(), 0)
 
     def test_an_anonymous_caller_is_refused(self):
         self.client.force_authenticate(None)

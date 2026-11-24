@@ -11,21 +11,20 @@ past that step's deadline).
 What cannot be shared between crops is left out on purpose: the area affected by a pest or disease (each crop has its own area, so
 Pest Control / Disease Control is answered with the severity) and Disaster Remedy (it belongs to one crop's disaster report).
 
-Staff, or a farmer account for its OWN crops only (a crop of anyone else is answered as "not found", as if it did not exist). All or
-nothing: if any crop cannot take the log, nothing is saved and the answer names that crop. At most 100 crops at a time.
+A farmer account only, for its OWN crops (a crop of anyone else is answered as "not found", as if it did not exist; the office does not log on
+many crops at once). All or nothing: if any crop cannot take the log, nothing is saved and the answer names that crop. At most 100 crops at a time.
 """
 from datetime import timedelta
 
 from django.db import transaction
 from rest_framework import status as drf_status
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsStaffOrFarmer, scope_to_farmer
+from accounts.permissions import is_farmer_citizen, scope_to_farmer
 from core.locking import assert_not_locked_by_other
-from core.notifications import notify_user, resolve_owner_user
 
 from .forced_harvest import _crop_label
 from .models import CropActivityLog, CropActivityStage, CropMonitoringRecord
@@ -39,6 +38,13 @@ SHARED_FIELDS = (
     'activity_type', 'activity_type_other_specify', 'date_of_activity', 'plant_condition', 'notes',
     'fertilizer_type', 'quantity_applied', 'quantity_unit', 'pest_disease_name', 'severity',
 )
+
+
+class IsFarmerAccount(BasePermission):
+    """A citizen account linked to a farmer: the only kind that logs on many crops at once."""
+
+    def has_permission(self, request, view):
+        return is_farmer_citizen(request.user)
 
 
 def overdue_target_day(record, activity_type, today):
@@ -79,7 +85,7 @@ def _first_message(errors):
 
 
 class CropActivityBulkLogView(APIView):
-    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
+    permission_classes = [IsAuthenticated, IsFarmerAccount]
 
     def post(self, request):
         body = request.data
@@ -137,14 +143,4 @@ class CropActivityBulkLogView(APIView):
                     monitoring_record=record, recorded_by=request.user, target_day=target_day,
                     is_late=is_late(record, target_day, activity_date),
                 ))
-        if request.user.role != 'CITIZEN':
-            # The farmer is told, crop by crop, exactly as when the office logs on a single crop.
-            from .views import _crop_record_label
-            for log in created:
-                record = records[log.monitoring_record_id]
-                notify_user(
-                    recipient=resolve_owner_user(farmer_id=record.farmer_id, farmers_organization_id=record.farmers_organization_id),
-                    actor=request.user, verb='logged an activity on', record_type='crop', record_id=record.id,
-                    record_label=_crop_record_label(record), detail=f'{log.activity_type} on {log.date_of_activity}',
-                )
         return Response({'logged': len(created), 'ids': [log.id for log in created]}, status=drf_status.HTTP_201_CREATED)
