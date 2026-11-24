@@ -4,22 +4,14 @@ import { readFileSync } from 'node:fs'
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
 const page = read('../src/pages/Monitoring/CropMonitoringPage.jsx')
 const modal = read('../src/pages/Monitoring/LogActivityManyCropsModal.jsx')
+const mine = read('../src/pages/Account/MyCropsPage.jsx')
 let n = 0
 const ok = (cond, label) => { assert.ok(cond, label); n++ }
 
-// the office reaches it from a button ABOVE the table (staff only), not from a row's three-dot menu
-ok(page.includes('>Log Activity on Many Crops</Button>'), 'Crop Monitoring has the button')
-ok(/\(isAdmin \|\| isEvaluator\) && \(\s*<div className="flex justify-end">/.test(page), 'staff only, in a row above the filters')
-ok(!page.includes("label: 'Log Activity on Many Crops'"), 'it is not an item of the Actions menu')
-ok(page.includes('<LogActivityManyCropsModal pickFarmer'), 'the window first asks for the farmer')
-// the window: a farmer step (registered farmers), then that farmer's growing crops, with a way back
-ok(modal.includes('function ChooseFarmerWindow') && modal.includes('`/farmers/?search=${encodeURIComponent(q)}`'), 'a search of the registered farmers')
-ok(modal.includes('if (pickFarmer && !chosen) return <ChooseFarmerWindow'), 'no farmer yet: the farmer step')
-ok(modal.includes('key={chosen ? chosen.id : \'own\'}'), 'another farmer is another window (its own draft and ticks)')
-ok(modal.includes('Change farmer'), 'a way back to the search')
-// the list is narrowed to the farmer, a draft is kept per farmer, and a farmer account (no farmer prop) still sees its own crops
-ok(modal.includes('...(farmer ? { farmer: farmer.id } : {})'), 'the list is narrowed to the farmer')
-ok(modal.includes('`crop-log-many:f${farmer.id}`'), 'one draft per farmer')
-ok(modal.includes('farmer = null, pickFarmer = false'), 'the farmer account passes no farmer')
+// logging one activity on many crops is for the farmer's own account only: the office has no button, no menu item and no window for it
+ok(!page.includes('Log Activity on Many Crops') && !page.includes('LogActivityManyCropsModal'), 'Crop Monitoring (the office page) does not have it')
+// ...and the farmer's My crops page still does, for its own crops
+ok(mine.includes('Log activity on many crops') && mine.includes('<LogActivityManyCropsModal onClose={close}'), 'My crops has the button and the window')
+ok(!modal.includes('pickFarmer') && !modal.includes('ChooseFarmerWindow') && !modal.includes("'/farmers/?search="), 'the window has no farmer step: it lists the account\'s own crops')
 
 console.log(`bulkCropLogStaff: ${n} checks passed`)

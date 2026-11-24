@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ClipboardList, Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
@@ -10,7 +10,6 @@ import { FormCell, FormRow, FormRows, FormSection } from '../../components/UI/Fo
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
-import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import { formatDate } from '../../utils/dateFormat.js'
 import { todayISO } from '../../utils/localDate.js'
 import fetchAllPages from '../Citizen/fetchAllPages.js'
@@ -23,62 +22,15 @@ import {
 // (the same boxes as a single crop's Log Activity), tick the crops it was done on, and it is saved on every one of them. The server checks each
 // crop exactly like its own Log Activity window and saves all or none: if one crop cannot take it (for example it was planted after that date), the
 // message names the crop and nothing is saved, so it can be unticked and the rest saved.
-// A farmer account sees its own crops. The office opens it from the button above the Crop Monitoring table with `pickFarmer`: it first asks which
-// farmer (a search of the registered farmers), then lists that farmer's growing crops; "Change farmer" goes back to the search. A `farmer`
-// ({ id, name }) given from the start skips that step.
 const GROWING_STATUSES = 'Planted,Near Harvest'
 const BOX = 'h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 accent-[#1B4D2E] focus:ring-[#1B4D2E]/30'
 const listOf = (data) => (Array.isArray(data) ? data : data?.results || [])
 
-// The first step for the office: which farmer's crops. Registered farmers only, found by name or RSBSA number.
-function ChooseFarmerWindow({ onChoose, onClose }) {
-  const [term, setTerm] = useState('')
-  const { results, isSearching, hasSearched } = useSuggestSearch(
-    term,
-    (q) => api.get(`/farmers/?search=${encodeURIComponent(q)}`).then((r) => listOf(r.data)),
-  )
-  return (
-    <ModalShell title="Log Activity on Many Crops" subtitle="Choose the farmer whose crops you are logging." icon={ClipboardList} onClose={onClose} maxWidth="max-w-lg"
-      footer={<Button type="button" variant="outline" onClick={onClose}>Cancel</Button>}>
-      <FormSection title="Farmer">
-        <FormRows label="Farmer">
-          <FormRow>
-            <FormCell label="Search Farmer" required wide>
-              <input className={baseInputClasses} autoFocus autoComplete="off" aria-label="Search Farmer" placeholder="Name or RSBSA number..." value={term} onChange={(e) => setTerm(e.target.value)} />
-              <p className="mt-1.5 text-[12px] text-[#7A8E7A]">Only registered farmers. Pick one from the list.</p>
-              {results.length > 0 && (
-                <ul className={`mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#E2E8E2] transition-opacity duration-150 ${isSearching ? 'opacity-60' : ''}`} aria-label="Farmers">
-                  {results.map((f) => (
-                    <li key={f.id}>
-                      <button type="button" onClick={() => onChoose({ id: f.id, name: f.full_name })} className="block w-full rounded-lg p-2 text-left text-[13px] transition-colors hover:bg-[#F9FAF9]">
-                        <span className="font-medium text-[#1A2B1A]">{f.full_name}</span>
-                        <span className="ml-2 text-[#7A8E7A]">{[f.rsbsa_number, f.barangay].filter(Boolean).join(' · ')}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {hasSearched && results.length === 0 && <p className="mt-2 text-[13px] text-[#7A8E7A]">No farmer found. Try another name or number.</p>}
-            </FormCell>
-          </FormRow>
-        </FormRows>
-      </FormSection>
-    </ModalShell>
-  )
-}
-
-export default function LogActivityManyCropsModal({ farmer = null, pickFarmer = false, preselectId = null, onClose, onDone }) {
-  const [chosen, setChosen] = useState(farmer)
-  if (pickFarmer && !chosen) return <ChooseFarmerWindow onChoose={setChosen} onClose={onClose} />
-  // key: another farmer is another window (its own draft, its own ticks).
-  return <ManyCropsWindow key={chosen ? chosen.id : 'own'} farmer={chosen} preselectId={preselectId} onClose={onClose} onDone={onDone} onChangeFarmer={pickFarmer ? () => setChosen(null) : null} />
-}
-
-function ManyCropsWindow({ farmer, preselectId, onClose, onDone, onChangeFarmer }) {
+export default function LogActivityManyCropsModal({ onClose, onDone }) {
   const { showToast } = useToast()
   const today = todayISO()
   // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm(farmer ? `crop-log-many:f${farmer.id}` : 'crop-log-many')
+  const draft = useDraftForm('crop-log-many')
   const [activity, setActivity] = useDraftField(draft, 'activity', '')
   const [activityOther, setActivityOther] = useDraftField(draft, 'activityOther', '')
   const [date, setDate] = useDraftField(draft, 'date', today)
@@ -102,7 +54,7 @@ function ManyCropsWindow({ farmer, preselectId, onClose, onDone, onChangeFarmer 
 
   useEffect(() => {
     let alive = true
-    fetchAllPages('/production/monitoring/', { status: GROWING_STATUSES, ...(farmer ? { farmer: farmer.id } : {}) })
+    fetchAllPages('/production/monitoring/', { status: GROWING_STATUSES })
       .then((rows) => alive && setCrops(growingCrops(rows)))
       .catch(() => alive && setCrops(false))
     api.get('/production/activity-types/')
@@ -112,16 +64,9 @@ function ManyCropsWindow({ farmer, preselectId, onClose, onDone, onChangeFarmer 
       .then((r) => alive && setFertilizerNames(listOf(r.data).filter((t) => t.input_type === 'Fertilizer' && t.is_active).map((t) => t.name)))
       .catch(() => alive && setFertilizerNames([]))
     return () => { alive = false }
-  }, [farmer])
+  }, [])
 
   const available = useMemo(() => (Array.isArray(crops) ? crops : []), [crops])
-  // The crop whose menu opened this window starts ticked (once, when the crops have loaded).
-  const preselected = useRef(false)
-  useEffect(() => {
-    if (preselectId === null || preselected.current || !Array.isArray(crops)) return
-    preselected.current = true
-    if (crops.some((c) => c.id === preselectId)) setPicked((p) => ({ ...p, [preselectId]: true }))
-  }, [crops, preselectId, setPicked])
   const shown = useMemo(() => filterCrops(available, search), [available, search])
   // Only crops that still exist on the list stay ticked (a crop harvested meanwhile drops out).
   const availableIds = useMemo(() => new Set(available.map((c) => c.id)), [available])
@@ -163,7 +108,7 @@ function ManyCropsWindow({ farmer, preselectId, onClose, onDone, onChangeFarmer 
   return (
     <ModalShell
       title="Log Activity on Many Crops"
-      subtitle={farmer ? `${farmer.name} · done the same thing on several crops? Log it once and tick the crops.` : 'Done the same thing on several crops? Log it once and tick the crops.'}
+      subtitle="Done the same thing on several crops? Log it once and tick the crops."
       icon={ClipboardList}
       onClose={onClose}
       maxWidth="max-w-3xl"
@@ -250,16 +195,10 @@ function ManyCropsWindow({ farmer, preselectId, onClose, onDone, onChangeFarmer 
 
         <FormSection title={`Crops (${ids.length} ticked)`}>
           <div className="space-y-2 p-3">
-            {onChangeFarmer && (
-              <p className="flex flex-wrap items-center justify-between gap-2 px-1 text-[13px] text-[#4A5E4A]">
-                <span>Crops of <span className="font-semibold text-[#1A2B1A]">{farmer.name}</span></span>
-                <button type="button" onClick={onChangeFarmer} className="font-medium text-[#1B4D2E] underline-offset-2 hover:underline">Change farmer</button>
-              </p>
-            )}
             {crops === null && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading your crops…</p>}
             {failed && <p role="alert" className="px-1 py-6 text-center text-[13px] text-rose-600">Your crops could not be loaded. Close this window and try again.</p>}
             {Array.isArray(crops) && available.length === 0 && (
-              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">{farmer ? `${farmer.name} has no crop growing right now, so there is nothing to log on.` : 'No crop is growing right now, so there is nothing to log on.'}</p>
+              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">No crop is growing right now, so there is nothing to log on.</p>
             )}
             {available.length > 0 && (
               <>

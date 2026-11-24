@@ -3,7 +3,7 @@ POST /api/monitoring/aquaculture-cycles/bulk-feeding/ and /bulk-health/.
 
 A fisherfolk with many cycles logs the same feeding (or the same observation) once instead of cycle by cycle. One AquacultureFeedingLog is
 saved for each cycle (with its per-pond quantities) and one AquacultureHealthLog for each pond/cage, each exactly like the single-cycle forms
-(same serializers, same checks). A fisherfolk account reaches only its OWN cycles. All or nothing: if anything cannot be saved, nothing is, and
+(same serializers, same checks). Only a fisherfolk account can use it, and it reaches only its OWN cycles. All or nothing: if anything cannot be saved, nothing is, and
 the answer names the cycle."""
 import itertools
 from datetime import date, timedelta
@@ -97,10 +97,19 @@ class BulkAquacultureLogTests(APITestCase):
         self.assertIn('could not be found', str(r.json()))
         self.assertEqual(AquacultureFeedingLog.objects.count(), 0)
 
+    def test_a_citizen_with_no_fisherfolk_link_is_refused(self):
+        # such an account must never see the cycles of everyone: it is refused before any cycle is looked up
+        nobody = get_user_model().objects.create_user(username='bal-nobody', password='pw', role='CITIZEN', email='nobody@x.test')
+        self.client.force_authenticate(nobody)
+        cycle = self.cycle(self.joshua)
+        self.assertEqual(self.feeding([cycle]).status_code, 403)
+        self.assertEqual(self.health([self.entry(cycle.units.first())]).status_code, 403)
+        self.assertEqual(AquacultureFeedingLog.objects.count() + AquacultureHealthLog.objects.count(), 0)
+
     def test_a_farmer_account_cannot_use_it(self):
         self.client.force_authenticate(self.farmer_user)
         r = self.feeding([self.cycle()])
-        self.assertIn(r.status_code, (400, 403), r.content)
+        self.assertEqual(r.status_code, 403, r.content)
         self.assertEqual(AquacultureFeedingLog.objects.count(), 0)
 
     def test_a_cycle_that_is_not_active_stops_everything(self):
@@ -137,10 +146,11 @@ class BulkAquacultureLogTests(APITestCase):
         self.assertEqual(r.status_code, 400, r.content)
         self.assertEqual(AquacultureFeedingLog.objects.count(), 0)
 
-    def test_staff_can_log_a_feeding_on_any_cycles(self):
+    def test_the_office_does_not_log_a_feeding_on_many_cycles(self):
         self.client.force_authenticate(self.admin)
         r = self.feeding([self.cycle(), self.cycle(self.joshua)])
-        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.status_code, 403, r.content)
+        self.assertEqual(AquacultureFeedingLog.objects.count(), 0)
 
     # ─── health ──────────────────────────────────────────────────────────────
 
@@ -194,10 +204,11 @@ class BulkAquacultureLogTests(APITestCase):
         self.assertEqual(r.status_code, 400, r.content)
         self.assertIn('Lost pond', r.json()['detail'])
 
-    def test_staff_can_log_health_on_any_ponds(self):
+    def test_the_office_does_not_log_health_on_many_ponds(self):
         self.client.force_authenticate(self.admin)
         r = self.health([self.entry(self.cycle(self.joshua).units.first())])
-        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.status_code, 403, r.content)
+        self.assertEqual(AquacultureHealthLog.objects.count(), 0)
 
     def test_an_anonymous_caller_is_refused(self):
         self.client.force_authenticate(None)

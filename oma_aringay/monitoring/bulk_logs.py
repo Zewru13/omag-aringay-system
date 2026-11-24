@@ -12,23 +12,30 @@ answer names the cycle (and pond/cage).
         { log_date, notes, unit_logs: [{ cycle, production_unit, observation, mortality_count, treatment_applied }] }
         One AquacultureHealthLog per pond/cage (force harvest, mortality and history stay per pond/cage, as on the single form).
 
-Staff, or a fisherfolk account for its OWN cycles only (a cycle of anyone else is answered as "not found", as if it did not exist). Only an
-Active cycle takes a log. At most 100 cycles (and 500 ponds/cages) at a time.
+A fisherfolk account only, for its OWN cycles (a cycle of anyone else is answered as "not found", as if it did not exist; the office does not log
+on many cycles at once). Only an Active cycle takes a log. At most 100 cycles (and 500 ponds/cages) at a time.
 """
 from django.db import transaction
 from rest_framework import status as drf_status
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsStaffOrFisherfolk
+from accounts.permissions import is_fisherfolk_citizen
 
 from .models import AquacultureProductionCycle, AquacultureProductionUnit
 from .serializers import AquacultureFeedingLogSerializer, AquacultureHealthLogSerializer
 
 MAX_CYCLES = 100
 MAX_UNITS = 500
+
+
+class IsFisherfolkAccount(BasePermission):
+    """A citizen account linked to a fisherfolk: the only kind that logs on many cycles at once."""
+
+    def has_permission(self, request, view):
+        return is_fisherfolk_citizen(request.user)
 
 
 def _int_ids(values, field, label):
@@ -71,7 +78,7 @@ def _refusal(label, errors_list):
 
 
 class AquacultureBulkFeedingView(APIView):
-    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    permission_classes = [IsAuthenticated, IsFisherfolkAccount]
 
     def post(self, request):
         body = request.data
@@ -109,7 +116,7 @@ class AquacultureBulkFeedingView(APIView):
 
 
 class AquacultureBulkHealthView(APIView):
-    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    permission_classes = [IsAuthenticated, IsFisherfolkAccount]
     UNIT_FIELDS = ('production_unit', 'observation', 'mortality_count', 'treatment_applied')
 
     def post(self, request):

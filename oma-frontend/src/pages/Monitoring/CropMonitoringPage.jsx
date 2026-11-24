@@ -26,7 +26,6 @@ import { PCIC_FILTER_OPTIONS } from '../../utils/pcic.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import ForceHarvestCropsModal from '../CropInformation/ForceHarvestCropsModal.jsx'
-import LogActivityManyCropsModal from './LogActivityManyCropsModal.jsx'
 import { canReportDisaster } from './cropDetails.js'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
@@ -1916,7 +1915,6 @@ export default function CropMonitoringPage() {
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
   const [forceRecord,      setForceRecord]      = useState(null)   // the crop whose ⋮ > Force Harvest opened the forced harvest window
-  const [manyLogOpen,      setManyLogOpen]      = useState(false)  // the button above the table: Log Activity on Many Crops (asks for the farmer first)
 
   // Handle ?filter=for_harvest from dashboard
   useEffect(() => {
@@ -2108,12 +2106,6 @@ export default function CropMonitoringPage() {
   return (
     <PageLayout title="Crop Monitoring" subtitle={isFarmer ? 'Track activities and progress for your crops.' : 'Track activities and progress for each crop.'}>
       <div className="space-y-4">
-        {/* The same work done on many crops of one farmer is logged once: the button asks for the farmer, then lists that farmer's growing crops. */}
-        {(isAdmin || isEvaluator) && (
-          <div className="flex justify-end">
-            <Button type="button" icon={ClipboardList} onClick={() => setManyLogOpen(true)} className="w-full sm:w-auto">Log Activity on Many Crops</Button>
-          </div>
-        )}
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
@@ -2330,9 +2322,6 @@ export default function CropMonitoringPage() {
         />
       )}
 
-      {manyLogOpen && (
-        <LogActivityManyCropsModal pickFarmer onClose={() => setManyLogOpen(false)} onDone={() => { setManyLogOpen(false); refreshAll() }} />
-      )}
 
       {forceRecord && (
         <ForceHarvestCropsModal
