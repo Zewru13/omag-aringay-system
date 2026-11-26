@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   ArrowUpRight, Cake, CalendarCheck, ClipboardList, Edit, Eye, FileText, GraduationCap, Heart, IdCard, MapPin, Phone, Sprout, Upload, User, UserRound, Users,
 } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -18,6 +18,8 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import RecordCard from '../../components/UI/RecordCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
+import AddFarmParcelsWindow from '../CropInformation/AddFarmParcelsWindow.jsx'
+import { closeAddParcelsParams, openAddParcelsParams, readAddParcels } from '../../utils/parcelWindowAddress.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDate as formatSharedDate } from '../../utils/dateFormat.js'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -263,6 +265,10 @@ function ParcelRow({ parcel, onEdit }) {
 function FarmerDetailPage() {
   const { id } = useParams()
   const { isAdmin, isEvaluator } = useAuth()
+  // The Add Farm Parcels window is opened by the address (?addParcels=1), so Register Farmer can go straight to it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const isAddingParcels = readAddParcels(searchParams).isOpen
+  const [cropsVersion, setCropsVersion] = useState(0)   // bumped when crops were added, so the crop total is read again
   const { showToast } = useToast()
   const [farmer, setFarmer] = useState(null)
   const [parcels, setParcels] = useState([])
@@ -378,7 +384,7 @@ function FarmerDetailPage() {
       .then((r) => { if (alive) setCropTotal(typeof r.data?.count === 'number' ? r.data.count : (Array.isArray(r.data) ? r.data.length : 0)) })
       .catch(() => { if (alive) setCropTotal(0) })
     return () => { alive = false }
-  }, [id])
+  }, [id, cropsVersion])
 
   useEffect(() => {
     fetchCropRecords()
@@ -532,7 +538,7 @@ function FarmerDetailPage() {
             </div>
           )}
             {(isAdmin || isEvaluator) && (
-              <AddRowFooter label="Add Farm Parcel" onClick={() => navigate(`/farmers/${id}/add-parcels`)} />
+              <AddRowFooter label="Add Farm Parcel" onClick={() => setSearchParams(openAddParcelsParams(searchParams), { replace: true })} />
             )}
           </ViewSection>
 
@@ -716,6 +722,16 @@ function FarmerDetailPage() {
           isLoading={isLoadingHistory}
           person={{ name: farmer?.full_name, rsbsa: farmer?.rsbsa_number, barangay: farmer?.barangay }}
           onClose={() => setIsHistoryModalOpen(false)}
+        />
+      )}
+
+      {isAddingParcels && (isAdmin || isEvaluator) && (
+        <AddFarmParcelsWindow
+          key={id}
+          startFarmerId={id}
+          lockFarmer
+          onSaved={() => { fetchParcels(); fetchCropRecords(); setCropsVersion((v) => v + 1) }}
+          onClose={() => setSearchParams(closeAddParcelsParams(searchParams), { replace: true })}
         />
       )}
 

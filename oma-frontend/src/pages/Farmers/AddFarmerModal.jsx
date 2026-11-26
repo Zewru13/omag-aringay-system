@@ -12,6 +12,7 @@ import FarmerFormSections from './FarmerFormSections.jsx'
 import { EMPTY_FARMER, changeFarmer, farmerPayload, farmerProblems, firstFarmerProblem } from './farmerForm.js'
 import MachineryEditor from './MachineryEditor.jsx'
 import { machineryPayload, machineryProblem } from './parcelRows.js'
+import { addParcelsAddress } from '../../utils/parcelWindowAddress.js'
 
 // Register Farmer. The farmer form itself (FarmerFormSections.jsx) is the one Edit Farmer draws too; this window adds the machinery the farmer has,
 // the step on to the farm parcels, the draft, the warning about a possible duplicate and the saving.
@@ -64,7 +65,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
     if (field === 'gender' || field === 'prefix') setPrefixNote(next.prefixNote)
   }
 
-  // `thenParcels`: after the farmer is saved, go on to the Add Farm Parcels table for this farmer.
+  // `thenParcels`: after the farmer is saved, go on to the Add Farm Parcels window for this farmer.
   const handleSubmit = async (event, thenParcels = false) => {
     event.preventDefault()
     setFormError('')
@@ -83,8 +84,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
       draft.clear()
       onSuccess()
       onClose()
-      // Still in Registration > Farmers: the parcels page belongs to this farmer and returns to the profile.
-      if (thenParcels && created?.id) navigate(`/farmers/${created.id}/add-parcels`)
+      // On to this farmer's profile with the Add Farm Parcels window open.
+      if (thenParcels && created?.id) navigate(addParcelsAddress({ profileId: created.id }))
     } catch (error) {
       const data = error.response?.data
       const fallback = 'Unable to register farmer. Please check the form and try again.'

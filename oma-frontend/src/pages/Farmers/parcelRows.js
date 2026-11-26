@@ -1,6 +1,6 @@
-// The Add Farm Parcels page: several parcels for one farmer, one table row each, with the crops of each parcel under
-// it. The crops of a parcel are crop records - the same rows, fields and rules as the Add Crop Records page (see
-// Monitoring/cropRecordForm.js), recorded on the parcel when it is saved. Pure rules for the page (the blank rows, what is wrong
+// Add Farm Parcels (the three-step window): several parcels for one farmer, with the crops of each parcel. The crops of a
+// parcel are crop records - the same rows, fields and rules as the Add Crop Records page (see
+// Monitoring/cropRecordForm.js), recorded on the parcel when it is saved. Pure rules for the window (the blank rows, what is wrong
 // with a row, what is sent to the server, how the server's answer maps back onto the rows), with no screen and no network, so
 // they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
@@ -204,15 +204,18 @@ export function cropRecordsProblem(row) {
   return ''
 }
 
-export function addRowProblem(row) {
+// What the Parcel Details step needs (everything but the crops, which the Add Crops step checks).
+export function detailProblem(row) {
   if (!positive(row.area_hectares)) return 'enter the area (ha)'
   if (!row.barangay) return 'choose the barangay'
   if (!(row.parcel_number || '').trim()) return 'enter the parcel number'
   if (!row.land_ownership) return 'choose the land ownership'
   if (!row.farm_type) return 'choose the farm type'
   if (!row.cropping_schedule) return 'choose the cropping schedule'
-  return rowProblem({ ...row, crops: [] }) || cropRecordsProblem(row)
+  return rowProblem({ ...row, crops: [] })
 }
+
+export const addRowProblem = (row) => detailProblem(row) || cropRecordsProblem(row)
 
 // The same parcel number twice in one form (the server also refuses one the farmer already has).
 export function duplicateNumberProblems(rows) {
@@ -227,16 +230,22 @@ export function duplicateNumberProblems(rows) {
   return found
 }
 
-// { [row._id]: 'Parcel 2: ...' } for every row that cannot be saved yet; {} when all are fine.
-export function validateRows(rows) {
+// { [row._id]: 'Parcel 2: ...' } for every row `problemOf` refuses; {} when all are fine. `taken` are the parcel numbers the farmer
+// already has on file (the server refuses a repeat).
+function rowMessages(rows, problemOf, { taken = [], farmerName = 'This farmer' } = {}) {
   const duplicates = duplicateNumberProblems(rows)
+  const onFile = new Set(taken.filter(Boolean))
   const problems = {}
   rows.forEach((row, i) => {
-    const problem = addRowProblem(row) || duplicates[row._id] || ''
+    const problem = problemOf(row) || duplicates[row._id]
+      || (row.parcel_number && onFile.has(row.parcel_number) ? `${farmerName} already has parcel ${row.parcel_number}` : '')
     if (problem) problems[row._id] = `Parcel ${i + 1}: ${problem}.`
   })
   return problems
 }
+
+export const validateDetails = (rows, onFile) => rowMessages(rows, detailProblem, onFile)
+export const validateRows = (rows, onFile) => rowMessages(rows, addRowProblem, onFile)
 
 // ── what is sent
 const numberOrNull = (value) => (value === '' || value === null || value === undefined ? null : Number(value))

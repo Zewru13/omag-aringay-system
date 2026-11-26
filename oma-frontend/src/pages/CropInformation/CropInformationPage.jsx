@@ -12,7 +12,7 @@ import {
   Upload,
   Zap,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BARANGAYS from "../../constants/barangays.js";
 import { DetailTable, FormCell, FormRow, FormRows, FormSection, FormValue } from "../../components/UI/FormTable.jsx";
 import { formatDate } from "../../utils/dateFormat.js";
@@ -47,6 +47,8 @@ import { PCIC_FILTER_OPTIONS, pcicChanged, pcicError, pcicPayload, pcicStateFrom
 import useHarvestUnitWeights from "../Monitoring/useHarvestUnitWeights.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
+import AddFarmParcelsWindow from "./AddFarmParcelsWindow.jsx";
+import { closeAddParcelsParams, openAddParcelsParams, readAddParcels } from "../../utils/parcelWindowAddress.js";
 import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload, seedUnitOptions } from "./cropEntry.js";
 import {
   DEFAULT_GROUP, GROUP_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
@@ -1191,6 +1193,9 @@ export default function CropInformationPage() {
   const [forcingParcel, setForcingParcel] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
   const { showToast } = useToast();
+  // The Add Farm Parcels window is opened by the address (?addParcels=1, &farmer=<id> for one farmer), so links can open it too.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const addParcels = readAddParcels(searchParams);
 
   // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
@@ -1307,7 +1312,7 @@ export default function CropInformationPage() {
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
                 Import Farm Parcels
               </Button>
-              <AddButton onClick={() => navigate("/crop-records/add-parcels")}>Add Farm Parcel</AddButton>
+              <AddButton onClick={() => setSearchParams(openAddParcelsParams(searchParams), { replace: true })}>Add Farm Parcel</AddButton>
             </>
           }
         >
@@ -1398,6 +1403,15 @@ export default function CropInformationPage() {
           undoType="farm_parcels"
           onClose={() => setIsImporting(false)}
           onImported={refresh}
+        />
+      )}
+
+      {addParcels.isOpen && (
+        <AddFarmParcelsWindow
+          key={addParcels.farmerId}
+          startFarmerId={addParcels.farmerId}
+          onSaved={refresh}
+          onClose={() => setSearchParams(closeAddParcelsParams(searchParams), { replace: true })}
         />
       )}
 
