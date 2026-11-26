@@ -53,7 +53,19 @@ within a minute (check Spam the first time).
 
 ## If something goes wrong
 
-- Nothing arrives: Render > Logs shows the reason ("not allowed" = the two secrets differ; "did not answer properly" =
-  access is not "Anyone", or the URL is not the `/exec` one).
+- Nothing arrives: open Render > **Logs** and search for `E-mail not sent` (for account notifications, search for
+  `Background e-mail failed`). The line ends with the reason:
+
+  | The reason says | What to do |
+  |---|---|
+  | `not allowed` | The two secrets differ. Copy the value from Script properties into Render again. |
+  | `did not answer properly` | The web app's access is not "Anyone", or the URL is not the one ending in `/exec`. |
+  | `Email is not configured` | `EMAIL_RELAY_URL` or `EMAIL_RELAY_SECRET` is missing or wrong on Render. |
+  | `Service invoked too many times` | Google's daily limit is used up. It starts again within 24 hours. |
+  | `Could not connect` | The script could not be reached. Try again in a few minutes. |
+
+  The log shows a shortened address (`d***@gmail.com`) and never the message, so no reset link or password is in it.
+  "Forgot password?" also logs `FRONTEND_BASE_URL is not set` when that variable is missing.
+- Nothing in the log and no email: check Apps Script > **Executions** for a `doPost` entry, and your Spam folder.
 - If the secret may have leaked: make a new one and change it in both places. Until then, someone with it could send
   email from this Gmail account.

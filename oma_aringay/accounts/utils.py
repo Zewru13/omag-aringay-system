@@ -1,3 +1,4 @@
+import logging
 import secrets
 import smtplib
 from datetime import timedelta
@@ -7,6 +8,8 @@ from django.core.mail import send_mail
 from django.utils import timezone
 
 from core.constants import SYSTEM_TITLE
+
+logger = logging.getLogger(__name__)
 
 
 def citizen_account_info(linked_record_type, record_id):
@@ -273,7 +276,23 @@ def build_verification_link(token, request=None):
     return f'{base}/verify-email?token={token}'
 
 
+def _masked(email):
+    name, _, domain = str(email).partition('@')
+    return f'{name[:1]}***@{domain}'
+
+
 def _send(subject, message, recipient_email):
+    """Send one e-mail. Returns (success, reason). A failure is also written to the server log with its reason, because
+    some callers (such as "forgot password") must not tell the visitor. The log gets the subject, a masked address and
+    the reason, never the message: it can hold a reset link or a temporary password."""
+    sent, reason = _deliver(subject, message, recipient_email)
+    if not sent:
+        logger.warning('E-mail not sent: "%s" to %s. %s', subject, _masked(recipient_email),
+                       reason.replace(recipient_email, _masked(recipient_email)))
+    return sent, reason
+
+
+def _deliver(subject, message, recipient_email):
     """
     Shared send wrapper. Returns (success, reason).
 
@@ -285,13 +304,16 @@ def _send(subject, message, recipient_email):
     fallback takes over instead of email delivery.
     """
     if not settings.SMTP_CONFIGURED:
-        # settings.py points EMAIL_BACKEND at the console backend when SMTP
-        # is unconfigured, so this still prints the full email to stdout —
-        # useful for local dev to eyeball the content — but printing to a
-        # terminal is not the user receiving anything. Always report this as
-        # unsent so the caller falls back to the admin-relay panel.
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [recipient_email], fail_silently=True)
-        return False, 'SMTP is not configured on this server (EMAIL_HOST_USER / EMAIL_HOST_PASSWORD are blank in .env).'
+        # settings.py points EMAIL_BACKEND at the console backend when email
+        # is unconfigured. On a developer's machine (DEBUG) that prints the
+        # message to eyeball it; on a live server the output is the log, which
+        # must not hold reset links or passwords. Either way nothing reaches the
+        # user, so report it as unsent and the caller falls back to the
+        # admin-relay panel.
+        if settings.DEBUG:
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [recipient_email], fail_silently=True)
+        return False, ('Email is not configured on this server (set EMAIL_RELAY_URL and EMAIL_RELAY_SECRET, or '
+                       'EMAIL_HOST_USER and EMAIL_HOST_PASSWORD).')
 
     try:
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [recipient_email], fail_silently=False)
