@@ -113,185 +113,6 @@ function getGrowthStageLabel(datePlanted) {
   return { days, stage }
 }
 
-// ── Disaster Responses Modal ──────────────────────────────────────────────────
-// The recommended responses to the crop's active disasters (and "Mark as Recovered"). The schedule of ordinary activities is no longer
-// listed here: the Log Activity form opens already filled in from it.
-
-function DisasterResponsesModal({ record, onClose, onApply }) {
-  const { showToast } = useToast()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [dismissedDisasters, setDismissedDisasters] = useState(new Set())
-  const [recovering, setRecovering] = useState(null)
-  const [manualNotes, setManualNotes] = useState({})
-  const [showManualRecover, setShowManualRecover] = useState({})
-
-  const fetchResponses = useCallback(() => {
-    if (!record) return
-    setLoading(true)
-    api.get(`/production/monitoring/${record.id}/suggestions/`)
-      .then(r => setData(r.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [record])
-
-  useEffect(() => { fetchResponses() }, [fetchResponses])
-
-  if (!record) return null
-
-  const handleMarkRecovered = async (disasterId, note) => {
-    setRecovering(disasterId)
-    try {
-      await api.post(`/production/disasters/${disasterId}/resolve/`, note ? { recovery_note: note } : {})
-      showToast('Disaster marked as recovered.', 'success')
-      fetchResponses()
-    } catch (err) {
-      const msg = err?.response?.data?.detail || 'Failed to mark disaster as recovered.'
-      showToast(msg, 'error')
-    } finally {
-      setRecovering(null)
-    }
-  }
-
-  const dismissPrompt = (disasterId) => {
-    setDismissedDisasters(prev => { const next = new Set(prev); next.add(disasterId); return next })
-  }
-
-  const disasterRules = data?.disaster_response || []
-
-  return (
-    <ModalShell title={`Disaster Responses — ${record.crop_type_name}`} onClose={onClose} maxWidth="max-w-lg">
-      <div className={loading ? 'pointer-events-none opacity-50' : ''}>
-      {loading ? (
-        <div className="flex justify-center py-10">
-          <div className="animate-spin w-8 h-8 border-4 border-[#1B4D2E] border-t-transparent rounded-full" />
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {disasterRules.length > 0 ? (
-            <div className="space-y-3">
-              {disasterRules.map((disaster) => {
-                if (disaster.can_recover !== false && disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
-                  return (
-                    <div key={disaster.disaster_id} className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-2">
-                      <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-emerald-800">
-                            All recommended responses for this {disaster.disaster_type} have been completed.
-                          </p>
-                          <p className="text-xs text-emerald-600 mt-0.5">
-                            If the crop has recovered, mark this disaster as recovered. You can leave it active if you're still monitoring recovery.
-                          </p>
-                          <div className="flex gap-2 mt-2.5">
-                            <Button onClick={() => handleMarkRecovered(disaster.disaster_id)} disabled={recovering === disaster.disaster_id} variant="primary" size="sm">
-                              Mark as Recovered
-                            </Button>
-                            <button
-                              onClick={() => dismissPrompt(disaster.disaster_id)}
-                              className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
-                            >
-                              Not Yet — Keep Monitoring
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-                if (disaster.can_recover !== false && disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
-                  return (
-                    <div key={disaster.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
-                      All responses for {disaster.disaster_type} completed — still monitoring recovery.
-                    </div>
-                  )
-                }
-                return (
-                  <div key={disaster.disaster_id} className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                      <span className="text-sm font-semibold text-rose-800">{disaster.disaster_type}</span>
-                      <span className="text-xs text-rose-400">{fmtDate(disaster.date_of_occurrence)}</span>
-                    </div>
-                    <div className="space-y-2">
-                      {disaster.rules.map((rule, ri) => (
-                        <div
-                          key={ri}
-                          className={`rounded-lg border p-3 ${rule.is_done ? 'border-slate-100 bg-slate-50 cursor-not-allowed' : 'border-rose-100 bg-white'}`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className={`text-sm font-medium ${rule.is_done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{rule.title}</span>
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">{rule.priority}</span>
-                                {rule.is_done && (
-                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-[#1B4D2E]">Done</span>
-                                )}
-                              </div>
-                              {rule.action && (
-                                <p className={`text-xs leading-relaxed ${rule.is_done ? 'text-slate-400' : 'text-slate-600'}`}>{rule.action}</p>
-                              )}
-                            </div>
-                            {!rule.is_done && (
-                              <button
-                                onClick={() => { onApply({ activity_name: rule.activity_name || rule.title, recommendation: rule.recommendation || rule.action, disaster_report_id: disaster.disaster_id, disaster_rule_id: rule.rule_id }); onClose() }}
-                                className="shrink-0 text-xs font-medium bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 transition"
-                              >
-                                Log
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-rose-100">
-                      {disaster.is_total_loss || disaster.can_recover === false ? (
-                        <p className="text-xs text-slate-500 italic">{disaster.is_total_loss ? 'Total Loss — this record is terminal and cannot be marked as recovered.' : (disaster.recovery_block_reason || 'This disaster cannot be marked as recovered.')}</p>
-                      ) : !showManualRecover[disaster.disaster_id] ? (
-                        <button
-                          onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: true }))}
-                          className="text-xs font-medium text-slate-600 hover:text-slate-800 underline"
-                        >
-                          Mark as Recovered anyway
-                        </button>
-                      ) : (
-                        <div className="space-y-2">
-                          <textarea
-                            value={manualNotes[disaster.disaster_id] || ''}
-                            onChange={(e) => setManualNotes(prev => ({ ...prev, [disaster.disaster_id]: e.target.value }))}
-                            placeholder="Explain how/why it recovered without completing all recommended responses (required)…"
-                            rows={2}
-                            className={`${baseInputClasses} text-xs`}
-                          />
-                          <div className="flex gap-2">
-                            <Button onClick={() => handleMarkRecovered(disaster.disaster_id, manualNotes[disaster.disaster_id])} disabled={recovering === disaster.disaster_id || !(manualNotes[disaster.disaster_id] || '').trim()} variant="primary" size="sm">
-                              {recovering === disaster.disaster_id ? 'Marking…' : 'Confirm Recovery'}
-                            </Button>
-                            <button
-                              onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: false }))}
-                              className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-center text-sm text-slate-400 py-8">This crop has no active disaster.</p>
-          )}
-        </div>
-      )}
-      </div>
-    </ModalShell>
-  )
-}
-
 // ── Log Activity window ───────────────────────────────────────────────────────
 // A floating form laid out as a table (like Fisheries Monitoring's Log Activity), opened from a crop's menu. It opens already filled in from
 // the crop's schedule - the activity that is due (or the earliest overdue one), its advice as the Recommendations and, for a fertilizer
@@ -311,11 +132,8 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
   const isTotalLoss = record.status === 'Total Loss'
   const canLog = !isHarvested && !isTotalLoss
   const recordLock = useRecordLock('crop', record.id, canLog)
-  const [showDisasters,     setShowDisasters]     = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [editingLogId,      setEditingLogId]      = useDraftField(draft, 'editingLogId', null)   // farmer: the activity log being edited
-  const [pendingDisasterReport, setPendingDisasterReport] = useState(null)
-  const [pendingDisasterRule, setPendingDisasterRule] = useState(null)
   const [expandedDisasters, setExpandedDisasters] = useState(new Set())
   const [showHarvestEdit,   setShowHarvestEdit]   = useState(false)
   const [harvestDeleteConfirm, setHarvestDeleteConfirm] = useState(false)
@@ -454,7 +272,6 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
   const backToSuggested = () => {
     setActivityType(''); setActivityTypeOtherSpecify(''); setNotes(''); setFertilizerValue(''); setFertilizerOther('')
     setActivityTouched(false); setNotesTouched(false); setFertilizerTouched(false)
-    setPendingDisasterReport(null); setPendingDisasterRule(null)
   }
 
   const resetForm = () => {
@@ -536,8 +353,7 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
           ...payload,
           // A late log is tied to the activity's earliest overdue step (its target day), whether it was suggested or picked.
           target_day: overdueStepDay(activityShown, scheduleSteps),
-          disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
-          disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
+          disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : null,
         })
       }
       showToast(editingLogId ? 'Activity log updated.' : 'Activity log added.', 'success')
@@ -556,14 +372,6 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to save log.', 'error')
     } finally { setIsSubmitting(false) }
-  }
-
-  // A recommended response to an active disaster (from the Disaster Responses window): fills the form and links the log to that rule.
-  const handleApplyDisasterRule = (s) => {
-    setActivityType(s.activity_name || ''); setActivityTouched(true)
-    setNotes(s.recommendation || ''); setNotesTouched(true)
-    setPendingDisasterReport(s.disaster_report_id || null)
-    setPendingDisasterRule(s.disaster_rule_id || null)
   }
 
   const handleDeleteHarvest = async () => {
@@ -648,16 +456,6 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
             </p>
           </div>
         ) : null}
-
-        {/* The recommended responses to the crop's active disasters (and Mark as Recovered) */}
-        {activeDisasters.length > 0 && !isHarvested && (
-          <div className="mb-3 flex justify-end">
-            <button type="button" onClick={() => setShowDisasters(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700">
-              <AlertTriangle className="h-3.5 w-3.5" /> Disaster responses ({activeDisasters.length})
-            </button>
-          </div>
-        )}
 
         {/* The form: a table, filled in from the schedule */}
         {canLog && (
@@ -887,9 +685,6 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
                     </LogRow>
                   </tbody>
                 </LogTable>
-                <p className="px-1 text-[11px] text-rose-500">
-                  This remedy will not automatically satisfy any recommended response rule — describe it in Remedy Performed above.
-                </p>
               </div>
             )}
 
@@ -1085,13 +880,6 @@ export function ViewLogsModal({ record, onClose, onLogAdded }) {
         />
       )}
 
-      {showDisasters && (
-        <DisasterResponsesModal
-          record={record}
-          onClose={() => setShowDisasters(false)}
-          onApply={handleApplyDisasterRule}
-        />
-      )}
 
       {harvestDeleteConfirm && (
         <ConfirmDialog
@@ -1478,33 +1266,6 @@ export function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess })
   const weights = useHarvestUnitWeights()
   const [totalKg,           setTotalKg]           = useDraftField(draft, 'totalKg', '')
   const [totalKgError,      setTotalKgError]      = useState('')
-  const [resolvableDisasters, setResolvableDisasters] = useState([])
-  const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
-  const [recoveringId,      setRecoveringId]      = useState(null)
-
-  useEffect(() => {
-    api.get(`/production/monitoring/${record.id}/suggestions/`)
-      .then(r => {
-        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Recovered' && d.can_recover !== false && d.all_rules_done)
-        setResolvableDisasters(ready)
-      })
-      .catch(() => {})
-  }, [record.id])
-
-  const handleMarkRecovered = async (disasterId) => {
-    setRecoveringId(disasterId)
-    try {
-      await api.post(`/production/disasters/${disasterId}/resolve/`)
-      showToast('Disaster marked as recovered.', 'success')
-      setResolvableDisasters(prev => prev.filter(d => d.disaster_id !== disasterId))
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to mark disaster as recovered.', 'error')
-    } finally {
-      setRecoveringId(null)
-    }
-  }
-
-  const visibleResolvableDisasters = resolvableDisasters.filter(d => !dismissedDisasterIds.has(d.disaster_id))
 
   const cropName     = record.crop_type_name || 'this crop'
   const unitOptions  = harvestUnitOptions(record.crop_allowed_units)
@@ -1652,26 +1413,6 @@ export function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess })
             {(record.farmer_name || record.farmer_full_name) && (<><dt className="text-slate-500">Farmer</dt><dd className="font-medium text-slate-700">{record.farmer_name || record.farmer_full_name}</dd></>)}
             {record.date_planted && (<><dt className="text-slate-500">Planted</dt><dd className="font-medium text-slate-700">{record.date_planted}</dd></>)}
           </dl>
-          {visibleResolvableDisasters.map(d => (
-            <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs text-emerald-800 mb-2">
-                This crop has an active <span className="font-semibold">{d.disaster_type}</span> with all recommended responses completed. Mark it recovered now?
-              </p>
-              <div className="flex gap-2">
-                <button type="button" disabled={recoveringId === d.disaster_id}
-                  onClick={() => handleMarkRecovered(d.disaster_id)}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {recoveringId === d.disaster_id ? 'Marking…' : 'Mark Recovered'}
-                </button>
-                <button type="button"
-                  onClick={() => setDismissedDisasterIds(prev => new Set(prev).add(d.disaster_id))}
-                  className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">
-                  Keep Active
-                </button>
-              </div>
-            </div>
-          ))}
-
           {expectedHarvestDate && (
             <div className={`rounded-xl border px-3 py-2 text-xs ${
               harvestVarianceDays === null

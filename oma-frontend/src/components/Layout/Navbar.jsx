@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, CircleHelp, History, LogOut, Menu, BookOpen } from 'lucide-react'
+import { ChevronDown, History, LogOut, Menu, BookOpen } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
@@ -12,9 +12,8 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
   const navigate = useNavigate()
   const { user, logout, isFisherfolk, isFarmer, isOrg } = useAuth()
   const ownAccount = isFisherfolk || isFarmer || isOrg   // citizen accounts that use the Admin pages for their own records
-  // Fisherfolk accounts have their own profile/help pages (staff /profile and /help are staff-only). The User Manual is /manual for everyone.
+  // Citizen accounts have their own profile page (staff /profile is staff-only). The User Manual is /manual for everyone.
   const profilePath = ownAccount ? '/my-profile' : '/profile'
-  const helpPath = ownAccount ? '/my-help' : '/help'
   const roleLabel = accountTypeLabel(user)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -119,15 +118,6 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                   Activity Log
                 </Link>
               )}
-
-              <Link
-                to={helpPath}
-                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-text-primary hover:bg-surface-2 transition-colors"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <CircleHelp size={14} className="text-text-muted" aria-hidden="true" />
-                Help
-              </Link>
 
               <Link
                 to="/manual"

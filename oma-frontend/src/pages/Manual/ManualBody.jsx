@@ -7,6 +7,9 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { AUDIENCES, audienceFor, manualFor, manualIntro } from './manualContent.js'
 import { printManual } from './manualPrint.js'
 import ManualSearchBox from './ManualSearchBox.jsx'
+import ManualQuestions from './ManualQuestions.jsx'
+import AboutSystem from './AboutSystem.jsx'
+import { ABOUT_TARGET, questionsFor } from './manualFaq.js'
 import { guideTarget, screenTarget, stepTarget } from './manualSearch.js'
 
 const CARD = 'rounded-xl border border-[#E2E8E2] bg-white p-5'
@@ -38,7 +41,8 @@ function Screen({ screen, number, id }) {
 
 // The User Manual's annotated screen guides for the kind of account that is signed in (an Admin can also read the others). Print / Save as PDF turns the same
 // guides into one document. The words are in manualContent.js; the pictures and their number tables come from the screenshot tool (scripts/manual/shoot.mjs).
-// It is the whole of the User Manual page (ManualPage.jsx, /manual); the quick guide and the questions are on the Help pages, not here.
+// It is the whole of the User Manual page (ManualPage.jsx, /manual): the guides, then the common questions and About This System, with
+// one search at the top. It is the only help page.
 export default function ManualBody() {
   const { user, isFarmer, isFisherfolk, isOrg, isAdmin } = useAuth()
   const { showToast } = useToast()
@@ -47,6 +51,15 @@ export default function ManualBody() {
   const audience = isAdmin && chosen ? chosen : own
   const guides = useMemo(() => manualFor(audience), [audience])
   const intro = useMemo(() => manualIntro(audience), [audience])
+  const questions = useMemo(() => questionsFor(audience), [audience])
+  const [openQuestions, setOpenQuestions] = useState(() => new Set())
+  const toggleQuestion = (id) => setOpenQuestions((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  const openFound = (result) => { if (result.kind === 'question') setOpenQuestions((current) => new Set(current).add(result.target)) }
   const label = AUDIENCES.find((a) => a.id === audience)?.label || ''
   const [isPrinting, setIsPrinting] = useState(false)
 
@@ -68,13 +81,13 @@ export default function ManualBody() {
     <>
       <div className="space-y-5">
         <div className="sticky top-14 z-20 -mx-4 bg-[#F5F7F5]/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
-          <ManualSearchBox guides={guides} />
+          <ManualSearchBox guides={guides} questions={questions} onPick={openFound} />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white p-4">
           <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-[#EBF5EE]"><BookOpen className="h-4 w-4 text-[#1B4D2E]" aria-hidden="true" /></div>
           <div className="min-w-0 flex-1 basis-64">
-            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Screen guides: {label}</h2>
+            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Guides and questions: {label}</h2>
             <p className="text-[12.5px] text-[#7A8E7A]">Pick a guide below. The pictures use sample records, not real people.</p>
           </div>
           <button type="button" onClick={print} disabled={isPrinting}
@@ -98,6 +111,8 @@ export default function ManualBody() {
                   <span className="text-[#4A5E4A]">: {c.about}</span>
                 </li>
               ))}
+              <li className="text-[13px]"><a href="#manual-questions" className="font-semibold text-[#1B4D2E] hover:underline">Common questions</a></li>
+              <li className="text-[13px]"><a href={`#${ABOUT_TARGET}`} className="font-semibold text-[#1B4D2E] hover:underline">About This System</a></li>
             </ol>
           </nav>
         </section>
@@ -134,6 +149,10 @@ export default function ManualBody() {
             </div>
           </section>
         ))}
+
+        <ManualQuestions sections={questions} open={openQuestions} onToggle={toggleQuestion} />
+
+        <AboutSystem />
       </div>
     </>
   )

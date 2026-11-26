@@ -44,13 +44,11 @@ const AddFarmParcelsPage = lazy(() => import("./pages/CropInformation/AddFarmPar
 const CropSettingsHub = lazy(() => import("./pages/CropSettings/CropSettingsHub.jsx"));
 const ActivitySettingsHub = lazy(() => import("./pages/ActivitySettings/ActivitySettingsHub.jsx"));
 const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.jsx"));
-const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
 const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
 const CropAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropAssistanceRoute })));
 const FisheriesAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesAssistanceRoute })));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
 const MoreScreen = lazy(() => import("./pages/Account/MoreScreen.jsx"));
-const OwnHelpPage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnHelpPage })));
 const OwnProfilePage = lazy(() => import("./pages/Citizen/OwnAccountPages.jsx").then((m) => ({ default: m.OwnProfilePage })));
 const DisasterPage = lazy(() => import("./pages/Monitoring/DisasterPage.jsx"));
 
@@ -160,14 +158,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/my-help"
-            element={
-              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
-                <OwnHelpPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/my-help" element={<Navigate to="/manual" replace />} />
           {/* Disaster: one module, role-appropriate views - fisherfolk accounts get My Logged Disasters
               (Log Disaster = submitted to Admin), Admin/Evaluator get Farmer Disaster + Fisheries Disaster.
               The old fisherfolk /disaster/reports page was folded into it. */}
@@ -479,14 +470,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/help"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <HelpPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/help" element={<Navigate to="/manual" replace />} />
           {/* An address that does not exist (an old bookmark, the removed /production page) goes home, which sends each account to its own start page. */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

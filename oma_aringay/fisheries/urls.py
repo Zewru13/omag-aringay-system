@@ -3,8 +3,6 @@ from django.urls import path
 from .emergency_force_harvest import ForceHarvestCreateView, ForceHarvestDetailView, ForceHarvestEligibleView
 
 from .views import (
-    DiseaseResponseGuideDetailView,
-    DiseaseResponseGuideListCreateView,
     DiseaseTypeDetailView,
     DiseaseTypeListCreateView,
     FeedTypeDetailView,
@@ -97,8 +95,6 @@ urlpatterns = [
     # ── Disease reference data (Batch 4) ────────────────────────────────────
     path('disease-types/', DiseaseTypeListCreateView.as_view(), name='disease-type-list'),
     path('disease-types/<int:pk>/', DiseaseTypeDetailView.as_view(), name='disease-type-detail'),
-    path('disease-response-guides/', DiseaseResponseGuideListCreateView.as_view(), name='disease-response-guide-list'),
-    path('disease-response-guides/<int:pk>/', DiseaseResponseGuideDetailView.as_view(), name='disease-response-guide-detail'),
 
     # ── Stocking records ────────────────────────────────────────────────────
     path('stocking/form-options/', StockingFormOptionsView.as_view(), name='stocking-form-options'),

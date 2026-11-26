@@ -277,9 +277,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   // Force Harvest: each affected pond/cage has its own Actual Harvest (kg) - {unitId: value / error}.
   const [unitKg,            setUnitKg]            = useDraftField(draft, 'unitKg', {})
   const [unitKgErrors,      setUnitKgErrors]      = useState({})
-  const [resolvableDisasters, setResolvableDisasters] = useState([])
-  const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
-  const [recoveringId,      setRecoveringId]      = useState(null)
   // Mortality per affected unit for the Force Harvest table, from the cycle's existing Health Log API
   // (the unit list and reasons themselves come from record.harvest_units). null = still loading.
   const [healthLogs, setHealthLogs] = useState(null)
@@ -315,30 +312,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
       .catch(() => { if (!cancelled) setUnitEstimates('error') })
     return () => { cancelled = true }
   }, [hasUnits, record.id])
-
-  useEffect(() => {
-    api.get(`/fisheries/stocking/${record.id}/suggestions/`)
-      .then(r => {
-        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Recovered' && d.can_recover !== false && d.all_rules_done)
-        setResolvableDisasters(ready)
-      })
-      .catch(() => {})
-  }, [record.id])
-
-  const handleMarkRecovered = async (disasterId) => {
-    setRecoveringId(disasterId)
-    try {
-      await api.post(`/fisheries/disasters/${disasterId}/resolve/`)
-      showToast('Disaster marked as recovered.', 'success')
-      setResolvableDisasters(prev => prev.filter(d => d.disaster_id !== disasterId))
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to mark disaster as recovered.', 'error')
-    } finally {
-      setRecoveringId(null)
-    }
-  }
-
-  const visibleResolvableDisasters = resolvableDisasters.filter(d => !dismissedDisasterIds.has(d.disaster_id))
 
   const speciesName = record.species_name || 'this stock'
 
@@ -554,22 +527,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               </p>
             </div>
           )}
-          {visibleResolvableDisasters.map(d => (
-            <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="mb-2 text-xs text-emerald-800">
-                This stock has an active <span className="font-semibold">{d.disaster_type}</span> with all recommended responses completed. Mark it recovered now?
-              </p>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" isLoading={recoveringId === d.disaster_id} onClick={() => handleMarkRecovered(d.disaster_id)}>
-                  Mark Recovered
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => setDismissedDisasterIds(prev => new Set(prev).add(d.disaster_id))}>
-                  Keep Active
-                </Button>
-              </div>
-            </div>
-          ))}
-
           {tableMode ? (
             <HarvestTables
               forced={unitMode} unitWord={unitWord}

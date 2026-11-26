@@ -21,7 +21,7 @@ export default {
    {
     "n": 3,
     "label": "Account menu",
-    "desc": "Your name, the role and today's date. Open it for Help, the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
+    "desc": "Your name and the type of account. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
    },
    {
     "n": 4,
@@ -96,7 +96,7 @@ export default {
    {
     "n": 3,
     "label": "Account menu",
-    "desc": "Your name, the role and today's date. Open it for Help, the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
+    "desc": "Your name and the type of account. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
    },
    {
     "n": 4,
@@ -4768,7 +4768,7 @@ export default {
    {
     "n": 1,
     "label": "Pages",
-    "desc": "Forecast, Borrow equipment (when you belong to an organization), My profile, Help, the User Manual, and Log out."
+    "desc": "Forecast, Borrow equipment (when you belong to an organization), My profile, the User Manual, and Log out."
    }
   ]
  },
@@ -5004,7 +5004,7 @@ export default {
    {
     "n": 1,
     "label": "Pages",
-    "desc": "Forecast, Borrow equipment, My profile, Help, the User Manual and Log out."
+    "desc": "Forecast, Borrow equipment, My profile, the User Manual and Log out."
    },
    {
     "n": 2,

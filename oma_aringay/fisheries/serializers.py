@@ -20,7 +20,6 @@ from monitoring.models import AquacultureProductionUnit
 from .models import (
     AquacultureRecord,
     CaptureRecord,
-    DiseaseResponseGuide,
     DiseaseType,
     EMERGENCY_FORCE_HARVEST_REASON_LABELS,
     FeedType,
@@ -1057,15 +1056,6 @@ class DiseaseTypeSerializer(UniqueNameMixin, serializers.ModelSerializer):
         model = DiseaseType
         fields = ['id', 'name', 'description', 'species_options']
         read_only_fields = ['id']
-
-
-class DiseaseResponseGuideSerializer(serializers.ModelSerializer):
-    disease_type_name = serializers.CharField(source='disease_type.name', read_only=True)
-
-    class Meta:
-        model = DiseaseResponseGuide
-        fields = ['id', 'disease_type', 'disease_type_name', 'recommended_treatment', 'notes']
-        read_only_fields = ['id', 'disease_type_name']
 
 
 def _prefetched(obj, name):

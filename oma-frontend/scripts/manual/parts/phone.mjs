@@ -46,7 +46,7 @@ export const PHONE = [
     ] }),
   FA({ id: 'farmer-p-more', phone: true, file: 'farmer/phone-more.png', url: '/more', wait: 5000, title: 'More on a phone (Farmer)', purpose: 'The fifth tab of the bottom menu.',
     callouts: [
-      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment, My profile, Help, the User Manual and Log out.' },
+      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment, My profile, the User Manual and Log out.' },
       BOTTOM('Home, Crops, Assistance, Disasters and More.'),
     ] }),
 

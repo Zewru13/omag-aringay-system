@@ -27,15 +27,13 @@ eq(window_.includes('crop-log-fertilizer-table') && window_.includes('crop-log-p
 
 // ── opens filled in: no Get Suggestions step, no "are you sure" pop-up before saving
 eq(/Get Suggestions/.test(page), false, 'no Get Suggestions button')
-eq(/SuggestionsModal/.test(page.replace('DisasterResponsesModal', '')), false, 'the schedule window is gone')
+eq(/SuggestionsModal/.test(page), false, 'the schedule window is gone')
 eq(window_.includes('suggestedStep(scheduleSteps)'), true, 'the form follows the schedule')
 eq(window_.includes('Use Suggested Activity'), true, 'a link back to the suggestion')
 eq(/title="Confirm Action"/.test(window_), false, 'no confirmation before saving a log')
 eq(window_.includes('onLogAdded()') && window_.includes('onClose()'), true, 'a saved log closes the window')
 
-// ── disaster responses are still reachable, only when the crop has an active disaster
-eq(page.includes('function DisasterResponsesModal'), true, 'the disaster responses window stays')
-eq(window_.includes('activeDisasters.length > 0 && !isHarvested'), true, 'its button shows only with an active disaster')
+// ── a disaster can still be marked recovered from the history
 eq(window_.includes('Mark as Recovered'), true, 'and Mark as Recovered stays')
 
 // ── the type of fertilizer: a dropdown of the Fertilizer entries of Crop Settings, with Other

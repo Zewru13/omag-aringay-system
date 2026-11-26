@@ -39,14 +39,12 @@ from .yield_cycle_logs import cycle_activity
 from .models import (
     EMERGENCY_FORCE_HARVEST_REASON_LABELS,
     HARVEST_TIMING_LABELS,
-    DiseaseResponseGuide,
     DiseaseType,
     FeedType,
     FisheriesActivityLog,
     FisheriesActivityType,
     FisheriesDisasterReport,
     FisheriesDisasterReportPhoto,
-    FisheriesDisasterResponseRule,
     FisheriesDisasterStockLoss,
     FisheriesHarvestRecord,
     Fisherfolk,
@@ -64,7 +62,6 @@ from .models import (
     stocking_display_status_q,
 )
 from .serializers import (
-    DiseaseResponseGuideSerializer,
     DiseaseTypeSerializer,
     FeedTypeSerializer,
     FisherfolkCreateSerializer,
@@ -387,34 +384,6 @@ class DiseaseTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = DiseaseTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = DiseaseType.objects.all()
-
-
-class DiseaseResponseGuideListCreateView(generics.ListCreateAPIView):
-    serializer_class = DiseaseResponseGuideSerializer
-    pagination_class = None
-
-    def get_permissions(self):
-        # Same reasoning as DiseaseTypeListCreateView above: the health-log
-        # screen shows the guide for whichever illness the fisherfolk picked
-        # ("Pangkalahatang mungkahi sa pag-aalaga"), so a citizen must be able
-        # to read it. Authoring guidance stays staff-only — this text steers
-        # how someone treats their stock.
-        if self.request.method == 'POST':
-            return [IsAuthenticated(), IsAdminOrEvaluator()]
-        return [IsAuthenticated()]
-
-    def get_queryset(self):
-        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('disease_type__name')
-        disease_type_id = self.request.query_params.get('disease_type')
-        if disease_type_id:
-            qs = qs.filter(disease_type_id=disease_type_id)
-        return qs
-
-
-class DiseaseResponseGuideDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = DiseaseResponseGuideSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = DiseaseResponseGuide.objects.select_related('disease_type')
 
 
 # ─── Pond ─────────────────────────────────────────────────────────────────────
@@ -1171,19 +1140,11 @@ class FisheriesDisasterTargetsView(APIView):
 
 class FisheriesDisasterResolveView(APIView):
     """
-    Mark a disaster Recovered. Two paths:
-      - All recommended response rules logged -> the usual nudge, no note required.
-      - Anything else (incomplete, or zero rules — e.g. the stock recovered
-        on its own with no intervention) -> a recovery_note is required so
-        the gap is documented rather than silently closed. This used to
-        hard-block recovery until every rule was logged, which left
-        disasters stuck Active forever whenever nothing was actually done.
-        Total Loss is terminal and can never be marked Recovered.
+    Mark a disaster Recovered. A recovery note saying how it recovered is always required. Total Loss is terminal and can
+    never be marked Recovered.
 
-    Evaluator-parity batch: CITIZEN may resolve a disaster on their own
-    record — mirrors CropDisasterResolveView in production/views.py. Same
-    explicit-check rationale: plain APIView, no DRF object-permission hook
-    to delegate to. Recovery logic below unchanged for every role.
+    CITIZEN may resolve a disaster on their own record, like CropDisasterResolveView in production/views.py: a plain
+    APIView, so the ownership check below is explicit.
     """
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
@@ -1204,36 +1165,9 @@ class FisheriesDisasterResolveView(APIView):
         if blocked:
             return Response({'detail': blocked}, status=400)
 
-        record = disaster.stocking_record
-        rules_qs = FisheriesDisasterResponseRule.objects.filter(
-            disaster_type=disaster.disaster_type,
-        ).filter(
-            Q(species=record.species) | Q(species__isnull=True)
-        )
-        activity_logs = FisheriesActivityLog.objects.filter(
-            stocking_record=record
-        ).values('activity', 'date_of_activity', 'disaster_report_id', 'disaster_rule_id')
-
-        all_done = True
-        has_rules = False
-        for rule in rules_qs:
-            has_rules = True
-            is_done = any(
-                log.get('disaster_report_id') == disaster.id and
-                log.get('disaster_rule_id') == rule.id
-                for log in activity_logs
-            )
-            if not is_done:
-                all_done = False
-                break
-
-        rules_complete = has_rules and all_done
         recovery_note = (request.data.get('recovery_note') or '').strip()
-        if not rules_complete and not recovery_note:
-            return Response(
-                {'detail': 'A recovery note is required when not all recommended response rules have been completed.'},
-                status=400,
-            )
+        if not recovery_note:
+            return Response({'detail': 'Add a recovery note saying how it recovered.'}, status=400)
 
         disaster.status = 'Recovered'
         disaster.recovered_date = date.today()
@@ -2055,58 +1989,12 @@ class FisheriesActivitySuggestionsView(APIView):
 
             suggestions.sort(key=lambda s: s['day_after_stocking'])
 
-        active_disasters = list(
-            FisheriesDisasterReport.objects.filter(
-                stocking_record=record, status='Active',
-            ).order_by('-date_of_occurrence')
-        )
-        disaster_response = []
-        for disaster in active_disasters:
-            rules_qs = FisheriesDisasterResponseRule.objects.filter(
-                disaster_type=disaster.disaster_type,
-            ).filter(
-                Q(species=record.species) | Q(species__isnull=True)
-            ).order_by('-priority')
-
-            rules_list = []
-            for rule in rules_qs:
-                is_done = any(
-                    log.get('disaster_report_id') == disaster.id and
-                    log.get('disaster_rule_id') == rule.id
-                    for log in activity_logs
-                )
-                rules_list.append({
-                    'rule_id': rule.id,
-                    'disaster_type': rule.disaster_type,
-                    'title': rule.title,
-                    'action': rule.action,
-                    'activity_name': rule.activity_name,
-                    'recommendation': rule.recommendation,
-                    'priority': rule.priority,
-                    'is_done': is_done,
-                })
-
-            all_rules_done = len(rules_list) > 0 and all(r['is_done'] for r in rules_list)
-
-            disaster_response.append({
-                'disaster_id': disaster.id,
-                'disaster_type': disaster.disaster_type,
-                'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
-                'status': disaster.status,
-                'is_total_loss': disaster.is_total_loss,
-                'can_recover': disaster.status == 'Active' and disaster_reports.recovery_block_reason(disaster) is None,
-                'recovery_block_reason': disaster_reports.recovery_block_reason(disaster) if disaster.status == 'Active' else None,
-                'all_rules_done': all_rules_done,
-                'rules': rules_list,
-            })
-
         return Response({
             'days_elapsed': days_elapsed,
             'total_days': total_days,
             'is_total_loss': is_total_loss,
             'date_stocked_is_estimated': record.date_stocked_is_estimated,
             'suggestions': suggestions,
-            'disaster_response': disaster_response,
         })
 
 

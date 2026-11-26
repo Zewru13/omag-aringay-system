@@ -47,7 +47,7 @@ from .models import (
     CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport, CropDisasterReportPhoto,
     CropInputType,
     CropMonitoringRecord, CropRemark,
-    CropSubcategory, CropType, CropVariety, DamageReport, DisasterResponseRule,
+    CropSubcategory, CropType, CropVariety, DamageReport,
     FarmInputLog, HarvestRecord, HarvestUnitWeight, LaborOperationLog, PestDiseaseReport, PlantingRecord,
     SeedSource,
 )
@@ -1224,58 +1224,12 @@ class CropActivitySuggestionsView(APIView):
 
             suggestions.sort(key=lambda s: s['day_after_planting'])
 
-        active_disasters = list(
-            CropDisasterReport.objects.filter(
-                monitoring_record=record, status='Active',
-            ).order_by('-date_of_occurrence')
-        )
-        disaster_response = []
-        for disaster in active_disasters:
-            rules_qs = DisasterResponseRule.objects.filter(
-                disaster_type=disaster.disaster_type,
-            ).filter(
-                Q(crop_type=record.crop_type) | Q(crop_type__isnull=True)
-            ).order_by('-priority')
-
-            rules_list = []
-            for rule in rules_qs:
-                is_done = any(
-                    log.get('disaster_report_id') == disaster.id and
-                    log.get('disaster_rule_id') == rule.id
-                    for log in activity_logs
-                )
-                rules_list.append({
-                    'rule_id': rule.id,
-                    'disaster_type': rule.disaster_type,
-                    'title': rule.title,
-                    'action': rule.action,
-                    'activity_name': rule.activity_name,
-                    'recommendation': rule.recommendation,
-                    'priority': rule.priority,
-                    'is_done': is_done,
-                })
-
-            all_rules_done = len(rules_list) > 0 and all(r['is_done'] for r in rules_list)
-
-            disaster_response.append({
-                'disaster_id': disaster.id,
-                'disaster_type': disaster.disaster_type,
-                'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
-                'status': disaster.status,
-                'is_total_loss': disaster.is_total_loss,
-                'can_recover': disaster.can_recover,
-                'recovery_block_reason': disaster.recovery_block_reason if disaster.status == 'Active' else None,
-                'all_rules_done': all_rules_done,
-                'rules': rules_list,
-            })
-
         return Response({
             'days_elapsed': days_elapsed,
             'total_days': total_days,
             'is_total_loss': is_total_loss,
             'date_planted_is_estimated': record.date_planted_is_estimated,
             'suggestions': suggestions,
-            'disaster_response': disaster_response,
         })
 
 
@@ -1935,14 +1889,8 @@ class CropDisasterReportMultiCreateView(APIView):
 
 class CropDisasterResolveView(APIView):
     """
-    Mark a disaster Recovered. Two paths:
-      - All recommended response rules logged -> the usual nudge, no note required.
-      - Anything else (incomplete, or zero rules — e.g. the crop recovered on
-        its own with no intervention) -> a recovery_note is required so the
-        gap is documented rather than silently closed. This used to hard-block
-        resolution until every rule was logged, which left disasters stuck
-        Active forever whenever nothing was actually done. Total Loss is
-        terminal and can never be marked Recovered.
+    Mark a disaster Recovered. A recovery note saying how it recovered is always required. Total Loss is terminal and can
+    never be marked Recovered.
 
     Evaluator-parity batch: CITIZEN may resolve a disaster on their own
     record. This is a plain APIView (no queryset for DRF's object-level
@@ -1972,36 +1920,9 @@ class CropDisasterResolveView(APIView):
         if blocked:
             return Response({'detail': blocked}, status=400)
 
-        record = disaster.monitoring_record
-        rules_qs = DisasterResponseRule.objects.filter(
-            disaster_type=disaster.disaster_type,
-        ).filter(
-            Q(crop_type=record.crop_type) | Q(crop_type__isnull=True)
-        )
-        activity_logs = CropActivityLog.objects.filter(
-            monitoring_record=record
-        ).values('activity_type', 'date_of_activity', 'disaster_report_id', 'disaster_rule_id')
-
-        all_done = True
-        has_rules = False
-        for rule in rules_qs:
-            has_rules = True
-            is_done = any(
-                log.get('disaster_report_id') == disaster.id and
-                log.get('disaster_rule_id') == rule.id
-                for log in activity_logs
-            )
-            if not is_done:
-                all_done = False
-                break
-
-        rules_complete = has_rules and all_done
         recovery_note = (request.data.get('recovery_note') or '').strip()
-        if not rules_complete and not recovery_note:
-            return Response(
-                {'detail': 'A recovery note is required when not all recommended response rules have been completed.'},
-                status=400,
-            )
+        if not recovery_note:
+            return Response({'detail': 'Add a recovery note saying how it recovered.'}, status=400)
 
         disaster.status = 'Recovered'
         disaster.recovered_date = _date.today()

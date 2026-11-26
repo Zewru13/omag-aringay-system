@@ -95,8 +95,21 @@ class CropRecoveryRuleTests(APITestCase):
         self.client.force_authenticate(user)
         self.assertEqual(self.resolve(disaster).status_code, 400)
 
-    def test_the_activity_panel_feed_carries_the_flag(self):
+    def test_the_activity_feed_gives_the_schedule_only_with_no_disaster_responses(self):
+        _, record = make_record('Planted')
+        make_disaster(record, self.admin)
+        feed = self.client.get(f'/api/production/monitoring/{record.id}/suggestions/').json()
+        self.assertIn('suggestions', feed)
+        self.assertNotIn('disaster_response', feed)
+
+    def test_recovery_always_needs_a_note_saying_how(self):
         _, record = make_record('Planted')
         disaster = make_disaster(record, self.admin)
-        feed = self.client.get(f'/api/production/monitoring/{record.id}/suggestions/').json()['disaster_response']
-        self.assertEqual([(d['disaster_id'], d['can_recover']) for d in feed], [(disaster.id, True)])
+        refused = self.resolve(disaster, note='  ')
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(refused.json()['detail'], 'Add a recovery note saying how it recovered.')
+        disaster.refresh_from_db()
+        self.assertEqual(disaster.status, 'Active')
+        self.assertEqual(self.resolve(disaster, note='The field drained.').status_code, 200)
+        disaster.refresh_from_db()
+        self.assertEqual(disaster.recovery_note, 'The field drained.')

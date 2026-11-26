@@ -86,8 +86,22 @@ class FisheriesRecoveryRuleTests(APITestCase):
         self.assertFalse(doc['can_recover'])
         self.assertTrue(doc['recovery_block_reason'])
 
-    def test_the_activity_panel_feed_carries_the_flag(self):
+    def test_the_activity_feed_gives_the_schedule_only_with_no_disaster_responses(self):
         stock = self.stock('Stocked')
-        report = self.report([stock])
-        feed = self.client.get(f'/api/fisheries/stocking/{stock.id}/suggestions/').json()['disaster_response']
-        self.assertEqual([(d['disaster_id'], d['can_recover']) for d in feed], [(report.id, True)])
+        self.report([stock])
+        feed = self.client.get(f'/api/fisheries/stocking/{stock.id}/suggestions/').json()
+        self.assertIn('suggestions', feed)
+        self.assertNotIn('disaster_response', feed)
+
+    def test_recovery_always_needs_a_note_saying_how(self):
+        report = self.report([self.stock('Stocked')])
+        refused = self.client.post(f'/api/fisheries/disasters/{report.id}/resolve/', {}, format='json')
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(refused.json()['detail'], 'Add a recovery note saying how it recovered.')
+        self.assertEqual(self.resolve(report).status_code, 200)
+
+    def test_the_disease_response_guides_are_gone(self):
+        from django.urls import Resolver404, resolve
+        for path in ('/api/fisheries/disease-response-guides/', '/api/fisheries/disease-response-guides/1/'):
+            with self.assertRaises(Resolver404, msg=path):
+                resolve(path)
