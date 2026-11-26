@@ -3,12 +3,14 @@ import { Search, X } from 'lucide-react'
 import { searchWords } from '../../utils/searchMatch.js'
 import { searchManual } from './manualSearch.js'
 
-const KIND_LABEL = { guide: 'Guide', screen: 'Picture', element: 'Button or field', step: 'Step' }
+const KIND_LABEL = { guide: 'Guide', screen: 'Picture', element: 'Button or field', question: 'Question', step: 'Step', about: 'About' }
 const KIND_TONE = {
   guide: 'bg-[#EBF5EE] text-[#1B4D2E]',
   screen: 'bg-sky-50 text-sky-800',
   element: 'bg-orange-50 text-orange-800',
+  question: 'bg-violet-50 text-violet-800',
   step: 'bg-slate-100 text-slate-700',
+  about: 'bg-slate-100 text-slate-700',
 }
 
 const escapeRegExp = (word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -30,15 +32,16 @@ function jumpTo(target) {
   window.setTimeout(() => el.classList.remove('manual-found'), 1800)
 }
 
-// The search bar at the top of the User Manual: type what to do or a button's name, pick a result, the page scrolls there.
-export default function ManualSearchBox({ guides }) {
+// The one search bar of the User Manual: type what to do, a button's name or a question, pick a result, the page scrolls there.
+// `onPick` lets the page open what the result points at (a question) before it scrolls.
+export default function ManualSearchBox({ guides, questions, onPick }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const boxRef = useRef(null)
   const inputRef = useRef(null)
   const words = useMemo(() => searchWords(query), [query])
-  const results = useMemo(() => searchManual(guides, query), [guides, query])
+  const results = useMemo(() => searchManual(guides, query, { questions }), [guides, query, questions])
 
   // A different audience is a different manual: forget the old search.
   useEffect(() => { setQuery(''); setOpen(false) }, [guides])
@@ -49,7 +52,11 @@ export default function ManualSearchBox({ guides }) {
     return () => document.removeEventListener('mousedown', away)
   }, [])
 
-  const choose = (r) => { setOpen(false); jumpTo(r.target) }
+  const choose = (r) => {
+    setOpen(false)
+    onPick?.(r)
+    window.setTimeout(() => jumpTo(r.target), 0)      // after an opened question has been drawn
+  }
   const onKeyDown = (e) => {
     if (e.key === 'Escape') { setOpen(false); return }
     if (!results.length) return
@@ -64,7 +71,7 @@ export default function ManualSearchBox({ guides }) {
       <div className="flex items-center gap-2 rounded-xl border border-[#D8E2D8] bg-white px-3 shadow-sm focus-within:border-[#1B4D2E] focus-within:ring-2 focus-within:ring-[#1B4D2E]/15">
         <Search size={16} className="flex-none text-[#7A8E7A]" aria-hidden="true" />
         <input ref={inputRef} type="search" value={query} role="combobox" aria-expanded={showList} aria-controls="manual-search-results" aria-autocomplete="list"
-          aria-label="Search the manual" placeholder="Search the manual: a task, a screen, a button or a field…"
+          aria-label="Search the manual" placeholder="Search the manual: a task, a screen, a button or a question…"
           onChange={(e) => { setQuery(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} onKeyDown={onKeyDown}
           className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-[#1A2B1A] outline-none placeholder:text-[#A8BCA8] [&::-webkit-search-cancel-button]:hidden" />
         {query && (

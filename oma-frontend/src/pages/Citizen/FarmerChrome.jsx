@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeftRight, BookOpen, ChevronDown, ChevronLeft, HelpCircle, Menu, User } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, ChevronDown, ChevronLeft, Menu, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import omagLogo from '../../assets/LOGO OMAg-small.png'
 import { labels } from './labels.js'
@@ -18,8 +18,8 @@ import { labels } from './labels.js'
 // `button { font: inherit }` outside any layer, which discards font utilities
 // placed directly on a <button> (see the note at the top of citizenUI.jsx).
 
-// `onManual` (optional) adds the User Manual under Help: Help is the questions and answers, the User Manual is the screen guides.
-function MenuPanel({ onProfile, onHelp, onManual, onLogout, onClose, className, menuLabels }) {
+// `onManual` (optional) adds the User Manual.
+function MenuPanel({ onProfile, onManual, onLogout, onClose, className, menuLabels }) {
   const M = menuLabels || labels.farmerChrome.menu
   const item = 'flex h-[36px] w-full items-center gap-3 px-4 text-left transition-colors hover:bg-cz-page'
   return (
@@ -30,10 +30,6 @@ function MenuPanel({ onProfile, onHelp, onManual, onLogout, onClose, className, 
       <button type="button" role="menuitem" className={item} onClick={() => { onClose(); onProfile() }}>
         <User size={15} className="shrink-0 text-cz-text-2" aria-hidden="true" />
         <span className="text-[13px] text-cz-text">{M.viewProfile}</span>
-      </button>
-      <button type="button" role="menuitem" className={item} onClick={() => { onClose(); onHelp() }}>
-        <HelpCircle size={15} className="shrink-0 text-cz-text-2" aria-hidden="true" />
-        <span className="text-[13px] text-cz-text">{M.help}</span>
       </button>
       {onManual && (
         <button type="button" role="menuitem" className={item} onClick={() => { onClose(); onManual() }}>
@@ -75,7 +71,7 @@ const CHROME_THEME = {
 }
 
 // `showMenu={false}`: only the notification bell (the account's phone shell: its profile, Help and Log out are on the More tab).
-export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, theme = 'crop', menuLabels, showMenu = true }) {
+export function FarmerHeader({ initials, onProfile, onManual, onLogout, theme = 'crop', menuLabels, showMenu = true }) {
   const [open, setOpen] = useMenuState()
   return (
     <header className={`sticky top-0 z-30 ${CHROME_THEME[theme].header}`}>
@@ -107,7 +103,6 @@ export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, 
           />
           <MenuPanel
             onProfile={onProfile}
-            onHelp={onHelp}
             onManual={onManual}
             onLogout={onLogout}
             onClose={() => setOpen(false)}
@@ -197,7 +192,7 @@ export function FarmerDesktopSidebar({ collapsed, activeKey, navItems }) {
   )
 }
 
-function AccountMenu({ initials, name, roleLabel, onProfile, onHelp, onLogout }) {
+function AccountMenu({ initials, name, roleLabel, onProfile, onLogout }) {
   const [open, setOpen] = useMenuState()
   return (
     <div className="relative">
@@ -227,7 +222,6 @@ function AccountMenu({ initials, name, roleLabel, onProfile, onHelp, onLogout })
           />
           <MenuPanel
             onProfile={onProfile}
-            onHelp={onHelp}
             onLogout={onLogout}
             onClose={() => setOpen(false)}
             className="absolute right-0 top-[calc(100%+8px)] w-[208px]"

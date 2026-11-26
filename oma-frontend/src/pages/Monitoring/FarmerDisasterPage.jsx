@@ -41,9 +41,10 @@ export function MarkRecoveredModal({ row, onClose, onDone }) {
   const [saving, setSaving] = useState(false)
   const submit = async (e) => {
     e.preventDefault()
+    if (!note.trim()) { showToast('A recovery note is required.', 'error'); return }
     setSaving(true)
     try {
-      await api.post(`/production/disasters/${row.id}/resolve/`, note.trim() ? { recovery_note: note.trim() } : {})
+      await api.post(`/production/disasters/${row.id}/resolve/`, { recovery_note: note.trim() })
       showToast('Disaster marked as recovered.', 'success')
       draft.clear()
       onDone()
@@ -59,7 +60,7 @@ export function MarkRecoveredModal({ row, onClose, onDone }) {
       </>}>
       <form id="farmer-mark-recovered" onSubmit={submit}>
         <DraftBanner draft={draft} />
-        <FormField label="Recovery Note">
+        <FormField label="Recovery Note" required>
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note} onChange={e => setNote(e.target.value)}
             placeholder="How did the crop recover? What was done?" />
         </FormField>

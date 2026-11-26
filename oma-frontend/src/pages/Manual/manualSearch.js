@@ -1,7 +1,9 @@
 import { matchesSearch, searchWords } from '../../utils/searchMatch.js'
+import { ABOUT_TARGET, ABOUT_WORDS, faqTarget } from './manualFaq.js'
 
 // The search bar of the User Manual. Every word typed has to be found, in any order (the same rule as every other search bar). What is searched:
-// the guides (title, intro), their pictures (title, purpose), the buttons and fields listed under each picture, and the written steps.
+// the guides (title, intro), their pictures (title, purpose), the buttons and fields listed under each picture, the written steps,
+// the common questions and About This System.
 // A result carries the id of the place on the page to jump to; ManualBody draws those ids.
 
 export const guideTarget = (guide) => `guide-${guide.id}`
@@ -9,15 +11,19 @@ export const screenTarget = (guide, screen) => `screen-${guide.id}-${screen.id}`
 export const stepTarget = (guide, index) => `guide-${guide.id}-step-${index + 1}`
 
 // Every place a result can point at, so the page and the tests can check that each one exists.
-export function manualTargets(guides) {
-  return guides.flatMap((g) => [
-    guideTarget(g),
-    ...g.steps.map((_, i) => stepTarget(g, i)),
-    ...g.screens.map((s) => screenTarget(g, s)),
-  ])
+export function manualTargets(guides, questions = []) {
+  return [
+    ...guides.flatMap((g) => [
+      guideTarget(g),
+      ...g.steps.map((_, i) => stepTarget(g, i)),
+      ...g.screens.map((s) => screenTarget(g, s)),
+    ]),
+    ...questions.flatMap((section, s) => section.items.map((_, i) => faqTarget(s, i))),
+    ABOUT_TARGET,
+  ]
 }
 
-const KIND_ORDER = { guide: 0, screen: 1, element: 2, step: 3 }
+const KIND_ORDER = { guide: 0, screen: 1, element: 2, question: 3, step: 4, about: 5 }
 
 // A short piece of `text` around the first typed word, so the result shows why it matched.
 function snippetOf(text, words, size = 110) {
@@ -31,8 +37,9 @@ function snippetOf(text, words, size = 110) {
   return `${start > 0 ? '…' : ''}${piece}${start + size < flat.length ? '…' : ''}`
 }
 
-// Results come as guide, picture, button or field, step; inside each kind a match on the name itself beats a match on the explanation.
-export function searchManual(guides, query, { limit = 12 } = {}) {
+// Results come as guide, picture, button or field, question, step, About; inside each kind a match on the name itself beats a match on
+// the explanation.
+export function searchManual(guides, query, { limit = 12, questions = [] } = {}) {
   const words = searchWords(query)
   if (!words.length) return []
   const found = []
@@ -54,6 +61,15 @@ export function searchManual(guides, query, { limit = 12 } = {}) {
       if (matchesSearch(text, query)) add('step', stepTarget(g, i), g.title, `Step ${i + 1}`, text, false)
     })
   })
+
+  questions.forEach((section, s) => {
+    section.items.forEach((faq, i) => {
+      const asked = matchesSearch(faq.q, query)
+      if (asked || matchesSearch(`${faq.q} ${faq.a}`, query)) add('question', faqTarget(s, i), faq.q, section.title, faq.a, asked)
+    })
+  })
+  const aboutNamed = matchesSearch('About This System', query)
+  if (aboutNamed || matchesSearch(`About This System ${ABOUT_WORDS}`, query)) add('about', ABOUT_TARGET, 'About This System', '', ABOUT_WORDS, aboutNamed)
 
   return found
     .map((r, i) => ({ ...r, i }))

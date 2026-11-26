@@ -90,7 +90,7 @@ export const CITIZEN = [
     ] }),
   FA({ id: 'farmer-more', file: 'farmer/more.png', url: '/more', wait: 5000, title: 'More (Farmer)', purpose: 'The rest of your account.',
     callouts: [
-      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment (when you belong to an organization), My profile, Help, the User Manual, and Log out.' },
+      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment (when you belong to an organization), My profile, the User Manual, and Log out.' },
     ] }),
   FA({ id: 'farmer-profile', file: 'farmer/profile.png', url: '/my-profile', wait: 6000, height: 1300, title: 'My profile (Farmer)', purpose: 'What the office has on record about you.',
     callouts: PROFILE('Your name, Farmer, and your RSBSA number') }),

@@ -1,42 +1,8 @@
-// The Help answers of the farmer, fisherfolk and organization accounts (/my-help), in the shape CitizenHelpScreen reads. They name the
-// pages and buttons these accounts have now (the menu: Home, then Crops / Cycles / Members, Assistance, Disasters / Equipment, More).
-// The office's contact details are not confirmed yet, and say so.
-
-const CONTACT = {
-  contactHeading: 'CONTACT OMAG ARINGAY',
-  contactPlaceholderNote: 'The office will confirm these details.',
-  contactOfficeLabel: 'Office',
-  contactOfficeValue: 'To be confirmed by the office',
-  contactAddressLabel: 'Address',
-  contactAddressValue: 'To be confirmed by the office',
-  contactPhoneLabel: 'Phone',
-  contactPhoneValue: 'To be confirmed by the office',
-  contactHoursLabel: 'Office hours',
-  contactHoursValue: 'To be confirmed by the office',
-}
-
-// The three kinds of detail on the profile, in the profile's own words.
-const PROFILE_WORDS = (instant, request, fixed) => ({
-  behaviorsHeading: 'YOUR PROFILE',
-  behaviorInstantLabel: 'Edit',
-  behaviorInstantDesc: instant,
-  behaviorRequestLabel: 'Request change',
-  behaviorRequestDesc: request,
-  behaviorReadonlyLabel: 'Fixed',
-  behaviorReadonlyDesc: fixed,
-  logoutCta: 'Log out',
-  backToProfile: 'Back to My profile',
-})
-
-const PAGE = {
-  title: 'Help',
-  subtitle: 'Short answers about your account. The User Manual, under More, shows every screen.',
-  faqHeading: 'QUESTIONS',
-}
+// The common questions of the farmer, fisherfolk and organization accounts, shown in their User Manual. They name the pages and
+// buttons these accounts have now (the menu: Home, then Crops / Cycles / Members, Assistance, Disasters / Equipment, More).
 
 export const HELP = {
   farmer: {
-    ...PAGE,
     faq: [
       { key: 'home', q: 'What does Home show?', a: 'To do today lists what needs you now: assistance to confirm, activities that are due, a crop ready to harvest. Each has its own button. Below it are your crops and a short summary.' },
       { key: 'log-activity', q: 'How do I log a crop activity?', a: 'Open Crops and press Log activity on the crop. Choose the activity, the date and any notes, then save. You can also press Log activity on Home when an activity is due.' },
@@ -48,11 +14,8 @@ export const HELP = {
       { key: 'forecast', q: 'Where is the forecast?', a: 'Open More, then Forecast. It shows when each crop should be ready, and how past harvests compared with their estimate.' },
       { key: 'profile', q: 'How do I change my name or barangay?', a: 'Open More, then My profile. Press Request change on the detail. The office checks it first, and the row says Waiting for approval until then.' },
     ],
-    ...CONTACT,
-    ...PROFILE_WORDS('Photo and contact number: saved at once.', 'Name and barangay: the office checks it first.', 'RSBSA number and your record: ask the office to correct it.'),
   },
   fisherfolk: {
-    ...PAGE,
     faq: [
       { key: 'home', q: 'What does Home show?', a: 'To do today lists what needs you now: assistance to confirm and a cycle ready to harvest. Each has its own button. Below it are your cycles and a short summary.' },
       { key: 'start-cycle', q: 'How do I start a production cycle?', a: 'Open Cycles and press Start a cycle. Choose the species and culture system, then add each pond or cage with its size and the fingerlings stocked.' },
@@ -64,11 +27,8 @@ export const HELP = {
       { key: 'assistance', q: 'How do I confirm assistance I received?', a: 'Open Assistance, or look at To do today on Home. Press Received if it reached you, or Not received if it did not.' },
       { key: 'profile', q: 'Where are the forecast and my profile?', a: 'Open More. Forecast shows when each cycle should be ready; My profile holds your details, your password and Log out.' },
     ],
-    ...CONTACT,
-    ...PROFILE_WORDS('Photo and contact number: saved at once.', 'Name and barangay: the office checks it first.', 'RSBSA and FishR numbers and your record: ask the office to correct it.'),
   },
   org: {
-    ...PAGE,
     faq: [
       { key: 'home', q: 'What does Home show?', a: 'To do today lists what needs your organization now: members waiting for a confirmation, borrow requests, overdue loans. Each opens the list where you act on it.' },
       { key: 'members', q: 'How do I add members?', a: 'Open Members and press Add member, then search for a registered person. Import adds many members from a spreadsheet.' },
@@ -79,7 +39,5 @@ export const HELP = {
       { key: 'officers', q: 'How do I assign officers?', a: 'Open More, then Officers. Press Assign officer and pick an active member. End term early frees a position before you give it to someone else.' },
       { key: 'profile', q: 'How do I change our organization details?', a: 'Open More, then Organization profile. The logo and contact number change at once. Press Request change for the rest; the Admin and the Focal Person both approve it.' },
     ],
-    ...CONTACT,
-    ...PROFILE_WORDS('Logo and contact number: saved at once.', 'Name, barangay, address, email and contact person: the office approves it first.', 'Registration details: ask the office to correct them.'),
   },
 }

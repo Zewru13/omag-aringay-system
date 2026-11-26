@@ -1,42 +1,6 @@
-// The words of the staff Help page (Admin and Focal Person accounts). Plain data, so it can be tested without a screen: every step and every
-// question says who it is for (`roles`: leave it out for both), and helpFor(role) returns what that account should see.
-//   role: 'ADMIN' | 'EVALUATOR' (the Focal Person)
-
-export const ROLE_LABELS = { ADMIN: 'Admin', EVALUATOR: 'Focal Person' }
+// The common questions of the Admin and the Focal Person, shown in the User Manual (Manual/ManualQuestions.jsx).
 
 const ADMIN = ['ADMIN']
-
-export const STEPS = [
-  {
-    title: 'Set up the master data',
-    roles: ADMIN,
-    desc: 'Under Admin, open Crop Settings to set up each crop: its growth duration, yield per hectare and Planted As (seed, tree, or seed or tree). Activity Settings, Assistance Settings, Classification Settings and Harvest Unit Settings hold the other lists the forms use.',
-  },
-  {
-    title: 'Register farmers, fisherfolk and organizations',
-    desc: 'Registration holds the farmers and fisherfolk. Organizations holds each organization with its members, officers and equipment.',
-  },
-  {
-    title: 'Add the farm parcels',
-    desc: 'Under Crop Management > Crop Records, choose Add Farm Parcel, pick the farmer and fill one row per parcel. The parcel number, barangay, area, land ownership, farm type and cropping schedule are required.',
-  },
-  {
-    title: 'Add the crops that are planted',
-    desc: 'Add a crop from a parcel\'s ⋮ menu (Add crops), from Add Crop Records, or right inside the parcel form. They are the same form. A recorded crop counts as planted, and it stays in monitoring until its harvest.',
-  },
-  {
-    title: 'Monitor, harvest and report disasters',
-    desc: 'Crop Monitoring opens on the crops that are Planted; use the status filter for the others. From a crop\'s ⋮ menu you can view its logs, record the harvest or report a disaster.',
-  },
-  {
-    title: 'Give out assistance',
-    desc: 'Under Assistance, record help given to one person, distribute it to all the members of an organization, or distribute it to several organizations at once.',
-  },
-  {
-    title: 'Generate reports',
-    desc: 'Reports is one page: choose the report in the Report type box and set its filters. The paper preview shows it as it will print. Press Enter Signatories in the block above the buttons to say who signs it, then print it or download it.',
-  },
-]
 
 export const SECTIONS = [
   {
@@ -305,11 +269,10 @@ export const SECTIONS = [
 
 const allowed = (item, role) => !item.roles || item.roles.includes(role)
 
-// What the given account sees: the guide steps (numbered from 1) and the sections that have anything left for it.
+// What the given account sees: the sections that have anything left for it.
 export function helpFor(role) {
-  const steps = STEPS.filter((s) => allowed(s, role)).map((s, i) => ({ ...s, step: String(i + 1) }))
   const sections = SECTIONS
     .map((section) => ({ ...section, items: section.items.filter((item) => allowed(item, role)) }))
     .filter((section) => section.items.length > 0)
-  return { steps, sections }
+  return { sections }
 }

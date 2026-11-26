@@ -37,7 +37,7 @@ const STAFF_GUIDES = (focal) => [
     steps: [
       'Open the system in your browser and sign in with your email (staff may also use a username) and password. The first time, you are asked to choose a new password. There is no self-registration: the Admin creates every account. If you forget it, choose Forgot password? on the sign-in page: a link to set a new one is sent to your email.',
       'The menu on the left lists everything you can open. The groups open and close when you press them. Press the three-line button at the top to hide or show the menu.',
-      'The bell shows notices for you, such as a disaster that a farmer or fisherfolk reported or a change request waiting for review. Your name opens the account menu: your profile, Help (the quick guide and the common questions), the User Manual (this page), the Activity Log (Admin) and Logout.',
+      'The bell shows notices for you, such as a disaster that a farmer or fisherfolk reported or a change request waiting for review. Your name opens the account menu: your profile, the User Manual (this page), the Activity Log (Admin) and Logout.',
       'The Dashboard opens after sign-in. Its panels show the registered farmers and fisherfolk, the disasters over time (choose the From and To month), the season\'s yield against the target, how farmers and fisherfolk harvested against the estimate (choose the year), the overdue, due today and upcoming activities, the barangay activity status and the change requests waiting for review.',
       'In Pending Change Requests, Approve applies the change a farmer, fisherfolk or organization asked for (for example a new name or barangay) and Reject refuses it.',
       'My Profile (from the account menu) shows your own account: Edit profile changes your details and the camera button changes your photo.',
@@ -224,7 +224,7 @@ const PHONE_NOTE = 'There is nothing to install. Open the same web address in th
 // ── Farmer, Fisherfolk and Organization accounts
 // Every one of these accounts has the same menu: Home, then its own lists, then More (the rest of its pages, and Log out). On a phone the
 // same five entries run along the bottom.
-const MENU_STEP = (entries) => `The menu has five entries: ${entries} and More. On a computer it is on the left; on a phone it runs along the bottom. More opens the other pages of your account, Help, the User Manual (this page) and Log out.`
+const MENU_STEP = (entries) => `The menu has five entries: ${entries} and More. On a computer it is on the left; on a phone it runs along the bottom. More opens the other pages of your account, the User Manual (this page) and Log out.`
 
 const FARMER_GUIDES = [
   {

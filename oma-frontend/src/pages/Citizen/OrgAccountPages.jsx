@@ -1,5 +1,5 @@
 // An organization account uses the Admin pages for its own organization (inside the same PageLayout / sidebar).
-// Its profile and help live here, in English, in the same layout as the farmer and fisherfolk ones. The profile
+// Its profile lives here, in English, in the same layout as the farmer and fisherfolk ones. The profile
 // carries over what the older organization portal's info screen did: a logo (applies instantly), a contact number
 // (instant), a name / barangay / street address change that OMAg staff review, and the account password.
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -21,19 +21,7 @@ import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
-import CitizenHelpScreen from './CitizenHelpScreen.jsx'
-import { HELP } from '../Account/helpAnswers.js'
-import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 import { formatDate } from '../../utils/dateFormat.js'
-
-export function OrgHelpPage() {
-  const { isFisherfolkOrg } = useAuth()
-  return (
-    <PageLayout title="Help" subtitle="Questions and answers about your organization account.">
-      <CitizenHelpScreen theme={isFisherfolkOrg ? FISH_THEME : CROP_THEME} L={HELP.org} bare />
-    </PageLayout>
-  )
-}
 
 // ── Profile ─────────────────────────────────────────────────────────────────────────────────────────────
 const REQUESTABLE = [
