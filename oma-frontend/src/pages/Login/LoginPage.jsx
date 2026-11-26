@@ -95,7 +95,7 @@ function LoginPage() {
         <LoginArt className="absolute inset-0 h-full w-full" />
         <div className="relative z-10 flex h-full min-h-dvh flex-col px-12 py-12 lg:px-16">
           <div className="my-auto max-w-lg">
-            <img src={logo} alt="OMAg Aringay seal" className="login-rise h-32 w-32 rounded-2xl bg-white/95 object-contain p-1.5 lg:h-36 lg:w-36" style={{ "--i": 0 }} />
+            <img src={logo} alt="OMAg Aringay seal" className="login-rise h-32 w-32 object-contain lg:h-36 lg:w-36" style={{ "--i": 0 }} />
             <p className="login-rise mt-8 text-balance text-[30px] font-bold leading-[1.18] tracking-tight text-white lg:text-[38px]" style={{ "--i": 1 }}>
               {SYSTEM_TITLE_READABLE}
             </p>
@@ -109,7 +109,7 @@ function LoginPage() {
         <header className="relative flex-none overflow-hidden split:hidden">
           <LoginArt variant="banner" className="absolute inset-0 h-full w-full" />
           <div className="relative z-10 flex flex-col items-center px-6 pb-14 pt-[max(1.5rem,env(safe-area-inset-top))] text-center short:flex-row short:gap-3 short:pb-10 short:text-left">
-            <img src={logo} alt="OMAg Aringay seal" className="h-24 w-24 flex-none rounded-2xl bg-white/95 object-contain p-1 short:h-14 short:w-14" />
+            <img src={logo} alt="OMAg Aringay seal" className="h-24 w-24 flex-none object-contain short:h-14 short:w-14" />
             <p className="mt-3 max-w-[22rem] text-balance text-[17px] font-bold leading-snug text-white short:mt-0 short:max-w-none short:text-[13px]">
               {SYSTEM_TITLE_READABLE}
             </p>

@@ -2,24 +2,23 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, CircleHelp, History, LogOut, Menu, BookOpen } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { formatDate } from '../../utils/dateFormat.js'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
 import NotificationBell from './NotificationBell.jsx'
+import HeaderClock from './HeaderClock.jsx'
+import { accountTypeLabel } from './headerAccount.js'
 
 
 function Navbar({ onToggleSidebar, isCollapsed }) {
   const navigate = useNavigate()
-  const { user, logout, isFisherfolk, isFarmer, isOrg, orgType } = useAuth()
+  const { user, logout, isFisherfolk, isFarmer, isOrg } = useAuth()
   const ownAccount = isFisherfolk || isFarmer || isOrg   // citizen accounts that use the Admin pages for their own records
   // Fisherfolk accounts have their own profile/help pages (staff /profile and /help are staff-only). The User Manual is /manual for everyone.
   const profilePath = ownAccount ? '/my-profile' : '/profile'
   const helpPath = ownAccount ? '/my-help' : '/help'
-  const roleLabel = isFisherfolk ? 'Fisherfolk' : isFarmer ? 'Farmer'
-    : isOrg ? (orgType === 'FISHERFOLK_ORG' ? 'Fisherfolk Organization' : 'Farmers Organization') : user?.role?.toLowerCase()
+  const roleLabel = accountTypeLabel(user)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const dropdownRef = useRef(null)
-  const today = new Date()
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -45,7 +44,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
         className={`h-14 bg-white border-b border-border shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[248px]'}`}
         style={{ transition: 'left 300ms ease-in-out' }}
       >
-        {/* Left: hamburger */}
+        {/* Left: hamburger, then the date and time */}
         <div className="flex min-w-0 items-center gap-3">
           <button
             className="press-scale shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-text-primary hover:bg-surface-2 transition-colors"
@@ -55,6 +54,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
           >
             <Menu size={20} aria-hidden="true" />
           </button>
+          <HeaderClock />
         </div>
 
         {/* Right: notifications + user dropdown */}
@@ -81,7 +81,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
               <p className="text-[13px] font-medium text-text-primary leading-tight">
                 {user?.full_name || user?.email || 'User'}
               </p>
-              <p className="text-[11px] text-text-muted leading-tight">{formatDate(today)}</p>
+              <p className="text-[11px] text-text-muted leading-tight">{roleLabel}</p>
             </div>
           </Link>
           <button
@@ -105,7 +105,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-text-primary leading-tight truncate">{user?.full_name || user?.email}</p>
-                  <p className="text-[11px] text-text-muted leading-tight capitalize">{roleLabel}</p>
+                  <p className="text-[11px] text-text-muted leading-tight">{roleLabel}</p>
                 </div>
               </div>
 
