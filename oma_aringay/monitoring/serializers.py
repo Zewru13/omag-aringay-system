@@ -414,7 +414,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         if organization is not None:
             fisherfolk = data.get('fisherfolk', getattr(self.instance, 'fisherfolk', None))
             if not organization.members.filter(fisherfolk=fisherfolk, is_active=True).exists():
-                raise serializers.ValidationError({'organization': 'Selected organization is not registered to this fisherfolk.'})
+                raise serializers.ValidationError({'organization': 'Selected cooperative is not registered to this fisherfolk.'})
         if self.instance is not None:
             self._check_ownership(data)
             return data

@@ -23,7 +23,7 @@ ok(/<ProfileHero/.test(page) && /accent="#155E82"/.test(page), 'the hero, in the
 ok(/title="Personal Information"/.test(page) && /title="Contact"/.test(page), 'cards: Personal Information, Contact')
 ok(/title="Other IDs"/.test(page) && /label="Fish Registration No\. \(Fish-R\)"/.test(page) && /label="Boat Registration No\. \(Boat-R\)"/.test(page), 'a card for the other IDs (Fish-R, Boat-R, PhilSys)')
 ok(!/label="RSBSA Number"|label="Date Registered"|label="Barangay"|label="Municipality"/.test(page), 'the RSBSA number, date registered and place are in the banner only, not repeated in a card')
-ok(/title=\{\(fisherfolk\.organization_names \|\| \[\]\)\.length > 1 \? 'Organizations' : 'Organization'\}/.test(page), 'the organizations have a card')
+ok(/title=\{\(fisherfolk\.organization_names \|\| \[\]\)\.length > 1 \? 'Cooperatives' : 'Cooperative'\}/.test(page), 'the cooperatives have a card')
 ok(!/Reference Information|lg:sticky/.test(page), 'the old Reference Information card and the sticky columns are gone')
 ok(/title="Aquaculture Record"/.test(page) && /title="Capture Record"/.test(page), 'the aquaculture and capture records are InfoCards')
 ok(/<ViewSection[\s\S]{0,200}title="Stocking Records"/.test(page) && /<ViewSection[\s\S]{0,200}title="Ponds"/.test(page), 'Stocking Records and Ponds stay View cards')

@@ -71,7 +71,7 @@ export default function MyAssistancePage({ domain = 'crop' }) {
   const narrowed = Boolean(search.trim() || year)
 
   return (
-    <AccountPage title="Assistance" helper="Help recorded for you by the office or your organization.">
+    <AccountPage title="Assistance" helper="Help recorded for you by the office or your cooperative.">
       {state === 'ready' && records.length > 0 && (
         <ListTools search={search} onSearch={setSearch} placeholder="Search assistance" years={yearsOf(records, assistanceDate)} year={year} onYear={setYear} />
       )}

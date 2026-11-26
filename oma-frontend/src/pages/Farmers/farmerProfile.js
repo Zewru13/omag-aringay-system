@@ -1,6 +1,7 @@
 // The rules of the farmer profile screen (Admin / Focal Person): which classification chips a farmer gets and what they mean, the four totals under the
 // name, the age, the place line and the legend of the crop stages. No screen and no network, so they can be tested alone.
 import { ageOn } from '../Fisherfolk/fisherfolkForm.js'
+import { seedSourceLabel } from '../CropInformation/cropEntry.js'
 
 // One chip per ticked classification, in this order. `tone` is the colour family, `icon` the name of its picture (FarmerProfileParts.jsx draws it).
 const CHIPS = [
@@ -33,7 +34,7 @@ export function cropGrownRows(crop) {
     ['Area (ha)', dash(crop.area_hectares)],
     ['Main crop', crop.is_main_crop ? 'Yes' : 'No'],
     planted,
-    ['Seed source', dash(crop.seed_source)],
+    ['Seed source', dash(seedSourceLabel(crop.seed_source))],
     ['PCIC insurance', crop.has_pcic_insurance ? 'Yes' : 'No'],
   ]
 }

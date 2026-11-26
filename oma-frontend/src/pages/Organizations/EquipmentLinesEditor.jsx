@@ -20,7 +20,7 @@ export default function EquipmentLinesEditor({ type, lines, onChange }) {
   return (
     <div className="space-y-3">
       {lines.length === 0 && (
-        <p className="rounded-lg border border-dashed border-[#C8D5C8] px-4 py-3 text-[13px] text-[#7A8E7A]">No equipment added. Leave it empty if the organization has none.</p>
+        <p className="rounded-lg border border-dashed border-[#C8D5C8] px-4 py-3 text-[13px] text-[#7A8E7A]">No equipment added. Leave it empty if the cooperative has none.</p>
       )}
       {lines.map((line, i) => (
         <div key={line._uid} className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">

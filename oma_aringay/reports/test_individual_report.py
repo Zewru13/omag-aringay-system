@@ -79,7 +79,7 @@ class RegisteredIndividualTests(APITestCase):
         self.assertEqual(self.get(kind='fisherfolk', search='Cruz', individual='auto')['individual']['id'], self.fisher.id)
         doc = self.get(kind='farmers_orgs', search='Alaska Farmers', individual='auto')
         self.assertEqual(doc['individual'], {'id': self.org.id, 'label': 'Alaska Farmers Org'})
-        self.assertEqual(doc['sections'][0]['title'], 'Organization Details')
+        self.assertEqual(doc['sections'][0]['title'], 'Cooperative Details')
         self.assertEqual(self.get(kind='fisherfolk_orgs', search='Samara', individual='auto')['individual']['id'], self.forg.id)
 
     def test_a_search_with_several_matches_stays_the_list(self):

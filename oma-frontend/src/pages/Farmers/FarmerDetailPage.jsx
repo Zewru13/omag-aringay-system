@@ -477,7 +477,7 @@ function FarmerDetailPage() {
 
               <div className="space-y-4">
                 {/* A farmer can belong to several organizations at once: the main one is marked, an ended membership is muted. */}
-                <InfoCard icon={Users} title={(farmer.organizations || []).length > 1 ? 'Organizations' : 'Organization'}>
+                <InfoCard icon={Users} title={(farmer.organizations || []).length > 1 ? 'Cooperatives' : 'Cooperative'}>
                   <OrganizationList organizations={farmer.organizations} />
                 </InfoCard>
               </div>

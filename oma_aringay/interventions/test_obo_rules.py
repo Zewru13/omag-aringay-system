@@ -22,7 +22,7 @@ from interventions.models import (
 from interventions.test_confirmation_photos import make_citizen, make_org
 
 AWAITING = DistributionStatus.AWAITING_CONFIRMATION
-NOTE_MISSING = 'Write why you are rejecting this confirmation, so the organization knows what to fix.'
+NOTE_MISSING = 'Write why you are rejecting this confirmation, so the cooperative knows what to fix.'
 
 
 class OnBehalfRulesTests(APITestCase):

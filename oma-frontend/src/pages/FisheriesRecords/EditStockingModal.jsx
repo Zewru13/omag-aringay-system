@@ -214,14 +214,14 @@ function EditForm({
               </FormRow>
               {cycle && (
                 <FormRow>
-                  <FormCell label="Organization" wide
+                  <FormCell label="Cooperative" wide
                     hint={orgs && organizationHint(orgOptions.length) ? <p className="mt-1 text-xs text-[#4A5E4A]">{organizationHint(orgOptions.length)}</p> : null}>
-                    <select className={baseInputClasses} value={form.organization} aria-label="Organization" disabled={orgs === null}
+                    <select className={baseInputClasses} value={form.organization} aria-label="Cooperative" disabled={orgs === null}
                       onChange={(e) => set('organization', e.target.value)}>
                       <option value="">{organizationPlaceholder({ hasFisherfolk: true, loading: orgs === null, count: orgOptions.length })}</option>
                       {orgOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                       {orgs && form.organization && !orgOptions.some((o) => String(o.id) === form.organization) && (
-                        <option value={form.organization}>{cycle.organization_name || 'Current organization'}</option>
+                        <option value={form.organization}>{cycle.organization_name || 'Current cooperative'}</option>
                       )}
                     </select>
                   </FormCell>

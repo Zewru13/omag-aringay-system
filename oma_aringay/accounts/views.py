@@ -134,7 +134,7 @@ class LoginIpRateThrottle(SimpleRateThrottle):
 # The one answer for "no such account" and "wrong password", so the login form cannot be used to find out who is
 # registered. (Account states that need a human to act, such as "not activated yet", are only revealed after the
 # correct password has been given.)
-LOGIN_FAILED = 'Incorrect email or password. Farmers, fisherfolk and organizations sign in with their email address.'
+LOGIN_FAILED = 'Incorrect email or password. Farmers, fisherfolk and cooperatives sign in with their email address.'
 _DUMMY_PASSWORD_HASH = None
 
 

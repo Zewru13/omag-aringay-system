@@ -58,7 +58,7 @@ FIELD_LABELS = {
     'middle_name': 'middle name',
     'last_name': 'last name',
     'barangay': 'barangay',
-    'name': 'organization name',
+    'name': 'cooperative name',
     'street_address': 'street address',
     'email_address': 'email address',
     'contact_person': 'contact person',

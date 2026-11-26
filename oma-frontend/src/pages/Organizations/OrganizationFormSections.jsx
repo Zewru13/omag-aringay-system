@@ -19,11 +19,11 @@ export default function OrganizationFormSections({ form, onChange, errors = {}, 
 
   return (
     <>
-      <FormSection title="Organization Information">
-        <FormRows label="Organization information">
+      <FormSection title="Cooperative Information">
+        <FormRows label="Cooperative information">
           <FormRow>
-            <FormCell label="Organization Name" required wide error={errors.name}>
-              <input id={id('name')} className={`${baseInputClasses}${bad('name')}`} required value={form.name} aria-label="Organization Name" onChange={(e) => onChange('name', e.target.value)} />
+            <FormCell label="Cooperative Name" required wide error={errors.name}>
+              <input id={id('name')} className={`${baseInputClasses}${bad('name')}`} required value={form.name} aria-label="Cooperative Name" onChange={(e) => onChange('name', e.target.value)} />
             </FormCell>
           </FormRow>
           <FormRow>
@@ -74,7 +74,7 @@ export default function OrganizationFormSections({ form, onChange, errors = {}, 
         <FormRows label="Contact">
           <FormRow>
             <FormCell label="Email Address" required wide error={errors.email_address}>
-              <EmailInput id={id('email_address')} className={`${baseInputClasses}${bad('email_address')} md:max-w-[24rem]`} placeholder="e.g. organization@email.com" value={form.email_address}
+              <EmailInput id={id('email_address')} className={`${baseInputClasses}${bad('email_address')} md:max-w-[24rem]`} placeholder="e.g. cooperative@email.com" value={form.email_address}
                 onChange={(v) => onChange('email_address', v)} />
             </FormCell>
           </FormRow>

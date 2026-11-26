@@ -151,7 +151,7 @@ def confirm_for_members(request, domain, record_ids=None):
     notify_staff(
         actor=user, verb='confirmed receipt of assistance for',
         record_type=cfg['notify_type'], record_id=first_request.id,
-        record_label=f"{count} member{'' if count == 1 else 's'} of {org.name if org else 'an organization'}"
+        record_label=f"{count} member{'' if count == 1 else 's'} of {org.name if org else 'a cooperative'}"
                      + (f" · {', '.join(kinds)}" if kinds else ''),
     )
     return {'confirmed': count, 'record_ids': [r.pk for r in locked]}

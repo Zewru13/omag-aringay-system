@@ -45,7 +45,7 @@ function LoanItem({ loan, busy, onApprove, onReject, onReturn }) {
         <StatusPill tone={loan.overdue ? 'rose' : TONE[loan.status]}>{status}</StatusPill>
       </div>
       <dl className="mt-2 space-y-1">
-        <Fact label="Asked by">{loan.origin === 'MEMBER' ? 'The member' : 'The organization'}</Fact>
+        <Fact label="Asked by">{loan.origin === 'MEMBER' ? 'The member' : 'The cooperative'}</Fact>
         {loan.borrowed_at && <Fact label="Borrowed">{formatDate(loan.borrowed_at)}</Fact>}
         {out && <Fact label="Return by">{formatDate(loan.due_date)}</Fact>}
         {loan.status === 'RETURN_PENDING' && <Fact label="Member says returned">{formatDate(loan.return_requested_at)}</Fact>}

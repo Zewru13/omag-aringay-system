@@ -100,7 +100,7 @@ export default function MyOrgEquipmentPage({ tab = 'items' }) {
   return (
     <AccountPage
       title="Equipment"
-      helper="What your organization owns and lends to its members."
+      helper="What your cooperative owns and lends to its members."
       action={(
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <Button variant="outline" icon={HandHelping} onClick={() => setOpen({ kind: 'lend-many' })}>Lend equipment</Button>
@@ -127,7 +127,7 @@ export default function MyOrgEquipmentPage({ tab = 'items' }) {
             actions={(group) => [{ label: 'Details', onClick: () => setOpen({ kind: 'group', group }) }]}
             empty={search.trim()
               ? { title: 'No equipment matches', hint: 'Try another word.' }
-              : { title: 'No equipment yet', hint: 'Add what your organization owns, so you can lend it to members.' }}
+              : { title: 'No equipment yet', hint: 'Add what your cooperative owns, so you can lend it to members.' }}
           />
         </>
       ) : (
@@ -192,7 +192,7 @@ export default function MyOrgEquipmentPage({ tab = 'items' }) {
           subtitle={`Add equipment to ${org.name} from a spreadsheet.`}
           importUrl={`/organizations/${domain.type}/${id}/equipment/import/`}
           templateUrl={`/organizations/${domain.type}/${id}/equipment/import/template/`}
-          templateFilename={`${domain.type}_organization_equipment_import_template.xlsx`}
+          templateFilename={`${domain.type}_cooperative_equipment_import_template.xlsx`}
           undoType={`${domain.type}_org_equipment`}
           onClose={close}
           onImported={reloadAll}

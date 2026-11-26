@@ -128,7 +128,7 @@ export default function AquacultureRecordsPage() {
           <FilterSelect label="Culture Type" value={filters.cultureType} onChange={pick('cultureType')}>
             {options.culture_types.map((c) => <option key={c} value={c}>{c}</option>)}
           </FilterSelect>
-          <FilterSelect label="Organization" value={filters.organization} onChange={pick('organization')}>
+          <FilterSelect label="Cooperative" value={filters.organization} onChange={pick('organization')}>
             {options.organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </FilterSelect>
           <select className={filterSelectCls} value={filters.pcic} onChange={(e) => pick('pcic')(e.target.value)} aria-label="PCIC insurance">

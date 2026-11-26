@@ -14,7 +14,7 @@ export function describeRole(u) {
   if (u.linked_record_type === 'FARMER') return { label: 'Farmer', tone: 'amber' }
   if (u.linked_record_type === 'FISHERFOLK') return { label: 'Fisherfolk', tone: 'slate' }
   if (u.linked_record_type === 'FARMERS_ORG' || u.linked_record_type === 'FISHERFOLK_ORG') {
-    return { label: 'Organization', tone: 'rose' }
+    return { label: 'Cooperative', tone: 'rose' }
   }
   // Real edge case in the data: a CITIZEN account with no active linked
   // record at all (e.g. leftover test accounts) — honest fallback rather

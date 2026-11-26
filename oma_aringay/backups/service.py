@@ -52,7 +52,7 @@ AUDIT_MODELS = ['auditlog.auditlogentry', 'core.notification']
 # What a backup holds, in groups the Backup & Restore page shows (the app of each model decides its group; the audit models are their own group).
 DATA_GROUPS = [
     {'key': 'accounts', 'label': 'Accounts and logins', 'apps': ['accounts', 'auth'], 'optional': False,
-     'description': 'User accounts with their roles (passwords are kept scrambled, as they are in the system) and the links to farmer, fisherfolk and organization records.'},
+     'description': 'User accounts with their roles (passwords are kept scrambled, as they are in the system) and the links to farmer, fisherfolk and cooperative records.'},
     {'key': 'farmers', 'label': 'Farmers and farm parcels', 'apps': ['farmers'], 'optional': False,
      'description': 'Registered farmers, their farm parcels, classifications and machinery.'},
     {'key': 'crops', 'label': 'Crop production and settings', 'apps': ['production'], 'optional': False,
@@ -61,10 +61,10 @@ DATA_GROUPS = [
      'description': 'Registered fisherfolk, ponds, stocking records, harvests, catches, disaster logs and the fisheries settings lists.'},
     {'key': 'cycles', 'label': 'Aquaculture cycles and farm visits', 'apps': ['monitoring'], 'optional': False,
      'description': 'Production cycles with their ponds and cages, feeding and health logs, and farm visits.'},
-    {'key': 'organizations', 'label': 'Organizations, members and equipment', 'apps': ['associations'], 'optional': False,
-     'description': 'Farmers and fisherfolk organizations with their members, officers, equipment and loans.'},
+    {'key': 'organizations', 'label': 'Cooperatives, members and equipment', 'apps': ['associations'], 'optional': False,
+     'description': 'Farmers and fisherfolk cooperatives with their members, officers, equipment and loans.'},
     {'key': 'assistance', 'label': 'Assistance and distributions', 'apps': ['interventions'], 'optional': False,
-     'description': 'Assistance given to farmers, fisherfolk and organizations, agencies, types and confirmations.'},
+     'description': 'Assistance given to farmers, fisherfolk and cooperatives, agencies, types and confirmations.'},
     {'key': 'other', 'label': 'Signatories, imports and other records', 'apps': ['reports', 'core'], 'optional': False,
      'description': 'Report signatories, import batches, PCIC form photos, record locks and profile change requests.'},
     {'key': 'audit', 'label': 'Activity log and notifications', 'apps': [], 'optional': True,

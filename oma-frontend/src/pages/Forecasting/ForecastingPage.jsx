@@ -184,7 +184,7 @@ export function ForecastDetailModal({ record, onClose, onUpdated }) {
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.farmer_name || '—'}</dd>
               </div>
               <div>
-                <dt className={labelCls}>Organization</dt>
+                <dt className={labelCls}>Cooperative</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.organization_name || 'None'}</dd>
               </div>
               <div>
@@ -978,7 +978,7 @@ export default function ForecastingPage() {
               className=""
               search={search}
               onSearchChange={setSearch}
-              searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
+              searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or cooperative...'}
               activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter), forecastView === 'grouped', Boolean(statusFilter), Boolean(plantedFrom || plantedTo)].filter(Boolean).length}
             >
               <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)} aria-label="Crop type">

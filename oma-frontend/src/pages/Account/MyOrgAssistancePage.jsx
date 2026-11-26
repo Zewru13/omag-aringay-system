@@ -86,7 +86,7 @@ export default function MyOrgAssistancePage({ kind }) {
   return (
     <AccountPage
       title="Assistance"
-      helper="Assistance your organization gave to its members."
+      helper="Assistance your cooperative gave to its members."
       action={<Button icon={HandHeart} onClick={() => setOpen({ kind: 'choose' })}>Distribute assistance</Button>}
     >
       <TabBar label="Assistance views" value={tab} onChange={switchTab} tabs={TABS} />

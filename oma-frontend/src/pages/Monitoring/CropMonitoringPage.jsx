@@ -1602,7 +1602,7 @@ const COLUMNS = [
   { key: 'crop_cell',       label: 'CROP' },
   { key: 'variety_col',     label: 'VARIETY' },
   { key: 'farmer_col',      label: 'FARMER' },
-  { key: 'organization_col', label: 'ORGANIZATION' },
+  { key: 'organization_col', label: 'COOPERATIVE' },
   { key: 'location_col',    label: 'BARANGAY' },
   { key: 'date_planted',    label: 'DATE PLANTED' },
   { key: 'expected_harvest_cell', label: 'EXPECTED HARVEST' },
@@ -1850,7 +1850,7 @@ export default function CropMonitoringPage() {
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
+          searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or cooperative...'}
           activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), Boolean(pcicFilter), Boolean(plantedFrom), Boolean(plantedTo), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
           onReset={resetFilters}
         >

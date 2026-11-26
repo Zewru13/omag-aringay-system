@@ -4,8 +4,8 @@ import { formatDateWithWeekday, formatTime } from '../../utils/dateFormat.js'
 const CITIZEN_TYPES = {
   FARMER: 'Farmer',
   FISHERFOLK: 'Fisherfolk',
-  FARMERS_ORG: 'Farmers Organization',
-  FISHERFOLK_ORG: 'Fisherfolk Organization',
+  FARMERS_ORG: 'Farmers Cooperative',
+  FISHERFOLK_ORG: 'Fisherfolk Cooperative',
 }
 
 // The type of account, shown under the person's name.

@@ -18,7 +18,7 @@ class MemberRegistrationTemplateTests(APITestCase):
                 r = self.client.get(f'/api/organizations/{domain}/members/import/template/')
                 self.assertEqual(r.status_code, 200, (user.username, domain))
                 self.assertIn('spreadsheetml', r['Content-Type'])
-                self.assertIn(f'{domain}_organization_members_import_template.xlsx', r['Content-Disposition'])
+                self.assertIn(f'{domain}_cooperative_members_import_template.xlsx', r['Content-Disposition'])
 
     def test_a_citizen_or_nobody_cannot(self):
         self.client.force_authenticate(self.citizen)
@@ -31,6 +31,6 @@ class MemberRegistrationTemplateTests(APITestCase):
         for domain in ('farmers', 'fisherfolk'):
             r = self.client.get(f'/api/organizations/{domain}/equipment/import/template/')
             self.assertEqual(r.status_code, 200, domain)
-            self.assertIn(f'{domain}_organization_equipment_import_template.xlsx', r['Content-Disposition'])
+            self.assertIn(f'{domain}_cooperative_equipment_import_template.xlsx', r['Content-Disposition'])
         self.client.force_authenticate(self.citizen)
         self.assertEqual(self.client.get('/api/organizations/farmers/equipment/import/template/').status_code, 403)

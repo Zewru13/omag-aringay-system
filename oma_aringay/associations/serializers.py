@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from accounts.login_email import validate_record_email
 
 from accounts.models import User
@@ -121,7 +122,7 @@ class OrganizationOfficerSerializer(serializers.ModelSerializer):
         ).exists()
         if not is_member:
             raise serializers.ValidationError(
-                'This farmer is not a member of this organization, or their membership is inactive.'
+                'This farmer is not a member of this cooperative, or their membership is inactive.'
             )
         return value
 
@@ -235,6 +236,16 @@ MAX_REGISTRATION_NUMBER_LENGTH = 15
 class _RegistrationNumberLimit:
     """Registration numbers are 15 characters at most. Applies to what is typed: an organization that already has a
     longer number can still be edited while that field is left as it is."""
+
+    def get_fields(self):
+        # A repeated number is refused in our own words (the automatic message would use the model's internal name).
+        fields = super().get_fields()
+        field = fields.get('registration_number')
+        kind = 'farmers' if self.Meta.model is FarmersOrganization else 'fisherfolk'
+        for validator in (field.validators if field else []):
+            if isinstance(validator, UniqueValidator):
+                validator.message = f'A {kind} cooperative with this registration number already exists.'
+        return fields
 
     def validate_registration_number(self, value):
         value = (value or '').strip()
@@ -432,14 +443,14 @@ class FisherfolkOrganizationOfficerSerializer(serializers.ModelSerializer):
             ).first()
             if not member:
                 raise serializers.ValidationError(
-                    {'fisherfolk': 'This fisherfolk is not a member of this organization.'}
+                    {'fisherfolk': 'This fisherfolk is not a member of this cooperative.'}
                 )
             # Toggle-not-delete batch: same mirror-image guard as the
             # farmers side — an inactive membership can't hold an officer
             # position.
             if not member.is_active:
                 raise serializers.ValidationError(
-                    {'fisherfolk': "This fisherfolk's membership in this organization is inactive."}
+                    {'fisherfolk': "This fisherfolk's membership in this cooperative is inactive."}
                 )
             data['member'] = member
             data['full_name'] = fisherfolk.full_name

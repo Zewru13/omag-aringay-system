@@ -442,7 +442,7 @@ class BulkIndividualAssistanceView(APIView):
                 continue
             row = {'person_id': person.id, 'name': person.full_name, 'id_number': person.rsbsa_number or '', 'barangay': person.barangay}
             if user.role == 'CITIZEN' and not self._is_member(user, person):
-                results.append({**row, 'status': 'error', 'reason': 'Not a member of your organization.'})
+                results.append({**row, 'status': 'error', 'reason': 'Not a member of your cooperative.'})
                 continue
             serializer = self.serializer_class(data={**shared, self.person_field: person.id})
             if not serializer.is_valid():
@@ -722,7 +722,7 @@ def _required_rejection_note(request):
     so a blank one, or one too long to store whole, is refused rather than saved empty or cut short."""
     note = str(request.data.get('rejection_reason') or '').strip()
     if not note:
-        raise ValidationError({'rejection_reason': ['Write why you are rejecting this confirmation, so the organization knows what to fix.']})
+        raise ValidationError({'rejection_reason': ['Write why you are rejecting this confirmation, so the cooperative knows what to fix.']})
     if len(note) > REJECTION_NOTE_MAX:
         raise ValidationError({'rejection_reason': [f'Keep the note to {REJECTION_NOTE_MAX} characters or fewer.']})
     return note

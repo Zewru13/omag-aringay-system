@@ -33,7 +33,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
   const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm) || members.length > 0
   const datesChanged = form.date_organized !== originalForm.date_organized || form.date_registered !== originalForm.date_registered
 
-  const typeLabel = type === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
+  const typeLabel = type === 'farmers' ? "Farmers' Cooperative" : 'Fisherfolk Cooperative'
 
   const set = (field, value) => {
     setForm((f) => changeOrganization(f, field, value))
@@ -85,7 +85,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     } catch (err) {
       const data = err.response?.data
       const first = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
-      setError(data?.detail || data?.name?.[0] || (typeof first === 'string' ? first : '') || 'Unable to update organization.')
+      setError(data?.detail || data?.name?.[0] || (typeof first === 'string' ? first : '') || 'Unable to update cooperative.')
       if (data?.date_registered?.[0]) setFormErrors(e => ({ ...e, date_registered: data.date_registered[0] }))
     } finally {
       setIsSubmitting(false)
@@ -100,7 +100,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
   return (
     <>
       <ModalShell
-        title="Edit Organization"
+        title="Edit Cooperative"
         subtitle={organization.name}
         icon={Pencil}
         onClose={onClose}
@@ -108,7 +108,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
         footer={
           <>
             <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
-            <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit" form="edit-organization-form">Update Organization</Button>
+            <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit" form="edit-organization-form">Update Cooperative</Button>
           </>
         }
       >

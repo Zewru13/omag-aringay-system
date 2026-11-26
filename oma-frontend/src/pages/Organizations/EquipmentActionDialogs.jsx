@@ -171,7 +171,7 @@ export function LendDialog({ line, type, members, onClose, onDone }) {
         onDone()
       }}
     >
-      {members.length === 0 ? note('The organization has no active members to lend to.') : (
+      {members.length === 0 ? note('The cooperative has no active members to lend to.') : (
         <FormSection title="Loan">
           <FormRows label="Loan">
             <FormRow>

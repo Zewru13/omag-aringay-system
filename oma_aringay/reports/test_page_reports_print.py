@@ -83,7 +83,7 @@ class PageReportPdfTests(APITestCase):
             '/api/reports/fisheries/production/': 'FISHERIES PRODUCTION REPORT',
             '/api/reports/disasters/fisheries/': 'FISHERIES DISASTER REPORT',
             '/api/reports/disasters/crops/': 'CROP AND PARCEL DISASTER REPORT',
-            '/api/reports/organization-assistance/': 'ORGANIZATION ASSISTANCE REPORT',
+            '/api/reports/organization-assistance/': 'COOPERATIVE ASSISTANCE REPORT',
         }
         for url, title in wanted.items():
             text, _ = self.pdf(url, **self.kind_for(url))

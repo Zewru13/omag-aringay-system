@@ -28,6 +28,8 @@ export const CROP_OPTIONS = [
 export const MACHINERY_FALLBACK = FARMERS_EQUIPMENT.filter((name) => name !== 'Other')
 export const MACHINERY_SERVER_NAMES = ['Hand Tractor', 'Four-Wheel Tractor', 'Thresher', 'Water Pump', 'Sprayer', 'Harvester', 'Rice Mill', 'Other']
 export const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Organization-Owned']
+// The saved value keeps its older name; people read it as Cooperative-Owned.
+export const machineryOwnershipLabel = (value) => (value === 'Organization-Owned' ? 'Cooperative-Owned' : value || '')
 export const LAND_OWNERSHIP_OPTIONS = ['Owner', 'Tenant', 'Lessee']
 // The DA RSBSA Enrollment Form's Farm Type legend, and the cropping schedules (FarmParcel.FARM_TYPE_CHOICES / CROPPING_SCHEDULE_CHOICES).
 export const FARM_TYPE_OPTIONS = ['Irrigated', 'Rainfed Upland', 'Rainfed Lowland', 'Urban or Peri-Urban']

@@ -11,7 +11,7 @@ const {
 } = await import(new URL('../src/pages/FisheriesRecords/aquacultureRecords.js', import.meta.url).href)
 
 // ── the columns, in the order asked for
-eq(RECORD_COLUMNS.map((c) => c.label), ['OWNERSHIP', 'CYCLE', 'SPECIES', 'FISHERFOLK', 'BARANGAY', 'POND/CAGE LOCATION', 'CULTURE TYPE', 'ORGANIZATION', 'DATE STOCKED', 'PCIC INSURED'], 'the ten columns in order')
+eq(RECORD_COLUMNS.map((c) => c.label), ['OWNERSHIP', 'CYCLE', 'SPECIES', 'FISHERFOLK', 'BARANGAY', 'POND/CAGE LOCATION', 'CULTURE TYPE', 'COOPERATIVE', 'DATE STOCKED', 'PCIC INSURED'], 'the ten columns in order')
 eq(new Set(RECORD_COLUMNS.map((c) => c.key)).size, 10, 'each column has its own key')
 
 // ── a row is made of the existing production-cycle record, nothing invented
@@ -85,10 +85,10 @@ eq(page.includes('<OwnershipCell') && monitoring.includes('<OwnershipCell'), tru
 const monText = monitoring.replace(/\r\n/g, '\n')
 const monCols = monText.slice(monText.indexOf('const COLUMNS = ['), monText.indexOf(']\n', monText.indexOf('const COLUMNS = [')))
 const monKeys = [...monCols.matchAll(/key: '([a-z_]+)'/g)].map((m) => m[1])
-eq(monKeys, ['ownership_cell', 'species_name_cell', 'fisherfolk_cell', 'culture_type', 'cycle_cell', 'date_stocked_fmt', 'expected_harvest_fmt', 'pond_location', 'status_cell', 'actions_cell'], 'Monitoring columns without Organization and PCIC INSURED')
-eq(monCols.includes('ORGANIZATION') || monCols.includes('PCIC INSURED'), false, 'their headers are gone')
+eq(monKeys, ['ownership_cell', 'species_name_cell', 'fisherfolk_cell', 'culture_type', 'cycle_cell', 'date_stocked_fmt', 'expected_harvest_fmt', 'pond_location', 'status_cell', 'actions_cell'], 'Monitoring columns without Cooperative and PCIC INSURED')
+eq(monCols.includes('COOPERATIVE') || monCols.includes('PCIC INSURED'), false, 'their headers are gone')
 eq(/assoc_name:|pcic_cell:/.test(monitoring), false, 'and their row values')
-eq(RECORD_COLUMNS.some((c) => c.label === 'ORGANIZATION') && RECORD_COLUMNS.some((c) => c.label === 'PCIC INSURED'), true, 'Aquaculture Records still has both')
+eq(RECORD_COLUMNS.some((c) => c.label === 'COOPERATIVE') && RECORD_COLUMNS.some((c) => c.label === 'PCIC INSURED'), true, 'Aquaculture Records still has both')
 // the PCIC information stays where it is still needed: the units' PCIC in the expanded rows and the cycle details
 // the expanded pond/cage section (table and phone cards) no longer has a PCIC Insured column; its other columns are unchanged
 const panel = read('../src/pages/FisheriesRecords/ProductionUnitsPanel.jsx').replace(/\r\n/g, '\n')

@@ -25,7 +25,7 @@ import { formatDate } from '../../utils/dateFormat.js'
 
 // ── Profile ─────────────────────────────────────────────────────────────────────────────────────────────
 const REQUESTABLE = [
-  { field: 'name', label: 'Organization Name' },
+  { field: 'name', label: 'Cooperative Name' },
   { field: 'barangay', label: 'Barangay' },
   { field: 'street_address', label: 'Street Address' },
   { field: 'email_address', label: 'Email address' },
@@ -116,8 +116,8 @@ export function OrgProfilePage() {
 
   const pendingFor = (field) => requests.find((r) => r.field_name === field && r.status === 'PENDING')
   const accent = isFisherfolkOrg ? '#1B5E7B' : '#1B4D2E'
-  const typeBadge = isFisherfolkOrg ? 'Fisherfolk Organization' : 'Farmers Organization'
-  const name = record?.label || record?.name || 'Organization'
+  const typeBadge = isFisherfolkOrg ? 'Fisherfolk Cooperative' : 'Farmers Cooperative'
+  const name = record?.label || record?.name || 'Cooperative'
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0]
@@ -142,7 +142,7 @@ export function OrgProfilePage() {
 
   const contactError = editingContact ? validatePhone(contactDraft) : null
   const saveContact = async () => {
-    if (!contactDraft.trim()) { setErrorMessage('Enter your organization\'s contact number.'); return }
+    if (!contactDraft.trim()) { setErrorMessage('Enter your cooperative\'s contact number.'); return }
     if (validatePhone(contactDraft)) { setErrorMessage(validatePhone(contactDraft)); return }
     setIsBusy(true)
     setErrorMessage('')
@@ -210,7 +210,7 @@ export function OrgProfilePage() {
   const currentValue = (field) => (field === 'name' ? name : record?.[field] || '')
 
   return (
-    <PageLayout title="My Profile" subtitle="Your organization's details and account.">
+    <PageLayout title="My Profile" subtitle="Your cooperative's details and account.">
       <div className="mx-auto max-w-3xl space-y-4">
         {errorMessage && (
           <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">{errorMessage}</p>
@@ -250,7 +250,7 @@ export function OrgProfilePage() {
         )}
 
         <section className={CARD}>
-          <CardTitle>Organization Details</CardTitle>
+          <CardTitle>Cooperative Details</CardTitle>
           {REQUESTABLE.map(({ field, label }) => {
             const pending = pendingFor(field)
             return (
@@ -328,7 +328,7 @@ export function OrgProfilePage() {
           <CardTitle>Account Password</CardTitle>
           <div className="space-y-3 px-5 py-3">
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-800">
-              This is a shared organization account. Changing the password affects everyone who uses it, so tell your
+              This is a shared cooperative account. Changing the password affects everyone who uses it, so tell your
               officers the new password before you change it.
             </p>
             {showPasswordForm ? (

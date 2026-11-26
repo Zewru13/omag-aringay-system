@@ -44,7 +44,7 @@ function RequestDialog({ item, onClose, onDone }) {
             equipment: part.id, quantity: part.quantity, due_date: due || null, note: note.trim(),
           })
         }
-        showToast('Request sent. The organization will decide.', 'success')
+        showToast('Request sent. The cooperative will decide.', 'success')
         draft.clear()
         onDone()
       }}
@@ -108,7 +108,7 @@ function OrganizationEquipment({ group, onChanged }) {
         { label: 'Borrowed', value: formatDate(loan.borrowed_at) },
         { label: 'Return by', value: formatDate(loan.due_date) },
         ...(loan.reject_reason ? [{ label: 'Reason', value: loan.reject_reason }] : []),
-        ...(loan.status === 'RETURN_PENDING' ? [{ label: 'Return', value: 'Waiting for the organization to confirm' }] : []),
+        ...(loan.status === 'RETURN_PENDING' ? [{ label: 'Return', value: 'Waiting for the cooperative to confirm' }] : []),
         ...(loan.status === 'RETURNED' ? [{ label: 'Returned', value: formatDate(loan.returned_at) }] : []),
       ],
       actions: [
@@ -116,7 +116,7 @@ function OrganizationEquipment({ group, onChanged }) {
           ? [{ key: 'cancel', label: 'Cancel request', icon: X, tone: 'danger', onClick: () => act(`/organizations/my-equipment/loans/${loan.id}/cancel/`, 'Request cancelled.') }]
           : []),
         ...(loan.status === 'BORROWED'
-          ? [{ key: 'return', label: 'I returned it', icon: PackageCheck, onClick: () => act(`/organizations/my-equipment/loans/${loan.id}/return/`, 'Thank you. The organization will confirm the return.') }]
+          ? [{ key: 'return', label: 'I returned it', icon: PackageCheck, onClick: () => act(`/organizations/my-equipment/loans/${loan.id}/return/`, 'Thank you. The cooperative will confirm the return.') }]
           : []),
       ],
     }
@@ -159,12 +159,12 @@ export default function MyEquipmentPage() {
   }, [reload])
 
   return (
-    <PageLayout title="Borrow Equipment" subtitle="Equipment of your organization that you can borrow, and what you have borrowed.">
+    <PageLayout title="Borrow Equipment" subtitle="Equipment of your cooperative that you can borrow, and what you have borrowed.">
       <div className="space-y-4">
         {error && <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">{error}</p>}
         {!groups && !error && <p className="text-[13px] text-[#7A8E7A]">Loading...</p>}
         {groups && groups.length === 0 && (
-          <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">You are not a member of an organization yet.</p>
+          <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">You are not a member of a cooperative yet.</p>
         )}
         {groups && groups.map((group) => <OrganizationEquipment key={group.organization.id} group={group} onChanged={onChanged} />)}
       </div>

@@ -3,6 +3,7 @@ import { MapPinned } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { parcelLabel } from '../CropInformation/parcelRecords.js'
+import { machineryOwnershipLabel } from '../Farmers/parcelRows.js'
 
 // View Parcel (Crop Monitoring > Group by Farm Parcel > a parcel's ⋮ menu): everything on file about one parcel, read-only: where it
 // is, how big, who works it, and the crops and machinery declared on it. "Edit parcel" is the other item in the same menu.
@@ -108,7 +109,7 @@ export default function ParcelViewModal({ group, onClose }) {
                 {parcel.machinery.map((m) => (
                   <li key={m.id} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2 text-[13px]">
                     <span className="font-medium text-[#1A2B1A]">{machineryName(m)}</span>
-                    <span className="text-[#4A5E4A]">{m.quantity} · {m.ownership}</span>
+                    <span className="text-[#4A5E4A]">{m.quantity} · {machineryOwnershipLabel(m.ownership)}</span>
                   </li>
                 ))}
               </ul>

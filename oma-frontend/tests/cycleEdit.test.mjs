@@ -37,7 +37,7 @@ eq(cycleLocks({ record, cycle: { ...cycle, units: [] } }).ponds, false, 'a cycle
 
 // --- the form is the start form, filled in
 const form = cycleEditFormFrom(ctx)
-eq([form.organization, form.cycle_name, form.cycle_name_other], ['2', 'Grow-out Phase', ''], 'organization and phase')
+eq([form.organization, form.cycle_name, form.cycle_name_other], ['2', 'Grow-out Phase', ''], 'cooperative and phase')
 eq([form.species, form.stocking_date, form.target_harvest_date], ['3', '2026-08-01', '2026-11-29'], 'species and dates')
 eq([form.pond_location, form.pond_location_other, form.water_source, form.water_source_other], ['Poblacion', '', 'River', ''], 'location and water')
 eq([form.ownership, form.ownerName, form.ownerNo], ['Tenant', 'Lola', '0123'], 'ownership')
@@ -46,7 +46,7 @@ eq(cycleEditFormFrom({ ...ctx, cycle: { ...cycle, cycle_name: 'Pre-harvest check
 eq(cycleEditFormFrom({ ...ctx, cycle: { ...cycle, cycle_name: 'Pre-harvest check' } }).cycle_name_other, 'Pre-harvest check', 'with its text')
 eq(cycleEditFormFrom({ ...ctx, record: { ...record, pond_location_barangay: 'Sitio Mabuhay' } }).pond_location, 'Other', 'a location outside the barangays opens as Other')
 eq(cycleEditFormFrom({ ...ctx, record: { ...record, pond_location_barangay: 'Sitio Mabuhay' } }).pond_location_other, 'Sitio Mabuhay', 'with its text')
-eq(cycleEditFormFrom({ ...ctx, cycle: { ...cycle, organization: null, ownership: '' } }).organization, '', 'no organization, no ownership (an older cycle)')
+eq(cycleEditFormFrom({ ...ctx, cycle: { ...cycle, organization: null, ownership: '' } }).organization, '', 'no cooperative, no ownership (an older cycle)')
 
 // --- what is refused
 const ok0 = cycleEditProblem(form, ctx)
@@ -76,8 +76,8 @@ eq(cycleEditPayload(form, ctx), {}, 'nothing changed, nothing sent')
 eq(cycleEditPayload({ ...form, water_source: 'Spring' }, ctx), { water_source: 'Spring', water_source_other_specify: '' }, 'one record field')
 eq(cycleEditPayload({ ...form, cycle_name: 'Nursery Phase' }, ctx), { cycle_name: 'Nursery Phase' }, 'the phase goes as the cycle name (the server keeps the record in step)')
 eq(cycleEditPayload({ ...form, cycle_name: 'Other', cycle_name_other: ' Pre-harvest ' }, ctx), { cycle_name: 'Pre-harvest' }, 'a typed phase')
-eq(cycleEditPayload({ ...form, organization: '' }, ctx), { cycle_organization: null }, 'organization cleared')
-eq(cycleEditPayload({ ...form, organization: '4' }, ctx), { cycle_organization: 4 }, 'organization changed')
+eq(cycleEditPayload({ ...form, organization: '' }, ctx), { cycle_organization: null }, 'cooperative cleared')
+eq(cycleEditPayload({ ...form, organization: '4' }, ctx), { cycle_organization: 4 }, 'cooperative changed')
 eq(cycleEditPayload({ ...form, stocking_date: '2026-07-30' }, ctx), { date_stocked: '2026-07-30' }, 'the stocking date once (the server moves the cycle too)')
 eq(cycleEditPayload({ ...form, target_harvest_date: '2026-12-15' }, ctx), { cycle_target_harvest_date: '2026-12-15' }, 'the target date goes to the cycle')
 eq(cycleEditPayload({ ...form, ownership: 'Owner' }, ctx), { cycle_ownership: 'Owner', cycle_owner_name: '', cycle_owner_registration_number: '' }, 'Owner clears the owner details')
@@ -92,7 +92,7 @@ eq(cycleEditPayload({ ...form, species: '4' }, { ...ctx, ...busy }), {}, 'a lock
 // --- one window, in the table layout, in its own file
 const modal = read('src/pages/FisheriesRecords/EditStockingModal.jsx')
 for (const title of ['Fisherfolk Information', 'Culture Details', 'Stocking Information', 'Ownership', 'Pond/Cage Details', 'Other Details']) ok(modal.includes(`title="${title}"`), `section ${title}`)
-for (const label of ['Fisherfolk', 'Organization', 'Culture Phase', 'Species Farmed', 'Culture System', 'Water Source', 'Fingerling Source', 'Pond Location', 'Stocking Date', 'Season',
+for (const label of ['Fisherfolk', 'Cooperative', 'Culture Phase', 'Species Farmed', 'Culture System', 'Water Source', 'Fingerling Source', 'Pond Location', 'Stocking Date', 'Season',
   'Target Harvest Date', 'Ownership', 'Survival Rate (%)', 'Avg Body Weight (kg)', 'Seed / Fingerling Cost', 'Land Status']) ok(modal.includes(`label="${label}"`), `field ${label}`)
 ok(modal.includes("from '../../components/UI/FormTable.jsx'") && modal.includes("from '../../components/UI/EntryTable.jsx'"), 'the shared table form and the shared pond table')
 ok(modal.includes('/monitoring/aquaculture-cycles/') && modal.includes('/fisheries/stocking/'), 'it loads the cycle and the record')

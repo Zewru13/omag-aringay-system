@@ -32,7 +32,7 @@ from .documents import make_document, respond, text
 from .period import period_text
 
 TITLE = 'Aquaculture Records'
-HEADERS = ['Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Organization', 'Date Stocked', 'PCIC Insured']
+HEADERS = ['Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Cooperative', 'Date Stocked', 'PCIC Insured']
 # Every status, so a record is never left out of the report that lists them all (the same scope as the page).
 ALL_STATUSES = 'Stocked,Near Harvest,Harvested,Total Loss'
 OWNERSHIPS = [value for value, _ in AquacultureProductionCycle.OWNERSHIP_CHOICES]
@@ -132,7 +132,7 @@ def build_document(request):
     if wanted['culture_type']:
         parts.append(f'Culture type: {wanted["culture_type"]}')
     if organization:
-        parts.append(f'Organization: {_name_of(FisherfolkOrganization, organization, "name")}')
+        parts.append(f'Cooperative: {_name_of(FisherfolkOrganization, organization, "name")}')
     if pcic:
         parts.append(f'PCIC: {PCIC_CHOICES[pcic]}')
     if wanted['search']:

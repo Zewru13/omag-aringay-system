@@ -70,7 +70,7 @@ const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 const COLUMNS = [
   { key: 'date_received_fmt',             label: 'Date Received' },
   { key: 'farmer_full_name',              label: 'Farmer' },
-  { key: 'attributed_organization_name',  label: 'Organization' },
+  { key: 'attributed_organization_name',  label: 'Cooperative' },
   { key: 'assistance_type',               label: 'Assistance Type' },
   { key: 'source_agency',                 label: 'Source Agency' },
   { key: 'quantity',                      label: 'Quantity' },
@@ -377,7 +377,7 @@ export default function CropAssistancePage({ asTab = false }) {
           <Upload size={15} className="mr-1" /> Import File
         </Button>
         <Button variant="outline" onClick={() => setShowDistribute(true)}>
-          <Users size={15} className="mr-1" /> Distribute to Organizations
+          <Users size={15} className="mr-1" /> Distribute to Cooperatives
         </Button>
         <Button onClick={() => setShowPeople(true)}>
           <Plus size={15} className="mr-1" /> Distribute Farmer Assistance
@@ -510,7 +510,7 @@ export default function CropAssistancePage({ asTab = false }) {
           onClose={() => setViewing(null)}
           details={[
             { label: 'Farmer', value: viewing.farmer_full_name },
-            { label: 'Organization', value: viewing.attributed_organization_name },
+            { label: 'Cooperative', value: viewing.attributed_organization_name },
             { label: 'Assistance Type', value: viewing.assistance_type },
             ...(viewing.assistance_type === 'Training' ? [{ label: 'Type of Training', value: viewing.training_type }] : []),
             { label: 'Source Agency', value: (viewing.source_agencies || []).join(', ') },
@@ -539,10 +539,10 @@ export default function CropAssistancePage({ asTab = false }) {
     <PageLayout
       title={isFarmer ? 'Assistance Received' : isOrg ? 'Assistance' : 'Crop Assistance'}
       subtitle={isFarmer
-        ? 'Government and organization assistance recorded for you.'
+        ? 'Government and cooperative assistance recorded for you.'
         : isOrg
-          ? 'Assistance your organization distributed to its members.'
-          : 'Government and organization assistance given to farmers.'}
+          ? 'Assistance your cooperative distributed to its members.'
+          : 'Government and cooperative assistance given to farmers.'}
     >
       {innerContent}
     </PageLayout>

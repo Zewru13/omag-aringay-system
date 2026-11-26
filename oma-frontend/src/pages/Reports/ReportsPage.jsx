@@ -134,7 +134,7 @@ function HarvestedCropTab() {
   }
 
   const HEADERS = [
-    'BARANGAY', 'FARMER', 'ORGANIZATION', 'CROP',
+    'BARANGAY', 'FARMER', 'COOPERATIVE', 'CROP',
     'AREA PLANTED (HA)', 'AREA HARVESTED (HA)',
     'ESTIMATED HARVEST DATE', 'ACTUAL HARVEST DATE', 'ESTIMATED YIELD (KG)',
   ]
@@ -146,7 +146,7 @@ function HarvestedCropTab() {
     period: periodText(filters.start_date, filters.end_date),
     detail: detailFromFilters([
       ['Barangay', filters.barangay],
-      ['Organization', organizations.find(a => String(a.id) === String(filters.organization))?.name],
+      ['Cooperative', organizations.find(a => String(a.id) === String(filters.organization))?.name],
       ['Crop', filters.crop_name],
       ['Yield performance', yieldLabels[filters.yield_performance]],
     ]),
@@ -172,9 +172,9 @@ function HarvestedCropTab() {
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
           <div className="max-md:w-full">
-            <label className={labelCls}>Organization</label>
+            <label className={labelCls}>Cooperative</label>
             <select className={baseInputClasses} value={filters.organization} onChange={e => set('organization', e.target.value)}>
-              <option value="">All Organizations</option>
+              <option value="">All Cooperatives</option>
               {organizations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
@@ -294,7 +294,7 @@ function FisheriesProductionTab() {
   }
 
   const HEADERS = [
-    'BARANGAY', 'FISHERFOLK', 'ORGANIZATION',
+    'BARANGAY', 'FISHERFOLK', 'COOPERATIVE',
     'SPECIES', 'CULTURE TYPE',
     'DATE STOCKED', 'HARVEST DATE',
     'QUANTITY (KG)',
@@ -306,7 +306,7 @@ function FisheriesProductionTab() {
     period: periodText(filters.start_date, filters.end_date),
     detail: detailFromFilters([
       ['Pond barangay', filters.barangay],
-      ['Organization', organizations.find(a => String(a.id) === String(filters.organization))?.name],
+      ['Cooperative', organizations.find(a => String(a.id) === String(filters.organization))?.name],
       ['Species', speciesList.find(sp => String(sp.id) === String(filters.species))?.species_name],
       ['Culture type', filters.culture_type],
     ]),
@@ -331,9 +331,9 @@ function FisheriesProductionTab() {
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
           <div className="max-md:w-full">
-            <label className={labelCls}>Organization</label>
+            <label className={labelCls}>Cooperative</label>
             <select className={baseInputClasses} value={filters.organization} onChange={e => set('organization', e.target.value)}>
-              <option value="">All Organizations</option>
+              <option value="">All Cooperatives</option>
               {organizations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>

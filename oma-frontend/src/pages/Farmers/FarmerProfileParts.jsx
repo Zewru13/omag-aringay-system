@@ -28,7 +28,7 @@ export function ProfileHero({ farmer, chips, actions, place, registered }) {
 // Every organization the farmer belongs to: the main one marked, a membership that ended muted.
 export function OrganizationList({ organizations }) {
   if (!organizations || organizations.length === 0) {
-    return <p className="text-[13px] italic text-[#A8BCA8]">Not part of any organization.</p>
+    return <p className="text-[13px] italic text-[#A8BCA8]">Not part of any cooperative.</p>
   }
   return (
     <ul className="space-y-2">

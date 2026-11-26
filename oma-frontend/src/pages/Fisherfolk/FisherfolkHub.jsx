@@ -14,7 +14,7 @@ function FisherfolkHub() {
   const activeTab = rawTab === 'associations' ? 'organizations' : rawTab
 
   return (
-    <PageLayout title="Fisherfolk" subtitle="Manage fisherfolk registry and organizations">
+    <PageLayout title="Fisherfolk" subtitle="Manage fisherfolk registry and cooperatives">
       {activeTab === 'registry'      && <FisherfolkPage             asTab />}
       {activeTab === 'organizations' && <FisherfolkOrganizationsPage asTab />}
     </PageLayout>

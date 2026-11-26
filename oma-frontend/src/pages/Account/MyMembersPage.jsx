@@ -29,14 +29,14 @@ export default function MyMembersPage() {
     { key: 'rsbsa', label: 'RSBSA no.', phone: 'hide', render: (m) => m[domain.idField] },
     { key: 'position', label: 'Position' },
     { key: 'joined', label: 'Date joined', render: (m) => formatDate(m.date_joined) },
-    { key: 'main', label: 'Main organization', phone: 'hide', render: (m) => (m.is_main ? 'Yes' : 'No') },
+    { key: 'main', label: 'Main cooperative', phone: 'hide', render: (m) => (m.is_main ? 'Yes' : 'No') },
   ]
   const close = () => setOpen(null)
 
   return (
     <AccountPage
       title="Members"
-      helper="Everyone in your organization."
+      helper="Everyone in your cooperative."
       action={(
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <Button variant="outline" icon={Upload} onClick={() => setOpen('import')}>Import</Button>
@@ -54,7 +54,7 @@ export default function MyMembersPage() {
         what="your members"
         empty={search.trim()
           ? { title: 'No member matches', hint: 'Try another word.' }
-          : { title: 'No members yet', hint: `Add the registered ${domain.personLabel} who belong to your organization.` }}
+          : { title: 'No members yet', hint: `Add the registered ${domain.personLabel} who belong to your cooperative.` }}
       />
 
       {open === 'add' && org && (
@@ -74,7 +74,7 @@ export default function MyMembersPage() {
           subtitle={`Add already-registered ${domain.personLabel} to ${org.name} from a spreadsheet.`}
           importUrl={`/organizations/${domain.type}/${id}/members/import/`}
           templateUrl={`/organizations/${domain.type}/${id}/members/import/template/`}
-          templateFilename={`${domain.type}_organization_members_import_template.xlsx`}
+          templateFilename={`${domain.type}_cooperative_members_import_template.xlsx`}
           undoType={`${domain.type}_org_members`}
           onClose={close}
           onImported={reload}

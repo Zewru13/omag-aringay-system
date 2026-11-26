@@ -9,10 +9,10 @@ export const organizationChoice = (options) => (Array.isArray(options) && option
 // What the box shows while no organization is chosen.
 export function organizationPlaceholder({ hasFisherfolk, loading, count }) {
   if (!hasFisherfolk) return 'Select Fisherfolk first'
-  if (loading) return 'Loading organizations…'
-  if (count === 0) return 'No registered organizations'
-  return 'Select Organization'
+  if (loading) return 'Loading cooperatives…'
+  if (count === 0) return 'No registered cooperatives'
+  return 'Select Cooperative'
 }
 
 // The line under the box when the choice is the Admin's.
-export const organizationHint = (count) => (count > 1 ? `This fisherfolk belongs to ${count} organizations - choose the one for this cycle.` : '')
+export const organizationHint = (count) => (count > 1 ? `This fisherfolk belongs to ${count} cooperatives - choose the one for this cycle.` : '')

@@ -8,7 +8,7 @@ const eq = (a, e, label) => { assert.deepEqual(a, e, `${label}: got ${JSON.strin
 const ok = (v, label) => { assert.ok(v, label); n++ }
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
-eq(homeSources('farmer', { isMember: false }), ['assistance', 'crops', 'parcels'], 'a farmer outside any organization asks for no loans')
+eq(homeSources('farmer', { isMember: false }), ['assistance', 'crops', 'parcels'], 'a farmer outside any cooperative asks for no loans')
 eq(homeSources('farmer', { isMember: true }), ['assistance', 'crops', 'parcels', 'loans'], 'a member also loads loans')
 eq(homeSources('fisherfolk', { isMember: false }), ['assistance', 'cycles'], 'fisherfolk')
 eq(homeSources('fisherfolk', { isMember: true }), ['assistance', 'cycles', 'loans'], 'a fisherfolk member')
@@ -30,13 +30,13 @@ eq(homeActive('fisherfolk', { cycles }).map((r) => r.id), [1, 3], 'the active cy
 
 const members = [{ is_active: true }, { is_active: true }, { is_active: false }]
 const loans = [{ status: 'BORROWED' }, { status: 'REQUESTED' }, { status: 'RETURNED' }, { status: 'RETURN_PENDING' }]
-eq(homeSummary('orgFarm', { members, loans }, { isActive: (m) => m.is_active }), [{ label: 'Active members', value: 2 }, { label: 'Equipment on loan', value: 2 }, { label: 'Borrow requests', value: 1 }], 'an organization')
-eq(homeSummary('orgFish', { members: null, loans: null }, { isActive: (m) => m.is_active }).map((f) => f.value), [null, null, null], 'a failed organization is unknown')
-eq(homeActive('orgFarm', { members }), [], 'an organization has no active list on Home')
+eq(homeSummary('orgFarm', { members, loans }, { isActive: (m) => m.is_active }), [{ label: 'Active members', value: 2 }, { label: 'Equipment on loan', value: 2 }, { label: 'Borrow requests', value: 1 }], 'a cooperative')
+eq(homeSummary('orgFish', { members: null, loans: null }, { isActive: (m) => m.is_active }).map((f) => f.value), [null, null, null], 'a failed cooperative is unknown')
+eq(homeActive('orgFarm', { members }), [], 'a cooperative has no active list on Home')
 
 eq(greeting('farmer', 'Lourdes Villanueva'), { title: 'Hello, Lourdes Villanueva', line: 'Farmer account' }, 'farmer greeting')
-eq(greeting('orgFarm', 'Santa Cecilia Farmers').line, 'Farmers organization account', 'farmers organization greeting')
-eq(greeting('orgFish', 'Dulao Fishers').line, 'Fisherfolk organization account', 'fisherfolk organization greeting')
+eq(greeting('orgFarm', 'Santa Cecilia Farmers').line, 'Farmers cooperative account', 'farmers cooperative greeting')
+eq(greeting('orgFish', 'Dulao Fishers').line, 'Fisherfolk cooperative account', 'fisherfolk cooperative greeting')
 eq(greeting('fisherfolk', ''), { title: 'Hello', line: 'Fisherfolk account' }, 'no name')
 
 eq(failedText(['parcels']), 'your farm parcels', 'one failed part, in plain words')

@@ -170,7 +170,7 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
     let next = { ...run };
     try {
       if (isMain === null) {
-        next = { ...next, failures: [...next.failures, { entry, name: entry.person.full_name, reason: "was not added (main organization not chosen)" }] };
+        next = { ...next, failures: [...next.failures, { entry, name: entry.person.full_name, reason: "was not added (main cooperative not chosen)" }] };
       } else {
         try {
           await post(payloadOf(entry, isMain));
@@ -209,7 +209,7 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
     const left = queue.length - 1;
     return (
       <ModalShell
-        title="Choose Main Organization"
+        title="Choose Main Cooperative"
         onClose={onClose}
         maxWidth="max-w-xl"
         footer={
@@ -228,7 +228,7 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
       >
         <div className="space-y-3">
           <DetailTable
-            title="Main Organization"
+            title="Main Cooperative"
             columns={1}
             fields={[
               { label: "Member", value: person.full_name },
@@ -237,7 +237,7 @@ export function AddMemberModal({ type, organizationId, organizationName, own = f
             ]}
           />
           <p className="text-[14px] leading-relaxed text-[#1A2B1A]">
-            {person.full_name} has no main organization yet. Should {organizationName} be
+            {person.full_name} has no main cooperative yet. Should {organizationName} be
             their main?
           </p>
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
@@ -471,7 +471,7 @@ function MemberSearchInput({ type, organizationId, onSelect, selected, holders =
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
         <input
           className={`${baseInputClasses} pl-8`}
-          placeholder="Search this organization's members…"
+          placeholder="Search this cooperative's members…"
           value={displayValue}
           onChange={handleChange}
           onFocus={() => {
@@ -483,7 +483,7 @@ function MemberSearchInput({ type, organizationId, onSelect, selected, holders =
         <div className={`mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white max-h-52 overflow-y-auto transition-opacity ${searching && results.length > 0 ? "opacity-60" : ""}`}>
           {results.length === 0 ? (
             <p className="px-4 py-3 text-xs text-[#7A8E7A]">
-              {!active ? "Type at least 2 characters." : searching ? "Searching…" : failed ? "Search failed — please try again." : "No matching members in this organization."}
+              {!active ? "Type at least 2 characters." : searching ? "Searching…" : failed ? "Search failed — please try again." : "No matching members in this cooperative."}
             </p>
           ) : (
             results.map((item) => {
@@ -617,7 +617,7 @@ export function AssignOfficerModal({ type, organizationId, existingOfficers, mem
                   holders={holders}
                 />
                 <p className="mt-1 text-[11px] text-[#7A8E7A]">
-                  Only people already a member of this organization can be assigned as an officer.
+                  Only people already a member of this cooperative can be assigned as an officer.
                 </p>
                 {selected && (
                   <p className="mt-2 rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
@@ -708,7 +708,7 @@ export function EndTermModal({ type, officer, onClose, onSuccess }) {
           ]}
         />
         <p className="text-[13px] text-[#4A5E4A]">
-          End {officer.name}'s term as {officer.position}? This does not remove their organization
+          End {officer.name}'s term as {officer.position}? This does not remove their cooperative
           membership — the position becomes vacant and can be assigned to someone new. Their term
           is kept as a permanent historical record, not deleted.
         </p>
@@ -1041,7 +1041,7 @@ function OrganizationDetailPage({ own = false }) {
         const response = await api.get(`/organizations/${type}/${id}/`);
         if (!cancelled) { setOrganization(response.data); loadedFor.current = key; }
       } catch {
-        if (!cancelled) setError("Unable to load organization details.");
+        if (!cancelled) setError("Unable to load cooperative details.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -1058,10 +1058,10 @@ function OrganizationDetailPage({ own = false }) {
   const handleSetMain = async (memberId) => {
     try {
       await api.post(`/organizations/${type}/${id}/members/${memberId}/set-main/`);
-      showToast("Main organization updated.", "success");
+      showToast("Main cooperative updated.", "success");
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      showToast(err.response?.data?.detail || "Unable to update main organization.", "error");
+      showToast(err.response?.data?.detail || "Unable to update main cooperative.", "error");
     }
   };
 
@@ -1102,13 +1102,13 @@ function OrganizationDetailPage({ own = false }) {
         { label: memberIdLabel, value: m[memberIdField] || "—" },
         { label: "Position", value: <StatusPill tone={positionTone(m.position)}>{m.position}</StatusPill> },
         { label: "Date joined", value: formatDate(m.date_joined) },
-        { label: "Main organization", value: m.is_main ? "Yes" : "No" },
+        { label: "Main cooperative", value: m.is_main ? "Yes" : "No" },
       ],
     };
   });
   const memberFilters = [
     { key: "position", label: "Position", allLabel: "All positions", options: choices(memberItems, "position") },
-    { key: "main", label: "Main organization", allLabel: "Main or not", options: memberItems.some((i) => i.attrs.main === "Main") ? [{ value: "Main", label: "Main organization only" }] : [] },
+    { key: "main", label: "Main cooperative", allLabel: "Main or not", options: memberItems.some((i) => i.attrs.main === "Main") ? [{ value: "Main", label: "Main cooperative only" }] : [] },
   ];
   // One entry per kind of equipment; tapping it drops down its conditions one by one, each with its own details and actions.
   const equipmentItems = groupEquipment(organization?.equipment || []).map((group) => ({
@@ -1140,7 +1140,7 @@ function OrganizationDetailPage({ own = false }) {
     attrs: { position: o.position },
     details: [
       { label: "Position", value: o.position },
-      { label: "Member of this organization", value: o.is_member === false ? <StatusPill tone="amber">Not a member — cannot receive assistance</StatusPill> : "Yes" },
+      { label: "Member of this cooperative", value: o.is_member === false ? <StatusPill tone="amber">Not a member — cannot receive assistance</StatusPill> : "Yes" },
       { label: "Term start", value: formatDate(o.term_start_date) },
       { label: "Term end", value: formatDate(o.term_end_date) },
     ],
@@ -1440,8 +1440,8 @@ function OrganizationDetailPage({ own = false }) {
 
   return (
     <PageLayout
-      title={own ? "My Organization" : `${typeLabel} Organization Details`}
-      subtitle={own ? "Your organization's members, equipment and officers." : "View members, equipment, and organization information"}
+      title={own ? "My Cooperative" : `${typeLabel} Cooperative Details`}
+      subtitle={own ? "Your cooperative's members, equipment and officers." : "View members, equipment, and cooperative information"}
     >
       <div className="space-y-4">
         {error && (
@@ -1462,9 +1462,9 @@ function OrganizationDetailPage({ own = false }) {
             {!own && (
               <>
                 <ProfileHero
-                  label={`${typeLabel} Organization`}
+                  label={`${typeLabel} Cooperative`}
                   labelIcon={Building2}
-                  ariaLabel="Organization profile"
+                  ariaLabel="Cooperative profile"
                   accent={themeColor}
                   avatar={<AvatarBox initials={initialsOf(organization.name)} photoUrl={organization.logo} accent={themeColor} soft={themeBg} />}
                   name={organization.name}
@@ -1487,7 +1487,7 @@ function OrganizationDetailPage({ own = false }) {
 
                 <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
                   {/* The banner above already shows the registration number, agency, date registered and address, so they are not repeated here. */}
-                  <InfoCard icon={Landmark} title="Organization Details" accent={themeColor} soft={themeBg}>
+                  <InfoCard icon={Landmark} title="Cooperative Details" accent={themeColor} soft={themeBg}>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                       <FieldItem icon={CalendarDays} label="Date Organized" value={formatDate(organization.date_organized)} />
                       <FieldItem icon={CalendarDays} label="Added to System" value={formatDate(organization.date_created)} />
@@ -1522,25 +1522,25 @@ function OrganizationDetailPage({ own = false }) {
               </div>
             ) : (
               <>
-                <SectionTitle icon={Building2} accent={themeColor}>Organization Records</SectionTitle>
+                <SectionTitle icon={Building2} accent={themeColor}>Cooperative Records</SectionTitle>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <ViewSection
                     icon={UserRound} title="Members" count={organization.members.length} noun="member" accent={themeColor} soft={themeBg}
-                    subtitle="Everyone in this organization. Set as main marks the organization a person belongs to first."
+                    subtitle="Everyone in this cooperative. Set as main marks the cooperative a person belongs to first."
                   >
                     {canManage && <div className="mb-3 flex justify-end">{renderActions("members")}</div>}
                     {renderBody("members")}
                   </ViewSection>
                   <ViewSection
                     icon={Package} title="Equipment Inventory" count={organization.equipment.length} noun="equipment line" accent={themeColor} soft={themeBg}
-                    subtitle="What the organization owns, its condition and what is on loan."
+                    subtitle="What the cooperative owns, its condition and what is on loan."
                   >
                     {canManage && <div className="mb-3 flex justify-end">{renderActions("equipment")}</div>}
                     {renderBody("equipment")}
                   </ViewSection>
                   <ViewSection
                     icon={HandHelping} title="Confirmed for Members" summary="Assistance it confirmed" accent={themeColor} soft={themeBg}
-                    subtitle="The history of what this organization confirmed for its members."
+                    subtitle="The history of what this cooperative confirmed for its members."
                   >
                     {renderBody("confirmed")}
                   </ViewSection>
@@ -1575,7 +1575,7 @@ function OrganizationDetailPage({ own = false }) {
           subtitle={`Add already-registered ${type === "farmers" ? "farmers" : "fisherfolk"} to ${organization.name} from a spreadsheet.`}
           importUrl={`/organizations/${type}/${id}/members/import/`}
           templateUrl={`/organizations/${type}/${id}/members/import/template/`}
-          templateFilename={`${type}_organization_members_import_template.xlsx`}
+          templateFilename={`${type}_cooperative_members_import_template.xlsx`}
           undoType={`${type}_org_members`}
           onClose={() => setShowImportMembers(false)}
           onImported={handleMemberAdded}
@@ -1588,7 +1588,7 @@ function OrganizationDetailPage({ own = false }) {
           subtitle={`Add equipment to ${organization.name} from a spreadsheet.`}
           importUrl={`/organizations/${type}/${id}/equipment/import/`}
           templateUrl={`/organizations/${type}/${id}/equipment/import/template/`}
-          templateFilename={`${type}_organization_equipment_import_template.xlsx`}
+          templateFilename={`${type}_cooperative_equipment_import_template.xlsx`}
           undoType={`${type}_org_equipment`}
           onClose={() => setShowImportEquipment(false)}
           onImported={handleEquipmentAdded}

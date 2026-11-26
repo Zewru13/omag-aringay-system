@@ -44,15 +44,15 @@ eq(firstFarmerProblem({ ...good, rsbsa_number: '', contact_number: '0917' }, tod
 
 const sent = farmerPayload({ ...good, is_icc_ip_member: false, icc_ip_name: 'X', birthdate: '1958-05-02' }, { today })
 eq([sent.icc_ip_name, sent.is_senior_citizen], ['', true], 'values of unticked boxes are cleared; senior citizen comes from the birthdate')
-ok('farmers_organization' in farmerPayload(good, { today }), 'registering sends the chosen organization')
+ok('farmers_organization' in farmerPayload(good, { today }), 'registering sends the chosen cooperative')
 const edited = farmerPayload(good, { today, isEdit: true })
-ok(!('farmers_organization' in edited) && !('rsbsa_number' in edited), 'editing sends neither the organization nor the RSBSA number')
+ok(!('farmers_organization' in edited) && !('rsbsa_number' in edited), 'editing sends neither the cooperative nor the RSBSA number')
 ok('civil_status' in edited && 'email' in edited && 'philsys_number' in edited && 'is_pwd' in edited, 'but every other field of the form')
 
 const sections = read('src/pages/Farmers/FarmerFormSections.jsx')
 for (const title of ['Personal Information', 'Contact Information', 'Government Information']) ok(sections.includes(`title="${title}"`), `section ${title}`)
 for (const label of ['Prefix', 'First Name', 'Middle Name', 'Last Name', 'Sex', 'Birthdate', 'Civil Status', 'Highest Education', 'Contact Number', 'Barangay', 'Email',
-  'RSBSA Number', 'PhilSys / National ID No.', 'RSBSA Classification', 'Farmer Organization']) ok(sections.includes(`label="${label}"`), `field ${label}`)
+  'RSBSA Number', 'PhilSys / National ID No.', 'RSBSA Classification', 'Farmer Cooperative']) ok(sections.includes(`label="${label}"`), `field ${label}`)
 ok(sections.includes("from '../../components/UI/FormTable.jsx'") && /<FormCell /.test(sections), 'the form is the shared table form')
 const add = read('src/pages/Farmers/AddFarmerModal.jsx')
 const edit = read('src/pages/Farmers/EditFarmerModal.jsx')

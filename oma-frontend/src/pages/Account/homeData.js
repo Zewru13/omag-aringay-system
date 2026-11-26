@@ -54,8 +54,8 @@ export function homeSummary(kind, data, { isActive = (member) => member.is_activ
 const ACCOUNT_LINE = {
   farmer: 'Farmer account',
   fisherfolk: 'Fisherfolk account',
-  orgFarm: 'Farmers organization account',
-  orgFish: 'Fisherfolk organization account',
+  orgFarm: 'Farmers cooperative account',
+  orgFish: 'Fisherfolk cooperative account',
 }
 
 export function greeting(kind, label) {

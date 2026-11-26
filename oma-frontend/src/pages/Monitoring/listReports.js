@@ -21,7 +21,7 @@ export const rangeFilter = (label, from, to) => [label, dateRangeText(from, to)]
 export function cropMonitoringReport({ records, filters, now }) {
   return buildListReportSpec({
     title: 'CROP MONITORING REPORT', noun: 'crop record', filters, now, wide: true,
-    head: ['Crop', 'Variety', 'Farmer', 'Organization', 'Barangay', 'Date Planted', 'Expected Harvest', 'Area (ha)', 'PCIC Insured', 'Status'],
+    head: ['Crop', 'Variety', 'Farmer', 'Cooperative', 'Barangay', 'Date Planted', 'Expected Harvest', 'Area (ha)', 'PCIC Insured', 'Status'],
     rows: records.map((r) => [
       r.crop_type_name, r.variety_used, r.farmer_name || r.farmer_full_name, r.organization_name, r.farm_location_barangay || r.farmer_barangay,
       day(r.date_planted), day(r.expected_harvest_date), ha(r.area_planted_ha), yesNo(r.has_pcic_insurance), cropDisplayStatus(r),
@@ -41,7 +41,7 @@ export function parcelRecordsReport({ parcels, filters, now }) {
 export function aquacultureReport({ records, filters, now }) {
   return buildListReportSpec({
     title: 'AQUACULTURE MONITORING REPORT', noun: 'production cycle', filters, now, wide: true,
-    head: ['Fisherfolk', 'Species', 'Culture Type', 'Cycle', 'Date Stocked', 'Expected Harvest', 'Est. Harvest (kg)', 'Actual Harvest (kg)', 'Organization', 'Pond Location', 'Status'],
+    head: ['Fisherfolk', 'Species', 'Culture Type', 'Cycle', 'Date Stocked', 'Expected Harvest', 'Est. Harvest (kg)', 'Actual Harvest (kg)', 'Cooperative', 'Pond Location', 'Status'],
     rows: records.map((r) => [
       r.fisherfolk_name, r.species_name, r.culture_type, r.production_cycle_no ? `#${r.production_cycle_no}` : '', day(r.date_stocked), day(r.expected_harvest_date),
       kg(r.estimated_harvest_kg), fmtActualHarvestKg(r) === '—' ? '' : fmtActualHarvestKg(r), r.organization_name, r.pond_location_barangay, cycleStatusText(r),
@@ -94,7 +94,7 @@ export function cycleReport({ record, cycle, now }) {
   return buildDetailReportSpec({
     title: 'PRODUCTION CYCLE REPORT', noun: 'production cycle record', now, wide: true,
     details: [
-      ['Fisherfolk', record.fisherfolk_name], ['Organization', record.organization_name], ['Species', record.species_name], ['Culture Type', record.culture_type],
+      ['Fisherfolk', record.fisherfolk_name], ['Cooperative', record.organization_name], ['Species', record.species_name], ['Culture Type', record.culture_type],
       ['Cycle', record.production_cycle_no ? `#${record.production_cycle_no}` : ''], ['Ownership', record.ownership],
       ['Pond Location', record.pond_location_barangay], ['Date Stocked', day(record.date_stocked)], ['Expected Harvest', day(record.expected_harvest_date)],
       ['Number of Fingerlings', record.number_of_fingerlings], ['Estimated Harvest (kg)', kg(record.estimated_harvest_kg)],

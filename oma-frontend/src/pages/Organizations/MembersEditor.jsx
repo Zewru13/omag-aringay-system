@@ -48,7 +48,7 @@ export default function MembersEditor({ type, lines, onChange, registered, organ
       </div>
 
       {lines.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[#C8D5C8] px-4 py-3 text-[13px] text-[#7A8E7A]">No members added. Leave it empty to add them later from the organization page.</p>
+        <p className="rounded-lg border border-dashed border-[#C8D5C8] px-4 py-3 text-[13px] text-[#7A8E7A]">No members added. Leave it empty to add them later from the cooperative page.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
           <table className="min-w-full table-fixed text-sm max-md:block" aria-label="Members to add">
@@ -89,16 +89,16 @@ export default function MembersEditor({ type, lines, onChange, registered, organ
           </table>
         </div>
       )}
-      {lines.length > 0 && <p className="text-[12px] text-[#7A8E7A]">A blank date joined uses the date registered of the organization.</p>}
+      {lines.length > 0 && <p className="text-[12px] text-[#7A8E7A]">A blank date joined uses the date registered of the cooperative.</p>}
 
       {onImportFile && (
         <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
           <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Import members from a file</p>
           <p className="mb-2 text-[12px] text-[#7A8E7A]">
-            Attach the members file (RSBSA number, position, date joined). Once the organization is saved, the Import Members window opens with the file so you can check it before it is imported.
+            Attach the members file (RSBSA number, position, date joined). Once the cooperative is saved, the Import Members window opens with the file so you can check it before it is imported.
           </p>
           <ImportFileAttach chooseLabel="Import members" templateUrl={`/organizations/${type}/members/import/template/`}
-            templateFilename={`${type}_organization_members_import_template.xlsx`} file={importFile} onFile={onImportFile} />
+            templateFilename={`${type}_cooperative_members_import_template.xlsx`} file={importFile} onFile={onImportFile} />
         </div>
       )}
 

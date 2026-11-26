@@ -364,7 +364,7 @@ function FisherfolkDetailPage() {
 
               <div className="space-y-4">
                 {/* A fisherfolk may belong to more than one organization at once (unlike a farmer): a list of names (organization_names). */}
-                <InfoCard icon={Users} title={(fisherfolk.organization_names || []).length > 1 ? 'Organizations' : 'Organization'} accent="#155E82" soft="#EAF1F5">
+                <InfoCard icon={Users} title={(fisherfolk.organization_names || []).length > 1 ? 'Cooperatives' : 'Cooperative'} accent="#155E82" soft="#EAF1F5">
                   {fisherfolk.organization_names?.length > 0 ? (
                     <ul className="space-y-2">
                       {fisherfolk.organization_names.map((name) => (
@@ -375,7 +375,7 @@ function FisherfolkDetailPage() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-[13px] italic text-[#A8BCA8]">Not part of any organization.</p>
+                    <p className="text-[13px] italic text-[#A8BCA8]">Not part of any cooperative.</p>
                   )}
                 </InfoCard>
               </div>

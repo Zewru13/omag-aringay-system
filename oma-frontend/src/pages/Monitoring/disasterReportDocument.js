@@ -76,7 +76,7 @@ export function reportSections(doc) {
     fisherfolk: keep([
       ['Name', doc.fisherfolk?.name],
       ['Barangay', doc.fisherfolk?.barangay],
-      ['Organization', doc.fisherfolk?.organization],
+      ['Cooperative', doc.fisherfolk?.organization],
     ]),
     stock: stock ? keep([
       ['Species', stock.species],
@@ -85,7 +85,7 @@ export function reportSections(doc) {
       ['Production Units', (stock.production_units || []).join(', ')],
       ['Pond / Cage', stock.pond_name],
       ['Location', stock.location],
-      ['Organization', stock.organization],
+      ['Cooperative', stock.organization],
       ['Culture Type', stock.culture_type],
       ['Culture Phase', stock.culture_phase],
       ['Fingerlings Stocked', fmtNumber(stock.number_of_fingerlings)],
@@ -150,7 +150,7 @@ export function cropSections(doc) {
       ['Date/Time Logged', fmtDateTime(doc.date_reported)],
       ['Logged By', doc.reported_by_name],
     ]),
-    farmer: keep([['Name', doc.farmer?.name], ['Barangay', doc.farmer?.barangay], ['Organization', doc.farmer?.organization]]),
+    farmer: keep([['Name', doc.farmer?.name], ['Barangay', doc.farmer?.barangay], ['Cooperative', doc.farmer?.organization]]),
     crop: keep([
       ['Crop', crop.crop], ['Variety', crop.variety], ['Season', crop.season],
       ['Date Planted', crop.date_planted ? `${fmtDate(crop.date_planted)}${crop.date_planted_is_estimated ? ' (estimated)' : ''}` : null],

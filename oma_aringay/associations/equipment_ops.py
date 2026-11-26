@@ -215,7 +215,7 @@ def lend(domain, user, line_pk, member_id, quantity, due_date=None):
         _require_available(line, quantity)
         if not domain.member_model.objects.filter(
                 organization_id=line.organization_id, is_active=True, **{f'{domain.person_field}_id': member_id}).exists():
-            raise ValidationError({'member': 'This person is not an active member of the organization.'})
+            raise ValidationError({'member': 'This person is not an active member of the cooperative.'})
         now = timezone.now()
         loan = domain.loan_model.objects.create(
             equipment=line, member_id=member_id, quantity=quantity, status='BORROWED', origin='ORGANIZATION',
@@ -254,7 +254,7 @@ def lend_many(domain, user, line_pk, borrowers, due_date=None, borrowed_on=None)
         ).values_list(f'{domain.person_field}_id', flat=True))
         missing = [m for m in member_ids if m not in active]
         if missing:
-            raise ValidationError({'borrowers': 'Everyone chosen must be an active member of the organization.'})
+            raise ValidationError({'borrowers': 'Everyone chosen must be an active member of the cooperative.'})
         when = timezone.now() if borrowed_on == today else timezone.make_aware(datetime.combine(borrowed_on, time(8, 0)))
         loans = [
             domain.loan_model.objects.create(

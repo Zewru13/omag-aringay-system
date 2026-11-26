@@ -13,7 +13,7 @@ const PERSON_COLUMNS = [
   { key: 'barangay', label: 'Barangay' },
 ]
 const ORG_COLUMNS = [
-  { key: 'name', label: 'Organization' },
+  { key: 'name', label: 'Cooperative' },
   { key: 'barangay', label: 'Barangay' },
   { key: 'members', label: 'Members' },
 ]
@@ -31,7 +31,7 @@ export const FARMER_DISTRIBUTION_DOMAIN = {
   reportDomain: 'crop',
   personLabel: 'Farmer',
   peopleLabel: 'farmers',
-  orgLabel: 'Farmers Organization',
+  orgLabel: 'Farmers Cooperative',
   orgSearchUrl: '/organizations/farmers/',
   distributeUrl: (orgId) => `/organizations/farmers/${orgId}/distribute-assistance/`,
   assistanceTypeOptions: ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
@@ -53,7 +53,7 @@ export const FISHERFOLK_DISTRIBUTION_DOMAIN = {
   reportDomain: 'fisheries',
   personLabel: 'Fisherfolk',
   peopleLabel: 'fisherfolk',
-  orgLabel: 'Fisherfolk Organization',
+  orgLabel: 'Fisherfolk Cooperative',
   orgSearchUrl: '/organizations/fisherfolk/',
   distributeUrl: (orgId) => `/organizations/fisherfolk/${orgId}/distribute-assistance/`,
   // Unchanged by Step 5's "standardize to CropAssistanceRecord's set"

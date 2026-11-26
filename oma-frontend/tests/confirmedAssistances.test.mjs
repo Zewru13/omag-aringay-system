@@ -33,7 +33,7 @@ eq(all[0].source_agencies, ['DA'], 'the source agencies come from the assistance
 const bulk = confirmedReportSpec({ domain: 'crop', group, organizationName: 'Alaska Farmers' })
 eq(bulk.title, 'ASSISTANCE DISTRIBUTION REPORT', 'the assistance distribution report')
 eq(bulk.header.find(([k]) => k === 'Date Confirmed')?.[1], 'Aug 5, 2026', 'dated by the confirmation')
-eq(bulk.header.find(([k]) => k === 'Organization')?.[1], 'Alaska Farmers', 'names the organization')
+eq(bulk.header.find(([k]) => k === 'Cooperative')?.[1], 'Alaska Farmers', 'names the cooperative')
 const beneficiaries = bulk.sections.find((s) => s.title === 'Beneficiaries').table
 eq(beneficiaries.rows.length, 2, 'bulk lists both members')
 eq(beneficiaries.rows.map((r) => r[1]), ['Ana Reyes', 'Ben Cruz'], 'in name order')

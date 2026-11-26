@@ -42,20 +42,20 @@ from .period import period_text
 
 KINDS = {
     'farmers': dict(record=BeneficiaryRecord, org=FarmersOrganization, person='farmer', person_label='Farmer', individual=False,
-                    title='Farmers Organization Assistance', stem='farmers_organization_assistance', people='Members'),
+                    title='Farmers Cooperative Assistance', stem='farmers_organization_assistance', people='Members'),
     'fisherfolk': dict(record=FisherfolkBeneficiaryRecord, org=FisherfolkOrganization, person='fisherfolk', person_label='Fisherfolk',
-                       individual=False, title='Fisherfolk Organization Assistance', stem='fisherfolk_organization_assistance', people='Members'),
+                       individual=False, title='Fisherfolk Cooperative Assistance', stem='fisherfolk_organization_assistance', people='Members'),
     'individual_farmers': dict(record=BeneficiaryRecord, org=None, person='farmer', person_label='Farmer', individual=True,
                                title='Individual Farmers Assistance', stem='individual_farmers_assistance',
-                               scope='Assistance given directly to farmers, not through an organization'),
+                               scope='Assistance given directly to farmers, not through a cooperative'),
     'individual_fisherfolk': dict(record=FisherfolkBeneficiaryRecord, org=None, person='fisherfolk', person_label='Fisherfolk', individual=True,
                                   title='Individual Fisherfolk Assistance', stem='individual_fisherfolk_assistance',
-                                  scope='Assistance given directly to fisherfolk, not through an organization'),
+                                  scope='Assistance given directly to fisherfolk, not through a cooperative'),
 }
 STATUS_FILTERS = {'confirmed': 'Confirmed', 'awaiting': 'Awaiting confirmation', 'follow_up': 'Needs follow-up'}
-HEADERS = ['Organization', 'Date Given', 'Assistance', 'Source Agency', 'Quantity', 'Members', 'Confirmed', 'Status']
+HEADERS = ['Cooperative', 'Date Given', 'Assistance', 'Source Agency', 'Quantity', 'Members', 'Confirmed', 'Status']
 PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Date Confirmed']
-RECIPIENT_HEADERS = ['Organization'] + PERSON_HEADERS
+RECIPIENT_HEADERS = ['Cooperative'] + PERSON_HEADERS
 
 
 def _parse_date(request, name):
@@ -219,7 +219,7 @@ def build_document(kind, request):
     org = None
     if raw_id:
         if not raw_id.isdigit():
-            raise ValidationError({'id': ['Send the organization id.']})
+            raise ValidationError({'id': ['Send the cooperative id.']})
         org = get_object_or_404(cfg['org'], pk=int(raw_id))
     status_filter = _status_filter(request)
 
@@ -248,25 +248,25 @@ def build_document(kind, request):
              ['Confirmed', sum(d['confirmed'] for d in distributions)],
              ['Needs Follow-up', sum(1 for d in distributions if d['status'] == STATUS_FILTERS['follow_up'])]]
     if not org:
-        stats.insert(0, ['Organizations', len({d['organization'].id for d in distributions})])
+        stats.insert(0, ['Cooperatives', len({d['organization'].id for d in distributions})])
 
-    date_part, parts = _filter_text(request, frm, to, status_filter, None if org else 'Organization')
+    date_part, parts = _filter_text(request, frm, to, status_filter, None if org else 'Cooperative')
     filters = ' · '.join(parts)
 
     # Under the distributions, the people who received them: every recipient by name, in the order of the distributions above.
     recipients = [_recipient_row(cfg, record, True) for d in distributions
                   for record in sorted(d['members'], key=lambda r: (getattr(r, cfg['person']).full_name.lower(), r.id))]
     sections = [{'title': 'Distributions', 'headers': HEADERS, 'rows': rows,
-                 'empty': 'No organization assistance matches these filters.'},
+                 'empty': 'No cooperative assistance matches these filters.'},
                 {'title': 'Recipients', 'headers': RECIPIENT_HEADERS, 'rows': recipients, 'empty': 'No recipients.'}]
     if org:
         title, subtitle = f'{cfg["title"]} Report', ' · '.join(p for p in (org.name, filters) if p)
     else:
-        title, subtitle = cfg['title'], filters or 'All organizations'
+        title, subtitle = cfg['title'], filters or 'All cooperatives'
     # The PDF's line under the period: the kind of assistance report and the filters other than the dates (the period says those).
     other = ' · '.join(p for p in parts if p != date_part)
-    detail = ' · '.join(p for p in ((f'{cfg["title"]}', org.name if org else '', other or ('' if org else 'All organizations'))) if p)
-    doc = make_document(title, subtitle, stats, sections, heading='Organization Assistance Report', period=period_text(frm, to), detail=detail)
+    detail = ' · '.join(p for p in ((f'{cfg["title"]}', org.name if org else '', other or ('' if org else 'All cooperatives'))) if p)
+    doc = make_document(title, subtitle, stats, sections, heading='Cooperative Assistance Report', period=period_text(frm, to), detail=detail)
     if individual:
         doc['individual'] = individual
     elif not org:

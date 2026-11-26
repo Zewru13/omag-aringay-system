@@ -53,11 +53,11 @@ const GROUPS = [
   },
   {
     key: "organization-management",
-    label: "Organizations",
+    label: "Cooperatives",
     icon: Building2,
     items: [
-      { to: "/farmers?tab=organizations", icon: Users, label: "Farmers Organizations" },
-      { to: "/fisherfolk?tab=organizations", icon: Fish, label: "Fisherfolk Organizations" },
+      { to: "/farmers?tab=organizations", icon: Users, label: "Farmers Cooperatives" },
+      { to: "/fisherfolk?tab=organizations", icon: Fish, label: "Fisherfolk Cooperatives" },
     ],
   },
   {

@@ -25,7 +25,7 @@ export function summarizeResults(results) {
 // Things an undo cannot take back, shown before the person confirms.
 export function undoNote(type) {
   if (type === 'farmers_org' || type === 'fisherfolk_org') {
-    return 'Undo removes the organizations and their unused logins, but emails already sent with a temporary password cannot be taken back.'
+    return 'Undo removes the cooperatives and their unused logins, but emails already sent with a temporary password cannot be taken back.'
   }
   if (type === 'crop_assistance' || type === 'fisheries_assistance') {
     return 'Undo removes the assistance records, but notifications already delivered to recipients cannot be taken back.'

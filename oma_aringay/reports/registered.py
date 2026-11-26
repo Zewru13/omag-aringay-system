@@ -43,14 +43,14 @@ from .pdf_utils import full_name
 KINDS = {
     'farmers': ('Registered Farmers', 'registered_farmers'),
     'fisherfolk': ('Registered Fisherfolk', 'registered_fisherfolk'),
-    'farmers_orgs': ('Registered Farmers Organizations', 'registered_farmers_organizations'),
-    'fisherfolk_orgs': ('Registered Fisherfolk Organizations', 'registered_fisherfolk_organizations'),
+    'farmers_orgs': ('Registered Farmers Cooperatives', 'registered_farmers_organizations'),
+    'fisherfolk_orgs': ('Registered Fisherfolk Cooperatives', 'registered_fisherfolk_organizations'),
 }
 ONE_TITLES = {
     'farmers': 'Farmer Registration Record',
     'fisherfolk': 'Fisherfolk Registration Record',
-    'farmers_orgs': 'Farmers Organization Registration Record',
-    'fisherfolk_orgs': 'Fisherfolk Organization Registration Record',
+    'farmers_orgs': 'Farmers Cooperative Registration Record',
+    'fisherfolk_orgs': 'Fisherfolk Cooperative Registration Record',
 }
 
 
@@ -197,7 +197,7 @@ def bulk_farmers(filters):
         rows.append([f.rsbsa_number, full_name(f), f.gender, f.barangay, f.contact_number or '—', len(parcels),
                      f'{area:.2f}', _orgs_of(f.farmer_organizations.all()), _date(f.date_registered)])
         refs.append({'id': f.id, 'label': full_name(f)})
-    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Parcels', 'Area (ha)', 'Organization', 'Date Registered']
+    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Parcels', 'Area (ha)', 'Cooperative', 'Date Registered']
     return with_row_refs(
         make_document('Registered Farmers', filters.subtitle(kind='farmers'), [['Total Farmers', len(rows)]],
                       [{'title': 'Farmers', 'headers': headers, 'rows': rows, 'empty': 'No farmers match these filters.'}]), refs)
@@ -212,7 +212,7 @@ def bulk_fisherfolk(filters):
         rows.append([f.rsbsa_number or '—', full_name(f), f.gender, f.barangay, f.contact_number or '—', f.fisherfolk_type,
                      _orgs_of(f.fisherfolk_organizations.all()), _date(f.date_registered)])
         refs.append({'id': f.id, 'label': full_name(f)})
-    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Type', 'Organization', 'Date Registered']
+    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Type', 'Cooperative', 'Date Registered']
     return with_row_refs(
         make_document('Registered Fisherfolk', filters.subtitle(kind='fisherfolk'), [['Total Fisherfolk', len(rows)]],
                       [{'title': 'Fisherfolk', 'headers': headers, 'rows': rows, 'empty': 'No fisherfolk match these filters.'}]), refs)
@@ -226,10 +226,10 @@ def _bulk_orgs(model, title, filters):
         rows.append([o.name, o.registration_number or '—', o.barangay, o.contact_person or '—', o.contact_number or '—',
                      active, _date(o.date_registered) or '—'])
         refs.append({'id': o.id, 'label': o.name})
-    headers = ['Organization', 'Registration No.', 'Barangay', 'Contact Person', 'Contact No.', 'Active Members', 'Date Registered']
+    headers = ['Cooperative', 'Registration No.', 'Barangay', 'Contact Person', 'Contact No.', 'Active Members', 'Date Registered']
     return with_row_refs(
-        make_document(title, filters.subtitle(), [['Total Organizations', len(rows)]],
-                      [{'title': 'Organizations', 'headers': headers, 'rows': rows, 'empty': 'No organizations match these filters.'}]), refs)
+        make_document(title, filters.subtitle(), [['Total Cooperatives', len(rows)]],
+                      [{'title': 'Cooperatives', 'headers': headers, 'rows': rows, 'empty': 'No cooperatives match these filters.'}]), refs)
 
 
 # ─── One record ───────────────────────────────────────────────────────────────
@@ -253,8 +253,8 @@ def one_farmer(pk):
         {'title': 'Farmer Details', 'pairs': details},
         {'title': 'Farm Parcels', 'headers': ['Parcel No.', 'Barangay', 'Area (ha)', 'Ownership', 'Commodity'],
          'rows': parcels, 'empty': 'No farm parcels on record.'},
-        {'title': 'Organizations', 'headers': ['Organization', 'Position', 'Date Joined', 'Status'], 'rows': orgs,
-         'empty': 'Not a member of any organization.'},
+        {'title': 'Cooperatives', 'headers': ['Cooperative', 'Position', 'Date Joined', 'Status'], 'rows': orgs,
+         'empty': 'Not a member of any cooperative.'},
     ])
 
 
@@ -270,8 +270,8 @@ def one_fisherfolk(pk):
     orgs = [[m.organization.name, m.position, text(m.date_joined), _status(m.is_active)] for m in f.fisherfolk_organizations.all()]
     return make_document(ONE_TITLES['fisherfolk'], full_name(f), [], [
         {'title': 'Fisherfolk Details', 'pairs': details},
-        {'title': 'Organizations', 'headers': ['Organization', 'Position', 'Date Joined', 'Status'], 'rows': orgs,
-         'empty': 'Not a member of any organization.'},
+        {'title': 'Cooperatives', 'headers': ['Cooperative', 'Position', 'Date Joined', 'Status'], 'rows': orgs,
+         'empty': 'Not a member of any cooperative.'},
     ])
 
 
@@ -290,7 +290,7 @@ def _one_org(model, member_label, person_field, kind, pk):
         person = getattr(m, person_field)
         members.append([full_name(person), person.rsbsa_number or '—', m.position, text(m.date_joined), _status(m.is_active)])
     return make_document(ONE_TITLES[kind], o.name, [], [
-        {'title': 'Organization Details', 'pairs': details},
+        {'title': 'Cooperative Details', 'pairs': details},
         {'title': 'Officers', 'headers': ['Position', 'Name', 'Term Start', 'Status'], 'rows': officers, 'empty': 'No officers on record.'},
         {'title': member_label, 'headers': ['Name', 'RSBSA No.', 'Position', 'Date Joined', 'Status'], 'rows': members,
          'empty': 'No members on record.'},

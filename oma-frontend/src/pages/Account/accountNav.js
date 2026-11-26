@@ -37,7 +37,7 @@ function orgNav(assistance) {
       { key: 'equipment', to: '/my-organization?tab=equipment', label: 'Equipment', icon: 'equipment' },
       MORE,
     ],
-    more: [{ key: 'officers', to: '/my-organization?tab=officers', label: 'Officers', icon: 'officers' }, { ...PROFILE, label: 'Organization profile' }, MANUAL],
+    more: [{ key: 'officers', to: '/my-organization?tab=officers', label: 'Officers', icon: 'officers' }, { ...PROFILE, label: 'Cooperative profile' }, MANUAL],
   }
 }
 

@@ -39,7 +39,7 @@ eq(aquacultureOptions({ cycles: ['A'] }).species, [], 'a missing list is empty')
 const tab = read('../src/pages/Reports/AquacultureRecordsReportTab.jsx')
 ok(tab.includes('DocumentReport') && tab.includes('reportId="aquaculture_records"'), 'the tab is a document report: preview, signatories, Print Report, Download Report')
 ok(tab.includes('AQUACULTURE_RECORDS_PATH') && tab.includes('FILTER_OPTIONS_PATH'), 'it asks the endpoint and the page\'s filter options')
-for (const label of ['Fisherfolk', 'Species', 'Barangay', 'Pond/Cage Location', 'Ownership', 'Culture Type', 'PCIC Insured', 'Organization', 'Cycle', 'Stocked From', 'Stocked To']) {
+for (const label of ['Fisherfolk', 'Species', 'Barangay', 'Pond/Cage Location', 'Ownership', 'Culture Type', 'PCIC Insured', 'Cooperative', 'Cycle', 'Stocked From', 'Stocked To']) {
   ok(tab.includes(`label="${label}"`) || tab.includes(`>${label}</label>`), `the ${label} filter`)
 }
 ok(tab.includes('Search fisherfolk'), 'a search bar')

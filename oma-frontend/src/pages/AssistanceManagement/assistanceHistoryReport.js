@@ -18,9 +18,9 @@ const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || '')
 // member_count, assistance_type, source_agencies, quantity, summary_status); `filters` is [[label, value]] of what the list was narrowed by
 // (blank values are left out). `organizationName` makes it an organization's own report: each row then says which members received it.
 export function buildDistributionsReportSpec({ noun, distributions, filters = [], organizationName = '', now = new Date() }) {
-  const applied = [...(organizationName ? [['Organization', organizationName]] : []), ...filters]
+  const applied = [...(organizationName ? [['Cooperative', organizationName]] : []), ...filters]
   return buildListReportSpec({
-      title: organizationName ? 'ORGANIZATION ASSISTANCE HISTORY REPORT' : 'ASSISTANCE HISTORY REPORT',
+      title: organizationName ? 'COOPERATIVE ASSISTANCE HISTORY REPORT' : 'ASSISTANCE HISTORY REPORT',
       noun: 'distribution',
       filters: applied,
       head: ['Date Given', 'Given To', 'Assistance Type', 'Source Agency', 'Quantity', 'Recipients', 'Status'],

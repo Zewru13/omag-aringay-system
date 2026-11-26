@@ -442,8 +442,8 @@ export const labels = {
       // Always shown, even when empty -- see CitizenProfileScreen's
       // Reference Information card, which renders this row unconditionally
       // rather than hiding it under the hide-empty rule the other rows use.
-      organizationLabel: 'Organization',
-      organizationNone: 'Not a member of any organization',
+      organizationLabel: 'Cooperative',
+      organizationNone: 'Not a member of any cooperative',
       civilStatusOptions: {
         Single: 'Single',
         Married: 'Married',
@@ -737,14 +737,14 @@ export const labels = {
     recordTypeLabels: {
       FARMER: 'farmer',
       FISHERFOLK: 'fisherfolk',
-      FARMERS_ORG: 'farmers organization',
-      FISHERFOLK_ORG: 'fisherfolk organization',
+      FARMERS_ORG: 'farmers cooperative',
+      FISHERFOLK_ORG: 'fisherfolk cooperative',
     },
     recordTypeLabelsCapitalized: {
       FARMER: 'Farmer',
       FISHERFOLK: 'Fisherfolk',
-      FARMERS_ORG: 'Farmers Organization',
-      FISHERFOLK_ORG: 'Fisherfolk Organization',
+      FARMERS_ORG: 'Farmers Cooperative',
+      FISHERFOLK_ORG: 'Fisherfolk Cooperative',
     },
     recordTypeFallback: 'Record',
     // Legacy tab labels — still used by the ORGANIZATION role, which keeps
@@ -1213,14 +1213,14 @@ export const labels = {
 
   orgReportAssistance: {
     title: 'Report Assistance',
-    chooserSubtitle: 'Choose whether it is for one member or for the whole organization.',
+    chooserSubtitle: 'Choose whether it is for one member or for the whole cooperative.',
     chooseMemberTitle: 'For One Member',
     chooseMemberBody: 'Log assistance received by one particular member.',
-    chooseOrgTitle: 'Distribute to the Whole Organization',
-    chooseOrgBody: (n) => `Distribute assistance to all ${n} members of the organization.`,
+    chooseOrgTitle: 'Distribute to the Whole Cooperative',
+    chooseOrgBody: (n) => `Distribute assistance to all ${n} members of the cooperative.`,
     memberFormTitle: 'For One Member',
     memberFormSubtitle: 'Fill in the assistance details for one member.',
-    orgFormTitle: 'Distribute to the Organization',
+    orgFormTitle: 'Distribute to the Cooperative',
     // Shorter than chooseOrgBody above — the chooser card has the longer
     // body text, the form step has this short subtitle.
     orgFormSubtitle: (n) => `Will be given to all ${n} members.`,
@@ -1277,7 +1277,7 @@ export const labels = {
 
   orgReporting: {
     reportForMemberTitle: 'Report assistance for one member',
-    searchPlaceholder: (personLabelLower) => `Search for a ${personLabelLower} member of the organization by name...`,
+    searchPlaceholder: (personLabelLower) => `Search for a ${personLabelLower} member of the cooperative by name...`,
     searching: 'Searching...',
     noMembersFound: 'No members found.',
     reportAssistance: 'Report assistance',
@@ -1373,7 +1373,7 @@ export const labels = {
       middle_name: 'Middle name',
       last_name: 'Last name',
       barangay: 'Barangay',
-      name: 'Organization name',
+      name: 'Cooperative name',
       street_address: 'Barangay / Street Address',
     },
 
@@ -1385,7 +1385,7 @@ export const labels = {
     // silently imply a single owner.
     passwordCardHeading: 'Password',
     passwordCardNote: 'Optional. You can change your password any time — it is not required.',
-    passwordSharedAccountNote: 'This account is used by the whole organization — whichever officers currently hold the password. Changing the password affects EVERYONE who uses it, not just you.',
+    passwordSharedAccountNote: 'This account is used by the whole cooperative — whichever officers currently hold the password. Changing the password affects EVERYONE who uses it, not just you.',
     passwordCurrentLabel: 'Current password',
     passwordNewLabel: 'New password',
     passwordConfirmLabel: 'Confirm new password',
@@ -1396,11 +1396,11 @@ export const labels = {
 
   // ── Batch: Organization Info screen ────────────────────────────────────
   orgInfo: {
-    title: 'Organization Information',
+    title: 'Cooperative Information',
     registrationNumber: 'Registration Number',
     contactPerson: 'Contact Person',
-    typeBadgeFarmers: 'Farmers Organization',
-    typeBadgeFisherfolk: 'Fisherfolk Organization',
+    typeBadgeFarmers: 'Farmers Cooperative',
+    typeBadgeFisherfolk: 'Fisherfolk Cooperative',
     samahanSubtitleFarmers: 'Farmers Association',
     samahanSubtitleFisherfolk: 'Fisherfolk Association',
     identificationHeading: 'Identification',
@@ -1425,7 +1425,7 @@ export const labels = {
     },
     historyHeading: 'Request History',
     institutionalAccountTitle: 'Shared / Institutional Account',
-    institutionalAccountBody: 'The password of this account is used by the officer who currently holds the credentials. Changing the password affects everyone who uses this account — not just you. Make sure to tell your organization the new password before you update it.',
+    institutionalAccountBody: 'The password of this account is used by the officer who currently holds the credentials. Changing the password affects everyone who uses this account — not just you. Make sure to tell your cooperative the new password before you update it.',
     passwordForInstitutional: 'For the institutional account',
   },
 
@@ -1443,27 +1443,27 @@ export const labels = {
       {
         key: 'add-member',
         q: 'How do I add a member?',
-        a: 'On Home, tap "Add Member". Search by the name or barangay of a registered farmer or fisherfolk and tap the person to pick them; search again for the next person and tap them too. Everyone you pick stays in the list below, and one tap on "Add" at the bottom adds them all together. A farmer or fisherfolk can be a member of more than one organization at the same time — if they already belong to another organization, you will only see it as information, not a warning, and they are not removed from it automatically.',
+        a: 'On Home, tap "Add Member". Search by the name or barangay of a registered farmer or fisherfolk and tap the person to pick them; search again for the next person and tap them too. Everyone you pick stays in the list below, and one tap on "Add" at the bottom adds them all together. A farmer or fisherfolk can be a member of more than one cooperative at the same time — if they already belong to another cooperative, you will only see it as information, not a warning, and they are not removed from it automatically.',
       },
       {
         key: 'assign-officer',
         q: 'How do I assign an officer?',
-        a: 'On Home, tap "Assign Officer". Choose a position (there are 7: President, Vice President, Secretary, Treasurer, Auditor, Board Member, Manager), then choose a member from the list of your organization\'s current members. If someone already holds that position, their assignment will be replaced.',
+        a: 'On Home, tap "Assign Officer". Choose a position (there are 7: President, Vice President, Secretary, Treasurer, Auditor, Board Member, Manager), then choose a member from the list of your cooperative\'s current members. If someone already holds that position, their assignment will be replaced.',
       },
       {
         key: 'assistance-individual-vs-bulk',
         q: 'What is the difference between reporting assistance for one member and for all members?',
-        a: 'Under Members, each member has a "Report Assistance" action — this is for assistance given to one member only. The "Report Assistance" Quick Action on Home is for "Distribute to Organization" — one assistance given to ALL current members of the organization at once. Before you confirm it, you will see a preview of how many members will receive it.',
+        a: 'Under Members, each member has a "Report Assistance" action — this is for assistance given to one member only. The "Report Assistance" Quick Action on Home is for "Distribute to Cooperative" — one assistance given to ALL current members of the cooperative at once. Before you confirm it, you will see a preview of how many members will receive it.',
       },
       {
         key: 'status-lifecycle',
         q: 'What do Pending, Awaiting Confirmation, Confirmed, and Not Received mean?',
-        a: 'While the distribution date is still in the future, the status is "Pending". Once that date arrives it becomes "Awaiting Confirmation" and the member is notified to confirm. When the member confirms they received it, it becomes "Confirmed". If the member says they did not receive it, it becomes "Not Received", and the office and the organization are notified — the office takes the next action. You can see the real status of each recipient in "Reporting History".',
+        a: 'While the distribution date is still in the future, the status is "Pending". Once that date arrives it becomes "Awaiting Confirmation" and the member is notified to confirm. When the member confirms they received it, it becomes "Confirmed". If the member says they did not receive it, it becomes "Not Received", and the office and the cooperative are notified — the office takes the next action. You can see the real status of each recipient in "Reporting History".',
       },
       {
         key: 'request-change',
-        q: 'How do I request a change to the organization information?',
-        a: 'In Organization Information, the logo and contact number change as soon as you save. The name and address go through the office\'s review — tap "Request a Change", enter the new value, and the status "Pending review" is shown until the office approves or rejects it.',
+        q: 'How do I request a change to the cooperative information?',
+        a: 'In Cooperative Information, the logo and contact number change as soon as you save. The name and address go through the office\'s review — tap "Request a Change", enter the new value, and the status "Pending review" is shown until the office approves or rejects it.',
       },
     ],
   },
@@ -1595,7 +1595,7 @@ export const labels = {
     // above) — a separate key rather than editing `appName` itself, since
     // OrgInfoScreen.jsx's untouched old chrome reads that one.
     appNameDisplay: 'OMAg Aringay',
-    dashboardTitle: 'Organization Dashboard',
+    dashboardTitle: 'Cooperative Dashboard',
     typeBadgeFarmers: 'Farmers Org',
     typeBadgeFisherfolk: 'Fisherfolk Org',
     addressLine: (barangay) => `Brgy. ${barangay}, Aringay, La Union`,
@@ -1639,13 +1639,13 @@ export const labels = {
     // places (the tile vs the list-header button).
     addMemberShort: 'Add',
     membersSearchPlaceholder: 'Search by name or barangay...',
-    membersEmpty: 'This organization has no members yet.',
+    membersEmpty: 'This cooperative has no members yet.',
     // Display only. A person who belongs to several organizations has one
     // "main"; only OMAg staff can change it, so there is no action here.
     mainBadge: 'Main',
-    mainBadgeTitle: "This is the member's main organization. Only OMAg staff can change it.",
+    mainBadgeTitle: "This is the member's main cooperative. Only OMAg staff can change it.",
     membersLoading: 'Loading the members...',
-    loadFailed: 'The organization data could not be loaded.',
+    loadFailed: 'The cooperative data could not be loaded.',
     retry: 'Try again',
 
     // Short nav-only labels — the sidebar (desktop) and bottom tab bar
@@ -1667,7 +1667,7 @@ export const labels = {
     reportingHistorySub: 'See past records',
     perMemberRow: 'Report for one member',
     perMemberRowSub: 'When not every member received it',
-    orgInfoRow: 'Organization Information',
+    orgInfoRow: 'Cooperative Information',
     orgInfoRowSub: 'Logo, contact number, name and address',
     backToDashboard: 'Back to the dashboard',
     memberReportAction: 'Report Assistance',
@@ -1696,8 +1696,8 @@ export const labels = {
     // membership is main automatically). Only the organization type
     // differs in the wording — see orgDomainConfig.js's
     // candidateMembershipNote.
-    noticeFarmers: 'A farmer can be a member of more than one Farmers Organization at the same time. Only one is their main organization, and they are not removed from their other organizations when added here.',
-    noticeFisherfolk: 'A fisherfolk can be a member of more than one Fisherfolk Organization at the same time. Only one is their main organization, and they are not removed from their other organizations when added here.',
+    noticeFarmers: 'A farmer can be a member of more than one Farmers Cooperative at the same time. Only one is their main cooperative, and they are not removed from their other cooperatives when added here.',
+    noticeFisherfolk: 'A fisherfolk can be a member of more than one Fisherfolk Cooperative at the same time. Only one is their main cooperative, and they are not removed from their other cooperatives when added here.',
     // Suggestions are matched on a name (any words, any order) or on the
     // registry number itself once enough of it is typed; the response only
     // ever returns the last four characters of that number.
@@ -1715,14 +1715,14 @@ export const labels = {
     capped: 'Only the first 20 are shown. Make your search more specific if the person is not listed.',
     alreadyMember: 'Already a member',
     currentOrgLabel: (orgName) => `Member of ${orgName}`,
-    noCurrentOrg: 'No organization',
+    noCurrentOrg: 'No cooperative',
     addButton: 'Add',
 
     // The server refuses the add when the person's other memberships have
     // no main organization and this one doesn't settle it. Only OMAg staff
     // decide a person's main, so this explains rather than offers a choice.
     mainChoiceRequired: (name) =>
-      `${name} could not be added to this organization. They do not have a main organization set yet, and OMAg staff need to fix this. Please contact the OMAg office.`,
+      `${name} could not be added to this cooperative. They do not have a main cooperative set yet, and OMAg staff need to fix this. Please contact the OMAg office.`,
     addSuccess: (name) => `${name} has been added.`,
     addFailed: 'The member could not be added.',
   },
@@ -1734,7 +1734,7 @@ export const labels = {
   // always be reversed via the same action in reverse.
   orgMemberActive: {
     deactivateTitle: 'Deactivate the member',
-    deactivateBody: (name) => `${name} will be made inactive in this organization. Their record will be kept — you can activate them again at any time.`,
+    deactivateBody: (name) => `${name} will be made inactive in this cooperative. Their record will be kept — you can activate them again at any time.`,
     // Only shown when the member actually holds a position — the backend
     // clears it automatically, so the copy has to say so before the fact.
     officerWarning: (position) => `They are currently the ${position}. This position will also be removed and become vacant.`,
@@ -1743,7 +1743,7 @@ export const labels = {
     deactivateFailed: 'The member could not be deactivated.',
 
     reactivateTitle: 'Reactivate the member',
-    reactivateBody: (name) => `${name} will be made active again in this organization.`,
+    reactivateBody: (name) => `${name} will be made active again in this cooperative.`,
     reactivateConfirm: 'Activate',
     reactivateSuccess: (name) => `${name} has been reactivated.`,
     reactivateFailed: 'The member could not be activated.',
@@ -1756,7 +1756,7 @@ export const labels = {
   // ── Batch 2: Assign Officer ────────────────────────────────────────────
   orgAssignOfficer: {
     title: 'Assign an Officer',
-    pickPosition: 'Choose a position and the member to assign. Only members of your organization can be assigned.',
+    pickPosition: 'Choose a position and the member to assign. Only members of your cooperative can be assigned.',
     positionFieldLabel: 'Position',
     positionPlaceholder: 'Choose a position...',
     memberFieldLabel: 'Member',
@@ -1773,7 +1773,7 @@ export const labels = {
   // Search-as-you-type member picker (Assign Officer, Report Assistance).
   orgPicker: {
     placeholder: 'Name, barangay or number...',
-    empty: 'No matching members. Only members of the organization can be chosen.',
+    empty: 'No matching members. Only members of the cooperative can be chosen.',
     clear: 'Clear selection',
     capped: (n) => `Showing the first ${n}. Narrow your search to see the others.`,
   },
@@ -1826,12 +1826,12 @@ export const labels = {
   // ── CitizenDistributeToOrgModal ────────────────────────────────────────
   distributeAssistance: {
     title: 'Distribute to all members',
-    subtitle: (personLabelLower) => `This will create one assistance record for every current ${personLabelLower} member of your organization.`,
+    subtitle: (personLabelLower) => `This will create one assistance record for every current ${personLabelLower} member of your cooperative.`,
     reviewButton: 'Review the distribution',
     confirmButton: 'Confirm and distribute',
     back: 'Back',
     done: 'Done',
-    organizationLabel: 'Organization',
+    organizationLabel: 'Cooperative',
     currentMembers: 'Current members',
     assistanceSummary: 'Assistance',
     // Batch 2: was an inline ` — ₱X per head` / ` on YYYY-MM-DD` tail on the
@@ -1839,7 +1839,7 @@ export const labels = {
     // go through this file.
     perHeadSummary: (amount) => ` — ₱${amount} per member`,
     onDate: (formatted) => ` on ${formatted}`,
-    willBlock: (count) => `${count} member${Number(count) === 1 ? '' : 's'} will be blocked — they already received the same assistance from another organization in the past 30 days`,
+    willBlock: (count) => `${count} member${Number(count) === 1 ? '' : 's'} will be blocked — they already received the same assistance from another cooperative in the past 30 days`,
     willReceive: (count) => `${count} member${Number(count) === 1 ? '' : 's'} will receive a new record. This cannot be undone automatically — please review carefully before confirming.`,
     fields: {
       assistanceType: 'Type of assistance',
@@ -1873,7 +1873,7 @@ export const labels = {
       results: 'Distribution Results',
     },
     sections: {
-      targetOrg: 'Receiving Organization',
+      targetOrg: 'Receiving Cooperative',
       assistanceDetails: 'Assistance Details',
       confirmDistribution: 'Confirm the Distribution',
       perMemberOutcome: 'Result per Member',

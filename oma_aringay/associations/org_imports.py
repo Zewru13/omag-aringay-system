@@ -167,7 +167,7 @@ def run_member_import(domain, organization, file, dry_run, by_staff=True, user=N
                 continue
             seen.add(key)
             if member_model.objects.filter(organization=organization, **{fk: person}).exists():
-                add(row_num, 'already_member', label, 'Already a member of this organization.')
+                add(row_num, 'already_member', label, 'Already a member of this cooperative.')
                 continue
 
             try:
@@ -197,9 +197,9 @@ def run_member_import(domain, organization, file, dry_run, by_staff=True, user=N
                 # Only staff can choose a main organization (the Add Member form ignores the choice from an
                 # organization account), so an organization is told to ask staff instead.
                 advice = ('add them with the Add Member form.' if by_staff
-                          else "ask OMAg staff to set this person's main organization first.")
+                          else "ask OMAg staff to set this person's main cooperative first.")
                 add(row_num, 'needs_main_choice', label,
-                    f'This person is in other organizations and needs a main-organization choice: {advice}')
+                    f'This person is in other cooperatives and needs a main-cooperative choice: {advice}')
                 continue
             created += 1
             add(row_num, 'ready', label, 'Will be added.' if dry_run else 'Added.')
@@ -288,7 +288,7 @@ def run_equipment_import(domain, organization, file, dry_run, user=None):
             key = (matched, _norm(other_text), condition, quantity, acquired)
             if key in stored:
                 add(row_num, 'already_exists', label,
-                    f'{note}The organization already has this equipment with the same quantity, condition and date.')
+                    f'{note}The cooperative already has this equipment with the same quantity, condition and date.')
                 continue
             if key in seen:
                 add(row_num, 'duplicate_in_file', label, f'{note}This row repeats an earlier row of the file.')
@@ -334,7 +334,7 @@ class MemberImportTemplateView(_OrgImportView):
         self.organization(pk)
         positions = ', '.join(DOMAINS[self.domain]['member_model'].Position.values)
         return _template_response(
-            f'{self.domain}_organization_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
+            f'{self.domain}_cooperative_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
             ['01-033-02-019-000000', 'Member', '2026-01-15'], f'{MEMBER_NOTE_PREFIX} {positions}')
 
 
@@ -346,7 +346,7 @@ class MemberRegistrationTemplateView(APIView):
     def get(self, request):
         positions = ', '.join(DOMAINS[self.domain]['member_model'].Position.values)
         return _template_response(
-            f'{self.domain}_organization_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
+            f'{self.domain}_cooperative_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
             ['01-033-02-019-000000', 'Member', '2026-01-15'], f'{MEMBER_NOTE_PREFIX} {positions}')
 
 
@@ -388,7 +388,7 @@ class EquipmentImportTemplateView(_OrgImportView):
         note = (f'{EQUIPMENT_NOTE_PREFIX} {", ".join(v for v in model.EquipmentName.values if v != "Other")}. '
                 f'Anything else is recorded as Other with your text. Valid conditions: {", ".join(model.Condition.values)}.')
         return _template_response(
-            f'{self.domain}_organization_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
+            f'{self.domain}_cooperative_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
             _equipment_sample(self.domain), note)
 
 
@@ -402,7 +402,7 @@ class EquipmentRegistrationTemplateView(APIView):
         note = (f'{EQUIPMENT_NOTE_PREFIX} {", ".join(v for v in model.EquipmentName.values if v != "Other")}. '
                 f'Anything else is recorded as Other with your text. Valid conditions: {", ".join(model.Condition.values)}.')
         return _template_response(
-            f'{self.domain}_organization_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
+            f'{self.domain}_cooperative_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
             _equipment_sample(self.domain), note)
 
 

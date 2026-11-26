@@ -32,7 +32,7 @@ export default function MyOfficersPage() {
   return (
     <AccountPage
       title="Officers"
-      helper="Who holds each position in your organization now."
+      helper="Who holds each position in your cooperative now."
       action={(
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <Button variant="outline" icon={History} onClick={() => setOpen({ kind: 'history' })}>Officer history</Button>
@@ -47,7 +47,7 @@ export default function MyOfficersPage() {
         onRetry={retry}
         what="your officers"
         actions={(officer) => [{ label: 'End term early', onClick: () => setOpen({ kind: 'end', officer }) }]}
-        empty={{ title: 'No officers yet', hint: 'Assign your organization’s officers from its active members.' }}
+        empty={{ title: 'No officers yet', hint: 'Assign your cooperative’s officers from its active members.' }}
       />
 
       {open?.kind === 'assign' && org && (

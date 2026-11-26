@@ -144,8 +144,8 @@ def _resolve_and_assign_main(member, other_active_qs, person_barangay, explicit_
         return
 
     raise MainChoiceRequired(
-        "This person has no main organization yet, and this organization's barangay does not "
-        "uniquely match theirs — please explicitly choose whether this should be their main organization.",
+        "This person has no main cooperative yet, and this cooperative's barangay does not "
+        "uniquely match theirs — please explicitly choose whether this should be their main cooperative.",
         [
             {
                 'membership_id': m.id,
@@ -275,7 +275,7 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
         farmer = serializer.validated_data['farmer']
         if FarmersOrganizationMember.objects.filter(organization_id=organization_id, farmer=farmer).exists():
             raise serializers.ValidationError(
-                {'detail': 'This farmer is already a member of this organization.'}
+                {'detail': 'This farmer is already a member of this cooperative.'}
             )
         check_position_free('farmers', organization_id, serializer.validated_data.get('position'))
         member = serializer.save(organization_id=organization_id)
@@ -310,7 +310,7 @@ def _set_farmer_member_active(member, is_active, reason=''):
         ).update(
             is_active=False,
             term_end_date=timezone.localdate(),
-            early_exit_reason=reason or 'Organization membership deactivated.',
+            early_exit_reason=reason or 'Cooperative membership deactivated.',
         )
         was_main = member.is_main
         member.is_main = False
@@ -625,7 +625,7 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
         fisherfolk = serializer.validated_data['fisherfolk']
         if FisherfolkOrganizationMember.objects.filter(organization_id=organization_id, fisherfolk=fisherfolk).exists():
             raise serializers.ValidationError(
-                {'detail': 'This fisherfolk is already a member of this organization.'}
+                {'detail': 'This fisherfolk is already a member of this cooperative.'}
             )
         check_position_free('fisherfolk', organization_id, serializer.validated_data.get('position'))
         member = serializer.save(organization_id=organization_id)
@@ -666,7 +666,7 @@ def _set_fisherfolk_member_active(member, is_active, reason=''):
         FisherfolkOrganizationOfficer.objects.filter(member=member, is_active=True).update(
             is_active=False,
             term_end_date=timezone.localdate(),
-            early_exit_reason=reason or 'Organization membership deactivated.',
+            early_exit_reason=reason or 'Cooperative membership deactivated.',
         )
         was_main = member.is_main
         member.is_main = False
@@ -939,7 +939,7 @@ def _chosen_members(members, data, dry_run):
     unknown = sorted(set(ids) - set(roster))
     if unknown:
         raise serializers.ValidationError({
-            'member_ids': [f'Not an active member of this organization: {", ".join(str(i) for i in unknown)}.'],
+            'member_ids': [f'Not an active member of this cooperative: {", ".join(str(i) for i in unknown)}.'],
         })
     chosen = set(ids)
     return [person for person in members if person.id in chosen]
@@ -1040,7 +1040,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
             other_org = prior.distributed_by_organization or getattr(prior, attributed_field)
             block_reason = (
                 f'Already received {prior.assistance_type} from {other_org.name} on '
-                f'{prior.date_given} — within the last 30 days. Only one organization\'s '
+                f'{prior.date_given} — within the last 30 days. Only one cooperative\'s '
                 f'distribution of the same assistance type counts per person in that window.'
             )
 
@@ -1254,7 +1254,7 @@ def _org_import_template_response(filename, sample_row, agency_note):
 
     wb = SafeWorkbook()
     ws = wb.active
-    ws.title = 'Organization Import'
+    ws.title = 'Cooperative Import'
 
     green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
     white_font = Font(color='FFFFFF', bold=True)
@@ -1405,7 +1405,7 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
         reg_number = parsed['registration_number']
         if not reg_number:
             invalid(row_num, 'Registration Number is required for import — it is how duplicate rows/records are '
-                             'detected and how the organization\'s citizen account gets linked.')
+                             'detected and how the cooperative\'s citizen account gets linked.')
             continue
         if len(reg_number) > 15:
             invalid(row_num, f'Registration Number "{reg_number}" is longer than 15 characters.')
@@ -1433,7 +1433,7 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
 
         existing = model.objects.filter(registration_number__iexact=reg_number).first()
         if existing:
-            detail = f'An organization with Registration Number "{reg_number}" already exists (record #{existing.id}, "{existing.name}"). Not created again.'
+            detail = f'A cooperative with Registration Number "{reg_number}" already exists (record #{existing.id}, "{existing.name}"). Not created again.'
             rows_out.append({'row': row_num, 'status': 'duplicate_in_database', 'label': label, 'detail': detail, 'existing_record_id': existing.id})
             continue
 
@@ -1513,7 +1513,7 @@ class FarmersOrganizationImportTemplateView(APIView):
 
     def get(self, request):
         return _org_import_template_response(
-            'farmers_organizations_import_template.xlsx',
+            'farmers_cooperatives_import_template.xlsx',
             FARMERS_ORG_TEMPLATE_SAMPLE,
             'Registration Agency must be one of: SEC / CDA / DOLE',
         )
@@ -1534,7 +1534,7 @@ class FisherfolkOrganizationImportTemplateView(APIView):
 
     def get(self, request):
         return _org_import_template_response(
-            'fisherfolk_organizations_import_template.xlsx',
+            'fisherfolk_cooperatives_import_template.xlsx',
             FISHERFOLK_ORG_TEMPLATE_SAMPLE,
             'Registration Agency must be one of: SEC / CDA / DOLE / BFAR',
         )

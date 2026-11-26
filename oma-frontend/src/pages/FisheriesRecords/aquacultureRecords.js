@@ -19,7 +19,7 @@ export const RECORD_COLUMNS = [
   { key: 'barangay_cell',      label: 'BARANGAY' },
   { key: 'pond_location_cell', label: 'POND/CAGE LOCATION' },
   { key: 'culture_type_cell',  label: 'CULTURE TYPE' },
-  { key: 'organization_cell',  label: 'ORGANIZATION' },
+  { key: 'organization_cell',  label: 'COOPERATIVE' },
   { key: 'date_stocked_cell',  label: 'DATE STOCKED' },
   { key: 'pcic_cell',          label: 'PCIC INSURED' },
 ]

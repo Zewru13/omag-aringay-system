@@ -17,15 +17,15 @@ const farmer = {
 }
 eq(brief(profileSections('farmer', farmer, {})), [
   ['About you', [['Full name', 'request', 'Lourdes Villanueva'], ['Barangay', 'request', 'Santa Cecilia'], ['Contact number', 'edit', null]]],
-  ['Your record', [['RSBSA number', 'fixed', 'DEMO-0010'], ['Date of birth', 'fixed', 'Oct 10, 2026'.replace('2026', '1995')], ['Civil status', 'fixed', 'Widowed'], ['Organization', 'fixed', 'Santa Cecilia Progressive Farmers'], ['Also listed as', 'fixed', 'PWD']]],
+  ['Your record', [['RSBSA number', 'fixed', 'DEMO-0010'], ['Date of birth', 'fixed', 'Oct 10, 2026'.replace('2026', '1995')], ['Civil status', 'fixed', 'Widowed'], ['Cooperative', 'fixed', 'Santa Cecilia Progressive Farmers'], ['Also listed as', 'fixed', 'PWD']]],
 ], 'a farmer: what they can change, then their record; "Unspecified" education is left out, a blank contact number stays')
 eq(profileSections('farmer', farmer, {})[0].rows[0].fields, ['first_name', 'middle_name', 'last_name'], 'the full name is requested as its three parts')
-eq(profileSections('farmer', { ...farmer, organization_names: [] }, {})[1].rows.find((r) => r.label === 'Organization').value, 'Not a member of any organization', 'no organization says so')
+eq(profileSections('farmer', { ...farmer, organization_names: [] }, {})[1].rows.find((r) => r.label === 'Cooperative').value, 'Not a member of any cooperative', 'no cooperative says so')
 
 // ── a fisherfolk: the same, with the FishR number and type
 const fisher = { ...farmer, fishr_number: 'FR-77', fisherfolk_type: 'Fish farmer', is_pwd: false, is_4ps_beneficiary: true, organization_names: [] }
 const fishRecord = profileSections('fisherfolk', fisher, {})[1].rows.map((r) => r.label)
-eq(fishRecord, ['RSBSA number', 'FishR number', 'Type', 'Date of birth', 'Civil status', 'Organization', 'Also listed as'], 'a fisherfolk also sees the FishR number and type')
+eq(fishRecord, ['RSBSA number', 'FishR number', 'Type', 'Date of birth', 'Civil status', 'Cooperative', 'Also listed as'], 'a fisherfolk also sees the FishR number and type')
 eq(profileSections('fisherfolk', fisher, {})[1].rows.at(-1).value, '4Ps beneficiary', '4Ps')
 
 // ── an organization
@@ -34,9 +34,9 @@ const org = {
   registration_number: 'REG-1', registration_agency: 'CDA', date_organized: '2018-10-13', date_registered: null,
 }
 eq(brief(profileSections('orgFarm', org, {})), [
-  ['Organization details', [['Organization name', 'request', 'Alaska Growers'], ['Barangay', 'request', 'Alaska'], ['Street address', 'request', null], ['Email address', 'request', 'a@b.test'], ['Contact person', 'request', 'Ana'], ['Contact number', 'edit', '0917']]],
+  ['Cooperative details', [['Cooperative name', 'request', 'Alaska Growers'], ['Barangay', 'request', 'Alaska'], ['Street address', 'request', null], ['Email address', 'request', 'a@b.test'], ['Contact person', 'request', 'Ana'], ['Contact number', 'edit', '0917']]],
   ['Registration', [['Registration number', 'fixed', 'REG-1'], ['Registration agency', 'fixed', 'CDA — Cooperative Development Authority'], ['Date organized', 'fixed', 'Oct 13, 2018']]],
-], 'an organization: its details (by request) and its registration (fixed, empty ones left out)')
+], 'a cooperative: its details (by request) and its registration (fixed, empty ones left out)')
 
 // ── requests waiting
 const requests = [
@@ -48,16 +48,16 @@ const pending = pendingByField(requests)
 eq(Object.keys(pending).sort(), ['middle_name', 'name'], 'only requests still waiting count')
 eq(profileSections('farmer', farmer, pending)[0].rows[0].pending.id, 1, 'a waiting change to any part of the name holds the Full name row')
 eq(profileSections('farmer', farmer, pending)[0].rows[1].pending, null, 'the barangay request was approved: nothing waits')
-eq(profileSections('orgFarm', org, pending)[0].rows[0].pending.id, 3, "the organization's name waits")
-eq(approvalText(requests[2]), ['Admin: approved Nov 7, 2026 (Ana)', 'Focal Person: still to approve'], 'both approvals of an organization request, in words')
+eq(profileSections('orgFarm', org, pending)[0].rows[0].pending.id, 3, "the cooperative's name waits")
+eq(approvalText(requests[2]), ['Admin: approved Nov 7, 2026 (Ana)', 'Focal Person: still to approve'], 'both approvals of a cooperative request, in words')
 eq(approvalText(requests[0]), [], 'a one-approval request has no lines')
 
 eq(profileHeader('farmer', farmer), { name: 'Lourdes Villanueva', kind: 'Farmer', id: 'RSBSA DEMO-0010' }, 'the header of a farmer')
-eq(profileHeader('orgFish', org), { name: 'Alaska Growers', kind: 'Fisherfolk organization', id: 'Registration REG-1' }, 'the header of an organization')
+eq(profileHeader('orgFish', org), { name: 'Alaska Growers', kind: 'Fisherfolk cooperative', id: 'Registration REG-1' }, 'the header of a cooperative')
 
 // ── the screen
 const page = read('../src/pages/Account/AccountProfilePage.jsx')
-for (const piece of ['/profile/image/', '/profile/contact-number/', '/profile/change-requests/', '/accounts/change-password/', '/accounts/me/', 'PasswordRequirementChecklist', 'Waiting for approval', 'Request a change', 'Log out', 'ProfileRow', 'Change password', 'shared organization account', 'Your change requests', 'Borrow equipment']) {
+for (const piece of ['/profile/image/', '/profile/contact-number/', '/profile/change-requests/', '/accounts/change-password/', '/accounts/me/', 'PasswordRequirementChecklist', 'Waiting for approval', 'Request a change', 'Log out', 'ProfileRow', 'Change password', 'shared cooperative account', 'Your change requests', 'Borrow equipment']) {
   ok(page.includes(piece), `the profile holds ${piece}`)
 }
 ok(!page.includes('EditLegend'), 'no colour key: each row says in words what its button does')
