@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import Toast from "./components/UI/Toast.jsx";
 import InactivityMonitor from "./components/InactivityMonitor.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -7,6 +7,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import AutoLabels from "./components/UI/AutoLabels.jsx";
 import LoginPage from "./pages/Login/LoginPage.jsx";
 import LoadingSpinner from "./components/UI/LoadingSpinner.jsx";
+import { addParcelsAddress } from "./utils/parcelWindowAddress.js";
 
 // Every page except the login page loads when it is opened, so the first visit downloads the shell and the page it lands on, not all of them.
 // A navigation keeps the page you are on until the next one has arrived; only the first load shows the placeholder.
@@ -40,7 +41,6 @@ const CropsRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((
 const ForecastRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.ForecastRoute })));
 const CropInformationPage = lazy(() => import("./pages/CropInformation/CropInformationPage.jsx"));
 const AddCropMonitoringPage = lazy(() => import("./pages/Monitoring/AddCropMonitoringPage.jsx"));
-const AddFarmParcelsPage = lazy(() => import("./pages/CropInformation/AddFarmParcelsPage.jsx"));
 const CropSettingsHub = lazy(() => import("./pages/CropSettings/CropSettingsHub.jsx"));
 const ActivitySettingsHub = lazy(() => import("./pages/ActivitySettings/ActivitySettingsHub.jsx"));
 const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.jsx"));
@@ -70,6 +70,13 @@ function HomeRedirect() {
   // Fisheries Monitoring (reused Admin page, scoped to their own records) by CitizenHomePage.
   if (isFisherfolk) return <Navigate to="/my-account" replace />;
   return <Navigate to={isCitizen ? "/my-account" : "/dashboard"} replace />;
+}
+
+// /farmers/<id>/add-parcels and /crop-records/add-parcels?farmer=<id> were a page; they now open the window.
+function OldAddParcelsAddress() {
+  const { id } = useParams();
+  const [params] = useSearchParams();
+  return <Navigate to={addParcelsAddress(id ? { profileId: id } : { farmerId: params.get("farmer") })} replace />;
 }
 
 // Preserves :type/:id when redirecting the old /associations/:type/:id path
@@ -189,13 +196,12 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Add farm parcels (and their crops) to this farmer, from Register Farmer or the farmer's profile: the Registration > Farmers menu
-              stays selected and Back / Save return to the farmer's profile */}
+          {/* Add Farm Parcels is a window on the farmer's profile and on Crop Records. These two older addresses lead to it. */}
           <Route
             path="/farmers/:id/add-parcels"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <AddFarmParcelsPage />
+                <OldAddParcelsAddress />
               </ProtectedRoute>
             }
           />
@@ -355,12 +361,11 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Add several farm parcels (a table, one row per parcel) to a farmer chosen on the page or by ?farmer=<id> */}
           <Route
             path="/crop-records/add-parcels"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <AddFarmParcelsPage />
+                <OldAddParcelsAddress />
               </ProtectedRoute>
             }
           />

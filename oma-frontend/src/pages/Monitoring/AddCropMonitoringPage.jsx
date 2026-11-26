@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus } from 'lucide-react
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
 import { ownerParcelFill, parcelProblem } from '../CropInformation/parcelRecords.js'
+import { addParcelsAddress } from '../../utils/parcelWindowAddress.js'
 import { areaProblem, defaultPlantingMaterial, needsLandOwner, withParcelStatus } from '../CropInformation/cropEntry.js'
 import CropRecordsTable from './CropRecordsTable.jsx'
 import { buildCropRecordPayload, cropRecordProblem, makeCropRecord } from './cropRecordForm.js'
@@ -354,7 +355,7 @@ export default function AddCropMonitoringPage() {
               <span className="font-semibold">{farmerInfo.farmer_full_name || 'This farmer'} has no farm parcel yet.</span>{' '}
               A crop is recorded on a farm parcel, so add the parcel first, then come back to add the crop.
             </span>
-            <Link to={`/crop-records/add-parcels?farmer=${farmerInfo.farmer_id}`} className="inline-flex min-h-[40px] items-center rounded-lg bg-amber-900 px-3 font-semibold text-white hover:bg-amber-950">
+            <Link to={addParcelsAddress({ farmerId: farmerInfo.farmer_id })} className="inline-flex min-h-[40px] items-center rounded-lg bg-amber-900 px-3 font-semibold text-white hover:bg-amber-950">
               Add farm parcels
             </Link>
           </div>
