@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import Notification
+from .notification_email import email_citizen_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,8 @@ def _safe_bulk(notifications, context):
         Notification.objects.bulk_create(notifications)
     except Exception:
         logger.exception('Notification create failed (non-fatal): %s', context)
+        return
+    email_citizen_notifications(notifications)
 
 
 def notify_staff(actor, verb, record_type, record_id, record_label, detail=''):

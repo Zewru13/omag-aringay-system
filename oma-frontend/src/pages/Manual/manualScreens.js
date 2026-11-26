@@ -546,7 +546,7 @@ export default {
    {
     "n": 5,
     "label": "Set Up Account / Regenerate Password",
-    "desc": "Makes a new random password for the farmer's login account and shows it once on screen, to be read to the farmer. Until an account exists this icon says Set Up Account. Every icon shows its name when you rest the pointer on it."
+    "desc": "First asks for the email the farmer signs in with, then makes a new random password and shows it once on screen, to be read to the farmer. Until an account exists this icon says Set Up Account. The person must sign in and set their own password within 3 days, or it has to be set up again. Every icon shows its name when you rest the pointer on it."
    },
    {
     "n": 6,
@@ -736,7 +736,7 @@ export default {
    {
     "n": 5,
     "label": "Set Up Account / Regenerate Password",
-    "desc": "Makes a new random password for the fisherfolk's login account and shows it once, to be read to them. Until an account exists it says Set Up Account. Rest the pointer on an icon to read its name."
+    "desc": "First asks for the email the fisherfolk signs in with, then makes a new random password and shows it once, to be read to them. Until an account exists it says Set Up Account. The person must sign in and set their own password within 3 days, or it has to be set up again. Rest the pointer on an icon to read its name."
    },
    {
     "n": 6,
@@ -1016,7 +1016,7 @@ export default {
    {
     "n": 2,
     "label": "Set Up Account / Regenerate Password",
-    "desc": "Makes a new random password for the organization's login account and shows it once, to be read to its officer. Until an account exists it says Set Up Account. Rest the pointer on the icon to read its name."
+    "desc": "First asks for the email the organization signs in with, then makes a new random password and shows it once, to be read to its officer. Until an account exists it says Set Up Account. The person must sign in and set their own password within 3 days, or it has to be set up again. Rest the pointer on the icon to read its name."
    },
    {
     "n": 3,
@@ -3416,12 +3416,12 @@ export default {
    {
     "n": 5,
     "label": "Columns",
-    "desc": "Name, email, role, status (Active or Inactive) and Actions."
+    "desc": "Name, email, role and Actions. The Staff tab also has a status column. Farmer, fisherfolk and organization accounts are never deactivated; those tabs list the accounts that are set up."
    },
    {
     "n": 6,
     "label": "Actions menu",
-    "desc": "Edit user changes the details and can turn the account off. Resend verification email sends the verification message again to an account that has not verified its email."
+    "desc": "Edit user changes the details; for a staff account it can also turn the account off. Resend verification email sends the verification message again to an account that has not verified its email."
    }
   ]
  },
@@ -4090,8 +4090,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Email or username",
-    "desc": "The username or email the office gave you."
+    "label": "Email",
+    "desc": "Your email address. Staff may also type their username."
    },
    {
     "n": 2,
@@ -4110,8 +4110,13 @@ export default {
    },
    {
     "n": 5,
+    "label": "Forgot password?",
+    "desc": "Asks for your email and sends it a link to set a new password. The link works once, for 30 minutes."
+   },
+   {
+    "n": 6,
     "label": "Help signing in",
-    "desc": "Ask the Office of the Municipal Agriculturist to check your account or to reset a forgotten password."
+    "desc": "With no account, or if the email does not arrive, visit the Office of the Municipal Agriculturist with a valid ID."
    }
   ]
  },
@@ -4126,8 +4131,8 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Email or username",
-    "desc": "The username or email the office gave you."
+    "label": "Email",
+    "desc": "Your email address. Staff may also type their username."
    },
    {
     "n": 2,
@@ -4143,6 +4148,11 @@ export default {
     "n": 4,
     "label": "Sign in",
     "desc": "Opens your account."
+   },
+   {
+    "n": 5,
+    "label": "Forgot password?",
+    "desc": "Sends a link to your email to set a new password."
    }
   ]
  },

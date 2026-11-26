@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance.js'
 import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
 import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import logo from '../../assets/LOGO OMAg-small.png'
+import AuthCard from '../../components/UI/AuthCard.jsx'
 import Button from '../../components/UI/Button.jsx'
 
 function ForceChangePasswordPage() {
@@ -56,24 +56,20 @@ function ForceChangePasswordPage() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-[#f0fdf4] flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-sm text-center">
-          <img src={logo} alt="OMAg" className="w-16 h-16 object-contain mx-auto mb-4" />
+      <AuthCard>
+        <div className="text-center">
           <p className="text-[15px] font-semibold text-slate-900">Password changed</p>
           <p className="text-[13px] text-slate-500 mt-2">
             Please log in again with your new password.
           </p>
           <Loader2 className="w-5 h-5 animate-spin text-[#1B4D2E] mx-auto mt-4" />
         </div>
-      </div>
+      </AuthCard>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#f0fdf4] flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-sm">
-        <img src={logo} alt="OMAg" className="w-16 h-16 object-contain mx-auto mb-3" />
-
+    <AuthCard>
         <div className="flex items-center justify-center gap-1.5 mb-1">
           <ShieldAlert className="w-4 h-4 text-amber-600" />
           <p className="text-center font-semibold text-slate-900 text-sm">Change Your Password</p>
@@ -145,8 +141,7 @@ function ForceChangePasswordPage() {
         </form>
 
         <p className="text-center text-xs text-slate-300 mt-6">You cannot access the system until this is done.</p>
-      </div>
-    </div>
+    </AuthCard>
   )
 }
 

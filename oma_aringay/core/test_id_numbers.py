@@ -1,6 +1,6 @@
 """RSBSA and FishR numbers are typed by hand: any digit groups separated by single dashes, 20 digits at most. The
 five older RSBSA shapes stay valid. Two spellings of one number (with and without dashes) are the same number
-everywhere it is compared: duplicate checks, login and the imports."""
+everywhere it is compared: duplicate checks and the imports. (A number no longer signs anyone in.)"""
 from datetime import date
 
 from django.core.exceptions import ValidationError
@@ -84,10 +84,10 @@ class SameNumberDifferentSpellingTests(TestCase):
             FisherfolkCreateSerializer().validate_rsbsa_number('013302014058212')
         self.assertIn('already belongs to a registered farmer', str(ctx.exception))
 
-    def test_login_by_rsbsa_number_ignores_the_dashes(self):
+    def test_an_rsbsa_number_no_longer_signs_anyone_in(self):
         user = User.objects.create_user(username='cit-farmer', password='pw', role='CITIZEN', email='cf@x.test')
         UserLinkedRecord.objects.create(
             user=user, record_type=User.LinkedRecordType.FARMER, record_id=self.farmer.id, is_active=True)
         for typed in ('01-33-02-014-058212', '013302014058212'):
-            self.assertEqual(_resolve_login_identifier(typed), user, typed)
-        self.assertIsNone(_resolve_login_identifier('013302014058299'))
+            self.assertIsNone(_resolve_login_identifier(typed), typed)
+        self.assertEqual(_resolve_login_identifier('cf@x.test'), user)

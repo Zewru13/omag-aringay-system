@@ -16,10 +16,10 @@ from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core.idnumbers import by_id_key
 from core.utils import build_text_search_q
 from core.validators import validate_uploaded_image
 
+from . import login_email, setup_window
 from .authentication import OptionalJWTAuthentication
 from .permissions import IsAdmin, IsAdminOrEvaluator
 from .serializers import (
@@ -38,7 +38,7 @@ from .utils import (
     generate_default_password,
     generate_verification_token,
     issue_temporary_password,
-    issue_temporary_password,
+    send_account_ready_email,
     send_new_password_email,
     send_welcome_email,
     temp_password_expired,
@@ -76,70 +76,13 @@ def _deactivate_other_admins(exclude_user_id=None):
     return deactivated
 
 
-def _linked_user_for(record_type, record_id):
-    # Switchable-identity Phase 2: query through UserLinkedRecord — a
-    # database .filter() can't be satisfied by a Python property, which is
-    # what linked_record_type/id remain for every other (attribute-read)
-    # caller. Restricted to the active link, so an RSBSA/registration-number
-    # login always resolves to whichever domain a dual-linked citizen
-    # currently has active, never a dormant second one.
-    return User.objects.filter(
-        linked_records__record_type=record_type, linked_records__record_id=record_id,
-        linked_records__is_active=True,
-    ).first()
-
-
 def _resolve_login_identifier(identifier):
-    """
-    Batch 10: sequential lookup chain, same pattern the original
-    email/username fallback already used — extended with the CITIZEN
-    login identifiers (RSBSA number for Farmer/Fisherfolk, registration
-    number for either organization type). Each of these resolves to a
-    User indirectly, via linked_record_type/linked_record_id — not by
-    matching the identifier against a field on User itself, since User has
-    no RSBSA/registration-number column (see accounts.models.User.get_linked_record).
-    Returns the matching User, or None if nothing matched at all.
-    """
-    from associations.models import FarmersOrganization, FisherfolkOrganization
-    from farmers.models import Farmer
-    from fisheries.models import Fisherfolk
-
-    try:
-        return User.objects.get(email__iexact=identifier)
-    except User.DoesNotExist:
-        pass
-
-    try:
-        return User.objects.get(username__iexact=identifier)
-    except User.DoesNotExist:
-        pass
-
-    # By number without dashes: "013302014058212" signs in the same person as "01-33-02-014-058212".
-    farmer = by_id_key(Farmer.objects.all(), 'rsbsa_number', identifier).first()
-    if farmer:
-        linked = _linked_user_for(User.LinkedRecordType.FARMER, farmer.id)
-        if linked:
-            return linked
-
-    fisherfolk = by_id_key(Fisherfolk.objects.all(), 'rsbsa_number', identifier).first()
-    if fisherfolk:
-        linked = _linked_user_for(User.LinkedRecordType.FISHERFOLK, fisherfolk.id)
-        if linked:
-            return linked
-
-    farmers_org = FarmersOrganization.objects.filter(registration_number__iexact=identifier).first()
-    if farmers_org:
-        linked = _linked_user_for(User.LinkedRecordType.FARMERS_ORG, farmers_org.id)
-        if linked:
-            return linked
-
-    fisherfolk_org = FisherfolkOrganization.objects.filter(registration_number__iexact=identifier).first()
-    if fisherfolk_org:
-        linked = _linked_user_for(User.LinkedRecordType.FISHERFOLK_ORG, fisherfolk_org.id)
-        if linked:
-            return linked
-
-    return None
+    """The account an identifier signs in. Farmers, fisherfolk and organizations sign in with their e-mail only; staff
+    may use their e-mail or their username. RSBSA and registration numbers do not sign anyone in. None if no match."""
+    if not identifier:
+        return None
+    return (User.objects.filter(email__iexact=identifier).first()
+            or User.objects.filter(username__iexact=identifier).exclude(role=User.Roles.CITIZEN).first())
 
 
 class LoginRateThrottle(ScopedRateThrottle):
@@ -191,7 +134,7 @@ class LoginIpRateThrottle(SimpleRateThrottle):
 # The one answer for "no such account" and "wrong password", so the login form cannot be used to find out who is
 # registered. (Account states that need a human to act, such as "not activated yet", are only revealed after the
 # correct password has been given.)
-LOGIN_FAILED = 'Incorrect login details. Check your email, username, RSBSA number or registration number, and your password.'
+LOGIN_FAILED = 'Incorrect email or password. Farmers, fisherfolk and organizations sign in with their email address.'
 _DUMMY_PASSWORD_HASH = None
 
 
@@ -238,16 +181,19 @@ class LoginView(APIView):
         # A temporary password past its expiry no longer works. Checked only after the password itself
         # is right, so a wrong guess never learns whether the account's password has expired.
         if temp_password_expired(db_user):
+            if setup_window.cancel_if_overdue(db_user):
+                return Response({'detail': setup_window.CANCELLED, 'code': 'setup_expired'},
+                                status=status.HTTP_403_FORBIDDEN)
             return Response(
                 {
-                    'detail': 'This temporary password has expired. Ask the Office of the Municipal Agriculturist for a new one.',
+                    'detail': 'This temporary password has expired. Choose "Forgot password?" to set a new one, or ask the Office of the Municipal Agriculturist.',
                     'code': 'temp_password_expired',
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Email verification is an ADMIN/EVALUATOR-only concept — CITIZEN
-        # accounts have no email at all (is_email_verified stays at its
+        # Email verification is an ADMIN/EVALUATOR-only concept — a CITIZEN's
+        # email is checked in person by staff (is_email_verified stays at its
         # default False forever for this role by design; see
         # create_citizen_accounts and ActivateCitizenAccountView). Gating
         # this check on role, not touching it for the two existing roles.
@@ -357,6 +303,12 @@ class MeView(APIView):
         # confirm the caller's current password before either takes effect.
         # Not required for full_name/contact_number, which carry no
         # account-identity or verification/reset consequence.
+        # A citizen's sign-in e-mail is checked by the office, so it is changed there, not here.
+        if request.user.role == User.Roles.CITIZEN and ('email' in request.data or 'username' in request.data):
+            return Response(
+                {'email': ['Ask the Office of the Municipal Agriculturist to change the email you sign in with.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if 'email' in request.data or 'username' in request.data:
             current_password = request.data.get('current_password')
             if not current_password:
@@ -433,6 +385,10 @@ class ChangePasswordView(APIView):
 
         current_password = serializer.validated_data['current_password']
         new_password = serializer.validated_data['new_password']
+
+        if setup_window.cancel_if_overdue(request.user):
+            return Response({'detail': setup_window.CANCELLED, 'code': 'setup_expired'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if not request.user.check_password(current_password):
             return Response(
@@ -528,8 +484,10 @@ class UserListView(generics.ListAPIView):
         # base queryset (rather than duplicated per role branch below)
         # so it applies consistently whether the request asks for one
         # specific citizen type or role=All.
+        # Citizen accounts are set up or not set up (never "deactivated"): only the set-up ones are listed.
+        setup_window.cancel_overdue_setups()
         qs = User.objects.exclude(
-            Q(role=User.Roles.CITIZEN) & Q(password__startswith=UNUSABLE_PASSWORD_PREFIX)
+            Q(role=User.Roles.CITIZEN) & (Q(is_active=False) | Q(password__startswith=UNUSABLE_PASSWORD_PREFIX))
         ).order_by('-date_joined')
         role = self.request.query_params.get('role')
         is_active = self.request.query_params.get('is_active')
@@ -565,7 +523,7 @@ class UserListView(generics.ListAPIView):
         if status == 'active':
             qs = qs.filter(is_active=True)
         elif status == 'deactivated':
-            qs = qs.filter(is_active=False).filter(Q(is_email_verified=True) | Q(role=User.Roles.CITIZEN))
+            qs = qs.filter(is_active=False, is_email_verified=True)
         elif status == 'unverified':
             qs = qs.filter(is_email_verified=False).exclude(role=User.Roles.CITIZEN)
         if search:
@@ -648,6 +606,9 @@ class UserReactivateView(APIView):
 
     def post(self, request, id):
         user = get_object_or_404(User, pk=id)
+        if user.role == User.Roles.CITIZEN:
+            return Response({'detail': 'Citizen accounts are not reactivated. Use Set Up Account on their record.'},
+                            status=status.HTTP_400_BAD_REQUEST)
         if user.is_active:
             return Response(
                 {'detail': 'This account is already active.'},
@@ -697,12 +658,21 @@ class SetCitizenPasswordView(APIView):
                 {'detail': 'This account is already active.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            email = login_email.checked_login_email(user, request.data.get('email'))
+        except login_email.LoginEmailError as exc:
+            return Response({'email': [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
 
-        user.is_active = True
-        generated_password = issue_temporary_password(user)
+        with transaction.atomic():
+            login_email.apply_login_email(user, email)
+            user.is_active = True
+            generated_password = issue_temporary_password(user)
+        email_sent, _reason = send_account_ready_email(user)
 
         return Response({
             'user': UserSerializer(user).data,
+            'email': email,
+            'email_sent': email_sent,
             'generated_password': generated_password,
             'detail': 'Account is now active. Read the password aloud to the person and relay it in person.',
         })
@@ -730,8 +700,15 @@ class RegenerateCitizenPasswordView(APIView):
                 {'detail': 'This account has not been activated yet — use Set Up Account first.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            email = login_email.checked_login_email(user, request.data.get('email'))
+        except login_email.LoginEmailError as exc:
+            return Response({'email': [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
 
-        generated_password = issue_temporary_password(user)
+        email_changed = email != login_email.normalize(user.email)
+        with transaction.atomic():
+            login_email.apply_login_email(user, email)
+            generated_password = issue_temporary_password(user)
         # The old password is gone, so every session started with it must stop working too (same policy
         # as ChangePasswordView: a failure here is logged and never turns the reissue into an error).
         try:
@@ -739,8 +716,12 @@ class RegenerateCitizenPasswordView(APIView):
         except Exception:
             logger.exception('Token blacklist failed after password regeneration (non-fatal): user_id=%s', user.pk)
 
+        email_sent = send_account_ready_email(user)[0] if email_changed else None
+
         return Response({
             'user': UserSerializer(user).data,
+            'email': email,
+            'email_sent': email_sent,
             'generated_password': generated_password,
             'detail': 'Password regenerated. Read it aloud to the person and relay it in person.',
         })

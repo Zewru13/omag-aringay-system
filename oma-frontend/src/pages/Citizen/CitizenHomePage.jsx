@@ -27,11 +27,7 @@ export default function CitizenHomePage() {
     <div className="min-h-screen bg-cz-page">
       <header className="flex items-center justify-between border-b-[0.5px] border-cz-border bg-cz-surface px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="OMAg" className="h-8 w-8 rounded-md object-contain ring-1 ring-cz-border" />
-          <div>
-            <p className="text-[14px] font-semibold leading-tight text-cz-text">{labels.header.appName}</p>
-            <p className="text-[11px] text-cz-text-2">{labels.header.tagline}</p>
-          </div>
+          <img src={logo} alt="OMAg Aringay seal" className="h-12 w-12 shrink-0 rounded-md object-contain ring-1 ring-cz-border" />
         </div>
         <button
           type="button"

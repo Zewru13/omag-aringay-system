@@ -221,12 +221,9 @@ export function CitizenTabBar({ theme, active, items }) {
 function StaticHeaderBar({ theme }) {
   const { onProfile } = useContext(CitizenNavContext)
   return (
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-1.5">
-        <img src={omagLogo} alt="OMAg" className="h-5 w-5 shrink-0 rounded-[4px] object-cover" />
-        <span className="text-[13px] font-semibold text-white">{labels.header.appName}</span>
-      </span>
-      <div className="flex items-center gap-1">
+    <div className="flex items-center justify-between gap-2">
+      <img src={omagLogo} alt="OMAg Aringay seal" className="h-10 w-10 shrink-0 rounded-[8px] object-cover" />
+      <div className="flex shrink-0 items-center gap-1">
         <NotificationBell />
         <button
           type="button"

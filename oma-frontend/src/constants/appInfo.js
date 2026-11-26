@@ -1,8 +1,11 @@
-// What the system is called in full. The narrow top bars keep the short name "OMAg Aringay"; everywhere there is room
-// (browser tab, sign-in page, Help, printed headers) the full name is used. The backend has the same text in
-// core.constants.SYSTEM_TITLE for PDFs and emails.
+// What the system is called. It is the main name on the sign-in page and the other pages outside the system; the headers
+// inside the system show the seal only. SYSTEM_TITLE is the capitals form for printed
+// papers (the backend has the same text in core.constants.SYSTEM_TITLE for PDFs and emails); SYSTEM_TITLE_READABLE is
+// the same words for headings on screen.
+export const SYSTEM_TITLE_READABLE =
+  'Integrated Agricultural Monitoring Management System for the Office of Municipal Agriculturist of Aringay, La Union'
 export const SYSTEM_TITLE =
-  'INTEGRATED AGRICULTURAL MONITORING MANAGEMENT SYSTEM FOR THE OFFICE OF MUNICIPAL AGRICULTURIST OF AGRINGAY, LA UNION'
+  'INTEGRATED AGRICULTURAL MONITORING MANAGEMENT SYSTEM FOR THE OFFICE OF MUNICIPAL AGRICULTURIST OF ARINGAY, LA UNION'
 
 // Who built the system, shown in Help > About This System. The main developer is the person the office contacts about
 // extending or changing the system.

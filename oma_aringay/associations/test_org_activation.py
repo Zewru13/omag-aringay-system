@@ -81,21 +81,21 @@ class OrgActivationTests(APITestCase):
             self.assertTrue(user.is_active)
             self.assertTrue(user.must_change_password)
             self.assertIsNotNone(user.temp_password_expires_at)
-            self.assertFalse(user.email)
+            self.assertEqual(user.email, body['email_address'])
             self.assertEqual(len(mail.outbox), 1)
             message = mail.outbox[0]
             self.assertEqual(message.to, [body['email_address']])
             self.assertNotIn('http', message.body)
             password = re.search(r'Temporary password: (\S+)', message.body).group(1)
             self.assertRegex(password, FORMAT)
-            self.assertIn(body['registration_number'], message.body)
+            self.assertIn(f"Email: {body['email_address']}", message.body)
             activation = response.data['activation']
             self.assertTrue(activation['activated'])
             self.assertTrue(activation['email_sent'])
             self.assertNotIn('default_password', activation)
             self.assertNotIn(password, response.content.decode())
             self.client.force_authenticate(None)
-            login = self.client.post('/api/accounts/login/', {'username': body['registration_number'], 'password': password})
+            login = self.client.post('/api/accounts/login/', {'email': body['email_address'], 'password': password})
             self.assertEqual(login.status_code, 200, (domain, login.content))
             self.client.force_authenticate(self.staff)
 
@@ -126,17 +126,25 @@ class OrgActivationTests(APITestCase):
         self.assertNotIn(activation['default_password'], again.content.decode())
 
     @override_settings(**MAIL)
-    def test_email_equal_to_existing_user_email_does_not_collide(self):
+    def test_an_email_another_account_signs_in_with_is_refused(self):
         get_user_model().objects.create_user(
             username='someone-else', password='pw', role='EVALUATOR', email='shared@example.test')
         mail.outbox.clear()
-        response = self.client.post('/api/organizations/farmers/', payload(email_address='shared@example.test'),
-                                    format='json')
-        self.assertEqual(response.status_code, 201, response.content)
-        self.assertEqual([m.to for m in mail.outbox], [['shared@example.test']])
-        user = linked_user('FARMERS_ORG', FarmersOrganization.objects.get(pk=response.data['id']))
-        self.assertFalse(user.email)
-        self.assertTrue(user.is_active)
+        body = payload(email_address='Shared@example.test')
+        response = self.client.post('/api/organizations/farmers/', body, format='json')
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn('email_address', response.data)
+        self.assertFalse(FarmersOrganization.objects.filter(registration_number=body['registration_number']).exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(**MAIL)
+    def test_two_rows_of_one_file_cannot_share_an_email(self):
+        file = workbook([import_row('IMPG-0001', 'same@example.test'), import_row('IMPG-0002', 'same@example.test')])
+        response = self.client.post('/api/organizations/farmers/import/', {'file': file}, format='multipart')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.data['created'], 1)
+        self.assertEqual([r['status'] for r in response.data['rows']], ['ready', 'invalid'])
+        self.assertEqual([m.to for m in mail.outbox], [['same@example.test']])
 
     @override_settings(**MAIL)
     def test_import_activates_rows_with_email(self):
@@ -172,7 +180,7 @@ class OrgActivationTests(APITestCase):
         self.assertTrue(bad.is_active)
         handover = response.data['credentials_to_hand_over']
         self.assertEqual(len(handover), 1)
-        self.assertEqual(handover[0]['login'], 'IMPB-0001')
+        self.assertEqual(handover[0]['login'], 'bad@example.test')
         self.assertEqual(handover[0]['reason'], 'rejected')
         self.assertTrue(bad.check_password(handover[0]['default_password']))
 
@@ -207,7 +215,7 @@ class OrgActivationTests(APITestCase):
         handover = response.data['credentials_to_hand_over']
         self.assertEqual(len(handover), 5)
         for item in handover:
-            org = FarmersOrganization.objects.get(registration_number=item['login'])
+            org = FarmersOrganization.objects.get(email_address=item['login'])
             self.assertTrue(linked_user('FARMERS_ORG', org).check_password(item['default_password']))
             self.assertTrue(item['reason'])
 

@@ -4,6 +4,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from core.gmail_relay import usable_relay
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Loads oma_aringay/.env if present (gitignored — never commit real
@@ -299,6 +301,10 @@ REST_FRAMEWORK = {
         # "Send me a new verification link": per e-mail address, and per network address.
         'resend_email': '3/hour',
         'resend_ip': '20/hour',
+        # "Forgot password": links asked for one address, and from one network address (see accounts.password_reset).
+        'reset_email': '3/hour',
+        'reset_ip': '20/hour',
+        'reset_confirm_ip': '30/hour',
     },
     # How many reverse proxies stand in front of Django. 0 = none: the client address is REMOTE_ADDR and any
     # X-Forwarded-For header is ignored. (DRF's default, None, believes whatever header a visitor sends, which lets
@@ -341,11 +347,20 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or (
     else 'OMA Aringay System <noreply@omaaringay.local>'
 )
 
-SMTP_CONFIGURED = bool(EMAIL_HOST_USER and EMAIL_HOST_PASSWORD)
-EMAIL_BACKEND = (
-    'django.core.mail.backends.smtp.EmailBackend' if SMTP_CONFIGURED
-    else 'django.core.mail.backends.console.EmailBackend'
-)
+# Hosts that block the mail ports (Render's free plan) send over HTTPS instead, through a Google Apps Script in the
+# office's own Google account (scripts/email-relay/README.md). When it is configured it is used instead of SMTP.
+EMAIL_RELAY_URL = os.environ.get('EMAIL_RELAY_URL', '').strip()
+EMAIL_RELAY_SECRET = os.environ.get('EMAIL_RELAY_SECRET', '').strip()
+_USE_EMAIL_RELAY = usable_relay(EMAIL_RELAY_URL, EMAIL_RELAY_SECRET)
+
+# SMTP_CONFIGURED means "real e-mail delivery is configured", by either route.
+SMTP_CONFIGURED = _USE_EMAIL_RELAY or bool(EMAIL_HOST_USER and EMAIL_HOST_PASSWORD)
+if _USE_EMAIL_RELAY:
+    EMAIL_BACKEND = 'core.gmail_relay.GmailRelayBackend'
+elif SMTP_CONFIGURED:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Base URL of the frontend app, used to build verification links
 # (http://<host>/verify-email?token=...) embedded in outgoing emails.
@@ -363,6 +378,13 @@ FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', '').rstrip('/')
 
 # How long an email-verification token stays valid.
 EMAIL_VERIFICATION_TOKEN_HOURS = int(os.environ.get('EMAIL_VERIFICATION_TOKEN_HOURS', '72'))
+
+# How long a "forgot password" link works (it also stops working as soon as it is used).
+PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_MINUTES', '30')) * 60
+
+# A citizen account that staff set up must be verified (own password set) within this many days, or the setup is
+# cancelled (see accounts.setup_window).
+CITIZEN_SETUP_VALID_DAYS = int(os.environ.get('CITIZEN_SETUP_VALID_DAYS', '3'))
 
 # How long a system-issued temporary password can still be used to log in.
 TEMP_PASSWORD_VALID_DAYS = int(os.environ.get('TEMP_PASSWORD_VALID_DAYS', '7'))

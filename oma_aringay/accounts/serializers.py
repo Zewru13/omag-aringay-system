@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from core.validators import validate_contact_number
 
+from . import login_email
+
 
 User = get_user_model()
 
@@ -214,8 +216,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return _validate_contact(value, self.instance)
 
+    def validate_is_active(self, value):
+        if self.instance and self.instance.role == User.Roles.CITIZEN and value != self.instance.is_active:
+            raise serializers.ValidationError('Citizen accounts are not deactivated.')
+        return value
+
     def validate_email(self, value):
-        value = value.strip().lower()
+        value = (value or '').strip().lower()
+        if not value and self.instance and self.instance.role == User.Roles.CITIZEN:
+            raise serializers.ValidationError(login_email.REQUIRED)
         qs = User.objects.filter(email__iexact=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -224,9 +233,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
-        if 'email' in validated_data:
+        citizen = instance.role == User.Roles.CITIZEN
+        if 'email' in validated_data and not citizen:
             instance.username = validated_data['email']
-        return super().update(instance, validated_data)
+        user = super().update(instance, validated_data)
+        if citizen and 'email' in validated_data:
+            login_email.apply_login_email(user, user.email)          # the record shows the same address
+        return user
 
 
 class MeUpdateSerializer(serializers.ModelSerializer):

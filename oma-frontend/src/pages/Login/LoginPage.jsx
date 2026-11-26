@@ -1,33 +1,11 @@
 import { useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import {
-  AlertCircle,
-  CheckCircle2,
-  CloudLightning,
-  Eye,
-  EyeOff,
-  Fish,
-  HandHeart,
-  Loader2,
-  Lock,
-  MailWarning,
-  Sprout,
-  TriangleAlert,
-  User,
-} from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, MailWarning, TriangleAlert } from "lucide-react";
 import api from "../../api/axiosInstance.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import logo from "../../assets/LOGO OMAg-small.png";
 import LoginArt from "./LoginArt.jsx";
-import { SYSTEM_TITLE } from "../../constants/appInfo.js";
-
-// What the system covers, shown beside the form so a first-time visitor knows where they are.
-const MODULES = [
-  { icon: Sprout, label: "Crop monitoring" },
-  { icon: Fish, label: "Fisheries" },
-  { icon: CloudLightning, label: "Disaster reports" },
-  { icon: HandHeart, label: "Assistance" },
-];
+import { SYSTEM_TITLE_READABLE } from "../../constants/appInfo.js";
 
 const FIELD =
   "w-full h-12 rounded-[var(--radius-sm)] border border-border-strong bg-surface pl-11 pr-3.5 text-[16px] split:text-[15px] text-text-primary placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:bg-surface-2";
@@ -86,14 +64,14 @@ function LoginPage() {
       if (err.code === "email_not_verified") {
         setNeedsVerification(true);
         setError(err.message);
-      } else if (err.code === "citizen_not_activated" || err.code === "temp_password_expired") {
+      } else if (["citizen_not_activated", "temp_password_expired", "setup_expired"].includes(err.code)) {
         fail(err.message);
       } else if (err.status === 429) {
         fail("Too many sign-in attempts. Please wait a minute and try again.");
       } else if (err.status === undefined || err.status >= 500) {
         fail("The server could not be reached or had a problem. This is not your password — please try again in a moment.");
       } else {
-        fail("Invalid email, username, or password. Please try again.");
+        fail("Incorrect email or password. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -116,31 +94,11 @@ function LoginPage() {
       <aside className="relative hidden overflow-hidden split:block">
         <LoginArt className="absolute inset-0 h-full w-full" />
         <div className="relative z-10 flex h-full min-h-dvh flex-col px-12 py-12 lg:px-16">
-          <div className="login-rise flex items-center gap-3" style={{ "--i": 0 }}>
-            <img src={logo} alt="" className="h-12 w-12 rounded-lg bg-white/95 object-contain p-0.5" />
-            <p className="text-[13px] font-medium tracking-wide text-white/80">Municipality of Aringay, La Union</p>
-          </div>
-
-          <div className="mt-16 max-w-md">
-            <h2 className="login-rise text-[44px] font-bold leading-[1.05] tracking-tight text-white lg:text-[52px]" style={{ "--i": 1 }}>
-              OMAg
-              <br />
-              Aringay
-            </h2>
-            <p className="login-rise mt-4 text-[13px] font-medium uppercase leading-relaxed tracking-wide text-white/85" style={{ "--i": 2 }}>
-              {SYSTEM_TITLE}
+          <div className="my-auto max-w-lg">
+            <img src={logo} alt="OMAg Aringay seal" className="login-rise h-32 w-32 rounded-2xl bg-white/95 object-contain p-1.5 lg:h-36 lg:w-36" style={{ "--i": 0 }} />
+            <p className="login-rise mt-8 text-balance text-[30px] font-bold leading-[1.18] tracking-tight text-white lg:text-[38px]" style={{ "--i": 1 }}>
+              {SYSTEM_TITLE_READABLE}
             </p>
-
-            <ul className="login-rise mt-8 grid grid-cols-2 gap-x-6 gap-y-3" style={{ "--i": 3 }}>
-              {MODULES.map(({ icon: Icon, label }) => (
-                <li key={label} className="flex items-center gap-2.5 text-[14px] text-white/90">
-                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-white/12">
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  {label}
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </aside>
@@ -148,14 +106,13 @@ function LoginPage() {
       {/* ── Sign-in ─────────────────────────────────────────────────────── */}
       <main className="flex min-h-dvh flex-col split:min-h-0 split:justify-center split:bg-surface">
         {/* Phone: the picture becomes a short banner with the seal and name */}
-        <header className="relative h-[200px] flex-none overflow-hidden short:h-24 split:hidden">
+        <header className="relative flex-none overflow-hidden split:hidden">
           <LoginArt variant="banner" className="absolute inset-0 h-full w-full" />
-          <div className="relative z-10 flex h-full items-start gap-3 px-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
-            <img src={logo} alt="" className="h-11 w-11 flex-none rounded-lg bg-white/95 object-contain p-0.5" />
-            <div className="text-white">
-              <p className="text-[17px] font-bold leading-tight tracking-tight">OMAg Aringay</p>
-              <p className="mt-1 max-w-[17rem] text-[10px] font-medium uppercase leading-snug tracking-wide text-white/80 short:hidden">{SYSTEM_TITLE}</p>
-            </div>
+          <div className="relative z-10 flex flex-col items-center px-6 pb-14 pt-[max(1.5rem,env(safe-area-inset-top))] text-center short:flex-row short:gap-3 short:pb-10 short:text-left">
+            <img src={logo} alt="OMAg Aringay seal" className="h-24 w-24 flex-none rounded-2xl bg-white/95 object-contain p-1 short:h-14 short:w-14" />
+            <p className="mt-3 max-w-[22rem] text-balance text-[17px] font-bold leading-snug text-white short:mt-0 short:max-w-none short:text-[13px]">
+              {SYSTEM_TITLE_READABLE}
+            </p>
           </div>
         </header>
 
@@ -165,7 +122,7 @@ function LoginPage() {
               Sign in
             </h1>
             <p className="login-rise mt-1.5 text-[14px] leading-relaxed text-text-secondary" style={{ "--i": 1 }}>
-              Use the username or email OMAg gave you.
+              Use your email and password. Staff may also use a username.
             </p>
             {notice && (
               <p role="status" className="login-rise mt-4 rounded-[var(--radius-sm)] border border-primary/20 bg-primary-light px-3.5 py-3 text-[13px] leading-snug text-primary" style={{ "--i": 1 }}>
@@ -176,10 +133,10 @@ function LoginPage() {
             <form onSubmit={handleSubmit} className="mt-8" noValidate>
               <div className="login-rise" style={{ "--i": 2 }}>
                 <label htmlFor="login-email" className="mb-1.5 block text-[13px] font-medium text-text-primary">
-                  Email or username
+                  Email
                 </label>
                 <div className="relative">
-                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-text-muted" aria-hidden="true" />
                   <input
                     id="login-email"
                     type="text"
@@ -234,6 +191,15 @@ function LoginPage() {
                       <Eye key="on" className="login-icon h-[18px] w-[18px]" aria-hidden="true" />
                     )}
                   </button>
+                </div>
+                <div className="mt-1 flex justify-end">
+                  <Link
+                    to="/forgot-password"
+                    state={{ email: email.includes("@") ? email.trim() : "" }}
+                    className="flex min-h-9 items-center text-[13px] font-semibold text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
                 {capsOn && (
                   <p id="login-caps" className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--color-semantic-warning)]" role="status">
@@ -292,7 +258,7 @@ function LoginPage() {
             </form>
 
             <p className="login-rise mt-8 border-t border-border pt-5 text-[13px] leading-relaxed text-text-secondary" style={{ "--i": 5 }}>
-              Can&apos;t sign in? Ask the Office of the Municipal Agriculturist to check your account or reset your password.
+              No account yet, or the reset email does not arrive? Visit the Office of the Municipal Agriculturist with a valid ID.
             </p>
           </div>
         </div>
