@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from accounts.utils import send_organization_credentials_email
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(SMTP_CONFIGURED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class CredentialsEmailDateTests(TestCase):
     def send(self, expires_at):
         org = SimpleNamespace(contact_person='Pat', name='Test Org', registration_number='REG-1', email_address='org@x.test')
