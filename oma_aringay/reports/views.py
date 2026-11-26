@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator, IsStaffOrFarmer, IsStaffOrFisherfolk, farmer_scope
 from core.utils import accumulate_yield_group, filter_date_range, new_yield_group, possible_factors_text
 from production.forecast_filters import filter_forecast_status
+from farmers.machinery_labels import ownership_label
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, Pond, TripSpeciesEntry
 from interventions.models import (
@@ -286,7 +287,7 @@ class FarmerProfileReport(APIView):
                     mach_rows = []
                     for m in machinery:
                         nm = (m.machinery_type_other or 'Other') if m.machinery_type == 'Other' else m.machinery_type
-                        mach_rows.append([fmt_field(nm), fmt_field(m.quantity), fmt_field(m.ownership)])
+                        mach_rows.append([fmt_field(nm), fmt_field(m.quantity), fmt_field(ownership_label(m.ownership))])
                     story.append(build_ledger_table(
                         ['Type', 'Qty', 'Ownership'],
                         mach_rows,
@@ -1877,7 +1878,7 @@ class HarvestedCropReport(APIView):
             elif yield_performance == 'below':
                 records = [r for r in records if (_ratio(r) is not None) and _ratio(r) < D('0.90')]
         headers = [
-            'Barangay', 'Farmer', 'Organization',
+            'Barangay', 'Farmer', 'Cooperative',
             'Crop', 'Area Planted (ha)', 'Area Harvested (ha)',
             'Est. Harvest Date', 'Actual Harvest Date',
             'Quantity Harvested', 'Unit of Measure',
@@ -1968,7 +1969,7 @@ class HarvestedCropReport(APIView):
         applied = [f'{label}: {q.get(param).strip()}' for param, label in (
             ('barangay', 'Barangay'), ('crop_name', 'Crop'), ('yield_performance', 'Yield performance')) if (q.get(param) or '').strip()]
         if (q.get('organization') or '').strip():
-            applied.append('Organization filter applied')
+            applied.append('Cooperative filter applied')
         doc = make_document(
             'Harvested Crop Report', ' · '.join(applied) or 'All harvested records',
             [['Crop Records', len(records)], ['Total Estimated Yield (kg)', f'{total:,.2f}'], ['Barangay with Highest Yield', top]],
@@ -2055,7 +2056,7 @@ class FisheriesProductionReport(APIView):
         records = list(qs)
 
         headers = [
-            'BARANGAY', 'FISHERFOLK', 'ORGANIZATION',
+            'BARANGAY', 'FISHERFOLK', 'COOPERATIVE',
             'SPECIES', 'CULTURE TYPE',
             'DATE STOCKED', 'HARVEST DATE',
             'QUANTITY (KG)',
@@ -2105,13 +2106,13 @@ class FisheriesProductionReport(APIView):
         total_kg = sum(row[7] for row in rows)
         applied = [f'{label}: {q.get(param).strip()}' for param, label in (
             ('barangay', 'Barangay'), ('culture_type', 'Culture type')) if (q.get(param) or '').strip()]
-        for param, label in (('species', 'Species'), ('organization', 'Organization')):
+        for param, label in (('species', 'Species'), ('organization', 'Cooperative')):
             if (q.get(param) or '').strip():
                 applied.append(f'{label} filter applied')
         doc = make_document(
             'Fisheries Production Report', ' · '.join(applied) or 'All harvest records',
             [['Total Harvest Records', len(rows)], ['Total Quantity (kg)', f'{total_kg:,.2f}']],
-            [{'title': 'Harvest Records', 'headers': ['Barangay', 'Fisherfolk', 'Organization', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)'],
+            [{'title': 'Harvest Records', 'headers': ['Barangay', 'Fisherfolk', 'Cooperative', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)'],
               'rows': rows,
               'empty': 'No harvest records match these filters.'}],
             heading='Fisheries Production Report', period=period_text(start_date, end_date),

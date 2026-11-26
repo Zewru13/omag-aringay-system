@@ -131,7 +131,7 @@ export function buildHarvestReportSpec({ record, harvest, reason, notes, recorde
     { title: 'Farmer', rows: keep([
       ['Name', record.farmer_name || record.farmer_full_name],
       ['Barangay', record.farmer_barangay],
-      ['Organization', record.organization_name || record.farmer_organization_name],
+      ['Cooperative', record.organization_name || record.farmer_organization_name],
     ]) },
     { title: 'Crop', rows: keep([
       ['Crop', record.crop_type_name],

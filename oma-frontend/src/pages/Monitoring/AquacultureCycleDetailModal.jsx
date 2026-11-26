@@ -114,7 +114,7 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
 
   const fields = [
     { label: 'Fisherfolk', value: cycle.fisherfolk_name },
-    { label: 'Organization', value: cycle.organization_name },
+    { label: 'Cooperative', value: cycle.organization_name },
     { label: 'Cycle Name', value: cycle.cycle_name },
     { label: 'Status', value: <StatusPill tone={CYCLE_STATUS_TONES[cycle.status] || 'slate'}>{cycle.status}</StatusPill>, hidden: hideStatus },
     { label: 'Species', value: cycle.species_display || cycle.species_farmed },

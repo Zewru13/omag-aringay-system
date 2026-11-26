@@ -9,7 +9,7 @@ export const USER_TABS = [
   { id: 'staff', label: 'Staff', subtitle: 'Admin and Focal Person accounts' },
   { id: 'fisherfolk', label: 'Fisherfolk', subtitle: 'Accounts of registered fisherfolk' },
   { id: 'farmers', label: 'Farmers', subtitle: 'Accounts of registered farmers' },
-  { id: 'organizations', label: 'Organizations', subtitle: 'Accounts of registered organizations' },
+  { id: 'organizations', label: 'Cooperatives', subtitle: 'Accounts of registered cooperatives' },
 ]
 
 // The columns of a tab's table. Only staff accounts have a status: a citizen account is either set up (listed here) or
@@ -53,11 +53,11 @@ export const TYPE_OPTIONS = {
     ],
   },
   organizations: {
-    label: 'Organization type',
+    label: 'Cooperative type',
     options: [
       { value: '', label: 'All types' },
-      { value: 'fisherfolk', label: 'Fisherfolk organization' },
-      { value: 'farmers', label: 'Farmers organization' },
+      { value: 'fisherfolk', label: 'Fisherfolk cooperative' },
+      { value: 'farmers', label: 'Farmers cooperative' },
     ],
   },
 }

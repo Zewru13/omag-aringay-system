@@ -15,7 +15,7 @@ eq(beneficiaryName({ farmer_full_name: 'A B' }), 'A B', 'farmer name'); eq(benef
 const spec = buildAssistanceReportSpec({ domain: 'crop', records: crop, confirmedOn: '2026-10-23T08:00:00', organizationName: 'Alaska Farmers' })
 eq(spec.title, 'ASSISTANCE DISTRIBUTION REPORT', 'title')
 eq(spec.reference, 'AD-20261023-000007', 'reference uses the confirmation day and the lowest record id')
-eq(spec.header.map(([k]) => k), ['Reference No.', 'Date Confirmed', 'Sector', 'Organization'], 'header')
+eq(spec.header.map(([k]) => k), ['Reference No.', 'Date Confirmed', 'Sector', 'Cooperative'], 'header')
 eq(spec.header.find(([k]) => k === 'Sector')[1], 'Crop (Farmers)', 'sector')
 eq(spec.signatures, ['Prepared by', 'Noted by'], 'signatures'); eq(spec.footerLabel, 'assistance record', 'footer')
 
@@ -30,7 +30,7 @@ eq(table.rows, [
 ], 'rows are sorted by name, cash is shown in pesos')
 
 eq(buildAssistanceReportSpec({ domain: 'fisheries', records: [{ id: 3, fisherfolk_full_name: 'Pablo Reyes', fisherfolk_barangay: 'Basca', assistance_type: 'Feed', quantity: '50', source_agencies: [], date_given: '2026-10-22' }], confirmedOn: '2026-10-22' })
-  .header.map(([k, v]) => `${k}=${v}`), ['Reference No.=AD-20261022-000003', 'Date Confirmed=Oct 22, 2026', 'Sector=Fisheries (Fisherfolk)'], 'fisheries report with no organization')
+  .header.map(([k, v]) => `${k}=${v}`), ['Reference No.=AD-20261022-000003', 'Date Confirmed=Oct 22, 2026', 'Sector=Fisheries (Fisherfolk)'], 'fisheries report with no cooperative')
 eq(buildAssistanceReportSpec({ domain: 'crop', records: [crop[0]], confirmedOn: '2026-10-22' }).sections.find((s) => s.title === 'Summary').rows.at(-1), ['Date given', 'Oct 22, 2026'], 'a single date')
 eq(buildAssistanceReportSpec({ domain: 'crop', records: [{ ...crop[0], source_agencies: [] }], confirmedOn: '2026-10-22' }).sections.find((s) => s.table).table.rows[0][5], '—', 'no agency')
 
@@ -40,11 +40,11 @@ eq(buildAssistanceReportSpec({ domain: 'crop', records: crop, confirmedOn: '2026
 
 // several organizations in one report: each beneficiary says which one
 const many = buildAssistanceReportSpec({ domain: 'crop', records: [{ ...crop[0], organization_name: 'Poblacion Growers' }, { ...crop[1], organization_name: 'Alaska Farmers' }], confirmedOn: '2026-10-22' })
-eq(many.sections.find((s) => s.table).table.head.slice(0, 3), ['No.', 'Beneficiary', 'Organization'], 'an organization column when there are several')
-eq(many.sections.find((s) => s.table).table.rows.map((r) => r[2]), ['Alaska Farmers', 'Poblacion Growers'], 'each beneficiary organization')
-eq(many.header.some(([k]) => k === 'Organization'), false, 'no single organization in the header')
+eq(many.sections.find((s) => s.table).table.head.slice(0, 3), ['No.', 'Beneficiary', 'Cooperative'], 'a cooperative column when there are several')
+eq(many.sections.find((s) => s.table).table.rows.map((r) => r[2]), ['Alaska Farmers', 'Poblacion Growers'], 'each beneficiary cooperative')
+eq(many.header.some(([k]) => k === 'Cooperative'), false, 'no single cooperative in the header')
 const one = buildAssistanceReportSpec({ domain: 'crop', records: [{ ...crop[0], organization_name: 'Alaska Farmers' }], confirmedOn: '2026-10-22' })
-eq([one.header.find(([k]) => k === 'Organization')[1], one.sections.find((s) => s.table).table.head.includes('Organization')], ['Alaska Farmers', false], 'one organization goes in the header')
+eq([one.header.find(([k]) => k === 'Cooperative')[1], one.sections.find((s) => s.table).table.head.includes('Cooperative')], ['Alaska Farmers', false], 'one cooperative goes in the header')
 
 eq(buildAssistanceReportSpec({ domain: 'crop', records: [crop[0]], confirmedOn: '2026-10-22', dateLabel: 'Date Distributed' }).header[1], ['Date Distributed', 'Oct 22, 2026'], 'a report printed right after distributing')
 

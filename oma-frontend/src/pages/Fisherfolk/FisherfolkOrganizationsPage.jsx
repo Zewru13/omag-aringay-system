@@ -18,7 +18,7 @@ import EditOrganizationModal from '../Organizations/EditOrganizationModal.jsx'
 import Button from '../../components/UI/Button.jsx'
 
 const columns = [
-  { key: 'name',           label: 'ORGANIZATION NAME' },
+  { key: 'name',           label: 'COOPERATIVE NAME' },
   { key: 'address_cell',   label: 'ADDRESS' },
   { key: 'contact_person', label: 'CONTACT PERSON' },
   { key: 'contact_number', label: 'CONTACT NUMBER' },
@@ -61,7 +61,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
           setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
         }
       } catch (err) {
-        console.error('Error fetching fisherfolk organizations:', err)
+        console.error('Error fetching fisherfolk cooperatives:', err)
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -88,8 +88,8 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
     address_cell: [a.street_address, a.barangay].filter(Boolean).join(', ') || '—',
     actions_cell: (
       <RowActions actions={[
-        (isAdmin || isEvaluator) && { key: 'edit', label: 'Edit organization', icon: Pencil, onClick: () => setEditOrganization(a) },
-        { key: 'view', label: 'View organization profile', icon: Eye, onClick: () => handleRowClick(a) },
+        (isAdmin || isEvaluator) && { key: 'edit', label: 'Edit cooperative', icon: Pencil, onClick: () => setEditOrganization(a) },
+        { key: 'view', label: 'View cooperative profile', icon: Eye, onClick: () => handleRowClick(a) },
         (isAdmin || isEvaluator) && { key: 'assist', label: 'Add assistance', icon: HandHeart, onClick: () => navigate(assistanceLink('fisherfolk', a.id)) },
       ]} />
     ),
@@ -102,11 +102,11 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
         onClick={() => setShowImportModal(true)}
       >
         <Upload size={16} />
-        Import Organizations
+        Import Cooperatives
       </button>
       <Button onClick={() => setShowCreateModal(true)} variant="primary">
         <Plus size={16} />
-        Add Organization
+        Add Cooperative
       </Button>
     </div>
   ) : null
@@ -118,7 +118,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
         actions={actionBtn}
         search={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search organizations by name or address..."
+        searchPlaceholder="Search cooperatives by name or address..."
         activeCount={[barangay, registeredFrom, registeredTo].filter(Boolean).length}
       >
         <div className="w-full sm:w-44">
@@ -133,7 +133,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
         isLoading={isLoading}
         onRowClick={handleRowClick}
         phoneTitleKey="name"
-        phoneOpenLabel="Open organization profile"
+        phoneOpenLabel="Open cooperative profile"
       />
 
       <PaginationBar
@@ -166,7 +166,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
           subtitle={`Add already-registered fisherfolk to ${membersImport.organization.name} from the file you attached.`}
           importUrl={`/organizations/fisherfolk/${membersImport.organization.id}/members/import/`}
           templateUrl={`/organizations/fisherfolk/${membersImport.organization.id}/members/import/template/`}
-          templateFilename="fisherfolk_organization_members_import_template.xlsx"
+          templateFilename="fisherfolk_cooperative_members_import_template.xlsx"
           undoType="fisherfolk_org_members"
           initialFile={membersImport.file}
           onClose={() => setMembersImport(null)}
@@ -180,7 +180,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
           subtitle={`Add equipment to ${equipmentImport.organization.name} from the file you attached.`}
           importUrl={`/organizations/fisherfolk/${equipmentImport.organization.id}/equipment/import/`}
           templateUrl={`/organizations/fisherfolk/${equipmentImport.organization.id}/equipment/import/template/`}
-          templateFilename="fisherfolk_organization_equipment_import_template.xlsx"
+          templateFilename="fisherfolk_cooperative_equipment_import_template.xlsx"
           undoType="fisherfolk_org_equipment"
           initialFile={equipmentImport.file}
           onClose={() => setEquipmentImport(null)}
@@ -190,13 +190,13 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
 
       {showImportModal && (
         <ImportFileModal
-          title="Import Fisherfolk Organizations"
-          subtitle="Upload a spreadsheet to register multiple organizations at once."
+          title="Import Fisherfolk Cooperatives"
+          subtitle="Upload a spreadsheet to register multiple cooperatives at once."
           importUrl="/organizations/fisherfolk/import/"
           templateUrl="/organizations/fisherfolk/import/template/"
-          templateFilename="fisherfolk_organizations_import_template.xlsx"
+          templateFilename="fisherfolk_cooperatives_import_template.xlsx"
           undoType="fisherfolk_org"
-          helpText="Each row creates one new Fisherfolk Organization. Registration Number identifies duplicates, so it's required for every row."
+          helpText="Each row creates one new Fisherfolk Cooperative. Registration Number identifies duplicates, so it's required for every row."
           onClose={() => setShowImportModal(false)}
           onImported={() => setRefreshKey((k) => k + 1)}
         />
@@ -208,8 +208,8 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
 
   return (
     <PageLayout
-      title="Fisherfolk Organization Management"
-      subtitle="Manage all fisherfolk organizations in your area."
+      title="Fisherfolk Cooperative Management"
+      subtitle="Manage all fisherfolk cooperatives in your area."
     >
       {innerContent}
     </PageLayout>

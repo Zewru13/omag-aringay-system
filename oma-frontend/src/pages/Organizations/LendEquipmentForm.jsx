@@ -74,7 +74,7 @@ export default function LendEquipmentForm({ type, organizationId, lines, members
       {lendable.length === 0 ? (
         <p className="text-[13px] text-[#7A8E7A]">No equipment in Good condition is available to lend right now.</p>
       ) : members.length === 0 ? (
-        <p className="text-[13px] text-[#7A8E7A]">The organization has no active members to lend to.</p>
+        <p className="text-[13px] text-[#7A8E7A]">The cooperative has no active members to lend to.</p>
       ) : (
         <>
           <div>

@@ -227,7 +227,7 @@ export default function ImportFileModal({
                 <table className="w-full text-left text-[12px] text-[#1A2B1A]">
                   <thead>
                     <tr className="text-[11px] uppercase tracking-wide text-amber-800">
-                      <th className="py-1 pr-3">Organization</th>
+                      <th className="py-1 pr-3">Cooperative</th>
                       <th className="py-1 pr-3">Login</th>
                       <th className="py-1 pr-3">Temporary password</th>
                       <th className="py-1">Stops working</th>

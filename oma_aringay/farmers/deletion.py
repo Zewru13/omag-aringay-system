@@ -12,8 +12,8 @@ PLAIN_NAMES = {
     'BeneficiaryRecord': 'assistance record',
     'FarmerMachinery': 'machinery record',
     'FarmVisit': 'farm visit',
-    'FarmersOrganizationMember': 'organization membership',
-    'OrganizationOfficer': 'organization officer position',
+    'FarmersOrganizationMember': 'cooperative membership',
+    'OrganizationOfficer': 'cooperative officer position',
     'FarmersOrganizationEquipmentLoan': 'equipment loan',
 }
 

@@ -49,7 +49,7 @@ import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
 import AddFarmParcelsWindow from "./AddFarmParcelsWindow.jsx";
 import { closeAddParcelsParams, openAddParcelsParams, readAddParcels } from "../../utils/parcelWindowAddress.js";
-import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload, seedUnitOptions } from "./cropEntry.js";
+import { CROP_OWNERSHIP_OPTIONS, EDIT_SEED_SOURCES, PLANTING_MATERIALS, seedSourceLabel, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload, seedUnitOptions } from "./cropEntry.js";
 import {
   DEFAULT_GROUP, GROUP_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
@@ -265,7 +265,7 @@ function RemarksModal({ record, onClose }) {
               {[
                 { label: "Crop Type", value: record.crop_type_name },
                 {
-                  label: "Farmer Organization",
+                  label: "Farmer Cooperative",
                   value: record.organization_name || "—",
                 },
                 {
@@ -656,7 +656,7 @@ function EditCropModal({ record, onClose, onSaved }) {
               </FormCell>
               <FormCell label="Seed Source">
                 <ComboboxWithOther
-                  options={["Own Seeds", "DA/LGU Provided", "Commercial", "Organization"]}
+                  options={EDIT_SEED_SOURCES}
                   value={form.seed_source}
                   otherValue={form.seed_source_other_specify}
                   onChange={(v) => set("seed_source", v)}
@@ -754,7 +754,7 @@ function CropDetailModal({ record, onClose }) {
   const seedSourceDisplay =
     record.seed_source === "Other"
       ? `Other — ${record.seed_source_other_specify || ""}`
-      : record.seed_source || "—";
+      : seedSourceLabel(record.seed_source) || "—";
   const landStatusDisplay =
     record.land_status === "Other"
       ? `Other — ${record.land_status_other_specify || ""}`
@@ -763,7 +763,7 @@ function CropDetailModal({ record, onClose }) {
   const rows = [
     ["Crop Type", record.crop_type_name || "—"],
     ["Farmer", record.farmer_full_name || record.farmer_name || "—"],
-    ["Organization", record.organization_name || "—"],
+    ["Cooperative", record.organization_name || "—"],
     ["Farm Location", record.farmer_barangay || record.farm_location_barangay || "—"],
     ["Crop Status", landStatusDisplay],
     ...(needsLandOwner(record.land_status) ? [["Crop Owner", record.land_owner_name || "Not recorded"]] : []),
@@ -1159,7 +1159,7 @@ function NoParcelGroup({ search, barangay, pcic = "", planted = NO_DATES, versio
         <ChevronDown size={16} className={`shrink-0 text-[#4A5E4A] transition-transform ${open ? "rotate-180" : "-rotate-90"}`} aria-hidden="true" />
         <span className="text-[14px] font-semibold text-[#1A2B1A]">No farm parcel on file</span>
         <span className="text-[13px] text-[#7A8E7A]">
-          {count.value} crop record{count.value === 1 ? "" : "s"} · older records and organization crops
+          {count.value} crop record{count.value === 1 ? "" : "s"} · older records and cooperative crops
         </span>
       </button>
       {open && (

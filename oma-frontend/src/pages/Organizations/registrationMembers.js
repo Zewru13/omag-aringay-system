@@ -42,7 +42,7 @@ export const memberPayload = (line, type, registered, today) => ({
 
 // Why the server refused one member, as a sentence.
 export function memberRefusal(data) {
-  if (data?.main_choice_required) return 'is already in other organizations with no main one: add them from the organization page to choose it'
+  if (data?.main_choice_required) return 'is already in other cooperatives with no main one: add them from the cooperative page to choose it'
   const first = (v) => (Array.isArray(v) ? v[0] : v)
   return first(data?.detail) || first(data?.date_joined) || first(data?.position) || first(data?.non_field_errors) || 'could not be added'
 }

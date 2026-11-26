@@ -3,6 +3,7 @@
 
 import { formatDate } from '../../utils/dateFormat.js'
 import { harvestAmountText } from './harvestUnits.js'
+import { seedSourceLabel } from '../CropInformation/cropEntry.js'
 
 export const dash = (value) => (value === undefined || value === null || value === '' ? '—' : String(value))
 
@@ -14,7 +15,7 @@ const number = (value, digits = 2) => {
 
 // What the crop is, where it grows, when it was planted and how much is expected: [[label, value], ...].
 export function summaryRows(record) {
-  const seedSource = record.seed_source === 'Other' ? (record.seed_source_other_specify || 'Other') : record.seed_source
+  const seedSource = record.seed_source === 'Other' ? (record.seed_source_other_specify || 'Other') : seedSourceLabel(record.seed_source)
   const planted = record.planting_material === 'Tree'
     ? (record.quantity_of_trees ? `${Number(record.quantity_of_trees).toLocaleString('en-US')} trees` : '')
     : (record.quantity_of_seeds ? `${record.quantity_of_seeds} ${record.seed_quantity_unit || ''}`.trim() : '')
@@ -24,7 +25,7 @@ export function summaryRows(record) {
     ['Crop', dash(record.crop_type_name)],
     ['Variety', dash(record.variety_used)],
     ['Farmer', dash(record.farmer_name || record.farmer_full_name)],
-    ['Organization', dash(record.organization_name)],
+    ['Cooperative', dash(record.organization_name)],
     ['Farm parcel', dash(record.parcel_number)],
     ['Farm location', dash(record.farm_location_barangay || record.farmer_barangay)],
     ['Crop status', dash(record.land_status)],

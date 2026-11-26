@@ -44,7 +44,7 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
     {
       title: 'Beneficiaries',
       table: {
-        head: ['No.', 'Beneficiary', ...(orgColumn ? ['Organization'] : []), 'Barangay', 'Assistance', 'Quantity / Amount', 'Source Agency', 'Date Given'],
+        head: ['No.', 'Beneficiary', ...(orgColumn ? ['Cooperative'] : []), 'Barangay', 'Assistance', 'Quantity / Amount', 'Source Agency', 'Date Given'],
         rows: sorted.map((r, i) => [
           String(i + 1), beneficiaryName(r), ...(orgColumn ? [r.organization_name || '—'] : []),
           r.farmer_barangay || r.fisherfolk_barangay || r.barangay || '—', assistanceLabel(r) || '—',
@@ -63,7 +63,7 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
       ['Reference No.', reference],
       [dateLabel, fmt(day)],
       ['Sector', SECTORS[domain] || SECTORS.crop],
-      ...(organizationName ? [['Organization', organizationName]] : orgNames.length === 1 ? [['Organization', orgNames[0]]] : []),
+      ...(organizationName ? [['Cooperative', organizationName]] : orgNames.length === 1 ? [['Cooperative', orgNames[0]]] : []),
     ],
     sections,
     photos: [],

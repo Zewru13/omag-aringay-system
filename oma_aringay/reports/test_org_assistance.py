@@ -109,7 +109,7 @@ class OrganizationAssistanceReportTests(APITestCase):
 
     def test_all_farmers_organizations_one_row_per_distribution_newest_first(self):
         doc = self.get(kind='farmers')
-        self.assertEqual(doc['title'], 'Farmers Organization Assistance')
+        self.assertEqual(doc['title'], 'Farmers Cooperative Assistance')
         rows = self.rows(doc)
         self.assertEqual([(r[0], r[1], r[2]) for r in rows], [
             ('Baracbac Farmers', 'Sep 15, 2026', 'Fertilizer'),
@@ -120,7 +120,7 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual(fert[3:], ['DA, PCA', '5 bags', 1, 0, 'Needs follow-up'])
         self.assertEqual(training[3:], ['ATI', '—', 1, 1, 'Confirmed'])
         self.assertEqual(seeds[3:], ['DA', '10 sacks', 2, 1, 'Awaiting confirmation'])
-        self.assertEqual(dict(map(tuple, doc['stats'])), {'Organizations': 2, 'Distributions': 3, 'Members Reached': 3,
+        self.assertEqual(dict(map(tuple, doc['stats'])), {'Cooperatives': 2, 'Distributions': 3, 'Members Reached': 3,
                                                           'Confirmed': 2, 'Needs Follow-up': 1})
 
     def test_individual_and_removed_assistance_are_not_organization_assistance(self):
@@ -129,7 +129,7 @@ class OrganizationAssistanceReportTests(APITestCase):
 
     def test_fisherfolk_organizations(self):
         doc = self.get(kind='fisherfolk')
-        self.assertEqual(doc['title'], 'Fisherfolk Organization Assistance')
+        self.assertEqual(doc['title'], 'Fisherfolk Cooperative Assistance')
         self.assertEqual([(r[0], r[2], r[4], r[7]) for r in self.rows(doc)], [('Samara Fishers', 'Feed', '20 sacks', 'Confirmed')])
 
     def test_filters(self):
@@ -149,7 +149,7 @@ class OrganizationAssistanceReportTests(APITestCase):
 
     def test_one_organization_lists_its_distributions_and_every_recipient(self):
         doc = self.get(kind='farmers', id=self.org_a.id)
-        self.assertEqual(doc['title'], 'Farmers Organization Assistance Report')
+        self.assertEqual(doc['title'], 'Farmers Cooperative Assistance Report')
         self.assertEqual(doc['subtitle'], 'Alaska Farmers')
         self.assertEqual([s['title'] for s in doc['sections']], ['Distributions', 'Recipients'])
         self.assertEqual({r[0] for r in self.rows(doc)}, {'Alaska Farmers'})
@@ -161,11 +161,11 @@ class OrganizationAssistanceReportTests(APITestCase):
         ])
         self.assertNotEqual(recipients[0][9], '—')    # confirmed: has a date
         self.assertEqual(recipients[2][9], '—')       # not yet confirmed
-        self.assertNotIn('Organizations', dict(map(tuple, doc['stats'])))
+        self.assertNotIn('Cooperatives', dict(map(tuple, doc['stats'])))
 
     # ---- recipients: the people who actually received the assistance, by name -------------------------------------------------------
 
-    RECIPIENT_HEADERS = ['Organization', 'Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given',
+    RECIPIENT_HEADERS = ['Cooperative', 'Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given',
                          'Quantity', 'Status', 'Date Confirmed']
     PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Date Confirmed']
 
@@ -286,7 +286,7 @@ class OrganizationAssistanceReportTests(APITestCase):
     def test_an_empty_result_is_a_normal_document(self):
         doc = self.get(kind='farmers', search='zzzz')
         self.assertEqual(self.rows(doc), [])
-        self.assertEqual(doc['stats'][0], ['Organizations', 0])
+        self.assertEqual(doc['stats'][0], ['Cooperatives', 0])
         self.assertTrue(doc['sections'][0]['empty'])
 
     def test_pdf_and_excel(self):

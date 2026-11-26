@@ -18,7 +18,7 @@ function FarmersHub() {
   const activeTab = rawTab === 'associations' ? 'organizations' : rawTab
 
   return (
-    <PageLayout title="Farmers" subtitle="Manage farmer registry and organizations">
+    <PageLayout title="Farmers" subtitle="Manage farmer registry and cooperatives">
       {activeTab === 'registry'      && <FarmersPage       asTab />}
       {activeTab === 'organizations' && <OrganizationsPage asTab />}
     </PageLayout>

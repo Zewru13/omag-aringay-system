@@ -36,7 +36,7 @@ const firstError = (err, fallback) => {
 }
 
 const FIELD_LABEL = {
-  first_name: 'First name', middle_name: 'Middle name', last_name: 'Last name', barangay: 'Barangay', name: 'Organization name',
+  first_name: 'First name', middle_name: 'Middle name', last_name: 'Last name', barangay: 'Barangay', name: 'Cooperative name',
   street_address: 'Street address', email_address: 'Email address', contact_person: 'Contact person',
 }
 const REQUEST_TONE = { APPROVED: 'green', REJECTED: 'red' }
@@ -103,7 +103,7 @@ export default function AccountProfilePage() {
   const openContact = () => { setDraft({ contact: tidyPhone(record?.contact_number || '') }); setOpen({ kind: 'contact' }) }
   const saveContact = async () => {
     const value = draft.contact || ''
-    if (isOrg && !value.trim()) { setError('Enter your organization’s contact number.'); return }
+    if (isOrg && !value.trim()) { setError('Enter your cooperative’s contact number.'); return }
     if (value.trim() && validatePhone(value)) { setError(validatePhone(value)); return }
     setBusy(true)
     setError('')
@@ -175,7 +175,7 @@ export default function AccountProfilePage() {
   }
 
   return (
-    <AccountPage title={isOrg ? 'Organization profile' : 'My profile'} helper={isOrg ? 'Your organization’s details and account.' : 'What the office has on record about you.'}>
+    <AccountPage title={isOrg ? 'Cooperative profile' : 'My profile'} helper={isOrg ? 'Your cooperative’s details and account.' : 'What the office has on record about you.'}>
       <div className="max-w-3xl space-y-4">
         {error && !open && <p role="alert" className="rounded-[var(--radius-md)] border border-[#F5C6C6] bg-[#FCEBEB] px-4 py-3 text-[14px] text-[#791F1F]">{error}</p>}
 
@@ -242,7 +242,7 @@ export default function AccountProfilePage() {
         <section className={`${CARD} p-4`}>
           <h2 className="text-[15px] font-semibold text-text-primary">Password</h2>
           <p className="mt-1 text-[13px] text-text-secondary">
-            {isOrg ? 'This is a shared organization account: a new password changes it for everyone who uses it, so tell your officers first.' : 'Optional. Change it whenever you like.'}
+            {isOrg ? 'This is a shared cooperative account: a new password changes it for everyone who uses it, so tell your officers first.' : 'Optional. Change it whenever you like.'}
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <Button variant="outline" icon={KeyRound} className="min-h-[44px]" onClick={() => { setPassword({ current: '', next: '', confirm: '' }); setPasswordError(''); setOpen({ kind: 'password' }) }}>Change password</Button>

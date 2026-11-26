@@ -11,8 +11,8 @@ export const ORG_ASSISTANCE_PATH = '/reports/organization-assistance/'
 const FARMER_TYPES = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
 const FISHERFOLK_TYPES = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Equipment', 'Cash Assistance', 'Training', 'Other']
 export const ORG_KINDS = [
-  { id: 'farmers', label: 'Farmers Organizations', individual: false, searchPlaceholder: 'Search organization name', types: FARMER_TYPES },
-  { id: 'fisherfolk', label: 'Fisherfolk Organizations', individual: false, searchPlaceholder: 'Search organization name', types: FISHERFOLK_TYPES },
+  { id: 'farmers', label: 'Farmers Cooperatives', individual: false, searchPlaceholder: 'Search cooperative name', types: FARMER_TYPES },
+  { id: 'fisherfolk', label: 'Fisherfolk Cooperatives', individual: false, searchPlaceholder: 'Search cooperative name', types: FISHERFOLK_TYPES },
   { id: 'individual_farmers', label: 'Individual Farmers', individual: true, searchPlaceholder: 'Search farmer name', types: FARMER_TYPES },
   { id: 'individual_fisherfolk', label: 'Individual Fisherfolk', individual: true, searchPlaceholder: 'Search fisherfolk name', types: FISHERFOLK_TYPES },
 ]

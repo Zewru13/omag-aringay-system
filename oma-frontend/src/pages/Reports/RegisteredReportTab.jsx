@@ -11,8 +11,8 @@ const PATH = '/reports/registered/'
 const KINDS = [
   { id: 'farmers',         label: 'Farmers',                  stem: 'registered_farmers' },
   { id: 'fisherfolk',      label: 'Fisherfolk',               stem: 'registered_fisherfolk' },
-  { id: 'farmers_orgs',    label: 'Farmers Organizations',    stem: 'registered_farmers_organizations' },
-  { id: 'fisherfolk_orgs', label: 'Fisherfolk Organizations', stem: 'registered_fisherfolk_organizations' },
+  { id: 'farmers_orgs',    label: 'Farmers Cooperatives',    stem: 'registered_farmers_organizations' },
+  { id: 'fisherfolk_orgs', label: 'Fisherfolk Cooperatives', stem: 'registered_fisherfolk_organizations' },
 ]
 
 const NO_FILTERS = { barangay: '', registered_from: '', registered_to: '', search: '' }

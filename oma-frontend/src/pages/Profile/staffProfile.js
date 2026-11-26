@@ -6,7 +6,7 @@ export const roleLabel = (role) => (role === 'ADMIN' ? 'Admin' : 'Focal Person')
 export function roleSummary(role) {
   return role === 'ADMIN'
     ? 'Manages user accounts, backups and the system settings, and can do everything a Focal Person can.'
-    : 'Registers and manages farmers, fisherfolk, organizations, crops, assistance, disasters and reports.'
+    : 'Registers and manages farmers, fisherfolk, cooperatives, crops, assistance, disasters and reports.'
 }
 
 // What the account is like right now: [{ key, label, value, tone, detail }].

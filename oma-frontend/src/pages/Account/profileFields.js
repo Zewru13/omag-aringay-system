@@ -47,7 +47,7 @@ function personSections(kind, record, pending) {
         ...fixed('Civil status', record.civil_status),
         ...fixed('Highest education', record.highest_education),
         // Always shown, even when there is none, so the person knows.
-        { key: 'organization', label: 'Organization', value: orgs.length ? orgs.join(', ') : 'Not a member of any organization', mode: 'fixed' },
+        { key: 'organization', label: 'Cooperative', value: orgs.length ? orgs.join(', ') : 'Not a member of any cooperative', mode: 'fixed' },
         ...fixed('Also listed as', flags),
       ],
     },
@@ -55,7 +55,7 @@ function personSections(kind, record, pending) {
 }
 
 const ORG_REQUESTABLE = [
-  ['name', 'Organization name'],
+  ['name', 'Cooperative name'],
   ['barangay', 'Barangay'],
   ['street_address', 'Street address'],
   ['email_address', 'Email address'],
@@ -66,7 +66,7 @@ function orgSections(record, pending) {
   return [
     {
       key: 'details',
-      title: 'Organization details',
+      title: 'Cooperative details',
       rows: [
         ...ORG_REQUESTABLE.map(([field, label]) => ({
           key: field, label, value: orNull(field === 'name' ? (record.name || record.label) : record[field]), mode: 'request', fields: [field], pending: pending[field] || null,
@@ -93,7 +93,7 @@ export function profileSections(kind, record, pending = {}) {
   return kind === 'orgFarm' || kind === 'orgFish' ? orgSections(record, pending) : personSections(kind, record, pending)
 }
 
-const KIND = { farmer: 'Farmer', fisherfolk: 'Fisherfolk', orgFarm: 'Farmers organization', orgFish: 'Fisherfolk organization' }
+const KIND = { farmer: 'Farmer', fisherfolk: 'Fisherfolk', orgFarm: 'Farmers cooperative', orgFish: 'Fisherfolk cooperative' }
 
 // The header: the name, the kind of account and the number the office knows it by.
 export function profileHeader(kind, record) {

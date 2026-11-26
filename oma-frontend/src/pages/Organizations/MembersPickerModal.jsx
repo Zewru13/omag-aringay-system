@@ -52,7 +52,7 @@ export default function MembersPickerModal({ type, organizationId = null, taken 
   return (
     <ModalShell
       title="Add Members"
-      subtitle={`Choose the registered ${noun} to add. Only those who are not members of this organization are listed.`}
+      subtitle={`Choose the registered ${noun} to add. Only those who are not members of this cooperative are listed.`}
       icon={Users}
       onClose={onClose}
       maxWidth="max-w-4xl"

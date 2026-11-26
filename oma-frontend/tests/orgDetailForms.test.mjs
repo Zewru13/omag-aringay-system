@@ -32,7 +32,7 @@ for (const [name, want] of Object.entries(forms)) {
   ok(text.includes('variant="outline"') && !text.includes('variant="secondary"'), `${name}: Cancel is the outline button`)
 }
 const main = windowOf('AddMemberModal')
-ok(main.includes('Choose Main Organization') && /DetailTable|FormSection/.test(main), 'Choose Main Organization shows its facts in a table')
+ok(main.includes('Choose Main Cooperative') && /DetailTable|FormSection/.test(main), 'Choose Main Cooperative shows its facts in a table')
 ok(!/absolute z-50 mt-1 w-full/.test(windowOf('MemberSearchInput')), 'the member list is in the flow, so a table section does not clip it')
 
 console.log(`orgDetailForms: ${n} checks passed`)

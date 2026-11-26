@@ -35,7 +35,7 @@ function Members({ group, noun, onReport }) {
   return (
     <div className="px-2 py-3 sm:px-4">
       <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[#4A5E4A]">
-        {group.member_count} {group.member_count === 1 ? noun : `${noun}s`} confirmed by the organization
+        {group.member_count} {group.member_count === 1 ? noun : `${noun}s`} confirmed by the cooperative
       </p>
       <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white">
         <table className="min-w-full text-left text-[13px]">
@@ -143,7 +143,7 @@ export default function ConfirmedForMembersPanel({ type, organizationId: id, org
         renderExpanded={(r) => <Members group={r} noun={noun} onReport={report} />}
         renderExpandedMobile={(r) => <Members group={r} noun={noun} onReport={report} />}
         phoneOpenLabel="Show who was confirmed"
-        emptyState={<p className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">Nothing confirmed for members yet. When this organization confirms assistance for its members, each assistance is listed here with who was confirmed and the proof photos.</p>}
+        emptyState={<p className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">Nothing confirmed for members yet. When this cooperative confirms assistance for its members, each assistance is listed here with who was confirmed and the proof photos.</p>}
       />
       <PaginationBar page={page} totalCount={state.count} pageSize={PAGE_SIZE} onPageChange={(p) => { setOpenId(null); setPage(p) }} />
     </div>

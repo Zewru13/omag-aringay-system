@@ -35,7 +35,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [handover,     setHandover]     = useState(null)
 
-  const typeLabel = assocType === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
+  const typeLabel = assocType === 'farmers' ? "Farmers' Cooperative" : 'Fisherfolk Cooperative'
 
   const set = (field, value) => {
     setForm(changeOrganization(form, field, value))
@@ -105,7 +105,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     } catch (err) {
       const data = err.response?.data
       const first = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
-      setError(data?.detail || data?.name?.[0] || (typeof first === 'string' ? first : '') || 'Unable to create organization.')
+      setError(data?.detail || data?.name?.[0] || (typeof first === 'string' ? first : '') || 'Unable to create cooperative.')
       if (data?.date_registered?.[0]) setFormErrors(e => ({ ...e, date_registered: data.date_registered[0] }))
     } finally {
       setIsSubmitting(false)
@@ -125,7 +125,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       >
         <div className="space-y-3 text-[13px] text-[#4A5E4A]">
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
-            The email could not be sent{handover.reason ? ` (${handover.reason.replace(/\.$/, '')})` : ''}. Give the organization this password
+            The email could not be sent{handover.reason ? ` (${handover.reason.replace(/\.$/, '')})` : ''}. Give the cooperative this password
             yourself. It is shown only now.
           </p>
           <div>
@@ -148,15 +148,15 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   return (
     <>
       <ModalShell
-        title="Add New Organization"
-        subtitle={`Create a new ${assocType === 'farmers' ? "farmers' organization" : 'fisherfolk organization'} in Aringay.`}
+        title="Add New Cooperative"
+        subtitle={`Create a new ${assocType === 'farmers' ? "farmers' cooperative" : 'fisherfolk cooperative'} in Aringay.`}
         icon={Building2}
         onClose={onClose}
         maxWidth="max-w-4xl"
         footer={
           <>
             <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
-            <Button isLoading={isSubmitting} type="submit" form="create-organization-form">Add Organization</Button>
+            <Button isLoading={isSubmitting} type="submit" form="create-organization-form">Add Cooperative</Button>
           </>
         }
       >
@@ -167,13 +167,13 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           {/* Equipment the organization has: saved with the organization */}
           <FormSection title="Equipment">
             <div className="space-y-3 p-3">
-            <p className="text-[12px] text-[#7A8E7A]">Optional. The equipment the organization has now; it can also be added later from the organization's page.</p>
+            <p className="text-[12px] text-[#7A8E7A]">Optional. The equipment the cooperative has now; it can also be added later from the cooperative's page.</p>
             <EquipmentLinesEditor type={assocType} lines={equipment} onChange={setEquipment} />
             <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
               <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Import equipment from a file</p>
-              <p className="mb-2 text-[12px] text-[#7A8E7A]">Attach the equipment file. Once the organization is saved, the Import Equipment window opens with the file so you can check it before it is imported.</p>
+              <p className="mb-2 text-[12px] text-[#7A8E7A]">Attach the equipment file. Once the cooperative is saved, the Import Equipment window opens with the file so you can check it before it is imported.</p>
               <ImportFileAttach chooseLabel="Import equipment" templateUrl={`/organizations/${assocType}/equipment/import/template/`}
-                templateFilename={`${assocType}_organization_equipment_import_template.xlsx`} file={equipmentFile} onFile={setEquipmentFile} />
+                templateFilename={`${assocType}_cooperative_equipment_import_template.xlsx`} file={equipmentFile} onFile={setEquipmentFile} />
             </div>
             </div>
           </FormSection>
@@ -181,15 +181,15 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           {/* Members: registered farmers / fisherfolk added once the organization is saved, or a members file imported */}
           <FormSection title="Members">
             <div className="space-y-3 p-3">
-            <p className="text-[12px] text-[#7A8E7A]">Optional. Pick registered {assocType === 'farmers' ? 'farmers' : 'fisherfolk'} or import a members file. They are added when the organization is saved; more can be added later from its page.</p>
+            <p className="text-[12px] text-[#7A8E7A]">Optional. Pick registered {assocType === 'farmers' ? 'farmers' : 'fisherfolk'} or import a members file. They are added when the cooperative is saved; more can be added later from its page.</p>
             <MembersEditor type={assocType} lines={members} onChange={setMembers} registered={form.date_registered}
               importFile={importFile} onImportFile={setImportFile} />
             </div>
           </FormSection>
 
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
-            Officers can be assigned after this organization is created and has members —
-            from the organization's detail page.
+            Officers can be assigned after this cooperative is created and has members —
+            from the cooperative's detail page.
           </p>
 
           {error && (

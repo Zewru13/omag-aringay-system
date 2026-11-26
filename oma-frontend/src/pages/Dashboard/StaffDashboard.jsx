@@ -145,14 +145,14 @@ export default function StaffDashboard({ user }) {
           tone="crop" icon={Sprout} title="Crop Sector" isLoading={isLoading}
           primaryLabel="Registered Farmers" primaryValue={board?.sectors?.crop?.registered}
           primaryNote={board ? `+${num(board.sectors.crop.new_this_month)} this month` : ''}
-          secondaryLabel="Farmers Organizations" secondaryValue={board?.sectors?.crop?.organizations}
+          secondaryLabel="Farmers Cooperatives" secondaryValue={board?.sectors?.crop?.organizations}
           secondaryNote="active & registered"
         />
         <SectorCard
           tone="fisheries" icon={Fish} title="Fisheries Sector" isLoading={isLoading}
           primaryLabel="Registered Fisherfolk" primaryValue={board?.sectors?.fisheries?.registered}
           primaryNote={board ? `+${num(board.sectors.fisheries.new_this_month)} this month` : ''}
-          secondaryLabel="Fisherfolk Organizations" secondaryValue={board?.sectors?.fisheries?.organizations}
+          secondaryLabel="Fisherfolk Cooperatives" secondaryValue={board?.sectors?.fisheries?.organizations}
           secondaryNote="active & registered"
         />
       </div>

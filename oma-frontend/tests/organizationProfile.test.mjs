@@ -15,15 +15,15 @@ eq(addressText({}), '', 'nothing')
 
 const page = read('src/pages/Organizations/OrganizationDetailPage.jsx')
 ok(/<ProfileHero/.test(page), 'the staff view opens with the hero')
-ok(!/Back to Organizations/.test(page), 'no Back to Organizations')
-ok(/title="Organization Details"/.test(page) && /title="Contact"/.test(page), 'Organization Details and Contact are InfoCards')
+ok(!/Back to Organizations/.test(page), 'no Back to Cooperatives')
+ok(/title="Cooperative Details"/.test(page) && /title="Contact"/.test(page), 'Cooperative Details and Contact are InfoCards')
 ok(!/label="Registration Number"|label="Registration Agency"|label="Date Registered"|label="Barangay"|label="Street Address"/.test(page), 'the registration number, agency, date registered and address are in the banner only, not repeated in a card')
 for (const title of ['Members', 'Equipment Inventory', 'Confirmed for Members', 'Officers']) {
   ok(new RegExp(`<ViewSection[\\s\\S]{0,260}title="${title}"`).test(page), `${title} is a View card`)
 }
-ok(/const renderBody = \(section\)/.test(page) && /renderBody\(activeSection\)/.test(page), 'the section bodies are drawn by one function, for the tabs of "My Organization" and for the windows')
+ok(/const renderBody = \(section\)/.test(page) && /renderBody\(activeSection\)/.test(page), 'the section bodies are drawn by one function, for the tabs of "My Cooperative" and for the windows')
 ok(/const renderActions = \(section\)/.test(page), 'the Import / Add buttons of a section are drawn by one function too')
-ok(/<Tabs/.test(page) && /own \?/.test(page), 'an organization\'s own page keeps its tabs')
+ok(/<Tabs/.test(page) && /own \?/.test(page), 'a cooperative\'s own page keeps its tabs')
 ok(/iconOnly/.test(page), 'the staff actions are icons')
 ok(!/lg:sticky/.test(page), 'no sticky columns')
 

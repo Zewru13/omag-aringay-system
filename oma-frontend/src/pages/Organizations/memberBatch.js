@@ -38,7 +38,7 @@ export async function addBatch({ chosen, post, body, own = false }) {
       if (data?.main_choice_required && !own) {
         needMain.push({ entry, otherNames: (data.other_organizations || []).map((o) => o.organization_name) })
       } else if (data?.main_choice_required) {
-        failed.push({ entry, name: entry.person.full_name, reason: 'is already in another organization and has no main one yet. Ask OMAg staff to set it first.' })
+        failed.push({ entry, name: entry.person.full_name, reason: 'is already in another cooperative and has no main one yet. Ask OMAg staff to set it first.' })
       } else {
         failed.push({ entry, name: entry.person.full_name, reason: refusalReason(data) })
       }

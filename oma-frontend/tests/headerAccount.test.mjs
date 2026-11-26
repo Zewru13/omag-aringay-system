@@ -8,8 +8,8 @@ test('under the name is the type of account', () => {
     [{ role: 'EVALUATOR' }, 'Focal Person'],
     [{ role: 'CITIZEN', linked_record_type: 'FARMER' }, 'Farmer'],
     [{ role: 'CITIZEN', linked_record_type: 'FISHERFOLK' }, 'Fisherfolk'],
-    [{ role: 'CITIZEN', linked_record_type: 'FARMERS_ORG' }, 'Farmers Organization'],
-    [{ role: 'CITIZEN', linked_record_type: 'FISHERFOLK_ORG' }, 'Fisherfolk Organization'],
+    [{ role: 'CITIZEN', linked_record_type: 'FARMERS_ORG' }, 'Farmers Cooperative'],
+    [{ role: 'CITIZEN', linked_record_type: 'FISHERFOLK_ORG' }, 'Fisherfolk Cooperative'],
     [{ role: 'CITIZEN' }, 'Account'],
     [null, ''],
   ]

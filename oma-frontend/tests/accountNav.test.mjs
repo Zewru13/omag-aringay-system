@@ -8,8 +8,8 @@ const pairs = (list) => list.map((e) => [e.label, e.to])
 
 eq(accountKind({ isFarmer: true }), 'farmer', 'farmer')
 eq(accountKind({ isFisherfolk: true }), 'fisherfolk', 'fisherfolk')
-eq(accountKind({ isOrg: true, orgType: 'FARMERS_ORG' }), 'orgFarm', 'farmers organization')
-eq(accountKind({ isOrg: true, orgType: 'FISHERFOLK_ORG' }), 'orgFish', 'fisherfolk organization')
+eq(accountKind({ isOrg: true, orgType: 'FARMERS_ORG' }), 'orgFarm', 'farmers cooperative')
+eq(accountKind({ isOrg: true, orgType: 'FISHERFOLK_ORG' }), 'orgFish', 'fisherfolk cooperative')
 eq(accountKind({}), null, 'staff has no account menu')
 
 eq(pairs(accountNav('farmer').main), [['Home', '/my-account'], ['Crops', '/crop-monitoring'], ['Assistance', '/crop-assistance'], ['Disasters', '/disaster'], ['More', '/more']], 'farmer menu')
@@ -17,9 +17,9 @@ eq(pairs(accountNav('farmer').more), [['Forecast', '/forecasting'], ['My profile
 eq(pairs(accountNav('farmer', { isMember: true }).more), [['Forecast', '/forecasting'], ['Borrow equipment', '/my-equipment'], ['My profile', '/my-profile'], ['User Manual', '/manual']], 'a member can borrow')
 eq(pairs(accountNav('fisherfolk').main), [['Home', '/my-account'], ['Cycles', '/fisheries-monitoring'], ['Assistance', '/fisheries-assistance'], ['Disasters', '/disaster'], ['More', '/more']], 'fisherfolk menu')
 eq(pairs(accountNav('fisherfolk').more)[0], ['Forecast', '/fisheries-forecasting'], 'fisherfolk forecast')
-eq(pairs(accountNav('orgFarm').main), [['Home', '/my-account'], ['Members', '/my-organization'], ['Assistance', '/crop-assistance'], ['Equipment', '/my-organization?tab=equipment'], ['More', '/more']], 'farmers organization menu')
-eq(pairs(accountNav('orgFish').main)[2], ['Assistance', '/fisheries-assistance'], 'fisherfolk organization assistance')
-eq(pairs(accountNav('orgFarm').more), [['Officers', '/my-organization?tab=officers'], ['Organization profile', '/my-profile'], ['User Manual', '/manual']], 'organization More')
+eq(pairs(accountNav('orgFarm').main), [['Home', '/my-account'], ['Members', '/my-organization'], ['Assistance', '/crop-assistance'], ['Equipment', '/my-organization?tab=equipment'], ['More', '/more']], 'farmers cooperative menu')
+eq(pairs(accountNav('orgFish').main)[2], ['Assistance', '/fisheries-assistance'], 'fisherfolk cooperative assistance')
+eq(pairs(accountNav('orgFarm').more), [['Officers', '/my-organization?tab=officers'], ['Cooperative profile', '/my-profile'], ['User Manual', '/manual']], 'cooperative More')
 for (const kind of ['farmer', 'fisherfolk', 'orgFarm', 'orgFish']) {
   const nav = accountNav(kind, { isMember: true })
   eq(nav.main.length, 5, `${kind}: five entries`)

@@ -114,3 +114,7 @@ export function areaProblem(rows, index, parcels) {
   }
   return ''
 }
+
+// A crop's seed source is saved as the text picked. 'Organization' keeps its older saved name; people read it as Cooperative.
+export const seedSourceLabel = (value) => (value === 'Organization' ? 'Cooperative' : value || '')
+export const EDIT_SEED_SOURCES = ['Own Seeds', 'DA/LGU Provided', 'Commercial', { value: 'Organization', label: seedSourceLabel('Organization') }]

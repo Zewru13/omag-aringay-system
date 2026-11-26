@@ -5,7 +5,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useEquipmentOptions from '../../hooks/useEquipmentOptions.js'
 import ParcelCropsImportModal from './ParcelCropsImportModal.jsx'
-import { MACHINERY_FALLBACK, OWNERSHIP_OPTIONS, addImportedMachinery, makeMachineryRow } from './parcelRows.js'
+import { MACHINERY_FALLBACK, OWNERSHIP_OPTIONS, addImportedMachinery, machineryOwnershipLabel, makeMachineryRow } from './parcelRows.js'
 import Button from '../../components/UI/Button.jsx'
 
 // The machinery a farmer has: the lines of Register Farmer and of the profile's Add Machinery window. The page owns the list (rows
@@ -63,7 +63,7 @@ export default function MachineryEditor({ machinery, onChange }) {
                   </td>
                   <td data-label="Whose is it (the equipment, not the land)" className={SUB_CELL} style={{ width: 190 }}>
                     <select className={bulkCellInputClasses} value={m.ownership} onChange={(e) => update(m._uid, { ownership: e.target.value })}>
-                      {OWNERSHIP_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                      {OWNERSHIP_OPTIONS.map((o) => <option key={o} value={o}>{machineryOwnershipLabel(o)}</option>)}
                     </select>
                   </td>
                   <td className="px-2 py-2 text-center max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-right" style={{ width: 56 }}>

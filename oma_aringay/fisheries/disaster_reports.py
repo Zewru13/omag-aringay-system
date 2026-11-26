@@ -514,7 +514,7 @@ def build_report_pdf(report, doc):
     """PDF bytes for `report`, written from `doc` = report_document(report)."""
     ff, stock, losses = doc['fisherfolk'], doc['affected_stock'], doc['fingerling_losses']
     sections = [{'title': 'FISHERFOLK', 'rows': [
-        ('Name', ff['name']), ('Barangay', ff['barangay']), ('Organization', ff['organization']),
+        ('Name', ff['name']), ('Barangay', ff['barangay']), ('Cooperative', ff['organization']),
     ]}]
     if len(losses) > 1:
         # Several stocks: one compact row per stock (the single-stock layout below stays for one stock).
@@ -532,7 +532,7 @@ def build_report_pdf(report, doc):
             ('Production Units', ', '.join(stock['production_units'])),
             ('Pond / Cage', stock['pond_name']),
             ('Location', stock['location']),
-            ('Organization', stock['organization']),
+            ('Cooperative', stock['organization']),
             ('Culture Type', stock['culture_type']),
             ('Culture Phase', stock['culture_phase']),
             ('Fingerlings Stocked', fmt_number(stock['number_of_fingerlings'])),

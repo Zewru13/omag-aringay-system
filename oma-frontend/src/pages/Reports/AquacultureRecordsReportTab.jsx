@@ -69,7 +69,7 @@ export default function AquacultureRecordsReportTab() {
             <Pick label="Culture Type" all="All Types" value={filters.culture_type} onChange={v => set('culture_type', v)}>
               {options.culture_types.map(c => <option key={c} value={c}>{c}</option>)}
             </Pick>
-            <Pick label="Organization" all="All Organizations" value={filters.organization} onChange={v => set('organization', v)}>
+            <Pick label="Cooperative" all="All Cooperatives" value={filters.organization} onChange={v => set('organization', v)}>
               {options.organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </Pick>
             <Pick label="Cycle" all="All Cycles" value={filters.cycle} onChange={v => set('cycle', v)}>

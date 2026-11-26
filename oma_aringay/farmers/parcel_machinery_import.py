@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 
+from .machinery_labels import SHOWN_AS, ownership_label
 from .models import FarmMachinery
 from .parcel_import import _choice, _read, _serializer_errors, _template_response, _text
 from .serializers import FarmMachinerySerializer
@@ -30,12 +31,13 @@ MAX_MACHINERY_ROWS = 100
 
 MACHINERY_TYPES = [value for value, _ in FarmMachinery.MachineryType.choices if value != 'Other']
 OWNERSHIPS = [value for value, _ in FarmMachinery.Ownership.choices]
+OWNERSHIPS_SHOWN = [ownership_label(value) for value in OWNERSHIPS]
 MAX_QUANTITY = 9999
 
 MACHINERY_NOTE = (
     f'{MACHINERY_NOTE_PREFIX} one row per kind of machinery. Machinery Type: {", ".join(MACHINERY_TYPES)} (anything else is recorded as '
     'Other with your text, or write Other and give its name in the last column). Quantity: a whole number, 1 if blank. '
-    f'Ownership: {", ".join(OWNERSHIPS)} (who owns the equipment, not the land; Owned if blank). Delete the sample row.'
+    f'Ownership: {", ".join(OWNERSHIPS_SHOWN)} (who owns the equipment, not the land; Owned if blank). Delete the sample row.'
 )
 
 
@@ -70,6 +72,11 @@ def parse_machinery_cells(row):
         amount = int(amount)
     else:
         amount = 1
+    # The file may say the name people read (Cooperative-Owned) or the saved value.
+    saved_for = {shown.lower(): saved for saved, shown in SHOWN_AS.items()}
+    ownership = saved_for.get(ownership.lower(), ownership)
+    if ownership.lower() not in {value.lower() for value in OWNERSHIPS} and ownership:
+        raise ValueError(f'Ownership "{ownership}" is not valid. Use one of: {", ".join(OWNERSHIPS_SHOWN)}.')
     line = {
         'machinery_type': machinery_type,
         'machinery_type_other': machinery_type_other,

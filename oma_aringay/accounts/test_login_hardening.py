@@ -13,7 +13,7 @@ from accounts.models import User
 MAIL = dict(SMTP_CONFIGURED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 LOGIN = '/api/accounts/login/'
 RESEND = '/api/accounts/resend-verification/'
-SAME_FAILURE = 'Incorrect email or password. Farmers, fisherfolk and organizations sign in with their email address.'
+SAME_FAILURE = 'Incorrect email or password. Farmers, fisherfolk and cooperatives sign in with their email address.'
 
 
 def make_user(username='lh-member', password='Right#Pass1234', **extra):

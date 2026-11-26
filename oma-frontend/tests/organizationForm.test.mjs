@@ -45,14 +45,14 @@ ok(!('date_organized' in edited) && !('date_registered' in edited), 'editing sen
 eq(organizationBody({ ...good, date_organized: '2010-06-01' }, { isEdit: true, original: good }).date_organized, '2010-06-01', 'a changed date is sent')
 
 const sections = read('src/pages/Organizations/OrganizationFormSections.jsx')
-for (const title of ['Organization Information', 'Registration', 'Contact']) ok(sections.includes(`title="${title}"`), `section ${title}`)
-for (const label of ['Organization Name', 'Barangay', 'Street Address', 'Date Organized', 'Date Registered', 'Registration Number', 'Registration Agency', 'Email Address', 'Contact Person Full Name', 'Contact Number']) {
+for (const title of ['Cooperative Information', 'Registration', 'Contact']) ok(sections.includes(`title="${title}"`), `section ${title}`)
+for (const label of ['Cooperative Name', 'Barangay', 'Street Address', 'Date Organized', 'Date Registered', 'Registration Number', 'Registration Agency', 'Email Address', 'Contact Person Full Name', 'Contact Number']) {
   ok(sections.includes(`label="${label}"`), `field ${label}`)
 }
 ok(sections.includes("from '../../components/UI/FormTable.jsx'") && /<FormCell /.test(sections), 'the form is the shared table form')
 const create = read('src/pages/Organizations/CreateOrganizationModal.jsx')
 const edit = read('src/pages/Organizations/EditOrganizationModal.jsx')
-for (const [name, src] of [['Add New Organization', create], ['Edit Organization', edit]]) {
+for (const [name, src] of [['Add New Cooperative', create], ['Edit Cooperative', edit]]) {
   ok(src.includes('<OrganizationFormSections'), `${name} draws the shared form`)
   ok(!/labelCls|<BarangaySelect/.test(src), `${name} has no fields of its own`)
   ok(src.includes('organizationProblems') && src.includes('organizationBody'), `${name} uses the shared rules`)

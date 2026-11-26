@@ -63,8 +63,8 @@ eq(firstFisherfolkProblem({ ...good, rsbsa_number: '', contact_number: '0917' },
 const sent = fisherfolkPayload({ ...good, has_vessel: false, boat_registration_number: '1234567', is_icc_ip_member: false, icc_ip_name: 'X', average_catch_per_trip_kg: '', vessel_material: 'Wood', vessel_material_other_specify: 'x' })
 eq([sent.boat_registration_number, sent.icc_ip_name, sent.vessel_material_other_specify], ['', '', ''], 'values of unticked boxes are cleared')
 ok(!('average_catch_per_trip_kg' in sent), 'an empty catch figure is not sent')
-ok(!('fisherfolk_organization' in fisherfolkPayload(good, { isEdit: true })), 'editing does not touch the organization: membership is kept on the organization pages')
-ok('fisherfolk_organization' in fisherfolkPayload(good), 'registering sends the chosen organization')
+ok(!('fisherfolk_organization' in fisherfolkPayload(good, { isEdit: true })), 'editing does not touch the cooperative: membership is kept on the cooperative pages')
+ok('fisherfolk_organization' in fisherfolkPayload(good), 'registering sends the chosen cooperative')
 const edited = fisherfolkPayload(good, { isEdit: true })
 ok(!('fisherfolk_type' in edited) && !('vessel_type' in edited) && !('fishing_ground' in edited), 'editing sends only what the form shows')
 ok('civil_status' in edited && 'email' in edited && 'philsys_number' in edited && 'is_pwd' in edited, 'including the fields the old edit form lacked')
@@ -74,7 +74,7 @@ eq(fisherfolkFormFrom({ id: 1, civil_status: null, gender: 'Female' }).civil_sta
 const sections = read('src/pages/Fisherfolk/FisherfolkFormSections.jsx')
 for (const title of ['Personal Information', 'Contact Information', 'Government Information', 'Fisheries Information', 'Vessel Information']) ok(sections.includes(`title="${title}"`), `section ${title}`)
 for (const label of ['Prefix', 'First Name', 'Middle Name', 'Last Name', 'Sex', 'Birthdate', 'Civil Status', 'Highest Education', 'Contact Number', 'Barangay', 'Email',
-  'RSBSA Number', 'FishR Number', 'PhilSys / National ID No.', 'Classification', 'Type of Fishery Activity', 'Fisherfolk Organization', 'Boat Registration Number (Boat-R)']) {
+  'RSBSA Number', 'FishR Number', 'PhilSys / National ID No.', 'Classification', 'Type of Fishery Activity', 'Fisherfolk Cooperative', 'Boat Registration Number (Boat-R)']) {
   ok(sections.includes(`label="${label}"`), `field ${label}`)
 }
 ok(sections.includes("from '../../components/UI/FormTable.jsx'") && /<FormCell /.test(sections), 'the form is the shared table form')

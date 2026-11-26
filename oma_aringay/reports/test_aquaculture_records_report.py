@@ -26,7 +26,7 @@ def pdf_text_and_size(response):
     return '\n'.join(p.extract_text() for p in reader.pages), (float(page.mediabox.width), float(page.mediabox.height))
 
 
-HEADERS = ['Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Organization', 'Date Stocked', 'PCIC Insured']
+HEADERS = ['Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Cooperative', 'Date Stocked', 'PCIC Insured']
 
 
 def _fisherfolk(first, last, barangay):
@@ -166,7 +166,7 @@ class AquacultureRecordsReportTests(APITestCase):
                        ownership='Lease', barangay='Basca', culture_type='Cage', organization=self.org.id)
         self.assertEqual(doc['period'], 'As of June 1 to December 31, 2026')
         for expected in ('Ownership: Lease', 'Species: AQ Bangus', 'Fisherfolk: Ben Dike', 'Barangay: Basca', 'Culture type: Cage',
-                         'Organization: Alaska Fishers', 'PCIC: Not insured'):
+                         'Cooperative: Alaska Fishers', 'PCIC: Not insured'):
             self.assertIn(expected, doc['subtitle'])
         self.assertEqual(self.get()['subtitle'], 'All production cycles')
 
@@ -184,7 +184,7 @@ class AquacultureRecordsReportTests(APITestCase):
             self.assertIn(expected, text)
         self.assertNotIn('Ben Dike', text)                                            # the filter applies to the printout too
         flat = ' '.join(text.split())
-        for header in ('Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Organization', 'Date Stocked', 'PCIC Insured'):
+        for header in ('Ownership', 'Cycle', 'Species', 'Fisherfolk', 'Barangay', 'Pond/Cage Location', 'Culture Type', 'Cooperative', 'Date Stocked', 'PCIC Insured'):
             self.assertIn(header, flat)
 
     def test_this_report_is_not_offered_as_excel(self):
@@ -227,7 +227,7 @@ class FisheriesProductionNoFinalColumnTests(APITestCase):
         text, size = pdf_text_and_size(r)
         self.assertNotIn('Final', text)
         flat = text.replace('\n', ' ')
-        for expected in ('Barangay', 'Fisherfolk', 'Organization', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)', 'Fina Harvest', '12.5'):
+        for expected in ('Barangay', 'Fisherfolk', 'Cooperative', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)', 'Fina Harvest', '12.5'):
             self.assertIn(expected, flat)
         self.assertGreater(size[0], size[1])                                          # eight columns are still landscape
         self.assertIn('Total Harvest Records', text)
@@ -235,7 +235,7 @@ class FisheriesProductionNoFinalColumnTests(APITestCase):
     def test_the_excel_has_no_final_column_and_keeps_the_rest(self):
         r = self.client.get(PRODUCTION_URL, {'format': 'excel'})
         ws = openpyxl.load_workbook(io.BytesIO(r.content)).active
-        self.assertEqual([c.value for c in ws[6]], ['BARANGAY', 'FISHERFOLK', 'ORGANIZATION', 'SPECIES', 'CULTURE TYPE', 'DATE STOCKED', 'HARVEST DATE', 'QUANTITY (KG)'])
+        self.assertEqual([c.value for c in ws[6]], ['BARANGAY', 'FISHERFOLK', 'COOPERATIVE', 'SPECIES', 'CULTURE TYPE', 'DATE STOCKED', 'HARVEST DATE', 'QUANTITY (KG)'])
         for row in ws.iter_rows(min_row=7, values_only=True):
             self.assertEqual(len(row), 8)
             self.assertNotIn('Yes', row)

@@ -73,7 +73,7 @@ const COLUMNS = [
   { key: 'date_received_fmt',                          label: 'Date Received' },
   { key: 'fisherfolk_full_name',                       label: 'Fisherfolk Name' },
   { key: 'fisherfolk_type',                            label: 'Type' },
-  { key: 'attributed_fisherfolk_organization_name',    label: 'Organization' },
+  { key: 'attributed_fisherfolk_organization_name',    label: 'Cooperative' },
   { key: 'assistance_type',                            label: 'Assistance Type' },
   { key: 'source_agency',                              label: 'Source of Assistance' },
   { key: 'quantity',                                   label: 'Quantity / Amount' },
@@ -390,7 +390,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
               <Upload size={15} className="mr-1" /> Import File
             </Button>
             <Button variant="outline" onClick={() => setShowDistribute(true)}>
-              <Users size={15} className="mr-1" /> Distribute to Organizations
+              <Users size={15} className="mr-1" /> Distribute to Cooperatives
             </Button>
             <Button onClick={() => setShowPeople(true)}>
               <Plus size={15} className="mr-1" /> Distribute Fisherfolk Assistance
@@ -550,7 +550,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           details={[
             { label: 'Fisherfolk', value: viewing.fisherfolk_full_name },
             { label: 'Fisherfolk Type', value: viewing.fisherfolk_type },
-            { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
+            { label: 'Cooperative', value: viewing.attributed_fisherfolk_organization_name },
             { label: 'Assistance Type', value: viewing.assistance_type },
             { label: 'Item Type', value: viewing.item_type || viewing.equipment_type },
             ...(viewing.assistance_type === 'Training' ? [{ label: 'Type of Training', value: viewing.training_type }] : []),
@@ -586,15 +586,15 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   if (asTab) return innerContent
 
   return isOrg ? (
-    <PageLayout title="Assistance" subtitle="Assistance your organization distributed to its members.">
+    <PageLayout title="Assistance" subtitle="Assistance your cooperative distributed to its members.">
       {innerContent}
     </PageLayout>
   ) : isFisherfolk ? (
-    <PageLayout title="Assistance Received" subtitle="Government and organization assistance recorded for you.">
+    <PageLayout title="Assistance Received" subtitle="Government and cooperative assistance recorded for you.">
       {innerContent}
     </PageLayout>
   ) : (
-    <PageLayout title="Fisheries Assistance" subtitle="Government and organization assistance given to fisherfolk.">
+    <PageLayout title="Fisheries Assistance" subtitle="Government and cooperative assistance given to fisherfolk.">
       {innerContent}
     </PageLayout>
   )

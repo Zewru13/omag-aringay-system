@@ -43,7 +43,7 @@ export default function OrganizationAssistanceReportTab() {
       path={ORG_ASSISTANCE_PATH}
       params={orgReportParams(kind, filters, picked)}
       stem={picked && !current.individual ? `${stem}_${picked.id}` : stem}
-      emptyText={current.individual ? 'No assistance given directly matches these filters.' : 'No organization assistance matches these filters.'}
+      emptyText={current.individual ? 'No assistance given directly matches these filters.' : 'No cooperative assistance matches these filters.'}
       picked={current.individual ? null : picked}
       onPickRow={current.individual ? undefined : setPicked}
       onShowAll={() => setPicked(null)}

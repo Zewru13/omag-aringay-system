@@ -6,7 +6,7 @@ let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
 eq(USER_TABS.map((t) => t.id), ['staff', 'fisherfolk', 'farmers', 'organizations'], 'four separate tables')
-eq(USER_TABS.map((t) => t.label), ['Staff', 'Fisherfolk', 'Farmers', 'Organizations'], 'tab labels')
+eq(USER_TABS.map((t) => t.label), ['Staff', 'Fisherfolk', 'Farmers', 'Cooperatives'], 'tab labels')
 
 // the tab named in the address, or Staff
 eq(tabFromParam('farmers'), 'farmers', 'a known tab')
@@ -26,8 +26,8 @@ eq(buildUserQuery('fisherfolk', { role: '', status: '', type: 'Aquaculture' }, '
 eq(buildUserQuery('fisherfolk', defaultFilters('fisherfolk'), '', 1), { page: 1, role: 'FISHERFOLK' }, 'fisherfolk, every type')
 eq(buildUserQuery('farmers', { role: '', status: '', type: 'laborer' }, '', 1), { page: 1, role: 'FARMER', farmer_type: 'laborer' }, 'farmers: laborer')
 eq(buildUserQuery('farmers', { role: '', status: '', type: 'operator' }, '', 3), { page: 3, role: 'FARMER', farmer_type: 'operator' }, 'farmers: operator')
-eq(buildUserQuery('organizations', { role: '', status: '', type: 'farmers' }, '', 1), { page: 1, role: 'ORGANIZATION', organization_type: 'farmers' }, 'organizations: farmers')
-eq(buildUserQuery('organizations', { role: '', status: '', type: 'fisherfolk' }, 'co', 1), { page: 1, search: 'co', role: 'ORGANIZATION', organization_type: 'fisherfolk' }, 'organizations: fisherfolk')
+eq(buildUserQuery('organizations', { role: '', status: '', type: 'farmers' }, '', 1), { page: 1, role: 'ORGANIZATION', organization_type: 'farmers' }, 'cooperatives: farmers')
+eq(buildUserQuery('organizations', { role: '', status: '', type: 'fisherfolk' }, 'co', 1), { page: 1, search: 'co', role: 'ORGANIZATION', organization_type: 'fisherfolk' }, 'cooperatives: fisherfolk')
 
 // the filter badge counts what differs from the tab's default
 eq(filterCount('staff', defaultFilters('staff')), 0, 'staff default: no active filter')

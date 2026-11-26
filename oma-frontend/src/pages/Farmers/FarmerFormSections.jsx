@@ -146,11 +146,11 @@ export default function FarmerFormSections({
             </FormRow>
           )}
           <FormRow>
-            <FormCell label="Farmer Organization" wide
-              hint={<p className={hintCls}>{isEdit ? 'Membership is changed from each organization\'s own Members tab, not here.'
-                : 'Type to search the organizations, or leave blank if the farmer is not part of any organization. It can be changed later from the organization.'}</p>}>
+            <FormCell label="Farmer Cooperative" wide
+              hint={<p className={hintCls}>{isEdit ? 'Membership is changed from each cooperative\'s own Members tab, not here.'
+                : 'Type to search the cooperatives, or leave blank if the farmer is not part of any cooperative. It can be changed later from the cooperative.'}</p>}>
               {isEdit ? (
-                (farmerOrganizations || []).length === 0 ? <FormValue>Not a member of any organization</FormValue> : (
+                (farmerOrganizations || []).length === 0 ? <FormValue>Not a member of any cooperative</FormValue> : (
                   <div className="flex flex-wrap gap-1.5 py-1">
                     {farmerOrganizations.map((o) => (
                       <span key={o.membership_id}
@@ -164,12 +164,12 @@ export default function FarmerFormSections({
               ) : (
                 <SearchSelect
                   id={id('farmers_organization')}
-                  ariaLabel="Farmer Organization"
+                  ariaLabel="Farmer Cooperative"
                   options={organizations.map((o) => ({ value: o.id, label: o.name }))}
                   value={form.farmers_organization}
                   onChange={(value) => onChange('farmers_organization', value)}
-                  emptyLabel="— Not a member of any organization"
-                  placeholder="Type the organization name"
+                  emptyLabel="— Not a member of any cooperative"
+                  placeholder="Type the cooperative name"
                 />
               )}
             </FormCell>

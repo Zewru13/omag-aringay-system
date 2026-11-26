@@ -333,8 +333,8 @@ export default function AddCropMonitoringPage() {
                 <p className="text-xs font-medium text-[#1A2B1A]">{farmerInfo.farmer_home_barangay || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Organization</p>
-                <p className="text-xs font-medium text-[#1A2B1A]">{farmerInfo.farmer_assoc_name || 'Non-organization'}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Cooperative</p>
+                <p className="text-xs font-medium text-[#1A2B1A]">{farmerInfo.farmer_assoc_name || 'No cooperative'}</p>
               </div>
             </div>
           )}

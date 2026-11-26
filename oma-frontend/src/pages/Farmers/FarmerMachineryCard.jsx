@@ -8,7 +8,7 @@ import ViewSection from '../../components/UI/ViewSection.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import MachineryEditor from './MachineryEditor.jsx'
-import { machineryLabel, machineryPayload, machineryProblem, makeMachineryRow } from './parcelRows.js'
+import { machineryLabel, machineryOwnershipLabel, machineryPayload, machineryProblem, makeMachineryRow } from './parcelRows.js'
 import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import useDraftForm, { useDraftField } from '../../hooks/useDraftForm.js'
 
@@ -114,7 +114,7 @@ export default function FarmerMachineryCard({ farmerId, machinery, canEdit, onCh
                 <tr key={m.id} className={`${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'} max-md:block max-md:px-3 max-md:py-2`}>
                   <td data-label="Machinery" className={CELL}>{machineryLabel(m)}</td>
                   <td data-label="Qty" className={CELL}>{m.quantity}</td>
-                  <td data-label="Whose is it" className={CELL}>{m.ownership}</td>
+                  <td data-label="Whose is it" className={CELL}>{machineryOwnershipLabel(m.ownership)}</td>
                   {canEdit && (
                     <td className="px-3 py-2 text-right max-md:block max-md:px-0 max-md:py-1">
                       <button type="button" onClick={() => setRemoving(m)} title="Remove machinery"

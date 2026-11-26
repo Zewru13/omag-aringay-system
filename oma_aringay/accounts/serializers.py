@@ -27,6 +27,10 @@ class UserListSerializer(serializers.ModelSerializer):
         ]
 
 
+# What people read for the account types whose saved names still say organization.
+ACCOUNT_TYPE_NAMES = {'FARMERS_ORG': 'Farmers Cooperative', 'FISHERFOLK_ORG': 'Fisherfolk Cooperative'}
+
+
 class UserSerializer(serializers.ModelSerializer):
     # Batch 10: minimal, read-only proof-of-chain data for CITIZEN accounts —
     # None for ADMIN/EVALUATOR (no linked_record_type set). Consumed by the
@@ -59,7 +63,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_other_linked_records(self, obj):
         return [
-            {'record_type': link.record_type, 'label': User.LinkedRecordType(link.record_type).label}
+            {'record_type': link.record_type, 'label': ACCOUNT_TYPE_NAMES.get(link.record_type) or User.LinkedRecordType(link.record_type).label}
             for link in obj.linked_records.exclude(is_active=True).order_by('id')
         ]
 

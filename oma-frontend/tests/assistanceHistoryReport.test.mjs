@@ -24,7 +24,7 @@ eq(bulk.title, 'ASSISTANCE HISTORY REPORT', 'the heading')
 eq(bulk.landscape, true, 'seven columns print on landscape paper')
 eq(bulk.header, [['Date printed', 'November 4, 2026'], ['Year', '2026'], ['Status', 'History'], ['Records', '2 distributions']], 'what it was filtered by, blanks left out')
 eq(bulk.sections[0].table.head, ['No.', 'Date Given', 'Given To', 'Assistance Type', 'Source Agency', 'Quantity', 'Recipients', 'Status'], 'the columns')
-eq(bulk.sections[0].table.rows[0], ['1', 'Aug 1, 2026', 'Alaska Farmers Association', 'Seeds', 'DA, PhilRice', formatAssistanceQuantity('Seeds', '10 sack') || '—', '2', 'Confirmed'], 'a distribution to an organization')
+eq(bulk.sections[0].table.rows[0], ['1', 'Aug 1, 2026', 'Alaska Farmers Association', 'Seeds', 'DA, PhilRice', formatAssistanceQuantity('Seeds', '10 sack') || '—', '2', 'Confirmed'], 'a distribution to a cooperative')
 eq(bulk.sections[0].table.rows[1], ['2', 'Sep 15, 2026', 'Ben Lim', 'Training', '—', formatAssistanceQuantity('Training', '') || '—', '1', 'Resolved'], 'a distribution to one person is named, empty values are dashes')
 eq(buildDistributionsReportSpec({ domain: 'crop', noun: 'farmers', distributions: [], filters: [], now: NOW }).header.at(-1), ['Records', '0 distributions'], 'nothing in the list')
 eq(buildDistributionsReportSpec({ domain: 'crop', noun: 'farmers', distributions: [group()], filters: [], now: NOW }).header.at(-1), ['Records', '1 distribution'], 'one distribution')
@@ -32,9 +32,9 @@ eq(buildDistributionsReportSpec({ domain: 'crop', noun: 'farmers', distributions
 
 // an organization's own History: its name is in the heading and the header
 const orgSpec = buildDistributionsReportSpec({ domain: 'fisheries', noun: 'fisherfolk', organizationName: 'Samara Fishers', distributions: [group({ organization_name: null, members: [member(1, 'Pedro Sea'), member(2, 'Ana Lim')] })], filters: [], now: NOW })
-eq(orgSpec.title, 'ORGANIZATION ASSISTANCE HISTORY REPORT', 'the organization report heading')
-eq(orgSpec.header.find(([k]) => k === 'Organization'), ['Organization', 'Samara Fishers'], 'the organization is named')
-eq(orgSpec.sections[0].table.rows[0][2], 'Pedro Sea, Ana Lim', 'inside an organization each row says who received it')
+eq(orgSpec.title, 'COOPERATIVE ASSISTANCE HISTORY REPORT', 'the cooperative report heading')
+eq(orgSpec.header.find(([k]) => k === 'Cooperative'), ['Cooperative', 'Samara Fishers'], 'the cooperative is named')
+eq(orgSpec.sections[0].table.rows[0][2], 'Pedro Sea, Ana Lim', 'inside a cooperative each row says who received it')
 
 // ── one distribution, with every recipient
 const record = buildDistributionRecordSpec({ domain: 'crop', noun: 'farmers', distribution: group(), now: NOW })
@@ -100,7 +100,7 @@ eq(historyFilterPairs({ year: '', barangay: '', status: 'history' }), [['Status'
 eq(historyFilterPairs({ status: 'current' }), [['Status', 'Current']], 'the other tab')
 eq(historyFilterPairs({}), [], 'no filters')
 eq(historyFilterPairs({ date_from: '2026-01-05', date_to: '2026-06-30', status: 'CONFIRMED' }),
-  [['Given from', 'Jan 5, 2026'], ['Given to', 'Jun 30, 2026'], ['Status', 'Confirmed']], 'an organization history: the dates and a member status')
+  [['Given from', 'Jan 5, 2026'], ['Given to', 'Jun 30, 2026'], ['Status', 'Confirmed']], 'a cooperative history: the dates and a member status')
 eq(historyFilterPairs({ status: 'needs-follow-up' }), [['Status', 'Needs follow-up']], 'needs follow-up')
 eq(historyFilterPairs({ status: 'WEIRD' }), [['Status', 'WEIRD']], 'a status it does not know is shown as it is')
 

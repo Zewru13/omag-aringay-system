@@ -92,7 +92,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
   }, [people, memberUrl, domain])
 
   const chosen = [...picked.values()]
-  const recipientNoun = people ? domain.peopleLabel : 'organizations'
+  const recipientNoun = people ? domain.peopleLabel : 'cooperatives'
 
   // ── step 1 -> 2: check the form, then ask the server what would happen
   const handleReview = async (e) => {
@@ -100,7 +100,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
     setError('')
     const problem = assistanceLinesProblem(lines, { today })
     if (problem) { setError(problem); return }
-    if (chosen.length === 0) { setError(`Tick at least one ${people ? domain.personLabel.toLowerCase() : 'organization'} in the table.`); return }
+    if (chosen.length === 0) { setError(`Tick at least one ${people ? domain.personLabel.toLowerCase() : 'cooperative'} in the table.`); return }
     if (chosen.length > MAX_RECIPIENTS) { setError(`You can choose at most ${MAX_RECIPIENTS} at a time.`); return }
     setIsBusy(true)
     try {
@@ -171,7 +171,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
               const r = await api.post(domain.distributeUrl(chosen[i].id), organizationRequest(line, { memberIds: ids, allowSeedFertilizer: domain.allowSeedFertilizer }))
               outcomesOfLine.push({ ...r.data, org: chosen[i] })
             } catch (err) {
-              outcomesOfLine.push({ failed: firstMessage(err?.response?.data, 'This organization could not be saved.'), org: chosen[i] })
+              outcomesOfLine.push({ failed: firstMessage(err?.response?.data, 'This cooperative could not be saved.'), org: chosen[i] })
             }
           }
           done.push(outcomesOfLine)
@@ -240,7 +240,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
 
   const title = people
     ? (memberUrl ? 'Distribute to Members' : `Distribute ${domain.personLabel} Assistance`)
-    : (fixedOrg ? 'Distribute to All Members' : 'Distribute to Organizations')
+    : (fixedOrg ? 'Distribute to All Members' : 'Distribute to Cooperatives')
   const subtitle = people
     ? `Give one or more assistance to the ${domain.peopleLabel} you tick below, in one step.`
     : (fixedOrg ? 'Give the same assistance to the members you choose, in one step.' : `Give one or more assistance to the members of the ${domain.orgLabel.toLowerCase()}s you tick below.`)
@@ -266,12 +266,12 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
             <FormSection title={people ? (memberUrl ? 'Members' : `Registered ${domain.personLabel}s`) : `Registered ${domain.orgLabel}s`}>
               <div className="space-y-3 p-3">
               <p className="text-[12.5px] text-[#4A5E4A]">
-                {people ? `Search, then tick every ${domain.personLabel.toLowerCase()} who receives this assistance.` : 'Search, then tick every organization whose members receive this assistance. You can untick members in the review.'}
+                {people ? `Search, then tick every ${domain.personLabel.toLowerCase()} who receives this assistance.` : 'Search, then tick every cooperative whose members receive this assistance. You can untick members in the review.'}
               </p>
               <RecipientTable
                 noun={recipientNoun}
                 columns={people ? domain.personColumns : domain.orgColumns}
-                searchPlaceholder={people ? 'Search by name, RSBSA number or barangay…' : 'Search organizations by name or barangay…'}
+                searchPlaceholder={people ? 'Search by name, RSBSA number or barangay…' : 'Search cooperatives by name or barangay…'}
                 load={loadRecipients}
                 picked={picked}
                 onToggle={(record) => setPicked((m) => toggleInMap(m, record))}
@@ -302,7 +302,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
               {lines.length > 1
                 ? `${totals.records} assistance record${totals.records === 1 ? '' : 's'} in all`
                 : `To ${totals.records} selected ${people ? (totals.records === 1 ? domain.personLabel.toLowerCase() : domain.peopleLabel) : `member${totals.records === 1 ? '' : 's'}`}`}
-              {!people && ` ${lines.length > 1 ? 'across' : 'of'} ${totals.organizations} organization${totals.organizations === 1 ? '' : 's'}`}
+              {!people && ` ${lines.length > 1 ? 'across' : 'of'} ${totals.organizations} cooperative${totals.organizations === 1 ? '' : 's'}`}
             </p>
             <p className="mt-0.5 text-[13px] text-[#B7CBBB]">on <span className="font-semibold text-white">{formatDateLong(form.date_given)}</span></p>
           </div>
@@ -313,7 +313,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
               {people ? (
                 <PeopleReview preview={previews[l]?.[0]} selected={selected[l]?.[0] || new Set()} onToggle={(id) => toggleMember(l, 0, id)} onSetAll={(ids) => setAll(l, 0, ids)} />
               ) : (
-                <ul className="space-y-3" aria-label={lines.length > 1 ? `Organizations to distribute assistance ${l + 1} to` : 'Organizations to distribute to'}>
+                <ul className="space-y-3" aria-label={lines.length > 1 ? `Cooperatives to distribute assistance ${l + 1} to` : 'Cooperatives to distribute to'}>
                   {chosen.map((org, i) => (
                     <OrganizationReview key={org.id} org={org} index={i} preview={previews[l]?.[i]} selected={selected[l]?.[i] || new Set()} isOpen={open.has(`${l}:${org.id}`)}
                       onToggleOpen={() => toggleOpen(`${l}:${org.id}`)} onToggle={(id) => toggleMember(l, i, id)} onSetAll={(ids) => setAll(l, i, ids)} />
@@ -326,7 +326,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
           {totals.blocked > 0 && !people && (
             <p className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12.5px] text-rose-700">
               <AlertTriangle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
-              {totals.blocked} member{totals.blocked === 1 ? '' : 's'} already received this assistance type from another organization within 30 days, so they are blocked.
+              {totals.blocked} member{totals.blocked === 1 ? '' : 's'} already received this assistance type from another cooperative within 30 days, so they are blocked.
             </p>
           )}
           {error && <p role="alert" className="rounded-lg border border-[#FCA5A5] bg-[#FEE2E2] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
@@ -411,7 +411,7 @@ function OrganizationReview({ org, index, preview, selected, isOpen, onToggleOpe
       </div>
       {count === 0 && (
         <p className="flex items-center gap-1.5 border-t border-[#F0F4F0] bg-amber-50 px-4 py-2 text-[12.5px] text-amber-800">
-          <AlertTriangle size={14} aria-hidden="true" /> Nobody is selected, so this organization is skipped.
+          <AlertTriangle size={14} aria-hidden="true" /> Nobody is selected, so this cooperative is skipped.
         </p>
       )}
       <div className="border-t border-[#F0F4F0] px-4 py-2">
@@ -522,7 +522,7 @@ function LineResult({ people, outcomes, domain, withBanner = false }) {
   const sum = outcomeTotals(outcomes)
   const summary = (
     <>
-      <span className="font-semibold">{sum.created}</span> record{sum.created === 1 ? '' : 's'} created in {sum.organizations} organization{sum.organizations === 1 ? '' : 's'},{' '}
+      <span className="font-semibold">{sum.created}</span> record{sum.created === 1 ? '' : 's'} created in {sum.organizations} cooperative{sum.organizations === 1 ? '' : 's'},{' '}
       <span className="font-semibold text-rose-700">{sum.blocked}</span> blocked,{' '}
       <span className={sum.errors + sum.failed ? 'font-semibold text-rose-700' : 'font-semibold'}>{sum.errors + sum.failed}</span> error{sum.errors + sum.failed === 1 ? '' : 's'}
     </>
@@ -530,7 +530,7 @@ function LineResult({ people, outcomes, domain, withBanner = false }) {
   return (
     <div className={wrap}>
       {withBanner ? <Banner>{summary}</Banner> : <p className="text-[13px] text-[#1A2B1A]">{summary}</p>}
-      <ul className="divide-y divide-[#EEF2EE] overflow-hidden rounded-2xl border border-[#E2E8E2] bg-white" aria-label="Outcome per organization">
+      <ul className="divide-y divide-[#EEF2EE] overflow-hidden rounded-2xl border border-[#E2E8E2] bg-white" aria-label="Outcome per cooperative">
         {outcomes.map((o, i) => {
           const results = o.results || []
           const count = (s) => results.filter((r) => r.status === s).length

@@ -163,7 +163,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
           if (!restored && only) setForm(f => (f.organization ? f : { ...f, organization: only }))
         }
       } catch {
-        if (!cancelled) { setOrgOptions([]); showToast('Failed to load organizations.', 'error') }
+        if (!cancelled) { setOrgOptions([]); showToast('Failed to load cooperatives.', 'error') }
       } finally {
         if (!cancelled) setIsLoadingOrgs(false)
       }
@@ -415,13 +415,13 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
               </CycleField>
             </CycleRow>
             <CycleRow>
-              <CycleField label="Organization" wide>
+              <CycleField label="Cooperative" wide>
                 <select
                   className={baseInputClasses}
                   value={form.organization}
                   disabled={!selectedFf || isLoadingOrgs || orgOptions.length === 0}
                   onChange={e => set('organization', e.target.value)}
-                  aria-label="Organization"
+                  aria-label="Cooperative"
                 >
                   <option value="">
                     {organizationPlaceholder({ hasFisherfolk: Boolean(selectedFf), loading: isLoadingOrgs, count: orgOptions.length })}

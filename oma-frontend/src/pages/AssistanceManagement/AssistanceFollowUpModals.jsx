@@ -79,7 +79,7 @@ export function MarkResolvedModal({ domain = 'crop', record, onClose, onResolved
                   aria-label="Follow-up Notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="What was done to resolve this — e.g. redelivered, coordinated with organization…"
+                  placeholder="What was done to resolve this — e.g. redelivered, coordinated with cooperative…"
                 />
               </FormCell>
             </FormRow>

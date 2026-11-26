@@ -10,12 +10,12 @@ from core.models import ImportBatch, ImportBatchItem
 
 IMPORT_TYPES = {
     'crop_records': 'Crop records',
-    'farmers_org': 'Farmers organizations',
-    'fisherfolk_org': 'Fisherfolk organizations',
-    'farmers_org_members': 'Farmers organization members',
-    'fisherfolk_org_members': 'Fisherfolk organization members',
-    'farmers_org_equipment': 'Farmers organization equipment',
-    'fisherfolk_org_equipment': 'Fisherfolk organization equipment',
+    'farmers_org': 'Farmers cooperatives',
+    'fisherfolk_org': 'Fisherfolk cooperatives',
+    'farmers_org_members': 'Farmers cooperative members',
+    'fisherfolk_org_members': 'Fisherfolk cooperative members',
+    'farmers_org_equipment': 'Farmers cooperative equipment',
+    'fisherfolk_org_equipment': 'Fisherfolk cooperative equipment',
     'crop_assistance': 'Crop assistance',
     'fisheries_assistance': 'Fisheries assistance',
     'stocking': 'Stocking records',

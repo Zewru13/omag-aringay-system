@@ -144,7 +144,7 @@ def _build_pdf(report, doc, crop, farmer, photo_paths):
             ('Logged By', doc['reported_by_name']),
         ],
         sections=[
-            {'title': 'FARMER', 'rows': [('Name', farmer['name']), ('Barangay', farmer['barangay']), ('Organization', farmer['organization'])]},
+            {'title': 'FARMER', 'rows': [('Name', farmer['name']), ('Barangay', farmer['barangay']), ('Cooperative', farmer['organization'])]},
             {'title': 'AFFECTED CROP', 'rows': [
                 ('Crop', crop['crop']), ('Variety', crop['variety']), ('Season', crop['season']),
                 ('Date Planted', fmt_date(crop['date_planted']) + (' (estimated)' if crop['date_planted_is_estimated'] else '')),

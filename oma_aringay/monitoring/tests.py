@@ -202,7 +202,7 @@ class ProductionCycleOrganizationTests(ProductionCycleBase):
     def test_organization_of_another_fisherfolk_is_rejected(self):
         r = self.post(organization=self.org_b.id)
         self.assertEqual(r.status_code, 400)
-        self.assertEqual(r.data['organization'][0], 'Selected organization is not registered to this fisherfolk.')
+        self.assertEqual(r.data['organization'][0], 'Selected cooperative is not registered to this fisherfolk.')
         self.assertFalse(AquacultureProductionCycle.objects.exists())
         self.assertFalse(StockingRecord.objects.exists())
 

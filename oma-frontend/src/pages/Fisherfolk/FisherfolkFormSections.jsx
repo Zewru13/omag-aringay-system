@@ -171,25 +171,25 @@ export default function FisherfolkFormSections({
             </FormCell>
           </FormRow>
           <FormRow>
-            <FormCell label="Fisherfolk Organization" wide
+            <FormCell label="Fisherfolk Cooperative" wide
               hint={(
                 <p className={hintCls}>
                   {isEdit
-                    ? 'Membership is changed from the organization\'s own page (Members), not here.'
-                    : 'Type to search the organizations, or leave blank if the fisherfolk is not part of any organization.'}
+                    ? 'Membership is changed from the cooperative\'s own page (Members), not here.'
+                    : 'Type to search the cooperatives, or leave blank if the fisherfolk is not part of any cooperative.'}
                 </p>
               )}>
               {isEdit ? (
-                <FormValue>{organizationNames.length ? organizationNames.join(', ') : 'Not a member of any organization'}</FormValue>
+                <FormValue>{organizationNames.length ? organizationNames.join(', ') : 'Not a member of any cooperative'}</FormValue>
               ) : (
                 <SearchSelect
                   id={id('fisherfolk_organization')}
-                  ariaLabel="Fisherfolk Organization"
+                  ariaLabel="Fisherfolk Cooperative"
                   options={organizations.map((o) => ({ value: o.id, label: o.name }))}
                   value={form.fisherfolk_organization}
                   onChange={(value) => onChange('fisherfolk_organization', value)}
-                  emptyLabel="— Not a member of any organization"
-                  placeholder="Type the organization name"
+                  emptyLabel="— Not a member of any cooperative"
+                  placeholder="Type the cooperative name"
                 />
               )}
             </FormCell>
