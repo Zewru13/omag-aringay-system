@@ -377,13 +377,11 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
             <img
               src={logo}
               alt="OMAg Aringay seal"
-              className="w-12 h-12 object-contain mx-auto rounded-[10px]"
+              className="w-12 h-12 object-contain mx-auto"
             />
           ) : (
             <div className="flex items-center gap-3 min-w-0">
-              <span className="w-[68px] h-[68px] flex-shrink-0 rounded-[14px] bg-nav-logo overflow-hidden flex items-center justify-center">
-                <img src={logo} alt="OMAg Aringay seal" className="w-full h-full object-cover" />
-              </span>
+              <img src={logo} alt="OMAg Aringay seal" className="w-[68px] h-[68px] flex-shrink-0 object-contain" />
               <p className="text-[13px] font-semibold text-nav-item-on leading-snug">
                 Aringay,
                 <br />

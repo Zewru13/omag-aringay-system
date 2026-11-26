@@ -88,9 +88,16 @@ class ForgotPasswordView(APIView):
         return Response(REQUEST_ANSWER)
 
 
-class _NewPasswordSerializer(serializers.Serializer):
+class _ResetCheckIpThrottle(_ResetIpThrottle):
+    scope = 'reset_check_ip'
+
+
+class _LinkSerializer(serializers.Serializer):
     uid = serializers.CharField(allow_blank=True)
     token = serializers.CharField(allow_blank=True)
+
+
+class _NewPasswordSerializer(_LinkSerializer):
     new_password = serializers.CharField(trim_whitespace=False)
     confirm_new_password = serializers.CharField(trim_whitespace=False)
 
@@ -100,6 +107,27 @@ def _user_for(uid):
         return User.objects.filter(pk=int(urlsafe_base64_decode(uid).decode())).first()
     except (ValueError, TypeError, OverflowError):
         return None
+
+
+def _user_of_link(data):
+    """The account whose password this link may set now, or None (used, expired, made up, or not allowed to reset)."""
+    user = _user_for(data['uid'])
+    return user if _may_reset(user) and default_token_generator.check_token(user, data['token']) else None
+
+
+class ResetLinkCheckView(APIView):
+    """Asked when the reset page opens, so a used or expired link goes to sign-in instead of showing the form. It tells
+    nothing a reset attempt would not, and does not use the link up."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [_ResetCheckIpThrottle]
+
+    def post(self, request):
+        serializer = _LinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if _user_of_link(serializer.validated_data) is None:
+            return Response(INVALID_LINK, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'valid': True})
 
 
 class ResetPasswordView(APIView):
@@ -112,8 +140,8 @@ class ResetPasswordView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        user = _user_for(data['uid'])
-        if not _may_reset(user) or not default_token_generator.check_token(user, data['token']):
+        user = _user_of_link(data)
+        if user is None:
             return Response(INVALID_LINK, status=status.HTTP_400_BAD_REQUEST)
 
         password = data['new_password']

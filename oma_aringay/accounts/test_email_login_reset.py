@@ -288,6 +288,18 @@ class ResetPasswordTests(APITestCase):
         self.assertEqual([m.to for m in mail.outbox], [['ana@x.test']])
         self.assertNotIn(NEW, mail.outbox[0].body)
 
+    def test_the_page_can_ask_whether_a_link_still_works_without_using_it(self):
+        link = self.link()
+        check = lambda data: self.client.post('/api/accounts/reset-password/check/', data, format='json')
+        for _ in range(2):
+            response = check(link)
+            self.assertEqual((response.status_code, response.json()), (200, {'valid': True}))
+        self.assertEqual(check({**link, 'token': 'x-y'}).data['code'], 'invalid_link')
+        self.assertEqual(check({'uid': '', 'token': ''}).data['code'], 'invalid_link')
+        self.assertEqual(self.reset(link).status_code, 200)
+        used = check(link)
+        self.assertEqual((used.status_code, used.data['code']), (400, 'invalid_link'))
+
     def test_the_link_works_only_once(self):
         link = self.link()
         self.assertEqual(self.reset(link).status_code, 200)

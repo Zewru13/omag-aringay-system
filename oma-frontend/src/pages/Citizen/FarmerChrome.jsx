@@ -62,14 +62,7 @@ function useMenuState() {
 }
 
 function Seal({ size }) {
-  return (
-    <span
-      className="flex shrink-0 items-center justify-center overflow-hidden bg-white/[0.16]"
-      style={{ width: size, height: size, borderRadius: size >= 33 ? 9 : 8 }}
-    >
-      <img src={omagLogo} alt="OMAg" className="h-full w-full object-cover" />
-    </span>
-  )
+  return <img src={omagLogo} alt="OMAg Aringay seal" className="shrink-0 object-contain" style={{ width: size, height: size }} />
 }
 
 // ─── Phone ────────────────────────────────────────────────────────────────

@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Loader2, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import AuthCard from '../../components/UI/AuthCard.jsx'
 import Button from '../../components/UI/Button.jsx'
 import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
 import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { isDeadLink, readResetLink, requestErrorText } from './passwordReset.js'
+import { DEAD_LINK_NOTICE, PASSWORD_SAVED_KEY, isDeadLink, readResetLink, requestErrorText } from './passwordReset.js'
 
 const FIELD =
   'h-12 w-full rounded-[var(--radius-sm)] border border-border-strong px-3.5 text-[16px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25'
@@ -18,16 +18,36 @@ function ResetPasswordPage() {
   const { user, logout } = useAuth()
   // Read once, then taken out of the address bar so the token does not stay in the browser's history.
   const [link] = useState(() => readResetLink(location.hash))
-  const [dead, setDead] = useState(!link)
+  const [checking, setChecking] = useState(true)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // `replace`: the Back button must not return to a finished reset.
+  const goToSignIn = useCallback((notice) => {
+    try { sessionStorage.setItem('omag_login_notice', notice) } catch { /* no storage: just no note */ }
+    navigate('/login', { replace: true })
+  }, [navigate])
+
   useEffect(() => {
     if (window.location.hash) window.history.replaceState(window.history.state, '', window.location.pathname)
   }, [])
+
+  // A link that is already used (the password was saved), expired or incomplete goes straight to sign-in.
+  useEffect(() => {
+    let left = false
+    const check = link ? api.post('/accounts/reset-password/check/', link) : Promise.reject(new Error('no link'))
+    check
+      .then(() => { if (!left) setChecking(false) })
+      .catch((err) => {
+        if (left) return
+        if (!link || isDeadLink(err)) goToSignIn(DEAD_LINK_NOTICE)
+        else setChecking(false)          // the server could not be asked: show the form, saving checks again
+      })
+    return () => { left = true }
+  }, [link, goToSignIn])
 
   const save = async (e) => {
     e.preventDefault()
@@ -39,30 +59,26 @@ function ResetPasswordPage() {
     setLoading(true)
     try {
       const { data } = await api.post('/accounts/reset-password/', { ...link, new_password: password, confirm_new_password: confirm })
-      try { sessionStorage.setItem('omag_login_notice', data.detail) } catch { /* no storage: just no note */ }
       // A session left open in this browser belongs to the old password.
       if (user) await logout()
-      navigate('/login', { replace: true })
+      try { localStorage.setItem(PASSWORD_SAVED_KEY, String(Date.now())) } catch { /* other tabs just stay as they are */ }
+      goToSignIn(data.detail)
     } catch (err) {
-      if (isDeadLink(err)) setDead(true)
-      else setError(requestErrorText(err))
+      if (isDeadLink(err)) {
+        goToSignIn(DEAD_LINK_NOTICE)
+        return
+      }
+      setError(requestErrorText(err))
       setLoading(false)
     }
   }
 
-  if (dead) {
+  if (checking) {
     return (
       <AuthCard>
-        <div className="text-center">
-          <XCircle className="mx-auto mb-3 h-10 w-10 text-rose-500" aria-hidden="true" />
-          <h1 className="text-[18px] font-bold text-text-primary">This link no longer works</h1>
-          <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
-            A reset link works once, for 30 minutes. Ask for a new one.
-          </p>
-          <Button type="button" variant="primary" className="mt-5 w-full" onClick={() => navigate('/forgot-password')}>
-            Send a new link
-          </Button>
-          <Link to="/login" className="mt-4 inline-block text-[13px] font-semibold text-primary hover:underline">Back to sign in</Link>
+        <div role="status" className="flex flex-col items-center gap-3 py-4 text-center">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" aria-hidden="true" />
+          <p className="text-[14px] text-text-secondary">Checking your link…</p>
         </div>
       </AuthCard>
     )
@@ -100,7 +116,7 @@ function ResetPasswordPage() {
           <PasswordRequirementChecklist password={password} />
         </div>
 
-        <label htmlFor="reset-confirm" className="mb-1.5 mt-4 block text-[13px] font-medium text-text-primary">Type it again</label>
+        <label htmlFor="reset-confirm" className="mb-1.5 mt-4 block text-[13px] font-medium text-text-primary">Confirm password</label>
         <input
           id="reset-confirm"
           type={show ? 'text' : 'password'}

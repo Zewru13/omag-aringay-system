@@ -3,6 +3,7 @@ import { ChevronRight, CircleHelp, ClipboardList, Ellipsis, BookOpen, HandHeart,
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import omagLogo from '../../assets/LOGO OMAg-small.png'
+import { accountTypeLabel } from './headerAccount.js'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
 import NotificationBell from './NotificationBell.jsx'
 import { ADMIN_GROUP, DASHBOARD_ITEM, DISASTER_GROUP, GROUPS, REPORTS_GROUP, isItemActive } from './Sidebar.jsx'
@@ -104,7 +105,7 @@ function AccountMenu({ onLogout }) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const initial = (user?.full_name || user?.email || 'U').charAt(0).toUpperCase()
-  const role = user?.role === 'ADMIN' ? 'Administrator' : 'Focal Person'
+  const role = accountTypeLabel(user)
 
   useEffect(() => {
     if (!open) return undefined
@@ -195,9 +196,7 @@ export default function StaffPhoneShell({ title, action, children }) {
     <div className="min-h-screen bg-white">
       <header className="sticky top-0 z-30 border-b border-border bg-white">
         <div className="flex h-14 items-center gap-2.5 px-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-nav-logo">
-            <img src={omagLogo} alt="OMAg Aringay seal" className="h-full w-full object-cover" />
-          </span>
+          <img src={omagLogo} alt="OMAg Aringay seal" className="h-11 w-11 shrink-0 object-contain" />
           {title ? (
             <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-semibold tracking-tight text-text-primary">{title}</h1>
           ) : (

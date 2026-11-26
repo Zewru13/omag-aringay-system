@@ -305,6 +305,7 @@ REST_FRAMEWORK = {
         'reset_email': '3/hour',
         'reset_ip': '20/hour',
         'reset_confirm_ip': '30/hour',
+        'reset_check_ip': '60/hour',
     },
     # How many reverse proxies stand in front of Django. 0 = none: the client address is REMOTE_ADDR and any
     # X-Forwarded-For header is ignored. (DRF's default, None, believes whatever header a visitor sends, which lets

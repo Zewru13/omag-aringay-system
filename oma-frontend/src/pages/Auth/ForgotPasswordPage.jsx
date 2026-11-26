@@ -1,20 +1,33 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, MailCheck } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import AuthCard from '../../components/UI/AuthCard.jsx'
 import Button from '../../components/UI/Button.jsx'
 import EmailInput from '../../components/UI/EmailInput.jsx'
-import { requestErrorText } from './passwordReset.js'
+import { PASSWORD_SAVED_KEY, requestErrorText } from './passwordReset.js'
 
 const BACK = 'mt-5 flex min-h-10 items-center justify-center gap-1.5 text-[13px] font-semibold text-primary hover:underline'
 
 function ForgotPasswordPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [email, setEmail] = useState(location.state?.email || '')
   const [sentTo, setSentTo] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // The e-mailed link usually opens in another tab. Once the new password is saved there, this tab moves to sign-in too.
+  useEffect(() => {
+    if (!sentTo) return undefined
+    const onSaved = (event) => {
+      if (event.key !== PASSWORD_SAVED_KEY || !event.newValue) return
+      try { sessionStorage.setItem('omag_login_notice', 'Your password has been changed. Sign in with your new password.') } catch { /* no note */ }
+      navigate('/login', { replace: true })
+    }
+    window.addEventListener('storage', onSaved)
+    return () => window.removeEventListener('storage', onSaved)
+  }, [sentTo, navigate])
 
   const send = async (e) => {
     e.preventDefault()
