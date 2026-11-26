@@ -86,12 +86,9 @@ export function FarmerHeader({ initials, onProfile, onHelp, onManual, onLogout, 
   const [open, setOpen] = useMenuState()
   return (
     <header className={`sticky top-0 z-30 ${CHROME_THEME[theme].header}`}>
-      <div className="flex h-[55px] items-center justify-between px-4 sm:px-6">
-        <span className="flex items-center gap-2">
-          <Seal size={28} />
-          <span className="text-[13.5px] font-semibold text-white">{labels.header.appName}</span>
-        </span>
-        <div className="flex items-center gap-1">
+      <div className="flex h-[55px] items-center justify-between gap-2 px-4 sm:px-6">
+        <Seal size={42} />
+        <div className="flex shrink-0 items-center gap-1">
           <NotificationBell />
           {showMenu && (
             <button
@@ -175,10 +172,7 @@ export function FarmerDesktopSidebar({ collapsed, activeKey, navItems }) {
   return (
     <nav className={`flex h-full flex-col bg-cz-crop-deeper py-6 ${collapsed ? 'items-center px-2' : 'px-[14px]'}`}>
       <div className={`mb-9 flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-        <Seal size={33} />
-        {!collapsed && (
-          <span className="truncate text-[15px] font-semibold text-white">{labels.header.appName}</span>
-        )}
+        <Seal size={44} />
       </div>
       <ul className="w-full space-y-[5px]">
         {navItems.map((item) => {

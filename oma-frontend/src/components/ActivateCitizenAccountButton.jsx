@@ -4,6 +4,7 @@ import api from '../api/axiosInstance.js'
 import { readPasswordReveal, storePasswordReveal } from '../utils/passwordReveal.js'
 import Button from './UI/Button.jsx'
 import ModalShell from './UI/ModalShell.jsx'
+import EmailInput from './UI/EmailInput.jsx'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
@@ -45,6 +46,7 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [email, setEmail] = useState('')
   // Only the ORIGINAL activation (inactive -> active) needs the parent to
   // refetch — that's the one field change (is_active, plus whatever else
   // the parent's own record shape carries) it can't otherwise know about.
@@ -88,6 +90,7 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
 
   const openModal = () => {
     setResult(null)
+    setEmail(citizenAccount.email || '')
     setError('')
     setJustActivated(false)
     setRecovered(false)
@@ -122,11 +125,11 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
       const url = isActive
         ? `/accounts/users/${citizenAccount.id}/regenerate-citizen-password/`
         : `/accounts/users/${citizenAccount.id}/set-citizen-password/`
-      const { data } = await api.post(url)
+      const { data } = await api.post(url, { email: email.trim() })
       setResult(data)
       setRecovered(false)
       storePasswordReveal(citizenAccount.id, data.generated_password)
-      if (!isActive) setJustActivated(true)
+      if (!isActive || data.email !== (citizenAccount.email || '')) setJustActivated(true)
     } catch (err) {
       const data = err?.response?.data
       const msg = typeof data === 'string' ? data
@@ -166,7 +169,7 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
           footer={!result ? (
             <>
               <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button type="button" variant="primary" isLoading={isSubmitting} onClick={handleSubmit}>
+              <Button type="button" variant="primary" isLoading={isSubmitting} disabled={!email.trim()} onClick={handleSubmit}>
                 {isActive ? 'Regenerate' : 'Generate & Activate'}
               </Button>
             </>
@@ -183,7 +186,24 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
                     : `This generates a password for ${personLabel || 'the person'}'s account and activates it immediately.`}
                 </p>
                 <p className="mt-1.5 text-[12px] text-amber-800">
-                  Read the password aloud to them once it's shown — do not write it down or send it anywhere.
+                  Read the password aloud to them once it's shown — do not write it down or send it anywhere. It is never emailed.
+                </p>
+                <p className="mt-1.5 text-[12px] text-amber-800">
+                  They must sign in and set their own password within 3 days, or this setup is cancelled and has to be done again.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="citizen-email" className={labelCls}>Email they sign in with</label>
+                <EmailInput
+                  id="citizen-email"
+                  autoComplete="off"
+                  value={email}
+                  onChange={setEmail}
+                  placeholder="name@gmail.com"
+                  className="w-full rounded-lg border border-[#C8D5C8] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <p className="mt-1.5 text-[11px] text-[#7A8E7A]">
+                  Password reset links and notifications go here, so check the spelling with them.
                 </p>
               </div>
               {error && <p className="text-[12px] text-red-600">{error}</p>}
@@ -199,6 +219,13 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
                       : `Account is now active. Read this password aloud to ${personLabel || 'the person'} now — it won't be shown again.`}
                 </p>
               </div>
+              {result.email && (
+                <p className="text-[13px] text-[#1A2B1A]">
+                  They sign in with <span className="font-semibold break-all">{result.email}</span>.
+                  {result.email_sent === true && ' We emailed that address; ask them to open it now to confirm it is theirs.'}
+                  {result.email_sent === false && ' The confirmation email could not be sent, so read the address back to them.'}
+                </p>
+              )}
               <div>
                 <label className={labelCls}>Password (shown once)</label>
                 <div className="flex items-center gap-2">

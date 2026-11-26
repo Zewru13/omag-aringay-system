@@ -13,10 +13,11 @@ from accounts.models import User
 MAIL = dict(SMTP_CONFIGURED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 LOGIN = '/api/accounts/login/'
 RESEND = '/api/accounts/resend-verification/'
-SAME_FAILURE = 'Incorrect login details. Check your email, username, RSBSA number or registration number, and your password.'
+SAME_FAILURE = 'Incorrect email or password. Farmers, fisherfolk and organizations sign in with their email address.'
 
 
 def make_user(username='lh-member', password='Right#Pass1234', **extra):
+    extra.setdefault('email', f'{username}@example.test')
     return get_user_model().objects.create_user(username=username, password=password, role='CITIZEN', **extra)
 
 
@@ -30,7 +31,7 @@ class LoginEnumerationTests(APITestCase):
 
     def test_a_missing_account_and_a_wrong_password_look_identical(self):
         unknown = self.attempt('nobody-at-all@example.test')
-        wrong = self.attempt('lh-member')
+        wrong = self.attempt('lh-member@example.test')
         self.assertEqual((unknown.status_code, unknown.json()), (wrong.status_code, wrong.json()))
         self.assertEqual(unknown.status_code, 401)
         self.assertEqual(unknown.json()['detail'], SAME_FAILURE)
@@ -42,7 +43,7 @@ class LoginEnumerationTests(APITestCase):
         spy.assert_called_once()
 
     def test_the_correct_password_still_logs_in(self):
-        response = self.attempt('lh-member', 'Right#Pass1234')
+        response = self.attempt('lh-member@example.test', 'Right#Pass1234')
         self.assertEqual(response.status_code, 200)
         self.assertIn('access', response.json())
 

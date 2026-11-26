@@ -27,6 +27,7 @@ from django.utils import timezone
 
 from .models import Notification
 from .notifications import fit
+from core.notification_email import email_citizen_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,7 @@ def run(today=None, dry_run=False, providers=None):
             transaction.set_rollback(True)
         elif rows:
             Notification.objects.bulk_create(rows)
+            email_citizen_notifications(rows)
     return events, len(rows)
 
 

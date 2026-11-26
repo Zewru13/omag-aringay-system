@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from accounts.login_email import validate_record_email
 
 from accounts.models import User
 from accounts.utils import citizen_account_info
@@ -328,6 +329,9 @@ class FarmersOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.
         validate_not_future_date(value, 'Date registered')
         return value
 
+    def validate_email_address(self, value):
+        return validate_record_email(value, 'FARMERS_ORG', self.instance)
+
     def validate(self, data):
         _check_registered_not_before_organized(data, self.instance)
         return data
@@ -519,6 +523,9 @@ class FisherfolkOrganizationDetailSerializer(_RegistrationNumberLimit, serialize
     def validate_date_registered(self, value):
         validate_not_future_date(value, 'Date registered')
         return value
+
+    def validate_email_address(self, value):
+        return validate_record_email(value, 'FISHERFOLK_ORG', self.instance)
 
     def validate(self, data):
         _check_registered_not_before_organized(data, self.instance)

@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Q, Sum, prefetch_related_objects
 from rest_framework import serializers
+from accounts.login_email import validate_record_email
 from core.pcic import PcicPhotoListMixin, photo_list
 
 from accounts.models import User
@@ -209,6 +210,9 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
                 )
         return value
 
+    def validate_email(self, value):
+        return validate_record_email(value, 'FISHERFOLK', self.instance)
+
     def validate(self, data):
         prefix = data.get('prefix', getattr(self.instance, 'prefix', ''))
         gender = data.get('gender', getattr(self.instance, 'gender', ''))
@@ -306,6 +310,9 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             if not digits.isdigit() or len(digits) != 7:
                 raise serializers.ValidationError('Boat Registration Number must be exactly 7 digits.')
         return value
+
+    def validate_email(self, value):
+        return validate_record_email(value, 'FISHERFOLK', self.instance)
 
     def validate(self, data):
         prefix = data.get('prefix', '')

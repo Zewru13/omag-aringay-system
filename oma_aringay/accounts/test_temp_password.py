@@ -19,7 +19,8 @@ from accounts.validators import LOCAL_DENYLIST_TERMS
 from associations.models import FarmersOrganization
 
 FORMAT = re.compile(r'^[A-Z][a-z]{3,5}[#@!$%]\d{8}$')
-EXPIRED_DETAIL = 'This temporary password has expired. Ask the Office of the Municipal Agriculturist for a new one.'
+EXPIRED_DETAIL = ('This temporary password has expired. Choose "Forgot password?" to set a new one, or ask the Office of the '
+                  'Municipal Agriculturist.')
 MAIL = dict(SMTP_CONFIGURED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 _N = itertools.count(1)
 
@@ -30,7 +31,8 @@ def make_org_account(active=True, password='pw'):
         name=f'Temp Org {n}', barangay='Alaska', registration_number=f'TMP-{n:04d}', date_organized=date(2020, 1, 1),
         date_registered=date(2020, 2, 1), registration_agency='SEC', contact_person='Pat Contact',
         contact_number='09171234567')
-    user = get_user_model().objects.create_user(username=f'temp-org-{n}', password=password, role='CITIZEN', is_active=active)
+    user = get_user_model().objects.create_user(username=f'temp-org-{n}', password=password, role='CITIZEN', is_active=active,
+                                                email=f'temp-org-{n}@x.test')
     UserLinkedRecord.objects.create(user=user, record_type='FARMERS_ORG', record_id=org.id, is_active=True)
     return org, user
 
@@ -62,7 +64,7 @@ class ExpiryTests(APITestCase):
         cache.clear()
 
     def login(self, user, password):
-        return self.client.post('/api/accounts/login/', {'username': user.username, 'password': password})
+        return self.client.post('/api/accounts/login/', {'email': user.email, 'password': password})
 
     def test_issue_sets_flag_and_expiry(self):
         _, user = make_org_account()
@@ -70,7 +72,7 @@ class ExpiryTests(APITestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password(password))
         self.assertTrue(user.must_change_password)
-        expected = timezone.now() + timedelta(days=7)
+        expected = timezone.now() + timedelta(days=3)          # a citizen account
         self.assertLess(abs((user.temp_password_expires_at - expected).total_seconds()), 60)
 
     def test_login_with_unexpired_temp_password_succeeds(self):
@@ -79,16 +81,17 @@ class ExpiryTests(APITestCase):
         self.assertEqual(self.login(user, password).status_code, 200)
 
     def test_login_with_expired_temp_password_is_refused(self):
-        _, user = make_org_account()
-        password = issue_temporary_password(user)
-        User.objects.filter(pk=user.pk).update(temp_password_expires_at=timezone.now() - timedelta(minutes=1))
-        response = self.login(user, password)
+        staff = make_admin()
+        User.objects.filter(pk=staff.pk).update(is_email_verified=True)
+        password = issue_temporary_password(staff)
+        User.objects.filter(pk=staff.pk).update(temp_password_expires_at=timezone.now() - timedelta(minutes=1))
+        response = self.login(staff, password)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data['code'], 'temp_password_expired')
         self.assertEqual(response.data['detail'], EXPIRED_DETAIL)
-        user.refresh_from_db()
-        self.assertTrue(user.is_active)
-        self.assertTrue(temp_password_expired(user))
+        staff.refresh_from_db()
+        self.assertTrue(staff.is_active)                    # only citizen setups are cancelled
+        self.assertTrue(temp_password_expired(staff))
 
     def test_wrong_password_on_expired_account_says_incorrect(self):
         _, user = make_org_account()
@@ -171,7 +174,7 @@ class IssueFlowTests(APITestCase):
     def test_regenerate_sets_new_expiry_and_flag_and_revokes_tokens(self):
         _, user = make_org_account(active=True, password='Old#Pass123')
         self.client.force_authenticate(None)
-        login = self.client.post('/api/accounts/login/', {'username': user.username, 'password': 'Old#Pass123'})
+        login = self.client.post('/api/accounts/login/', {'email': user.email, 'password': 'Old#Pass123'})
         self.assertEqual(login.status_code, 200)
         self.client.force_authenticate(self.admin)
         response = self.client.post(f'/api/accounts/users/{user.id}/regenerate-citizen-password/')

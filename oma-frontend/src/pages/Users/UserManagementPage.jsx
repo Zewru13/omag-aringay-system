@@ -16,20 +16,12 @@ import { canRegeneratePassword, regenerateConfirmText, regenerateOutcome, resend
 import { describeRole } from './userRoleHelpers.js'
 import {
   STAFF_ROLE_OPTIONS, STAFF_STATUS_OPTIONS, TYPE_OPTIONS, USER_TABS,
-  buildUserQuery, defaultFilters, filterCount, tabFromParam,
+  buildUserQuery, defaultFilters, filterCount, tabFromParam, userColumns,
 } from './userTabs.js'
 import Button from '../../components/UI/Button.jsx'
 
 const filterSelectCls =
   'border border-[#E2E8E2] rounded-lg px-3 py-[7px] text-[13px] bg-[#F9FAF9] text-[#1A2B1A] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
-
-const COLUMNS = [
-  { key: 'name_cell',   label: 'NAME' },
-  { key: 'email',       label: 'EMAIL' },
-  { key: 'role_pill',   label: 'ROLE' },
-  { key: 'status_pill', label: 'STATUS' },
-  { key: 'actions',     label: 'ACTIONS' },
-]
 
 const PAGE_SIZE = 10
 
@@ -38,6 +30,7 @@ const PAGE_SIZE = 10
 function UsersTable({ tab, reloadKey, onEdit, actions }) {
   const { showToast } = useToast()
   const { user: me } = useAuth()
+  const columns = userColumns(tab)
   // The last answer received and the request it answers; the table is "loading" whenever that is not the current request.
   const [loaded,         setLoaded]         = useState({ key: null, users: [], total: 0 })
   const [search,         setSearch]         = useState('')
@@ -202,7 +195,7 @@ function UsersTable({ tab, reloadKey, onEdit, actions }) {
         <table className="min-w-full text-sm max-md:block">
           <thead className="bg-[#1B4D2E] text-white max-md:hidden">
             <tr>
-              {COLUMNS.map(col => (
+              {columns.map(col => (
                 <th key={col.key} className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
                   {col.label}
                 </th>
@@ -212,11 +205,11 @@ function UsersTable({ tab, reloadKey, onEdit, actions }) {
           <tbody className="max-md:block">
             {isLoading ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td>
+                <td colSpan={columns.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="max-md:block py-12 text-center">
+                <td colSpan={columns.length} className="max-md:block py-12 text-center">
                   <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
                     <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <p className="text-[14px] font-medium text-[#4A5E4A]">No users found</p>
@@ -229,7 +222,7 @@ function UsersTable({ tab, reloadKey, onEdit, actions }) {
             ) : (
               rows.map(row => (
                 <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] max-md:block max-md:px-3 max-md:py-2">
-                  {COLUMNS.map(col => (
+                  {columns.map(col => (
                     <td key={col.key} data-label={col.key === 'name_cell' || col.key === 'actions' ? undefined : col.label} className={`px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
                       {row[col.key]}
                     </td>

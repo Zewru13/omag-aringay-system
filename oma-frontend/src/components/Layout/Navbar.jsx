@@ -45,19 +45,16 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
         className={`h-14 bg-white border-b border-border shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[248px]'}`}
         style={{ transition: 'left 300ms ease-in-out' }}
       >
-        {/* Left: hamburger + system name */}
-        <div className="flex items-center gap-3">
+        {/* Left: hamburger */}
+        <div className="flex min-w-0 items-center gap-3">
           <button
-            className="press-scale w-9 h-9 flex items-center justify-center rounded-lg text-text-primary hover:bg-surface-2 transition-colors"
+            className="press-scale shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-text-primary hover:bg-surface-2 transition-colors"
             onClick={onToggleSidebar}
             type="button"
             aria-label="Toggle sidebar"
           >
             <Menu size={20} aria-hidden="true" />
           </button>
-          <span className="hidden md:block font-display text-[14px] font-semibold text-text-primary tracking-tight">
-            OMAg Aringay
-          </span>
         </div>
 
         {/* Right: notifications + user dropdown */}

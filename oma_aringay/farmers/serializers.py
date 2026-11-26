@@ -4,6 +4,7 @@ from core.uniqueness import UniqueNameMixin
 from core.validators import validate_birthdate_range, validate_contact_number
 
 from rest_framework import serializers
+from accounts.login_email import validate_record_email
 from core.pcic import PcicPhotoListMixin, photo_list
 
 from accounts.models import User
@@ -413,6 +414,9 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return validate_contact_format(value, self.instance)
 
+    def validate_email(self, value):
+        return validate_record_email(value, 'FARMER', self.instance)
+
     def validate(self, data):
         prefix = data.get('prefix', getattr(self.instance, 'prefix', ''))
         gender = data.get('gender', getattr(self.instance, 'gender', ''))
@@ -506,6 +510,9 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
 
     def validate_contact_number(self, value):
         return validate_contact_format(value, self.instance)
+
+    def validate_email(self, value):
+        return validate_record_email(value, 'FARMER', self.instance)
 
     def validate(self, data):
         prefix = data.get('prefix', '')

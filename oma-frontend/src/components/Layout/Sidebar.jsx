@@ -372,29 +372,23 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
       >
         {/* Logo area — h-14 + md:top-0 on the aside makes this header fill the
             top-left corner flush with the navbar (no gap above the wordmark) */}
-        <div className="h-[72px] flex items-center px-4 flex-shrink-0">
+        <div className="h-[96px] flex items-center px-4 flex-shrink-0">
           {isCollapsed ? (
             <img
               src={logo}
-              alt="OMAg"
-              className="w-9 h-9 object-contain mx-auto rounded-[9px]"
+              alt="OMAg Aringay seal"
+              className="w-12 h-12 object-contain mx-auto rounded-[10px]"
             />
           ) : (
             <div className="flex items-center gap-3 min-w-0">
-              {/* The reference draws a solid rounded tile here rather than a
-                  photo. Keeping the real logo inside it: the tile is the
-                  reference's shape, the mark is the municipality's own. */}
-              <span className="w-9 h-9 flex-shrink-0 rounded-[9px] bg-nav-logo overflow-hidden flex items-center justify-center">
-                <img src={logo} alt="OMAg" className="w-full h-full object-cover" />
+              <span className="w-[68px] h-[68px] flex-shrink-0 rounded-[14px] bg-nav-logo overflow-hidden flex items-center justify-center">
+                <img src={logo} alt="OMAg Aringay seal" className="w-full h-full object-cover" />
               </span>
-              <div className="min-w-0">
-                <p className="text-[15px] font-bold text-nav-item-on leading-tight tracking-tight truncate">
-                  OMAg
-                </p>
-                <p className="text-[11px] text-nav-label leading-tight truncate">
-                  Aringay, La Union
-                </p>
-              </div>
+              <p className="text-[13px] font-semibold text-nav-item-on leading-snug">
+                Aringay,
+                <br />
+                La Union
+              </p>
             </div>
           )}
           <button

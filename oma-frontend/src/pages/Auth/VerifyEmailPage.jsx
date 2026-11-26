@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2, MailWarning, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import logo from '../../assets/LOGO OMAg-small.png'
+import AuthCard from '../../components/UI/AuthCard.jsx'
 import EmailInput from '../../components/UI/EmailInput.jsx'
 import Button from '../../components/UI/Button.jsx'
 
@@ -43,9 +43,8 @@ function VerifyEmailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f0fdf4] flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-sm text-center">
-        <img src={logo} alt="OMAg" className="w-16 h-16 object-contain mx-auto mb-4" />
+    <AuthCard>
+      <div className="text-center">
 
         {status === 'verifying' && (
           <>
@@ -110,7 +109,7 @@ function VerifyEmailPage() {
           </>
         )}
       </div>
-    </div>
+    </AuthCard>
   )
 }
 

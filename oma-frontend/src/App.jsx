@@ -28,6 +28,8 @@ const FisherfolkHub = lazy(() => import("./pages/Fisherfolk/FisherfolkHub.jsx"))
 const FisheriesSettingsHub = lazy(() => import("./pages/FisheriesSettings/FisheriesSettingsHub.jsx"));
 const ForceChangePasswordPage = lazy(() => import("./pages/Auth/ForceChangePasswordPage.jsx"));
 const VerifyEmailPage = lazy(() => import("./pages/Auth/VerifyEmailPage.jsx"));
+const ForgotPasswordPage = lazy(() => import("./pages/Auth/ForgotPasswordPage.jsx"));
+const ResetPasswordPage = lazy(() => import("./pages/Auth/ResetPasswordPage.jsx"));
 const CyclesRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CyclesRoute })));
 const AquacultureRecordsPage = lazy(() => import("./pages/FisheriesRecords/AquacultureRecordsPage.jsx"));
 const FisheriesForecastRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesForecastRoute })));
@@ -89,6 +91,8 @@ function App() {
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
             path="/change-password"
             element={

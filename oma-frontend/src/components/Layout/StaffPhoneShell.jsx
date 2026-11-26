@@ -195,10 +195,14 @@ export default function StaffPhoneShell({ title, action, children }) {
     <div className="min-h-screen bg-white">
       <header className="sticky top-0 z-30 border-b border-border bg-white">
         <div className="flex h-14 items-center gap-2.5 px-4">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-nav-logo">
-            <img src={omagLogo} alt="OMAg" className="h-full w-full object-cover" />
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-nav-logo">
+            <img src={omagLogo} alt="OMAg Aringay seal" className="h-full w-full object-cover" />
           </span>
-          <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-semibold tracking-tight text-text-primary">{title || 'OMAg Aringay'}</h1>
+          {title ? (
+            <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-semibold tracking-tight text-text-primary">{title}</h1>
+          ) : (
+            <span className="flex-1" />
+          )}
           <NotificationBell variant="staff" />
           <AccountMenu onLogout={() => setConfirmLogout(true)} />
         </div>

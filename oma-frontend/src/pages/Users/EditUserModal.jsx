@@ -69,10 +69,9 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
         full_name:      composeFullName(lastName, firstName, suffix),
         suffix,
         contact_number: contact,
-        // Never send role for a citizen account — it isn't editable here
-        // and must never be overwritten to ADMIN/EVALUATOR by accident.
-        ...(isCitizen ? {} : { role }),
-        is_active:      isActive,
+        // Never send role or status for a citizen account — neither is editable
+        // here, and the role must never be overwritten to ADMIN/EVALUATOR.
+        ...(isCitizen ? {} : { role, is_active: isActive }),
       })
       draft.clear()
       onSuccess()

@@ -179,8 +179,8 @@ export const STAFF5 = [
       SEARCH_ROW('an account by name or email'),
       { ...FILTERS_ROW, desc: 'Opens the filter row: role and status.' },
       { find: { text: 'Create User', tag: 'button' }, label: 'Create User', desc: 'Opens Add New User: choose the role, fill in the name and contact details, then Add User.' },
-      { find: COLS, label: 'Columns', desc: 'Name, email, role, status (Active or Inactive) and Actions.' },
-      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'Edit user changes the details and can turn the account off. Resend verification email sends the verification message again to an account that has not verified its email.' },
+      { find: COLS, label: 'Columns', desc: 'Name, email, role and Actions. The Staff tab also has a status column. Farmer, fisherfolk and organization accounts are never deactivated; those tabs list the accounts that are set up.' },
+      { find: { css: 'tbody tr:first-child td:last-child button' }, label: 'Actions menu', desc: 'Edit user changes the details; for a staff account it can also turn the account off. Resend verification email sends the verification message again to an account that has not verified its email.' },
     ] }),
   A({ id: 'admin-audit-log', file: 'admin/audit-log.png', url: '/audit-log', height: 1900, title: 'Activity Log (Admin)', purpose: 'Who changed what, and when. Open it from the account menu at the top right.',
     callouts: [

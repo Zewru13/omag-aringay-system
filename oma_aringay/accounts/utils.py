@@ -27,6 +27,7 @@ def citizen_account_info(linked_record_type, record_id):
     time-based expiry.
     """
     from accounts.models import User
+    from accounts.setup_window import cancel_if_overdue
     # Switchable-identity Phase 2: queries THROUGH UserLinkedRecord rather
     # than the old linked_record_type/id columns directly — those columns
     # are a Python-level property shim wherever the majority of this app
@@ -38,11 +39,13 @@ def citizen_account_info(linked_record_type, record_id):
         linked_records__record_type=linked_record_type,
         linked_records__record_id=record_id,
         linked_records__is_active=True,
-    ).only('id', 'is_active', 'last_login').first()
+    ).only('id', 'email', 'role', 'is_active', 'last_login', 'must_change_password', 'temp_password_expires_at').first()
     if account is None:
         return None
+    cancel_if_overdue(account)
     return {
         'id': account.id,
+        'email': account.email or '',
         'is_active': account.is_active,
         'last_login': account.last_login.isoformat() if account.last_login else None,
     }
@@ -64,10 +67,12 @@ def accountless_or_unactivated_ids(linked_record_type, record_ids):
     query here instead of one query per record, for list views.
     """
     from accounts.models import User
+    from accounts.setup_window import cancel_overdue_setups
 
     record_ids = set(record_ids)
     if not record_ids:
         return set()
+    cancel_overdue_setups()
     active_account_ids = set(
         User.objects.filter(
             linked_records__record_type=linked_record_type,
@@ -102,12 +107,13 @@ def generate_default_password():
 
 def issue_temporary_password(user):
     """Give `user` a new temporary password that must be changed at the next login and stops working after
-    settings.TEMP_PASSWORD_VALID_DAYS. Saves the user (it does not touch is_active) and returns the plain
+    settings.TEMP_PASSWORD_VALID_DAYS (a citizen: CITIZEN_SETUP_VALID_DAYS, see accounts.setup_window). Saves the user (it does not touch is_active) and returns the plain
     password, which the caller must hand over once and never store or log."""
     password = generate_default_password()
     user.set_password(password)
     user.must_change_password = True
-    user.temp_password_expires_at = timezone.now() + timedelta(days=settings.TEMP_PASSWORD_VALID_DAYS)
+    days = settings.CITIZEN_SETUP_VALID_DAYS if user.role == 'CITIZEN' else settings.TEMP_PASSWORD_VALID_DAYS
+    user.temp_password_expires_at = timezone.now() + timedelta(days=days)
     user.save()
     return password
 
@@ -190,9 +196,9 @@ def create_inactive_citizen_shell(record_type, record, email=None):
     `record` is the Farmer/Fisherfolk/FarmersOrganization/
     FisherfolkOrganization instance; its display name is read the same way
     create_citizen_accounts does (full_name for people, name for orgs).
-    `email` is optional — these accounts still have no required email
-    (RSBSA/registration number is the login identifier either way), but if
-    the person gave one during enrollment it's worth keeping on the account.
+    The account signs in with its e-mail: `email`, else the one on the record. It is
+    left empty when there is none yet (staff enter it at "Set Up Account") or when
+    another account already signs in with it.
 
     Returns the new User, or None if no shell was created — which happens
     only for FARMER/FISHERFOLK records whose rsbsa_number already has a
@@ -211,6 +217,11 @@ def create_inactive_citizen_shell(record_type, record, email=None):
         if existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=record_type) is not None:
             return None
 
+    from accounts import login_email
+
+    email = login_email.normalize(email or getattr(record, login_email.record_field(record_type), ''))
+    if login_email.is_taken(email):
+        email = ''
     full_name = getattr(record, 'full_name', None) or getattr(record, 'name', '')
     # Phase 3: linked_record_type/linked_record_id are no longer real
     # constructor kwargs — they're read-only properties now (see
@@ -347,6 +358,47 @@ def send_new_password_email(user, plain_password):
     return _send(subject, message, user.email)
 
 
+def _verify_by(expires_at):
+    return (f'Sign in and set your own password by {timezone.localtime(expires_at).strftime("%B %d, %Y")}. If you do not, '
+            f'this setup is cancelled and the Office of the Municipal Agriculturist has to set it up again.')
+
+
+def send_password_reset_email(user, link):
+    """E-mail the one-time link that sets a new password. Returns (success, reason)."""
+    minutes = settings.PASSWORD_RESET_TIMEOUT // 60
+    message = (
+        f'Hello {user.full_name or user.email},\n\n'
+        f'Someone asked to reset the password of your OMAg Aringay account. Open this link to set a new one:\n\n'
+        f'{link}\n\n'
+        f'The link works once and for {minutes} minutes.\n\n'
+        f'If you did not ask for this, ignore this email. Your password has not changed.\n'
+    )
+    return _send('OMAg Aringay: set a new password', message, user.email)
+
+
+def send_password_changed_email(user):
+    message = (
+        f'Hello {user.full_name or user.email},\n\n'
+        f'The password of your OMAg Aringay account was just changed using a reset link.\n\n'
+        f'If this was not you, contact the Office of the Municipal Agriculturist, Aringay, La Union, right away.\n'
+    )
+    return _send('OMAg Aringay: your password was changed', message, user.email)
+
+
+def send_account_ready_email(user):
+    """Tell a citizen which address they sign in with. It carries no password: that is handed over in person."""
+    message = (
+        f'Hello {user.full_name or user.email},\n\n'
+        f'Your account on the {SYSTEM_TITLE} is ready.\n\n'
+        f'Sign in with this email: {user.email}\n'
+        f'The Office of the Municipal Agriculturist gives you your temporary password in person.\n'
+        f'{_verify_by(user.temp_password_expires_at)}\n'
+        f'If you forget your password, choose "Forgot password?" on the sign-in page.\n\n'
+        f'Your notifications will also be sent to this email.\n'
+    )
+    return _send('OMAg Aringay: your account is ready', message, user.email)
+
+
 def send_organization_credentials_email(org, plain_password, expires_at):
     """Email an organization its login and temporary password. The password is IN the email, there is no
     link. Returns (success, reason) — see _send()."""
@@ -355,11 +407,10 @@ def send_organization_credentials_email(org, plain_password, expires_at):
         f'Hello {org.contact_person or org.name},\n\n'
         f'An account for {org.name} has been created on the {SYSTEM_TITLE}.\n\n'
         f'Log in with:\n'
-        f'Login: {org.registration_number}\n'
+        f'Email: {org.email_address.strip().lower()}\n'
         f'Temporary password: {plain_password}\n\n'
-        f'You will be asked to choose your own password the first time you log in. This temporary password '
-        f'stops working on {timezone.localtime(expires_at).strftime("%B %d, %Y")}; after that, ask the Office of the Municipal '
-        f'Agriculturist for a new one.\n\n'
+        f'You will be asked to choose your own password the first time you log in. '
+        f'{_verify_by(expires_at)}\n\n'
         f'If you did not expect this account, please contact the Office of the Municipal Agriculturist, '
         f'Aringay, La Union.\n'
     )
@@ -372,6 +423,7 @@ def activate_organization_account(record_type, org):
     hand-over `{'org', 'password', 'expires_at'}` (the plain password lives only in this dict), or None when
     there is nothing to activate (no email, or no inactive shell). Sends nothing, so an import can call it
     inside its transaction and deliver only after the transaction has committed."""
+    from accounts import login_email
     from accounts.models import User
 
     if not org.email_address:
@@ -384,6 +436,11 @@ def activate_organization_account(record_type, org):
     ).first()
     if user is None:
         return None
+    try:
+        email = login_email.checked_login_email(user, org.email_address)
+    except login_email.LoginEmailError:
+        return None                    # no usable address of its own: it waits for "Set Up Account"
+    login_email.apply_login_email(user, email)
     user.is_active = True
     password = issue_temporary_password(user)
     return {'org': org, 'password': password, 'expires_at': user.temp_password_expires_at}
@@ -403,7 +460,7 @@ def deliver_organization_credentials(pending, skip_reason=None):
         'activated': True,
         'email_sent': sent,
         'expires_at': pending['expires_at'].isoformat(),
-        'login': org.registration_number,
+        'login': org.email_address.strip().lower(),
     }
     if not sent:
         result['reason'] = reason

@@ -6,7 +6,8 @@ import { ROLE_OPTIONS, SUFFIX_OPTIONS } from './userForm.js'
 
 // The fields of Add User and Edit User, as table-form sections.
 //   values: { role, lastName, firstName, suffix, email, contact, isActive }   set(field, value)   errors: from validateUserForm
-//   mode 'edit' adds the Status row; `accountType` (a text) shows a citizen account's fixed type instead of the role choice.
+//   mode 'edit' adds the Status row for staff; `accountType` (a text) marks a citizen account: its fixed type shows instead of
+//   the role choice, and it has no status (citizen accounts are never deactivated).
 export default function UserFormSections({ mode = 'create', values, set, errors = {}, accountType = '' }) {
   const roleHint = ROLE_OPTIONS.find((option) => option.value === values.role)?.desc
 
@@ -27,7 +28,7 @@ export default function UserFormSections({ mode = 'create', values, set, errors 
               </FormCell>
             )}
           </FormRow>
-          {mode === 'edit' && (
+          {mode === 'edit' && !accountType && (
             <FormRow>
               <FormCell label="Status" wide>
                 <select className={baseInputClasses} value={values.isActive ? 'active' : 'inactive'} onChange={(e) => set('isActive', e.target.value === 'active')}>

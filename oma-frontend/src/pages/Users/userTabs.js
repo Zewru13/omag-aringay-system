@@ -12,6 +12,16 @@ export const USER_TABS = [
   { id: 'organizations', label: 'Organizations', subtitle: 'Accounts of registered organizations' },
 ]
 
+// The columns of a tab's table. Only staff accounts have a status: a citizen account is either set up (listed here) or
+// not set up (staff set it up on the person's record), and is never deactivated.
+export const userColumns = (tab) => [
+  { key: 'name_cell', label: 'NAME' },
+  { key: 'email', label: 'EMAIL' },
+  { key: 'role_pill', label: 'ROLE' },
+  ...(tab === 'staff' ? [{ key: 'status_pill', label: 'STATUS' }] : []),
+  { key: 'actions', label: 'ACTIONS' },
+]
+
 export const STAFF_ROLE_OPTIONS = [
   { value: '', label: 'Admin and Focal Person' },
   { value: 'ADMIN', label: 'Admin' },

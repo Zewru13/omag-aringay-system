@@ -10,18 +10,20 @@ const ROW1 = (label, desc) => ({ find: { css: 'main li', nth: 0 }, label, desc }
 export const PHONE = [
   { id: 'login', audience: 'all', anon: true, file: 'login.png', url: '/login', wait: 3500, title: 'Sign in', purpose: 'Every account signs in here.',
     callouts: [
-      { find: { css: '#login-email' }, label: 'Email or username', desc: 'The username or email the office gave you.' },
+      { find: { css: '#login-email' }, label: 'Email', desc: 'Your email address. Staff may also type their username.' },
       { find: { css: '#login-password' }, label: 'Password', desc: 'Your password. There is no self-registration: the Office of the Municipal Agriculturist creates your account.' },
       { find: { css: 'button[aria-label="Show password"]' }, label: 'Show password', desc: 'Shows or hides what you typed, to check it.' },
       { find: { text: 'Sign in', tag: 'button', exact: true }, label: 'Sign in', desc: 'Opens your account. It stays disabled until both boxes are filled.' },
-      { find: { text: "Can't sign in?", tag: 'p' }, label: 'Help signing in', desc: 'Ask the Office of the Municipal Agriculturist to check your account or to reset a forgotten password.' },
+      { find: { text: 'Forgot password?', tag: 'a', exact: true }, label: 'Forgot password?', desc: 'Asks for your email and sends it a link to set a new password. The link works once, for 30 minutes.' },
+      { find: { text: 'No account yet', tag: 'p' }, label: 'Help signing in', desc: 'With no account, or if the email does not arrive, visit the Office of the Municipal Agriculturist with a valid ID.' },
     ] },
   { id: 'login-phone', audience: 'all', anon: true, phone: true, file: 'login-phone.png', url: '/login', wait: 3500, title: 'Sign in on a phone', purpose: 'The same page at phone size.',
     callouts: [
-      { find: { css: '#login-email' }, label: 'Email or username', desc: 'The username or email the office gave you.' },
+      { find: { css: '#login-email' }, label: 'Email', desc: 'Your email address. Staff may also type their username.' },
       { find: { css: '#login-password' }, label: 'Password', desc: 'Your password.' },
       { find: { css: 'button[aria-label="Show password"]' }, label: 'Show password', desc: 'The eye shows or hides what you typed.' },
       { find: { text: 'Sign in', tag: 'button', exact: true }, label: 'Sign in', desc: 'Opens your account.' },
+      { find: { text: 'Forgot password?', tag: 'a', exact: true }, label: 'Forgot password?', desc: 'Sends a link to your email to set a new password.' },
     ] },
 
   // ───────────────────────────── Farmer ─────────────────────────────

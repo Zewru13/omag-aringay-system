@@ -35,7 +35,7 @@ const STAFF_GUIDES = (focal) => [
     intro: 'Sign in with the account the office gave you. The menu on the left and the bar along the top are on every page. The Dashboard shows the totals of the municipality and what needs attention today.',
     screens: ['login', focal ? 'focal-layout' : 'admin-layout', focal ? 'focal-dashboard' : 'admin-dashboard', 'admin-profile'],
     steps: [
-      'Open the system in your browser and sign in with your username (or email) and password. The first time, you are asked to choose a new password. There is no self-registration: the Admin creates every account.',
+      'Open the system in your browser and sign in with your email (staff may also use a username) and password. The first time, you are asked to choose a new password. There is no self-registration: the Admin creates every account. If you forget it, choose Forgot password? on the sign-in page: a link to set a new one is sent to your email.',
       'The menu on the left lists everything you can open. The groups open and close when you press them. Press the three-line button at the top to hide or show the menu.',
       'The bell shows notices for you, such as a disaster that a farmer or fisherfolk reported or a change request waiting for review. Your name opens the account menu: your profile, Help (the quick guide and the common questions), the User Manual (this page), the Activity Log (Admin) and Logout.',
       'The Dashboard opens after sign-in. Its panels show the registered farmers and fisherfolk, the disasters over time (choose the From and To month), the season\'s yield against the target, how farmers and fisherfolk harvested against the estimate (choose the year), the overdue, due today and upcoming activities, the barangay activity status and the change requests waiting for review.',
@@ -232,7 +232,7 @@ const FARMER_GUIDES = [
     intro: 'Sign in with the account the office gave you. Home starts with what needs you today.',
     screens: ['login', 'farmer-home', 'farmer-more'],
     steps: [
-      'Sign in with your username (or email) and password. The first time you are asked to choose a new password. There is no self-registration: the office creates your account.',
+      'Sign in with your email and password. The first time you are asked to choose a new password. Do this within 3 days of the office setting up the account, or it has to be set up again. There is no self-registration: the office creates your account. If you forget it, choose Forgot password? on the sign-in page: a link to set a new one is sent to your email. Your notices are also sent to that email.',
       MENU_STEP('Home, Crops, Assistance, Disasters'),
       'Home lists the things waiting for you, the most urgent first: an activity that is overdue or due, assistance to answer, a crop you can harvest, equipment due back. Press the button on a line to do it there.',
       'When nothing waits, Home says Nothing needs you today. Under the list are your crops in the field and three figures.',
@@ -318,7 +318,7 @@ const FISHERFOLK_GUIDES = [
     intro: 'Sign in with the account the office gave you. Home starts with what needs you today.',
     screens: ['login', 'fisherfolk-home'],
     steps: [
-      'Sign in with your username (or email) and password. The first time you are asked to choose a new password.',
+      'Sign in with your email and password. The first time you are asked to choose a new password. Do this within 3 days of the office setting up the account, or it has to be set up again. If you forget it, choose Forgot password? on the sign-in page: a link to set a new one is sent to your email. Your notices are also sent to that email.',
       MENU_STEP('Home, Cycles, Assistance, Disasters'),
       'Home lists the things waiting for you: assistance to answer, a cycle you can harvest, equipment due back. Press the button on a line to do it there.',
       'Under the list are your cycles in the water and three figures: active cycles, ponds and cages, and harvested cycles.',
@@ -394,7 +394,7 @@ const ORG_GUIDES = [
     intro: 'Sign in with the organization\'s account. Home starts with what needs the organization today.',
     screens: ['login', 'org-home'],
     steps: [
-      'Sign in with the username and password the office gave your organization. The first time you are asked to choose a new password.',
+      'Sign in with your organization\'s email and the password the office gave you. The first time you are asked to choose a new password. Do this within 3 days of the office setting up the account, or it has to be set up again. If you forget it, choose Forgot password? on the sign-in page: a link to set a new one is sent to your email. The organization\'s notices are also sent to that email.',
       MENU_STEP('Home, Members, Assistance, Equipment'),
       'Home lists what waits for the organization, one line per kind with a count: members waiting for a confirmation, borrow requests, overdue loans. Each opens the list where you act.',
       'Under it are three figures: active members, equipment on loan and borrow requests.',
