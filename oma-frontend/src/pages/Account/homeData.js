@@ -6,7 +6,7 @@
 export function homeSources(kind, { isMember = false } = {}) {
   if (kind === 'farmer') return ['assistance', 'crops', 'parcels', ...(isMember ? ['loans'] : [])]
   if (kind === 'fisherfolk') return ['assistance', 'cycles', ...(isMember ? ['loans'] : [])]
-  if (kind === 'orgFarm' || kind === 'orgFish') return ['members', 'confirmables', 'loans']
+  if (kind === 'orgFarm' || kind === 'orgFish') return ['members', 'loans']
   return []
 }
 
@@ -69,7 +69,6 @@ const PART_NAME = {
   cycles: 'your cycles',
   loans: 'your equipment loans',
   members: 'your members',
-  confirmables: 'the confirmations waiting',
   suggestions: 'the activities that are due',
 }
 

@@ -1,5 +1,9 @@
+"""The life of a distribution: Scheduled until its day and time, then Received (no job scheduler: the status is brought up to
+date whenever assistance is read), and what a recipient with an account is told along the way. Farmer and cooperative accounts
+get every notification by e-mail too (core.notification_email)."""
 import logging
 
+from django.db.models import Q
 from django.utils import timezone
 
 from core.notifications import notify_user, resolve_owner_user
@@ -9,171 +13,75 @@ from .models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiary
 logger = logging.getLogger(__name__)
 
 
-def notify_assistance_recorded(record, actor):
-    """
-    Tell a farmer/fisherfolk that assistance was recorded FOR them — the
-    counterpart of "staff logged an activity on your crop record": when
-    someone else acts on a citizen's record, the citizen is told.
+def mark_distributions_received():
+    """Turn every Scheduled record whose day and time have come into Received. One UPDATE per record table, so it is safe to
+    call on every read of assistance. Older waiting records are left to the migration that removed confirming."""
+    now = timezone.localtime()
+    passed = Q(date_given__lt=now.date()) | (
+        Q(date_given=now.date()) & (Q(distribution_time__isnull=True) | Q(distribution_time__lte=now.time())))
+    for model in (BeneficiaryRecord, FisherfolkBeneficiaryRecord):
+        model.objects.filter(passed, status=DistributionStatus.PENDING).update(status=DistributionStatus.CONFIRMED)
 
-    Used by every path where staff or an organization creates assistance for
-    a person: the one-by-one Log Assistance endpoints and whole-organization
-    bulk distribution. Deliberately NOT called by the spreadsheet imports —
-    those load historical records in bulk, and notifying for each would flood
-    accounts with old news.
 
-    Rules, so it never becomes noise:
-      - Only a record that is already due (CONFIRMED, or AWAITING_CONFIRMATION: dated today or earlier). A
-        future-dated record starts PENDING and the recipient is told once, by
-        advance_due_distributions, when it comes due — telling them now as
-        well would be two notices for one event.
-      - Only the person's OWN account (resolve_owner_user with just their id,
-        so an organization login is never substituted for them). A member
-        with no account is a silent no-op, same as everywhere else.
-      - Never the actor themself (a citizen recording their own assistance).
-      - Non-fatal: this runs after the record is saved and must never turn a
-        successful save into an error.
-    """
+class CurrentStatusMixin:
+    """For a view that reads or edits assistance: statuses are brought up to date before it does (after the sign-in and
+    permission checks)."""
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        mark_distributions_received()
+
+
+def schedule_text(record):
+    """"Nov 28, 2026 at 9:00 AM, Barangay Hall" - as much of it as the record has."""
+    day = record._meta.get_field('date_given').to_python(record.date_given)
+    text = f'{day:%b} {day.day}, {day.year}'
+    at = record._meta.get_field('distribution_time').to_python(record.distribution_time)
+    if at:
+        text += f' at {at.strftime("%I:%M %p").lstrip("0")}'
+    return f'{text}, {record.distribution_place}' if record.distribution_place else text
+
+
+def _tell(record, actor, verb, detail):
+    """Tell the person a record is for, if they have an account. Only their own account (never a cooperative's), never the
+    person who did it, and never an error: this runs after the change is saved."""
     try:
-        if record.status not in (DistributionStatus.CONFIRMED, DistributionStatus.AWAITING_CONFIRMATION):
-            return
         if isinstance(record, FisherfolkBeneficiaryRecord):
             recipient = resolve_owner_user(fisherfolk_id=record.fisherfolk_id)
-            record_type = 'ff_beneficiary'
+            record_type = 'ff_beneficiary'   # a notification's record_type holds 20 characters
         else:
             recipient = resolve_owner_user(farmer_id=record.farmer_id)
             record_type = 'beneficiary'
         if recipient is None or (actor is not None and recipient.pk == actor.pk):
             return
-        awaiting = record.status == DistributionStatus.AWAITING_CONFIRMATION
         notify_user(
-            recipient=recipient,
-            actor=actor,
-            verb='recorded assistance for you:',
-            record_type=record_type,
-            record_id=record.id,
-            record_label=f'{record.assistance_type or "Assistance"} — {record.date_given}',
-            detail=(
-                f'{record.quantity} — please confirm that you received it' if record.quantity and awaiting
-                else 'Please confirm that you received it' if awaiting
-                else (record.quantity or '')
-            )[:255],
-        )
+            recipient=recipient, actor=actor, verb=verb, record_type=record_type, record_id=record.id,
+            record_label=f'{record.assistance_type or "Assistance"} — {record.date_given}', detail=detail[:255])
     except Exception:
-        logger.exception('notify_assistance_recorded failed (non-fatal): record=%s', getattr(record, 'pk', None))
+        logger.exception('Telling the recipient failed (non-fatal): record=%s', getattr(record, 'pk', None))
 
 
-def advance_due_distributions(user):
-    """
-    Lazy status transition for the scheduled-distribution lifecycle — no job
-    scheduler. Flips any of THIS user's own PENDING beneficiary records
-    whose date_given has arrived to AWAITING_CONFIRMATION, and notifies them
-    individually (notify_user — targeted, never a fan-out, same discipline
-    the notify_all_except fan-out bug fix established).
-
-    Called from exactly two places, deliberately not scattered further:
-      - accounts.views.MeView.get() — the session-bootstrap call every
-        citizen screen loads through AuthContext on app start, so a citizen
-        picks up any newly-due distribution the moment they open the app,
-        without a background job.
-      - interventions.views.MyBeneficiaryHistoryView / their fisherfolk
-        equivalent — so the one screen that actually displays these records
-        never shows a stale PENDING when the date has already passed, even
-        on a session that's been open a while.
-    Both call sites are read endpoints already gated to CITIZEN; this
-    function re-checks role/linked_record_type itself so it's safe to call
-    unconditionally without the caller needing to guard first.
-
-    No-ops immediately (cheap: one attribute check, no query) for staff,
-    organization citizens, or anyone with no linked FARMER/FISHERFOLK
-    record — the vast majority of MeView's real traffic.
-    """
-    if user.role != 'CITIZEN' or not user.linked_record_id:
-        return
-
-    today = timezone.localdate()
-
-    if user.linked_record_type == 'FARMER':
-        due = BeneficiaryRecord.objects.filter(
-            farmer_id=user.linked_record_id,
-            status=DistributionStatus.PENDING,
-            date_given__lte=today,
-        )
-        record_type = 'beneficiary'
-    elif user.linked_record_type == 'FISHERFOLK':
-        due = FisherfolkBeneficiaryRecord.objects.filter(
-            fisherfolk_id=user.linked_record_id,
-            status=DistributionStatus.PENDING,
-            date_given__lte=today,
-        )
-        # 'fisherfolk_beneficiary' (22 chars) exceeds Notification.record_type's
-        # max_length=20 and gets silently swallowed by _safe_bulk's DB-error
-        # handling — same short form used by the report-not-received view.
-        record_type = 'ff_beneficiary'
-    else:
-        return
-
-    for record in due:
-        record.status = DistributionStatus.AWAITING_CONFIRMATION
-        record.save()
-        notify_user(
-            recipient=user,
-            actor=None,
-            verb='is ready for you to confirm',
-            record_type=record_type,
-            record_id=record.id,
-            record_label=f'{record.assistance_type or "Assistance"} — {record.date_given}',
-            detail='Please confirm you received this, or report that you did not.',
-        )
+def _with_quantity(record, text):
+    quantity = str(record.quantity or '').strip()
+    # Edit saves a cash amount as a plain number; in a message it reads as pesos.
+    if record.assistance_type == 'Cash Assistance' and quantity.replace('.', '', 1).isdigit():
+        quantity = f'₱{quantity}'
+    return f'{quantity} — {text}' if quantity else text
 
 
-def advance_due_distributions_for_org(org_linked_type, org_id):
-    """
-    Accountless-beneficiary counterpart to advance_due_distributions above.
-    That function only ever advances a record when the RECIPIENT's own
-    account calls in (MeView / MyBeneficiaryHistoryView) — which a genuinely
-    accountless beneficiary (see accounts.utils.accountless_or_unactivated_ids)
-    structurally never can. Without this, a future-scheduled distribution
-    for such a person would sit at PENDING forever once its date arrived,
-    never reaching AWAITING_CONFIRMATION — the precondition
-    BeneficiaryConfirmOnBehalfView requires.
+def notify_assistance_recorded(record, actor):
+    """A new record: where and when to claim it (or, when that time has already passed, that it was recorded as received).
+    Not used by the spreadsheet imports: they load past records in bulk, and old news would flood accounts."""
+    if record.status == DistributionStatus.PENDING:
+        _tell(record, actor, 'scheduled assistance for you:', _with_quantity(record, f'claim it on {schedule_text(record)}'))
+    elif record.status == DistributionStatus.CONFIRMED:
+        _tell(record, actor, 'recorded assistance for you:', _with_quantity(record, f'given on {schedule_text(record)}'))
 
-    Called instead from MyOrgAccountlessConfirmablesView /
-    MyOrgFisherfolkAccountlessConfirmablesView (interventions/views.py) —
-    the org's own equivalent of "the one screen that displays these
-    records" advancing them lazily, same philosophy as the citizen path,
-    just for the case that path cannot reach. Strictly scoped to THIS
-    organization's own current, accountless members only — never advances a
-    record for someone who could self-confirm, or who belongs to a
-    different organization. No notify_user() here (there is no recipient
-    account to notify); the org simply sees it appear on its next fetch.
-    """
-    from accounts.utils import accountless_or_unactivated_ids
 
-    today = timezone.localdate()
+def notify_schedule_changed(record, actor):
+    _tell(record, actor, 'changed the schedule of your assistance:', _with_quantity(record, f'claim it on {schedule_text(record)}'))
 
-    if org_linked_type == 'FARMERS_ORG':
-        candidates = list(BeneficiaryRecord.objects.filter(
-            status=DistributionStatus.PENDING,
-            date_given__lte=today,
-            farmer__farmer_organizations__organization_id=org_id,
-            farmer__farmer_organizations__is_active=True,
-        ).distinct())
-        person_field, record_type = 'farmer_id', 'FARMER'
-    elif org_linked_type == 'FISHERFOLK_ORG':
-        candidates = list(FisherfolkBeneficiaryRecord.objects.filter(
-            status=DistributionStatus.PENDING,
-            date_given__lte=today,
-            fisherfolk__fisherfolk_organizations__organization_id=org_id,
-            fisherfolk__fisherfolk_organizations__is_active=True,
-        ).distinct())
-        person_field, record_type = 'fisherfolk_id', 'FISHERFOLK'
-    else:
-        return
 
-    if not candidates:
-        return
-    eligible_ids = accountless_or_unactivated_ids(record_type, [getattr(r, person_field) for r in candidates])
-    for record in candidates:
-        if getattr(record, person_field) in eligible_ids:
-            record.status = DistributionStatus.AWAITING_CONFIRMATION
-            record.save()
+def notify_removed_from_schedule(record, actor):
+    """Taken off before the day: they must not go there expecting it."""
+    _tell(record, actor, 'removed you from a scheduled distribution:', _with_quantity(record, f'was set for {schedule_text(record)}'))

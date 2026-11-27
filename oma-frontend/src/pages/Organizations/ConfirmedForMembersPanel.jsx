@@ -12,10 +12,10 @@ import { formatAssistanceQuantity } from '../AssistanceManagement/assistanceFiel
 import { agenciesText } from '../AssistanceManagement/distributionsTableRows.js'
 import { assistanceName, confirmedReportSpec } from './confirmedAssistances.js'
 
-// What this organization has confirmed for its members: the history behind the "Confirm for Members" action, one row per ASSISTANCE. A row
+// What this organization confirmed for its members back when receipt had to be confirmed (nothing new is added), one row per ASSISTANCE. A row
 // opens to the members the organization confirmed for it (with their proof photos); the row menu prints or downloads the report of the whole
-// assistance (bulk), and each member has a report of their own (individual). The confirmations are final (no staff approval), so this is a
-// record, not a queue.
+// assistance (bulk), and each member has a report of their own (individual). With `heading`, the whole section is left out when there is
+// nothing to show.
 
 const PAGE_SIZE = 10
 
@@ -74,7 +74,7 @@ function Members({ group, noun, onReport }) {
   )
 }
 
-export default function ConfirmedForMembersPanel({ type, organizationId: id, organizationName = '' }) {
+export default function ConfirmedForMembersPanel({ type, organizationId: id, organizationName = '', heading = '' }) {
   const { showToast } = useToast()
   const [page, setPage] = useState(1)
   const [state, setState] = useState({ key: '', count: 0, results: [], failed: false })
@@ -125,8 +125,11 @@ export default function ConfirmedForMembersPanel({ type, organizationId: id, org
 
   if (state.failed && !isLoading) return <ErrorMessage message="Could not load the confirmation history." />
 
+  if (heading && !isLoading && state.count === 0) return null
+
   return (
     <div className="space-y-3" data-testid="confirmed-for-members">
+      {heading && <h2 className="pt-2 text-[15px] font-semibold text-text-primary">{heading}</h2>}
       <p className="text-[12px] text-[#7A8E7A]">
         {isLoading ? 'Loading…' : `${state.count} assistance${state.count === 1 ? '' : 's'} confirmed · newest first. Click one to see who was confirmed.`}
       </p>
@@ -143,7 +146,7 @@ export default function ConfirmedForMembersPanel({ type, organizationId: id, org
         renderExpanded={(r) => <Members group={r} noun={noun} onReport={report} />}
         renderExpandedMobile={(r) => <Members group={r} noun={noun} onReport={report} />}
         phoneOpenLabel="Show who was confirmed"
-        emptyState={<p className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">Nothing confirmed for members yet. When this cooperative confirms assistance for its members, each assistance is listed here with who was confirmed and the proof photos.</p>}
+        emptyState={<p className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">No earlier confirmations. Receipt is no longer confirmed: assistance shows as Received after its scheduled time.</p>}
       />
       <PaginationBar page={page} totalCount={state.count} pageSize={PAGE_SIZE} onPageChange={(p) => { setOpenId(null); setPage(p) }} />
     </div>

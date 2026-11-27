@@ -11,7 +11,7 @@ import useAssistanceTypeUnits from './useAssistanceTypeUnits.js'
 
 // The assistance details of the distribution windows as table forms, the same fields whoever the recipients are. One block for each
 // assistance given (type, source agencies, the quantity or the cash amount or the training days), then one block for what is shared by all of
-// them: the date and a description. `form` is made by makeAssistanceForm (distributeFlow.js) and is the first assistance; `more` holds the
+// them: when and where it is claimed, and a description. `form` is made by makeAssistanceForm (distributeFlow.js) and is the first assistance; `more` holds the
 // extra ones (Add Another Assistance), each a form of its own.
 export default function AssistanceDetailsFields({ domain, form, setForm, more = [], setMore, today }) {
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
@@ -33,13 +33,23 @@ export default function AssistanceDetailsFields({ domain, form, setForm, more = 
         </div>
       )}
 
-      <FormSection title={several ? 'Distribution Date and Description (all assistance)' : 'Distribution Date and Description'}>
-        <FormRows label="Date and description">
+      <FormSection title={several ? 'Schedule and Description (all assistance)' : 'Schedule and Description'}>
+        <FormRows label="Schedule and description">
           <FormRow>
-            <FormCell label="Distribution Date" required wide
-              hint={<p className="mt-1 text-[11px] text-[#7A8E7A]">Today or a later date. A future date schedules the distribution: it stays Pending until that date arrives.</p>}>
-              <input type="date" className={`${baseInputClasses} sm:max-w-xs`} aria-label="Distribution Date" value={form.date_given} min={assistanceMinDate({ today })}
+            <FormCell label="Distribution Date" required>
+              <input type="date" className={baseInputClasses} aria-label="Distribution Date" value={form.date_given} min={assistanceMinDate({ today })}
                 onChange={(e) => set('date_given', e.target.value)} />
+            </FormCell>
+            <FormCell label="Distribution Time" required>
+              <input type="time" className={baseInputClasses} aria-label="Distribution Time" value={form.distribution_time || ''}
+                onChange={(e) => set('distribution_time', e.target.value)} />
+            </FormCell>
+          </FormRow>
+          <FormRow>
+            <FormCell label="Distribution Place" required wide
+              hint={<p className="mt-1 text-[11px] text-[#7A8E7A]">Recipients with an account are told this right away. It shows Scheduled until that date and time, then Received.</p>}>
+              <input className={baseInputClasses} aria-label="Distribution Place" maxLength={200} value={form.distribution_place || ''}
+                placeholder="e.g. Barangay Hall, Poblacion" onChange={(e) => set('distribution_place', e.target.value)} />
             </FormCell>
           </FormRow>
           <FormRow>

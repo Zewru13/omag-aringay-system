@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ClipboardCheck, Fish, MapPin, PackageX, Sprout, Wheat } from 'lucide-react'
+import { AlertTriangle, ClipboardCheck, Fish, MapPin, Sprout, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
@@ -132,7 +132,6 @@ export default function StaffDashboard({ user }) {
   const rows = board?.[tableDomain]?.by_barangay || []
   const variance = board?.yield_variance || []
   const fisheriesVariance = board?.fisheries_yield_variance || []
-  const followUp = board?.not_received_count || {}
 
   return (
     <div className="flex flex-col gap-4 lg:gap-5">
@@ -175,8 +174,8 @@ export default function StaffDashboard({ user }) {
         />
       </div>
 
-      {/* ── Needs attention (and follow-up, when there are cases) ─────── */}
-      <div className={`${(followUp.total || 0) > 0 ? ROW : 'grid grid-cols-1 gap-4'} ${PHONE_ORDER.attention} ${LG_FLOW}`}>
+      {/* ── Needs attention ─────── */}
+      <div className={`grid grid-cols-1 gap-4 ${PHONE_ORDER.attention} ${LG_FLOW}`}>
         <DashPanel title="Needs Attention — Activity Overdue" icon={AlertTriangle} tone="warn" subtitle="Crop and fisheries monitoring">
           <div className="grid flex-1 grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
             <MonitoringBlock
@@ -190,31 +189,6 @@ export default function StaffDashboard({ user }) {
           </div>
         </DashPanel>
 
-        {(followUp.total || 0) > 0 && (
-          <DashPanel title="Needs Follow-up — Assistance Not Received" icon={PackageX} tone="warn" subtitle="Crop and fisheries assistance">
-            <div className="grid flex-1 grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
-              {[
-                { key: 'crop', tone: 'crop', Icon: Sprout, title: 'Crop', value: followUp.crop, label: 'Review crop cases →', to: '/crop-assistance?tab=needs-follow-up' },
-                { key: 'fisheries', tone: 'fisheries', Icon: Fish, title: 'Fisheries', value: followUp.fisheries, label: 'Review fisheries cases →', to: '/fisheries-assistance?tab=needs-follow-up' },
-              ].map(({ key, tone, Icon, title, value, label, to }) => {
-                const accent = tone === 'crop' ? 'text-primary' : 'text-[color:var(--color-semantic-info)]'
-                return (
-                  <div key={key} className="flex min-w-0 flex-col px-4 py-4 md:px-5">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Icon size={14} className={accent} aria-hidden="true" />
-                      <h4 className={`text-[12px] font-bold uppercase tracking-[0.05em] ${accent}`}>{title}</h4>
-                    </div>
-                    <p className="text-[24px] font-bold leading-none tabular-nums text-[color:var(--color-semantic-critical)]">{num(value)}</p>
-                    <button type="button" onClick={() => navigate(to)}
-                      className={`mt-auto flex min-h-[40px] items-center pt-2 ${accent} cursor-pointer transition-opacity hover:opacity-75`}>
-                      <span className="text-[12.5px]">{label}</span>
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </DashPanel>
-        )}
       </div>
 
       {/* ── Activity status by barangay (left) and pending change requests (right) ── */}

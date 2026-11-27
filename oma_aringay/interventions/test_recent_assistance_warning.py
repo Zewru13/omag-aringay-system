@@ -14,6 +14,7 @@ from rest_framework.test import APITestCase
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -52,7 +53,7 @@ class RecentAssistanceWarningTests(APITestCase):
     def body(self, domain, people, **over):
         cfg = DOMAINS[domain]
         data = {cfg['ids']: [p.id for p in people], 'assistance_type': cfg['kind'], 'source_agencies': ['DA'], 'quantity': '2 bags',
-                'date_given': self.today.isoformat()}
+                **SCHEDULE, 'date_given': self.today.isoformat()}
         data.update(over)
         return data
 
@@ -105,7 +106,7 @@ class RecentAssistanceWarningTests(APITestCase):
         for domain, (a, _b) in ((d, self.people[d]) for d in DOMAINS):
             cfg = DOMAINS[domain]
             self.earlier(domain, a, 8)
-            single = {cfg['person']: a.id, 'assistance_type': cfg['kind'], 'source_agencies': ['DA'], 'quantity': '2 bags', 'date_given': self.today.isoformat()}
+            single = {cfg['person']: a.id, 'assistance_type': cfg['kind'], 'source_agencies': ['DA'], 'quantity': '2 bags', **SCHEDULE, 'date_given': self.today.isoformat()}
             r = self.client.post(cfg['adhoc'], single, format='json')
             self.assertEqual(r.status_code, 409, r.content)
             self.assertEqual(r.json()['code'], 'recent_assistance')
@@ -119,5 +120,5 @@ class RecentAssistanceWarningTests(APITestCase):
         cfg = DOMAINS['crop']
         a = self.people['crop'][1]
         r = self.client.post(cfg['adhoc'], {'farmer': a.id, 'assistance_type': 'Seeds', 'source_agencies': ['DA'], 'quantity': '2 bags',
-                                             'date_given': self.today.isoformat()}, format='json')
+                                             **SCHEDULE, 'date_given': self.today.isoformat()}, format='json')
         self.assertEqual(r.status_code, 201, r.content)

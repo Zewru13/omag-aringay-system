@@ -73,36 +73,49 @@ class AssistanceTypeUnits(models.Model):
 
 class DistributionStatus(models.TextChoices):
     """
-    Shared by both BeneficiaryRecord and FisherfolkBeneficiaryRecord — one
-    lifecycle, one set of labels, so the two domains can never drift apart
-    on wording the way separate per-model TextChoices classes eventually
-    would.
+    Shared by both BeneficiaryRecord and FisherfolkBeneficiaryRecord. Nobody confirms receipt: a distribution says when and
+    where it is claimed, and each record follows that schedule (see schedule_has_passed and
+    interventions.lifecycle.mark_distributions_received).
 
-    PENDING              date_given is in the future; nothing has happened
-                          yet, nothing is shown to the recipient.
-    AWAITING_CONFIRMATION date_given has arrived (set lazily — see
-                          interventions.lifecycle.advance_due_distributions,
-                          no scheduler); the recipient has been notified and
-                          can now Confirm or Report Not Received.
-    CONFIRMED            either the recipient confirmed receipt (real
-                          lifecycle, confirmed_at set), or date_given was
-                          today-or-past at creation time, in which case this
-                          is set immediately and confirmed_at stays null —
-                          the pre-existing, already-tested "logging
-                          something that already happened" path, not a
-                          confirmation event.
-    NOT_RECEIVED         the recipient reported non-receipt; open, needs
-                          staff follow-up.
-    RESOLVED             staff closed out a NOT_RECEIVED case.
+    PENDING    "Scheduled": the day and time of the distribution have not come yet.
+    CONFIRMED  "Received": the scheduled time has passed. confirmed_at is empty; it is set only on records that somebody
+               confirmed before confirming was removed.
+    REMOVED    staff or the cooperative took an unclaimed person off. The row stays for audit; the default manager hides it.
+
+    Older records only, nothing creates these any more: AWAITING_CONFIRMATION (turned into Received by the migration that
+    removed confirming), NOT_RECEIVED and RESOLVED.
     """
-    PENDING = 'PENDING', 'Pending'
+    PENDING = 'PENDING', 'Scheduled'
     AWAITING_CONFIRMATION = 'AWAITING_CONFIRMATION', 'Awaiting Confirmation'
-    CONFIRMED = 'CONFIRMED', 'Confirmed'
+    CONFIRMED = 'CONFIRMED', 'Received'
     NOT_RECEIVED = 'NOT_RECEIVED', 'Not Received'
     RESOLVED = 'RESOLVED', 'Resolved'
-    # An organization took this entry out of a distribution before the recipient confirmed it. The row stays in the
-    # database for audit; the models' default manager hides it everywhere (see ActiveRecordManager).
     REMOVED = 'REMOVED', 'Removed'
+
+
+# The statuses that come from the schedule alone, so saving a changed schedule works them out again.
+SCHEDULE_STATUSES = (DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION, DistributionStatus.CONFIRMED)
+
+
+def schedule_has_passed(date_given, distribution_time):
+    """Whether the day and time of a distribution have come, in the office's time zone. A record with no time (made before
+    times were asked, or imported) counts from the start of its day."""
+    now = timezone.localtime()
+    if date_given != now.date():
+        return date_given < now.date()
+    return distribution_time is None or distribution_time <= now.time()
+
+
+def _follow_schedule(record):
+    """Set a record's status from its schedule. A new record always; an existing one only while its status still comes from
+    the schedule and nobody ever confirmed it."""
+    if not record._state.adding and (record.confirmed_at is not None or record.status not in SCHEDULE_STATUSES):
+        return
+    at = record._meta.get_field('distribution_time').to_python(record.distribution_time)
+    day = record._meta.get_field('date_given').to_python(record.date_given)
+    if day is None:
+        return
+    record.status = DistributionStatus.CONFIRMED if schedule_has_passed(day, at) else DistributionStatus.PENDING
 
 
 class ActiveRecordManager(models.Manager):
@@ -180,6 +193,9 @@ class BeneficiaryRecord(models.Model):
         related_name='beneficiary_records',
     )
     date_given = models.DateField()
+    # Where and at what time it is claimed on date_given. Required for new records; older and imported ones have none.
+    distribution_place = models.CharField(max_length=200, blank=True, default='')
+    distribution_time = models.TimeField(null=True, blank=True)
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -260,8 +276,7 @@ class BeneficiaryRecord(models.Model):
     confirmed_at = models.DateTimeField(null=True, blank=True)
     non_receipt_reason = models.TextField(blank=True)
     follow_up_notes = models.TextField(blank=True)
-    # Optional proof the recipient can attach when confirming receipt. Farmer
-    # only for now — written solely by BeneficiaryConfirmReceivedView.
+    # Proof a recipient attached when confirming receipt, before confirming was removed (history only; farmers only).
     confirmation_photo = models.ImageField(upload_to='beneficiary_confirmations/', null=True, blank=True)
     confirmation_note = models.TextField(blank=True)
 
@@ -295,13 +310,8 @@ class BeneficiaryRecord(models.Model):
             self.attributed_organization = _resolve_attributed_organization(candidates, farmer.barangay)
         else:
             self.attributed_organization = None
+        _follow_schedule(self)
         if self._state.adding:
-            # New assistance is never "received" on its own: it waits for the recipient (or their organization on
-            # their behalf) to confirm. A future date stays Pending until it comes due.
-            self.status = (
-                DistributionStatus.AWAITING_CONFIRMATION if self.date_given and self.date_given <= timezone.localdate()
-                else DistributionStatus.PENDING
-            )
             self.recorded_at = timezone.now()
         super().save(*args, **kwargs)
 
@@ -332,6 +342,9 @@ class FisherfolkBeneficiaryRecord(models.Model):
         related_name='beneficiary_records',
     )
     date_given = models.DateField()
+    # Where and at what time it is claimed on date_given. Required for new records; older and imported ones have none.
+    distribution_place = models.CharField(max_length=200, blank=True, default='')
+    distribution_time = models.TimeField(null=True, blank=True)
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -427,13 +440,8 @@ class FisherfolkBeneficiaryRecord(models.Model):
             self.attributed_fisherfolk_organization = _resolve_attributed_organization(candidates, fisherfolk.barangay)
         else:
             self.attributed_fisherfolk_organization = None
+        _follow_schedule(self)
         if self._state.adding:
-            # New assistance is never "received" on its own: it waits for the recipient (or their organization on
-            # their behalf) to confirm. A future date stays Pending until it comes due.
-            self.status = (
-                DistributionStatus.AWAITING_CONFIRMATION if self.date_given and self.date_given <= timezone.localdate()
-                else DistributionStatus.PENDING
-            )
             self.recorded_at = timezone.now()
         super().save(*args, **kwargs)
 
@@ -441,36 +449,11 @@ class FisherfolkBeneficiaryRecord(models.Model):
         return f'{self.assistance_type or "Ad-hoc"} - {self.fisherfolk.full_name}'
 
 
-# ─── Accountless-beneficiary confirmation ──────────────────────────────────
-# Lets an ORGANIZATION confirm receipt on behalf of a member who genuinely
-# has no working citizen account (no shell, or a shell that has never been
-# activated — see accounts.utils.citizen_account_info, the same signal
-# already driving the "Activate Account" button). Never available for a
-# beneficiary who could self-confirm through BeneficiaryConfirmReceivedView
-# — enforced at submission time in BeneficiaryConfirmOnBehalfView
-# (interventions/views.py), not here.
-#
-# Deliberately a SEPARATE model from BeneficiaryRecord, not new fields on
-# it: DistributionStatus stays exactly as documented above ("one lifecycle")
-# and never learns about a 6th state. The underlying record simply stays
-# AWAITING_CONFIRMATION until an admin approves a request here, at which
-# point the approval view flips it to CONFIRMED in one atomic transaction —
-# additive to that lifecycle, not a replacement of any part of it.
-#
-# Deliberately TWO mirrored models (this one + FisherfolkBeneficiaryConfirmationRequest
-# below), not one polymorphic model spanning both domains the way
-# core.models.ProfileChangeRequest does — every other farmer/fisherfolk-pair
-# feature in this codebase (FarmersOrganizationMember/FisherfolkOrganizationMember,
-# the *ConfirmReceivedView pair, the two *OrganizationDistributeAssistanceView
-# classes) is two mirrored models/views rather than one shared polymorphic
-# one, and this follows that established convention instead of ProfileChangeRequest's
-# (justified there by spanning 4 record types with near-identical logic — a
-# reason that doesn't apply to a 2-domain feature like this one).
-#
-# What IS reused verbatim from ProfileChangeRequest is the SHAPE: status
-# (PENDING/APPROVED/REJECTED), submitted_by/at, reviewed_by/at/rejection_reason,
-# and the same approve-writes-through-atomically / reject-leaves-the-real-
-# record-alone behavior (see interventions.views' decision view).
+# ─── Earlier confirmations ──────────────────────────────────────────────────
+# While receipt had to be confirmed, a cooperative could confirm it for a member
+# without a working account, with proof photos. Nobody confirms any more: these
+# rows and photos are history, still shown on the cooperative's page and left
+# untouched. Nothing creates new ones.
 
 class BeneficiaryConfirmationRequest(models.Model):
     class Status(models.TextChoices):

@@ -3,10 +3,10 @@
 // PDF by the server (utils/specPdf.js), so the two always agree. Layouts come from utils/listReport.js, like the other list reports.
 import { buildDetailReportSpec, buildListReportSpec } from '../../utils/listReport.js'
 import { assistanceTypeText, formatAssistanceQuantity } from './assistanceFieldHelpers.js'
+import { STATUS_LABELS as MEMBER_STATUS, timeText } from './assistanceStatus.js'
 import { agenciesText, distributionRowLabel } from './distributionsTableRows.js'
 
 const SECTORS = { crop: 'Crop (Farmers)', fisheries: 'Fisheries (Fisherfolk)' }
-const MEMBER_STATUS = { PENDING: 'Pending', AWAITING_CONFIRMATION: 'Awaiting Confirmation', CONFIRMED: 'Confirmed', NOT_RECEIVED: 'Not Received', RESOLVED: 'Resolved' }
 
 const fmtDate = (value) => (value
   ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${String(value).slice(0, 10)}T00:00:00`))
@@ -62,6 +62,8 @@ export function buildDistributionRecordSpec({ domain = 'crop', noun, distributio
       ['Sector', SECTORS[domain] || ''],
       ['Given to', givenTo],
       ['Date given', fmtDate(g.date_given)],
+      ...(g.distribution_time ? [['Time', timeText(g.distribution_time)]] : []),
+      ...(g.distribution_place ? [['Place', g.distribution_place]] : []),
       ['Assistance type', assistanceTypeText(g)],
       ['Source agency', agenciesText(g.source_agencies)],
       ['Quantity', formatAssistanceQuantity(g.assistance_type, g.quantity)],

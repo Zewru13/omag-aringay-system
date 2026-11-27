@@ -1,3 +1,5 @@
+from datetime import time
+
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -57,6 +59,31 @@ class NotInThePastMixin:
         if not unchanged and value < timezone.localdate():
             raise serializers.ValidationError('Assistance can only be recorded for today or a future date.')
         return value
+
+
+class ScheduleRuleMixin:
+    """Every new distribution says where and at what time it is claimed (the day is date_given). A record that has them cannot
+    lose them. An import (context `allow_past_dates`) loads past assistance, so it may leave them out."""
+    SCHEDULE_FIELDS = (('distribution_place', 'Enter the place where it is claimed.'),
+                       ('distribution_time', 'Enter the time it is claimed.'))
+
+    def validate(self, data):
+        data = super().validate(data)
+        if self.context.get('allow_past_dates'):
+            return data
+        if data.get('distribution_place') is not None:
+            data['distribution_place'] = data['distribution_place'].strip()
+        errors = {}
+        for field, message in self.SCHEDULE_FIELDS:
+            if self.instance is None:
+                missing = not data.get(field) and data.get(field) != time(0, 0)
+            else:
+                missing = field in data and data[field] in (None, '') and getattr(self.instance, field) not in (None, '')
+            if missing:
+                errors[field] = [message]
+        if errors:
+            raise serializers.ValidationError(errors)
+        return data
 
 
 class QuantityRuleMixin:
@@ -144,7 +171,9 @@ class TrainingTypeRuleMixin:
         return data
 
 
-class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, AssistanceTypeRuleMixin, serializers.ModelSerializer):
+class BeneficiaryRecordCreateSerializer(ScheduleRuleMixin, NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin,
+                                        AssistanceTypeRuleMixin, serializers.ModelSerializer):
+    distribution_time = serializers.TimeField(required=False, allow_null=True, format='%H:%M')
     type_domain = 'crop'
     assistance_type = serializers.CharField(max_length=30, required=False, allow_blank=True)
     confirmation_photos = serializers.SerializerMethodField()
@@ -164,6 +193,8 @@ class BeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, Tr
             'farmer_rsbsa_number',
             'farmer_barangay',
             'date_given',
+            'distribution_place',
+            'distribution_time',
             'remarks',
             'recorded_by',
             'recorded_by_name',
@@ -235,7 +266,9 @@ class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
         read_only_fields = BeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['farmer']
 
 
-class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin, AssistanceTypeRuleMixin, serializers.ModelSerializer):
+class FisherfolkBeneficiaryRecordCreateSerializer(ScheduleRuleMixin, NotInThePastMixin, QuantityRuleMixin, TrainingTypeRuleMixin,
+                                                  AssistanceTypeRuleMixin, serializers.ModelSerializer):
+    distribution_time = serializers.TimeField(required=False, allow_null=True, format='%H:%M')
     type_domain = 'fisheries'
     assistance_type = serializers.CharField(max_length=30, required=False, allow_blank=True)
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
@@ -256,6 +289,8 @@ class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, QuantityRul
             'fisherfolk_barangay',
             'fisherfolk_type',
             'date_given',
+            'distribution_place',
+            'distribution_time',
             'remarks',
             'recorded_by',
             'recorded_by_name',
@@ -323,6 +358,8 @@ class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleM
         child=serializers.CharField(allow_blank=True), required=False, default=list,
     )
     date_given = serializers.DateField()
+    distribution_place = serializers.CharField(max_length=200)   # where and when it is claimed: both required
+    distribution_time = serializers.TimeField()
     quantity = serializers.CharField(required=False, allow_blank=True, default='')
     description = serializers.CharField(required=False, allow_blank=True, default='')
     season = serializers.CharField(required=False, allow_blank=True, default='')
@@ -351,77 +388,14 @@ class OrganizationDistributionRequestSerializer(NotInThePastMixin, QuantityRuleM
         return value
 
     # date_given no longer rejects future dates — see
-    # BeneficiaryRecordCreateSerializer's comment. A future-dated bulk
-    # distribution schedules every member's record as PENDING, same as the
+    # BeneficiaryRecordCreateSerializer's comment. A bulk distribution that
+    # is still to come schedules every member's record as PENDING, same as the
     # individual-report path; _run_organization_distribution's raw
     # record_model.objects.create() calls go through the model's save(),
     # so this needs no separate handling here.
 
 
-# ─── Accountless-beneficiary confirmation ──────────────────────────────────
-
-class AccountlessConfirmableSerializer(serializers.ModelSerializer):
-    """
-    Read-only shape for MyOrgAccountlessConfirmablesView's list — a
-    BeneficiaryRecord that is AWAITING_CONFIRMATION for a farmer the caller's
-    organization can act for, annotated with whether a confirmation request
-    already exists for it (has_pending_request/latest_request_status), so
-    the frontend can show "Pending Review" instead of a submit button for a
-    row already in flight, without a second request.
-    """
-    farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
-    farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
-    latest_request_status = serializers.SerializerMethodField()
-    latest_request_reason = serializers.SerializerMethodField()
-
-    class Meta:
-        model = BeneficiaryRecord
-        fields = [
-            'id', 'farmer', 'farmer_full_name', 'farmer_barangay',
-            'assistance_type', 'source_agencies', 'quantity', 'season', 'year',
-            'date_given', 'latest_request_status', 'latest_request_reason',
-        ]
-        read_only_fields = fields
-
-    def _latest(self, obj):
-        return obj.confirmation_requests.order_by('-submitted_at').first()
-
-    def get_latest_request_status(self, obj):
-        latest = self._latest(obj)
-        return latest.status if latest else None
-
-    def get_latest_request_reason(self, obj):
-        latest = self._latest(obj)
-        return latest.rejection_reason if latest and latest.status == 'REJECTED' else ''
-
-
-class FisherfolkAccountlessConfirmableSerializer(serializers.ModelSerializer):
-    """Fisherfolk equivalent of AccountlessConfirmableSerializer above."""
-    fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
-    fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
-    latest_request_status = serializers.SerializerMethodField()
-    latest_request_reason = serializers.SerializerMethodField()
-
-    class Meta:
-        model = FisherfolkBeneficiaryRecord
-        fields = [
-            'id', 'fisherfolk', 'fisherfolk_full_name', 'fisherfolk_barangay',
-            'assistance_type', 'source_agencies', 'quantity', 'season', 'year',
-            'date_given', 'latest_request_status', 'latest_request_reason',
-        ]
-        read_only_fields = fields
-
-    def _latest(self, obj):
-        return obj.confirmation_requests.order_by('-submitted_at').first()
-
-    def get_latest_request_status(self, obj):
-        latest = self._latest(obj)
-        return latest.status if latest else None
-
-    def get_latest_request_reason(self, obj):
-        latest = self._latest(obj)
-        return latest.rejection_reason if latest and latest.status == 'REJECTED' else ''
-
+# ─── Earlier confirmations (history only: nobody confirms receipt any more) ──
 
 class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
     farmer_full_name = serializers.CharField(source='beneficiary_record.farmer.full_name', read_only=True)

@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from auditlog.models import AuditLogEntry
 from core.utils import build_name_search_q
 
+from .lifecycle import mark_distributions_received, notify_removed_from_schedule
 from .models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
 
 STATUS_KEYS = (
@@ -42,8 +43,8 @@ def summary_status(counts):
     if counts[DistributionStatus.NOT_RECEIVED]:
         return 'Needs follow-up'
     if counts[DistributionStatus.AWAITING_CONFIRMATION] or counts[DistributionStatus.PENDING]:
-        return 'Awaiting confirmation'
-    return 'Confirmed'
+        return 'Scheduled'
+    return 'Received'
 
 
 def build_distributions(records, person_field):
@@ -61,6 +62,8 @@ def build_distributions(records, person_field):
                 'source_agencies': list(record.source_agencies or []),
                 'quantity': record.quantity,
                 'date_given': record.date_given,
+                'distribution_place': record.distribution_place,
+                'distribution_time': record.distribution_time.strftime('%H:%M') if record.distribution_time else None,
                 'recorded_at': None,
                 'organization_id': getattr(record, 'distributed_by_organization_id', None),
                 'organization_name': record.distributed_by_organization.name if getattr(record, 'distributed_by_organization_id', None) else None,
@@ -96,7 +99,7 @@ def build_distributions(records, person_field):
     return result
 
 
-# The two tabs of an Assistance page: Current (still open: scheduled, awaiting confirmation, needing follow-up) and History (finished).
+# The two tabs of an Assistance page: Current (scheduled, plus older ones still needing follow-up) and History (received).
 STATUS_GROUPS = {
     'current': [DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION, DistributionStatus.NOT_RECEIVED],
     'history': [DistributionStatus.CONFIRMED, DistributionStatus.RESOLVED],
@@ -136,7 +139,12 @@ def filter_records(queryset, person_field, params):
 # ─── Removal ──────────────────────────────────────────────────────────────────
 
 DOMAIN_MODELS = {'crop': (BeneficiaryRecord, 'farmer'), 'fisheries': (FisherfolkBeneficiaryRecord, 'fisherfolk')}
-REMOVABLE = (DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION)
+SCHEDULED = (DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION)
+
+
+def _removable(record):
+    """Scheduled entries, and received ones nobody ever confirmed (the person did not come to claim it)."""
+    return record.status in SCHEDULED or (record.status == DistributionStatus.CONFIRMED and record.confirmed_at is None)
 
 
 def _lock_records(model, ids):
@@ -173,25 +181,29 @@ def _resolve_ids(model, user, is_staff, record_ids, distribution):
 
 
 def remove_records(domain, user, record_ids=None, distribution=None):
-    """Take entries out of the list: PENDING and AWAITING_CONFIRMATION ones become REMOVED (kept in the database for audit,
-    hidden everywhere, no longer confirmable). Anything past that is kept and reported. One transaction; the rows are
-    re-read under a lock so an entry confirmed a moment ago is never removed."""
+    """Take unclaimed people off the list: their entries become REMOVED (kept in the database for audit, hidden everywhere).
+    An entry whose receipt somebody confirmed earlier, or an older follow-up case, is kept and reported. One transaction, with
+    the rows re-read under a lock. Someone taken off before the day is told, so they do not go there expecting it."""
     if domain not in DOMAIN_MODELS:
         raise ValidationError({'domain': ['Use "crop" or "fisheries".']})
     model, person_field = DOMAIN_MODELS[domain]
     is_staff = user.role in ('ADMIN', 'EVALUATOR')
     ids = _resolve_ids(model, user, is_staff, record_ids, distribution)
+    mark_distributions_received()
 
-    removed, kept = [], []
+    removed, kept, to_tell = [], [], []
     now = timezone.now()
     with transaction.atomic():
         for record in _lock_records(model, ids):
             if record.status == DistributionStatus.REMOVED:
                 continue
-            if record.status not in REMOVABLE:
-                kept.append({'id': record.id, 'status': record.status,
-                             'reason': f'Already {record.get_status_display().lower()}, so it stays on the list.'})
+            if not _removable(record):
+                reason = ('Its receipt was confirmed earlier, so it stays on the list.' if record.confirmed_at
+                          else f'Already {record.get_status_display().lower()}, so it stays on the list.')
+                kept.append({'id': record.id, 'status': record.status, 'reason': reason})
                 continue
+            if record.status == DistributionStatus.PENDING:
+                to_tell.append(record)
             record.status = DistributionStatus.REMOVED
             record.removed_at = now
             record.removed_by = user
@@ -205,4 +217,6 @@ def remove_records(domain, user, record_ids=None, distribution=None):
                 object_repr=f'Removed from the list: {record.assistance_type} for {getattr(record, person_field).full_name} '
                             f'(record {record.id})')
             removed.append(record.id)
+    for record in to_tell:
+        notify_removed_from_schedule(record, user)
     return {'removed': removed, 'kept': kept}

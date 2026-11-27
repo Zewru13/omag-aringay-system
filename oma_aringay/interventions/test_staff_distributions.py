@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.test_distribution_history import DOMAINS, make_citizen, make_org, make_person
+from interventions.test_helpers import SCHEDULE
 
 User = get_user_model()
 TODAY = date.today()
@@ -18,7 +19,7 @@ URLS = {
 
 
 def shared(domain, **over):
-    data = {'assistance_type': DOMAINS[domain]['type'], 'source_agencies': ['DA'], 'date_given': TODAY.isoformat(), 'quantity': '2 sacks'}
+    data = {'assistance_type': DOMAINS[domain]['type'], 'source_agencies': ['DA'], **SCHEDULE, 'date_given': TODAY.isoformat(), 'quantity': '2 sacks'}
     data.update(over)
     return data
 

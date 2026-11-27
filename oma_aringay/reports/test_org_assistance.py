@@ -1,7 +1,7 @@
 """Report 6: Organization Assistance - one organization or all of them, JSON / PDF / Excel."""
 import io
 import uuid
-from datetime import date
+from datetime import date, time, timedelta
 
 import openpyxl
 from django.contrib.auth import get_user_model
@@ -49,11 +49,11 @@ class OrganizationAssistanceReportTests(APITestCase):
                 made.append(record)
             return made
 
-        # org A: a seeds distribution to two members (one confirmed, one still awaiting) and a training one
-        cls.seeds = give(cls.org_a, [cls.f1, cls.f2], date(2026, 8, 1), 'Seeds', ['DA'], '10 sacks', ['CONFIRMED', 'AWAITING_CONFIRMATION'],
+        # org A: a seeds distribution to two members and a training one, both already received
+        cls.seeds = give(cls.org_a, [cls.f1, cls.f2], date(2026, 8, 1), 'Seeds', ['DA'], '10 sacks', ['CONFIRMED', 'CONFIRMED'],
                          seed_type='Hybrid rice')
         cls.training = give(cls.org_a, [cls.f1], date(2026, 9, 1), 'Training', ['ATI'], '', ['CONFIRMED'], training_duration_days=2)
-        # org B: fertilizer, one member reported not received
+        # org B: fertilizer, an older record whose member had reported it as not received
         cls.fert = give(cls.org_b, [cls.f3], date(2026, 9, 15), 'Fertilizer', ['DA', 'PCA'], '5 bags', ['NOT_RECEIVED'])
         # assistance staff logged for one person, no organization: never in this report
         BeneficiaryRecord.objects.create(farmer=cls.f1, assistance_type='Seeds', date_given=date(2026, 7, 1))
@@ -104,6 +104,7 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.client.force_authenticate(self.admin)
         for params in ({}, {'kind': 'trees'}, {'kind': 'farmers', 'date_from': 'soon'}, {'kind': 'farmers', 'status': 'maybe'},
                        {'kind': 'farmers', 'assistance_type': 'Fishing Gear'}, {'kind': 'farmers', 'id': 'abc'},
+                       {'kind': 'farmers', 'status': 'awaiting'},
                        {'kind': 'farmers', 'date_from': '2030-01-02', 'date_to': '2030-01-01'}):
             self.assertEqual(self.client.get(URL, params).status_code, 400, params)
 
@@ -118,10 +119,10 @@ class OrganizationAssistanceReportTests(APITestCase):
         ])
         fert, training, seeds = rows
         self.assertEqual(fert[3:], ['DA, PCA', '5 bags', 1, 0, 'Needs follow-up'])
-        self.assertEqual(training[3:], ['ATI', '—', 1, 1, 'Confirmed'])
-        self.assertEqual(seeds[3:], ['DA', '10 sacks', 2, 1, 'Awaiting confirmation'])
+        self.assertEqual(training[3:], ['ATI', '—', 1, 1, 'Received'])
+        self.assertEqual(seeds[3:], ['DA', '10 sacks', 2, 2, 'Received'])
         self.assertEqual(dict(map(tuple, doc['stats'])), {'Cooperatives': 2, 'Distributions': 3, 'Members Reached': 3,
-                                                          'Confirmed': 2, 'Needs Follow-up': 1})
+                                                          'Received': 3, 'Scheduled': 0})
 
     def test_individual_and_removed_assistance_are_not_organization_assistance(self):
         total = sum(r[5] for r in self.rows(self.get(kind='farmers')))
@@ -130,7 +131,7 @@ class OrganizationAssistanceReportTests(APITestCase):
     def test_fisherfolk_organizations(self):
         doc = self.get(kind='fisherfolk')
         self.assertEqual(doc['title'], 'Fisherfolk Cooperative Assistance')
-        self.assertEqual([(r[0], r[2], r[4], r[7]) for r in self.rows(doc)], [('Samara Fishers', 'Feed', '20 sacks', 'Confirmed')])
+        self.assertEqual([(r[0], r[2], r[4], r[7]) for r in self.rows(doc)], [('Samara Fishers', 'Feed', '20 sacks', 'Received')])
 
     def test_filters(self):
         orgs = lambda **p: [r[0] + ' ' + r[2].split(' ')[0] for r in self.rows(self.get(kind='farmers', **p))]
@@ -138,9 +139,8 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual(orgs(date_to='2026-08-31'), ['Alaska Farmers Seeds'])
         self.assertEqual(orgs(assistance_type='Training'), ['Alaska Farmers Training'])
         self.assertEqual(orgs(source_agency='PCA'), ['Baracbac Farmers Fertilizer'])
-        self.assertEqual(orgs(status='follow_up'), ['Baracbac Farmers Fertilizer'])
-        self.assertEqual(orgs(status='awaiting'), ['Alaska Farmers Seeds'])
-        self.assertEqual(orgs(status='confirmed'), ['Alaska Farmers Training'])
+        self.assertEqual(orgs(status='received'), ['Alaska Farmers Training', 'Alaska Farmers Seeds'])
+        self.assertEqual(orgs(status='scheduled'), [])
         self.assertEqual(orgs(search='baracbac'), ['Baracbac Farmers Fertilizer'])
         self.assertEqual(orgs(search='zzzz'), [])
 
@@ -155,19 +155,18 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual({r[0] for r in self.rows(doc)}, {'Alaska Farmers'})
         recipients = doc['sections'][1]['rows']
         self.assertEqual([(r[0], r[1], r[4], r[8]) for r in recipients], [
-            ('Alaska Farmers', 'Ana Test', 'Training — 2 days', 'Confirmed'),
-            ('Alaska Farmers', 'Ana Test', 'Seeds — Hybrid rice', 'Confirmed'),
-            ('Alaska Farmers', 'Ben Test', 'Seeds — Hybrid rice', 'Awaiting Confirmation'),
+            ('Alaska Farmers', 'Ana Test', 'Training — 2 days', 'Received'),
+            ('Alaska Farmers', 'Ana Test', 'Seeds — Hybrid rice', 'Received'),
+            ('Alaska Farmers', 'Ben Test', 'Seeds — Hybrid rice', 'Received'),
         ])
-        self.assertNotEqual(recipients[0][9], '—')    # confirmed: has a date
-        self.assertEqual(recipients[2][9], '—')       # not yet confirmed
+        self.assertEqual({r[9] for r in recipients}, {'—'})    # recorded before a time and place were asked
         self.assertNotIn('Cooperatives', dict(map(tuple, doc['stats'])))
 
     # ---- recipients: the people who actually received the assistance, by name -------------------------------------------------------
 
     RECIPIENT_HEADERS = ['Cooperative', 'Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given',
-                         'Quantity', 'Status', 'Date Confirmed']
-    PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Date Confirmed']
+                         'Quantity', 'Status', 'Time and Place']
+    PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Time and Place']
 
     def test_the_all_organizations_report_names_every_recipient(self):
         doc = self.get(kind='farmers')
@@ -176,9 +175,9 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual(section['headers'], self.RECIPIENT_HEADERS)
         self.assertEqual([r[:9] for r in section['rows']], [
             ['Baracbac Farmers', 'Cora Test', 'Farmer', 'Alaska', 'Fertilizer', 'DA, PCA', 'Sep 15, 2026', '5 bags', 'Not Received'],
-            ['Alaska Farmers', 'Ana Test', 'Farmer', 'Alaska', 'Training — 2 days', 'ATI', 'Sep 01, 2026', '—', 'Confirmed'],
-            ['Alaska Farmers', 'Ana Test', 'Farmer', 'Alaska', 'Seeds — Hybrid rice', 'DA', 'Aug 01, 2026', '10 sacks', 'Confirmed'],
-            ['Alaska Farmers', 'Ben Test', 'Farmer', 'Alaska', 'Seeds — Hybrid rice', 'DA', 'Aug 01, 2026', '10 sacks', 'Awaiting Confirmation'],
+            ['Alaska Farmers', 'Ana Test', 'Farmer', 'Alaska', 'Training — 2 days', 'ATI', 'Sep 01, 2026', '—', 'Received'],
+            ['Alaska Farmers', 'Ana Test', 'Farmer', 'Alaska', 'Seeds — Hybrid rice', 'DA', 'Aug 01, 2026', '10 sacks', 'Received'],
+            ['Alaska Farmers', 'Ben Test', 'Farmer', 'Alaska', 'Seeds — Hybrid rice', 'DA', 'Aug 01, 2026', '10 sacks', 'Received'],
         ])
         keys = [tuple(r[:9]) for r in section['rows']]
         self.assertEqual(len(keys), len(set(keys)), 'no recipient row is listed twice')
@@ -189,15 +188,29 @@ class OrganizationAssistanceReportTests(APITestCase):
         doc = self.get(kind='fisherfolk')
         rows = doc['sections'][1]['rows']
         self.assertEqual([r[:9] for r in rows], [
-            ['Samara Fishers', 'Pedro Sea', 'Fisherfolk', 'Samara', 'Feed', 'BFAR', 'Sep 05, 2026', '20 sacks', 'Confirmed']])
+            ['Samara Fishers', 'Pedro Sea', 'Fisherfolk', 'Samara', 'Feed', 'BFAR', 'Sep 05, 2026', '20 sacks', 'Received']])
         self.assertEqual(dict(map(tuple, doc['stats']))['Members Reached'], 1)
 
     def test_recipients_follow_the_filters(self):
-        doc = self.get(kind='farmers', status='follow_up')
-        self.assertEqual([r[1] for r in doc['sections'][1]['rows']], ['Cora Test'])
+        doc = self.get(kind='farmers', status='received')
+        self.assertEqual([r[1] for r in doc['sections'][1]['rows']], ['Ana Test', 'Ana Test', 'Ben Test'])
         doc = self.get(kind='farmers', assistance_type='Seeds')
         self.assertEqual([r[1] for r in doc['sections'][1]['rows']], ['Ana Test', 'Ben Test'])
         self.assertEqual(self.get(kind='farmers', search='zzzz')['sections'][1]['rows'], [])
+
+    def test_a_distribution_still_to_come_is_scheduled_and_names_its_time_and_place(self):
+        later = timezone.localdate() + timedelta(days=9)
+        record = BeneficiaryRecord.objects.create(
+            farmer=self.f2, assistance_type='Equipment', equipment_type='Sprayer', date_given=later, quantity='1 unit', source_agencies=['DA'],
+            distributed_by_organization=self.org_b, distribution_batch=uuid.uuid4(), distribution_place='Barangay Hall', distribution_time=time(14, 30))
+        doc = self.get(kind='farmers', status='scheduled')
+        self.assertEqual([(r[0], r[2], r[5], r[6], r[7]) for r in self.rows(doc)], [('Baracbac Farmers', 'Equipment — Sprayer', 1, 0, 'Scheduled')])
+        self.assertEqual([(r[1], r[8], r[9]) for r in doc['sections'][1]['rows']], [('Ben Test', 'Scheduled', '2:30 PM · Barangay Hall')])
+        self.assertEqual(dict(map(tuple, doc['stats']))['Scheduled'], 1)
+        self.assertNotIn('Equipment — Sprayer', [r[2] for r in self.rows(self.get(kind='farmers', status='received'))])
+        # once its day has passed, the same entry counts as received
+        BeneficiaryRecord.objects.filter(pk=record.pk).update(date_given=timezone.localdate() - timedelta(days=1))
+        self.assertEqual(self.rows(self.get(kind='farmers', status='scheduled')), [])
 
     # ---- individual farmers and fisherfolk: assistance given directly, not through an organization -------------------------------
 
@@ -208,12 +221,10 @@ class OrganizationAssistanceReportTests(APITestCase):
         section = doc['sections'][0]
         self.assertEqual(section['headers'], self.PERSON_HEADERS)
         self.assertEqual([r[:8] for r in section['rows']], [
-            ['Dina Test', 'Farmer', 'Alaska', 'Fertilizer — Urea', 'DA', 'Aug 10, 2026', '3 bags', 'Confirmed'],
-            ['Ana Test', 'Farmer', 'Alaska', 'Seeds', '—', 'Jul 01, 2026', '—', 'Awaiting Confirmation'],
+            ['Dina Test', 'Farmer', 'Alaska', 'Fertilizer — Urea', 'DA', 'Aug 10, 2026', '3 bags', 'Received'],
+            ['Ana Test', 'Farmer', 'Alaska', 'Seeds', '—', 'Jul 01, 2026', '—', 'Received'],
         ])
-        self.assertNotEqual(section['rows'][0][8], '—')     # confirmed: has a date
-        self.assertEqual(section['rows'][1][8], '—')
-        self.assertEqual(dict(map(tuple, doc['stats'])), {'Recipients': 2, 'Assistance Records': 2, 'Confirmed': 1, 'Needs Follow-up': 0})
+        self.assertEqual(dict(map(tuple, doc['stats'])), {'Recipients': 2, 'Assistance Records': 2, 'Received': 2, 'Scheduled': 0})
         self.assertNotIn('row_refs', doc)                    # there is no organization to open
 
     def test_an_organization_member_is_listed_only_for_what_was_not_through_the_organization(self):
@@ -228,9 +239,9 @@ class OrganizationAssistanceReportTests(APITestCase):
         rows = doc['sections'][0]['rows']
         self.assertEqual([r[:8] for r in rows], [
             ['Pedro Sea', 'Fisherfolk', 'Samara', 'Cash Assistance', 'LGU', 'Sep 12, 2026', '5000', 'Not Received'],
-            ['Maria Reef', 'Fisherfolk', 'Dulao', 'Fishing Gear — Nets', 'BFAR', 'Sep 10, 2026', '2 sets', 'Confirmed'],
+            ['Maria Reef', 'Fisherfolk', 'Dulao', 'Fishing Gear — Nets', 'BFAR', 'Sep 10, 2026', '2 sets', 'Received'],
         ])
-        self.assertEqual(dict(map(tuple, doc['stats'])), {'Recipients': 2, 'Assistance Records': 2, 'Confirmed': 1, 'Needs Follow-up': 1})
+        self.assertEqual(dict(map(tuple, doc['stats'])), {'Recipients': 2, 'Assistance Records': 2, 'Received': 1, 'Scheduled': 0})
 
     def test_individual_filters_and_search(self):
         names = lambda kind='individual_farmers', **p: [r[0] for r in self.get(kind=kind, **p)['sections'][0]['rows']]
@@ -238,13 +249,12 @@ class OrganizationAssistanceReportTests(APITestCase):
         self.assertEqual(names(date_to='2026-07-31'), ['Ana Test'])
         self.assertEqual(names(assistance_type='Seeds'), ['Ana Test'])
         self.assertEqual(names(source_agency='DA'), ['Dina Test'])
-        self.assertEqual(names(status='confirmed'), ['Dina Test'])
-        self.assertEqual(names(status='awaiting'), ['Ana Test'])
-        self.assertEqual(names(status='follow_up'), [])
+        self.assertEqual(names(status='received'), ['Dina Test', 'Ana Test'])
+        self.assertEqual(names(status='scheduled'), [])
         self.assertEqual(names(search='dina'), ['Dina Test'])
         self.assertEqual(names(search='test ana'), ['Ana Test'])
         self.assertEqual(names(search='zzzz'), [])
-        self.assertEqual(names('individual_fisherfolk', status='follow_up'), ['Pedro Sea'])
+        self.assertEqual(names('individual_fisherfolk', status='received'), ['Maria Reef'])
         self.assertEqual(names('individual_fisherfolk', search='reef'), ['Maria Reef'])
         subtitle = self.get(kind='individual_farmers', assistance_type='Seeds', search='ana')['subtitle']
         self.assertIn('Assistance: Seeds', subtitle)

@@ -1089,6 +1089,8 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                     source_agencies=data.get('source_agencies', []),
                     quantity=data.get('quantity', ''),
                     date_given=date_given,
+                    distribution_place=data['distribution_place'],
+                    distribution_time=data['distribution_time'],
                     season=data.get('season', ''),
                     year=date_given.year,
                     recorded_by=user,

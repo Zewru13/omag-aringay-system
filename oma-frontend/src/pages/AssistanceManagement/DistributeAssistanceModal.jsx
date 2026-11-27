@@ -12,12 +12,12 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import StepIndicator from '../../components/UI/StepIndicator.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useDraftState from '../../hooks/useDraftState.js'
-import { formatDate } from '../../utils/dateFormat.js'
 import { todayISO } from '../../utils/localDate.js'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import AssistanceDetailsFields from './AssistanceDetailsFields.jsx'
 import RecipientTable from './RecipientTable.jsx'
 import { buildAssistanceReportSpec } from './assistanceReport.js'
+import { scheduleText } from './assistanceStatus.js'
 import {
   MAX_RECIPIENTS, assistanceLines, assistanceLinesProblem, eligibleIds, lineSummary, makeAssistanceForm, organizationRequest, outcomeCreated, outcomeTotals, peopleRequest,
   personOutcomeTotals, quantityText, repeatWarningCount, reportRecords, reviewTotalsAll, toggleInMap, typeName,
@@ -39,10 +39,6 @@ const STEPS = [
 const STEP_INDEX = { form: 0, confirm: 1, result: 2 }
 const STATUS_TONE = { created: 'green', blocked: 'rose', error: 'rose' }
 const STATUS_LABEL = { created: 'Created', blocked: 'Blocked', error: 'Error' }
-
-function formatDateLong(iso) {
-  return formatDate(iso, { empty: '' })
-}
 
 const firstMessage = (data, fallback) => {
   if (data && typeof data === 'object') {
@@ -304,7 +300,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
                 : `To ${totals.records} selected ${people ? (totals.records === 1 ? domain.personLabel.toLowerCase() : domain.peopleLabel) : `member${totals.records === 1 ? '' : 's'}`}`}
               {!people && ` ${lines.length > 1 ? 'across' : 'of'} ${totals.organizations} cooperative${totals.organizations === 1 ? '' : 's'}`}
             </p>
-            <p className="mt-0.5 text-[13px] text-[#B7CBBB]">on <span className="font-semibold text-white">{formatDateLong(form.date_given)}</span></p>
+            <p className="mt-0.5 text-[13px] text-[#B7CBBB]">on <span className="font-semibold text-white">{scheduleText(form)}</span></p>
           </div>
 
           {lines.map((line, l) => (

@@ -45,7 +45,7 @@ eq(record.sections[0].rows, [
 ], 'the details of the distribution')
 eq(record.sections[1].title, 'Recipients', 'the recipients section')
 eq(record.sections[1].table.head, ['No.', 'Name', 'Barangay', 'Status'], 'recipient columns')
-eq(record.sections[1].table.rows, [['1', 'Ana Cruz', 'Alaska', 'Resolved'], ['2', 'Cora Reyes', 'Alaska', 'Confirmed']], 'recipients in name order, with their own status')
+eq(record.sections[1].table.rows, [['1', 'Ana Cruz', 'Alaska', 'Resolved'], ['2', 'Cora Reyes', 'Alaska', 'Received']], 'recipients in name order, with their own status')
 eq(buildDistributionRecordSpec({ domain: 'fisheries', noun: 'fisherfolk', distribution: group({ organization_name: null, members: [member(1, 'Pedro Sea', 'NOT_RECEIVED', '')] }), now: NOW }).sections[1].table.rows,
   [['1', 'Pedro Sea', '—', 'Not Received']], 'a missing barangay is a dash and the status reads in words')
 eq(buildDistributionRecordSpec({ domain: 'fisheries', noun: 'fisherfolk', distribution: group({ organization_name: null }), now: NOW }).sections[0].rows[1], ['Given to', 'Ana Cruz, Cora Reyes'], 'given to selected people names them')
@@ -65,7 +65,7 @@ eq(person.sections[1].title, 'Assistance records', 'the history section')
 eq(person.sections[1].table.head, ['No.', 'Date Given', 'Assistance Type', 'Source Agency', 'Quantity', 'Season', 'Year', 'Status'], 'history columns')
 eq(person.sections[1].table.rows.map((r) => r[2]), ['Fertilizer', 'Seeds', 'Training'], 'newest first, a record with no date last')
 eq(person.sections[1].table.rows[0], ['1', 'Feb 10, 2026', 'Fertilizer', '—', '—', '—', '2026', '—'], 'empty values are dashes')
-eq(buildPersonHistorySpec({ domain: 'crop', person: {}, records: [{ assistance_type: 'Seeds', date_given: '2026-01-01', status: 'AWAITING_CONFIRMATION' }, { assistance_type: 'Seeds', date_given: '2025-01-01', status: 'CONFIRMED' }], now: NOW }).sections[1].table.rows.map((r) => r.at(-1)), ['Awaiting Confirmation', 'Confirmed'], 'each record says where it stands')
+eq(buildPersonHistorySpec({ domain: 'crop', person: {}, records: [{ assistance_type: 'Seeds', date_given: '2026-01-01', status: 'AWAITING_CONFIRMATION' }, { assistance_type: 'Seeds', date_given: '2025-01-01', status: 'CONFIRMED' }], now: NOW }).sections[1].table.rows.map((r) => r.at(-1)), ['Awaiting Confirmation', 'Received'], 'each record says where it stands')
 eq(buildPersonHistorySpec({ domain: 'fisheries', person: { name: 'Pedro Sea', rsbsa: '', barangay: '' }, records: [], now: NOW }).title, 'FISHERFOLK ASSISTANCE HISTORY REPORT', 'a fisherfolk: the heading')
 eq(buildPersonHistorySpec({ domain: 'fisheries', person: { name: 'Pedro Sea' }, records: [], now: NOW }).sections[0].rows, [['Name', 'Pedro Sea'], ['RSBSA No.', '—'], ['Barangay', '—'], ['Assistance records', '0']], 'no records, no RSBSA')
 
@@ -100,7 +100,7 @@ eq(historyFilterPairs({ year: '', barangay: '', status: 'history' }), [['Status'
 eq(historyFilterPairs({ status: 'current' }), [['Status', 'Current']], 'the other tab')
 eq(historyFilterPairs({}), [], 'no filters')
 eq(historyFilterPairs({ date_from: '2026-01-05', date_to: '2026-06-30', status: 'CONFIRMED' }),
-  [['Given from', 'Jan 5, 2026'], ['Given to', 'Jun 30, 2026'], ['Status', 'Confirmed']], 'a cooperative history: the dates and a member status')
+  [['Given from', 'Jan 5, 2026'], ['Given to', 'Jun 30, 2026'], ['Status', 'Received']], 'a cooperative history: the dates and a member status')
 eq(historyFilterPairs({ status: 'needs-follow-up' }), [['Status', 'Needs follow-up']], 'needs follow-up')
 eq(historyFilterPairs({ status: 'WEIRD' }), [['Status', 'WEIRD']], 'a status it does not know is shown as it is')
 

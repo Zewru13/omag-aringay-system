@@ -68,6 +68,20 @@ export default function AssistanceEditSections({ domain, form, set, setAssistanc
         </FormRows>
       </FormSection>
 
+      {/* Older and imported records have no time or place, so these may stay blank on them; once given they cannot be emptied. */}
+      <FormSection title="Schedule">
+        <FormRows label="Schedule">
+          <FormRow>
+            <FormCell label="Distribution Time">
+              <input type="time" className={baseInputClasses} aria-label="Distribution Time" value={form.distribution_time || ''} onChange={(ev) => set('distribution_time', ev.target.value)} />
+            </FormCell>
+            <FormCell label="Distribution Place">
+              <input className={baseInputClasses} aria-label="Distribution Place" maxLength={200} value={form.distribution_place || ''} onChange={(ev) => set('distribution_place', ev.target.value)} />
+            </FormCell>
+          </FormRow>
+        </FormRows>
+      </FormSection>
+
       <FormSection title="Notes">
         <FormRows label="Notes">
           <FormRow>

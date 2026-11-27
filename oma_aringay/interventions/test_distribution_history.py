@@ -15,6 +15,7 @@ from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.distributions import build_distributions
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -80,7 +81,7 @@ class DistributionHistoryTests(APITestCase):
         cfg, ctx = DOMAINS[domain], self.ctx[domain]
         self.client.force_authenticate(ctx['user'])
         body = {'assistance_type': kind or cfg['type'], 'source_agencies': list(agencies), 'quantity': quantity,
-                'date_given': str(when or timezone.localdate()), 'member_ids': [ctx['people'][i].id for i in member_idx]}
+                **SCHEDULE, 'date_given': str(when or timezone.localdate()), 'member_ids': [ctx['people'][i].id for i in member_idx]}
         today = timezone.localdate()
         if when is not None and when < today:
             body['date_given'] = str(today)      # the form only takes today or later; the past date is put back below
@@ -120,8 +121,8 @@ class DistributionHistoryTests(APITestCase):
             self.assertEqual(group['id'], batch)
             self.assertEqual(group['member_count'], 3)
             self.assertEqual(sorted(m['name'] for m in group['members']), ['Ana Hist', 'Ben Hist', 'Dino Hist'])
-            self.assertEqual(group['status_counts']['AWAITING_CONFIRMATION'], 3)
-            self.assertEqual(group['summary_status'], 'Awaiting confirmation')
+            self.assertEqual(group['status_counts']['CONFIRMED'], 3)
+            self.assertEqual(group['summary_status'], 'Received')
             self.assertEqual(group['assistance_type'], DOMAINS[domain]['type'])
             self.assertIsNotNone(group['recorded_at'])
             self.assertEqual(set(group['members'][0]), {'record_id', 'person_id', 'name', 'barangay', 'id_number', 'status', 'confirmed_at'})
@@ -160,16 +161,19 @@ class DistributionHistoryTests(APITestCase):
             self.assertEqual([m['record_id'] for m in rival_groups[0]['members']], [theirs.id])
             self.assertNotEqual(mine_groups[0]['id'], rival_groups[0]['id'])
 
-    def test_summary_status_follows_awaiting_follow_up_and_confirmed(self):
+    def test_summary_status_follows_the_schedule_and_older_follow_up_cases(self):
         for domain in DOMAINS:
-            self.distribute(domain, [0, 1])
-            records = list(DOMAINS[domain]['record'].objects.filter(recorded_by=self.ctx[domain]['user']))
+            self.distribute(domain, [0, 1], when=timezone.localdate() + timedelta(days=6))
+            self.assertEqual(self.history(domain).data[0]['summary_status'], 'Scheduled')
+            records = list(DOMAINS[domain]['record'].objects.filter(recorded_by=self.ctx[domain]['user']).order_by('id'))
             self.set_status(domain, records[0].id, DistributionStatus.CONFIRMED)
-            self.assertEqual(self.history(domain).data[0]['summary_status'], 'Awaiting confirmation')
+            DOMAINS[domain]['record'].objects.filter(pk=records[0].id).update(date_given=timezone.localdate())
+            summaries = [g['summary_status'] for g in self.history(domain).data]
+            self.assertIn('Scheduled', summaries)
             self.set_status(domain, records[1].id, DistributionStatus.NOT_RECEIVED)
-            self.assertEqual(self.history(domain).data[0]['summary_status'], 'Needs follow-up')
+            self.assertIn('Needs follow-up', [g['summary_status'] for g in self.history(domain).data])
             self.set_status(domain, records[1].id, DistributionStatus.RESOLVED)
-            self.assertEqual(self.history(domain).data[0]['summary_status'], 'Confirmed')
+            self.assertEqual({g['summary_status'] for g in self.history(domain).data}, {'Received'})
 
     def test_removed_members_are_left_out_of_counts_and_the_summary(self):
         for domain in DOMAINS:
@@ -180,7 +184,7 @@ class DistributionHistoryTests(APITestCase):
             self.set_status(domain, records[2].id, DistributionStatus.CONFIRMED)
             group = self.history(domain).data[0]
             self.assertEqual(group['member_count'], 2)
-            self.assertEqual(group['summary_status'], 'Confirmed')
+            self.assertEqual(group['summary_status'], 'Received')
             self.assertEqual(sum(group['status_counts'].values()), 2)
             self.assertNotIn(records[0].id, [m['record_id'] for m in group['members']])
 
@@ -214,8 +218,8 @@ class DistributionHistoryTests(APITestCase):
             self.assertEqual(self.ids(self.history(domain, source_agency='LGU')), [ids['other_old']])
             self.assertEqual(self.ids(self.history(domain, date_from=str(today - timedelta(days=5)))), [ids['seeds_today']])
             self.assertEqual(self.ids(self.history(domain, date_to=str(today - timedelta(days=5)))), [ids['other_old']])
-            self.assertEqual(self.ids(self.history(domain, status='AWAITING_CONFIRMATION')).__len__(), 2)
-            self.assertEqual(self.ids(self.history(domain, status='CONFIRMED')), [])
+            self.assertEqual(len(self.ids(self.history(domain, status='CONFIRMED'))), 2)
+            self.assertEqual(self.ids(self.history(domain, status='PENDING')), [])
             ncara = self.history(domain, member='cara')
             self.assertEqual(self.ids(ncara), [ids['other_old']])
             self.assertEqual([m['name'] for m in ncara.data[0]['members']], ['Cara Hist'])
@@ -233,7 +237,7 @@ class DistributionHistoryTests(APITestCase):
         for domain in DOMAINS:
             self.distribute(domain, [0, 1])
             records = list(DOMAINS[domain]['record'].objects.filter(recorded_by=self.ctx[domain]['user']).order_by('id'))
-            self.set_status(domain, records[0].id, DistributionStatus.CONFIRMED)
+            self.set_status(domain, records[1].id, DistributionStatus.NOT_RECEIVED)
             group = self.history(domain, status='CONFIRMED').data[0]
             self.assertEqual(group['member_count'], 1)
             self.assertEqual(group['members'][0]['record_id'], records[0].id)

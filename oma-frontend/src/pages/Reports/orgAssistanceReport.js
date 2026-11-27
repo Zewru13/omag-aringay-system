@@ -30,7 +30,7 @@ export function orgReportParams(kindId, filters, picked) {
 }
 
 // [value the backend takes, what the dropdown says]
-export const ORG_ASSISTANCE_STATUSES = [['confirmed', 'Confirmed'], ['awaiting', 'Awaiting confirmation'], ['follow_up', 'Needs follow-up']]
+export const ORG_ASSISTANCE_STATUSES = [['received', 'Received'], ['scheduled', 'Scheduled']]
 
 // The filters of the report (the page adds a name search of its own).
 export const NO_ORG_ASSISTANCE_FILTERS = { date_from: '', date_to: '', assistance_type: '', source_agency: '', status: '' }

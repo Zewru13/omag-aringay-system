@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import AssistanceAgency, BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -41,12 +42,12 @@ class DateRuleTests(APITestCase):
         self.client.force_authenticate(self.admin)
 
     def farmer_payload(self, when, **over):
-        data = {'farmer': self.farmer.id, 'assistance_type': 'Seeds', 'source_agencies': ['DA'], 'quantity': '10 bags', 'date_given': iso(when)}
+        data = {'farmer': self.farmer.id, 'assistance_type': 'Seeds', 'source_agencies': ['DA'], 'quantity': '10 bags', **SCHEDULE, 'date_given': iso(when)}
         data.update(over)
         return data
 
     def fisher_payload(self, when, **over):
-        data = {'fisherfolk': self.fisher.id, 'assistance_type': 'Feed', 'source_agencies': ['BFAR'], 'quantity': '2', 'date_given': iso(when)}
+        data = {'fisherfolk': self.fisher.id, 'assistance_type': 'Feed', 'source_agencies': ['BFAR'], 'quantity': '2', **SCHEDULE, 'date_given': iso(when)}
         data.update(over)
         return data
 
@@ -89,7 +90,7 @@ class DateRuleTests(APITestCase):
         from interventions.serializers import OrganizationDistributionRequestSerializer
         def check(when):
             return OrganizationDistributionRequestSerializer(
-                data={'assistance_type': 'Seeds', 'source_agencies': ['DA'], 'date_given': iso(when), 'quantity': '5'},
+                data={'assistance_type': 'Seeds', 'source_agencies': ['DA'], **SCHEDULE, 'date_given': iso(when), 'quantity': '5'},
                 context={'model': BeneficiaryRecord})
         past = check(today() - timedelta(days=2))
         self.assertFalse(past.is_valid())

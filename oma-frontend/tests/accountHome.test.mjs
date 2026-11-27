@@ -12,7 +12,7 @@ eq(homeSources('farmer', { isMember: false }), ['assistance', 'crops', 'parcels'
 eq(homeSources('farmer', { isMember: true }), ['assistance', 'crops', 'parcels', 'loans'], 'a member also loads loans')
 eq(homeSources('fisherfolk', { isMember: false }), ['assistance', 'cycles'], 'fisherfolk')
 eq(homeSources('fisherfolk', { isMember: true }), ['assistance', 'cycles', 'loans'], 'a fisherfolk member')
-eq(homeSources('orgFish', { orgId: 3 }), ['members', 'confirmables', 'loans'], 'organization')
+eq(homeSources('orgFish', { orgId: 3 }), ['members', 'loans'], 'organization')
 eq(homeSources(null), [], 'no account, nothing to load')
 
 const crops = [{ id: 1, status: 'Planted', area_planted_ha: '1.56' }, { id: 2, status: 'Near Harvest', area_planted_ha: '0.04' }, { id: 3, status: 'Harvested', area_planted_ha: '2' }]
@@ -55,10 +55,10 @@ const page = read('../src/pages/Citizen/CitizenHomePage.jsx')
 ok(page.includes('AccountHome') && !/FarmerPhoneHome|FisherfolkPhoneHome|OrgPhoneHome/.test(page), 'one Home for every kind')
 for (const gone of ['FarmerPhoneHome', 'FisherfolkPhoneHome', 'OrgPhoneHome']) ok(!fs.existsSync(new URL(`../src/pages/Citizen/${gone}.jsx`, import.meta.url)), `${gone} is removed`)
 const windows = read('../src/pages/Account/HomeWindows.jsx')
-for (const piece of ['ViewLogsModal', 'RecordHarvestFromMonitoringModal', 'ConfirmReceivedModal', 'ReportNotReceivedModal']) {
+for (const piece of ['ViewLogsModal', 'RecordHarvestFromMonitoringModal']) {
   ok(windows.includes(piece), `a farmer's to-do opens ${piece} on Home`)
 }
-for (const piece of ['ConfirmReceivedDialog', 'RecordStockingHarvestModal', "domain === 'fisheries'"]) ok(windows.includes(piece), `a fisherfolk's to-do opens ${piece} on Home`)
+for (const piece of ['RecordStockingHarvestModal', "domain === 'fisheries'"]) ok(windows.includes(piece), `a fisherfolk's to-do opens ${piece} on Home`)
 ok(home.includes('stockingHarvestGate'), "a cycle's Record harvest opens only when the cycle may be harvested")
 ok(/lazy\(\(\) => import\('\.\/HomeWindows\.jsx'\)\)/.test(home) && home.includes('<Suspense'), 'the windows are downloaded only when a button is pressed')
 ok(home.includes('harvestGateInfo') && home.includes('onAct={act}'), 'Record harvest opens only when the crop may be harvested')

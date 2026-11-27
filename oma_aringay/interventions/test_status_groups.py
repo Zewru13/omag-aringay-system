@@ -1,6 +1,6 @@
 """The distribution lists take two status groups besides a single status: `current` (pending, awaiting confirmation, not received: still open)
 and `history` (confirmed, resolved: finished). A distribution whose members are in both shows only the matching members in each."""
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
@@ -28,7 +28,8 @@ class StatusGroupTests(APITestCase):
         model = DOMAINS[domain]['record']
         field = DOMAINS[domain]['person_field']
         for person, status in zip(people, STATUSES):
-            model.objects.filter(**{field: person}).update(status=status, date_given=date.today())
+            day = date.today() + timedelta(days=5) if status == 'PENDING' else date.today()   # a past "scheduled" row would become Received
+            model.objects.filter(**{field: person}).update(status=status, date_given=day)
         return people
 
     def statuses(self, domain, group):

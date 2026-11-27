@@ -1,5 +1,6 @@
-"""An organization can remove entries (or a whole distribution) from its list before the recipients confirm them. The records stay
-in the database for audit but vanish from every list, can no longer be confirmed, and no longer count."""
+"""Staff or the cooperative can take a person off a distribution who is still scheduled, or who never came to claim it. Entries
+whose receipt somebody confirmed while receipt had to be confirmed stay. A removed row is kept in the database for audit but
+vanishes from every list and no longer counts."""
 import itertools
 from datetime import date, timedelta
 from unittest import mock
@@ -16,6 +17,7 @@ from auditlog.models import AuditLogEntry
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -25,13 +27,11 @@ DOMAINS = {
     'crop': dict(link='FARMERS_ORG', person_link='FARMER', org=FarmersOrganization, member=FarmersOrganizationMember,
                  person_field='farmer', record=BeneficiaryRecord, type='Seeds',
                  history='/api/interventions/my-org-distributions/',
-                 distribute='/api/organizations/farmers/{}/distribute-assistance/',
-                 confirm='/api/interventions/beneficiaries/{}/confirm-received/', own='/api/interventions/my-beneficiary-history/'),
+                 distribute='/api/organizations/farmers/{}/distribute-assistance/', own='/api/interventions/my-beneficiary-history/'),
     'fisheries': dict(link='FISHERFOLK_ORG', person_link='FISHERFOLK', org=FisherfolkOrganization,
                       member=FisherfolkOrganizationMember, person_field='fisherfolk', record=FisherfolkBeneficiaryRecord,
                       type='Fishing Gear', history='/api/interventions/my-org-fisherfolk-distributions/',
                       distribute='/api/organizations/fisherfolk/{}/distribute-assistance/',
-                      confirm='/api/interventions/fisherfolk-beneficiaries/{}/confirm-received/',
                       own='/api/interventions/my-fisherfolk-beneficiary-history/'),
 }
 
@@ -84,7 +84,7 @@ class RemovalTests(APITestCase):
         self.client.force_authenticate(ctx['user'])
         res = self.client.post(cfg['distribute'].format(ctx['org'].id), {
             'assistance_type': cfg['type'], 'source_agencies': ['DA'], 'quantity': quantity,
-            'date_given': str(when or timezone.localdate()), 'member_ids': [ctx['people'][i].id for i in member_idx],
+            **SCHEDULE, 'date_given': str(when or timezone.localdate()), 'member_ids': [ctx['people'][i].id for i in member_idx],
         }, format='json')
         self.assertEqual(res.status_code, 200, res.data)
         return res.data['distribution_id']
@@ -99,17 +99,20 @@ class RemovalTests(APITestCase):
         return self.client.post(URL, body, format='json')
 
     def set_status(self, domain, record, status):
-        DOMAINS[domain]['record'].all_objects.filter(pk=record.pk).update(status=status)
+        # CONFIRMED here means somebody confirmed the receipt back then; one that only passed its date has no confirmed_at
+        extra = {'confirmed_at': timezone.now()} if status == DistributionStatus.CONFIRMED else {}
+        DOMAINS[domain]['record'].all_objects.filter(pk=record.pk).update(status=status, **extra)
 
     # single entries ------------------------------------------------------------
-    def test_removing_awaiting_and_pending_entries_hides_them_but_keeps_the_rows(self):
+    def test_removing_unclaimed_and_scheduled_entries_hides_them_but_keeps_the_rows(self):
         for domain, cfg in DOMAINS.items():
             self.distribute(domain, (0,))
             self.distribute(domain, (1,), when=timezone.localdate() + timedelta(days=4))
-            awaiting, pending = self.records(domain)
-            res = self.remove(domain, record_ids=[awaiting.id, pending.id])
+            unclaimed, scheduled = self.records(domain)
+            self.assertEqual((unclaimed.status, scheduled.status), ('CONFIRMED', 'PENDING'))
+            res = self.remove(domain, record_ids=[unclaimed.id, scheduled.id])
             self.assertEqual(res.status_code, 200, (domain, res.data))
-            self.assertEqual(sorted(res.data['removed']), sorted([awaiting.id, pending.id]))
+            self.assertEqual(sorted(res.data['removed']), sorted([unclaimed.id, scheduled.id]))
             self.assertEqual(res.data['kept'], [])
             for record in self.records(domain):
                 self.assertEqual(record.status, 'REMOVED')
@@ -143,7 +146,7 @@ class RemovalTests(APITestCase):
             self.assertEqual(again.data['removed'], [])
 
     # whole distributions -----------------------------------------------------------
-    def test_removing_a_whole_distribution_removes_only_the_unconfirmed_members(self):
+    def test_removing_a_whole_distribution_keeps_members_who_had_confirmed(self):
         for domain in DOMAINS:
             batch = self.distribute(domain)
             first, second, third = self.records(domain)
@@ -155,7 +158,7 @@ class RemovalTests(APITestCase):
             self.client.force_authenticate(self.ctx[domain]['user'])
             group = self.client.get(DOMAINS[domain]['history']).data[0]
             self.assertEqual(group['member_count'], 1)
-            self.assertEqual(group['summary_status'], 'Confirmed')
+            self.assertEqual(group['summary_status'], 'Received')
 
     def test_a_legacy_group_id_removes_its_members(self):
         for domain, cfg in DOMAINS.items():
@@ -176,7 +179,7 @@ class RemovalTests(APITestCase):
             res = self.client.post(URL, {'domain': domain, 'record_ids': [mine.id]}, format='json')
             self.assertEqual(res.status_code, 400, domain)
             self.assertEqual(self.remove(domain, record_ids=[mine.id, 999999999]).status_code, 400)
-            self.assertEqual(self.records(domain)[0].status, 'AWAITING_CONFIRMATION')
+            self.assertEqual(self.records(domain)[0].status, 'CONFIRMED')
             self.client.force_authenticate(self.ctx[domain]['rival_user'])
             self.assertEqual(self.client.post(URL, {'domain': domain, 'distribution': 'legacy-nothing'}, format='json').status_code, 400)
 
@@ -201,14 +204,12 @@ class RemovalTests(APITestCase):
         self.assertEqual(self.client.post(URL, {'domain': 'crop', 'record_ids': 'x'}, format='json').status_code, 400)
 
     # effects on the recipient and the rest of the system ---------------------------------------
-    def test_the_recipient_can_no_longer_confirm_or_see_a_removed_entry(self):
+    def test_the_recipient_no_longer_sees_a_removed_entry(self):
         for domain, cfg in DOMAINS.items():
             self.distribute(domain, (0,))
             record = self.records(domain)[0]
             self.remove(domain, record_ids=[record.id])
             self.client.force_authenticate(self.ctx[domain]['recipient'])
-            res = self.client.post(cfg['confirm'].format(record.id), {}, format='json')
-            self.assertIn(res.status_code, (400, 404), domain)
             self.assertEqual(self.records(domain)[0].status, 'REMOVED')
             own = self.client.get(cfg['own'])
             self.assertEqual(own.status_code, 200)
@@ -224,7 +225,7 @@ class RemovalTests(APITestCase):
             self.distribute(domain, (0,))
             rival_url = cfg['distribute'].format(ctx['rival'].id)
             body = {'assistance_type': cfg['type'], 'source_agencies': ['DA'], 'quantity': '1',
-                    'date_given': str(timezone.localdate()), 'dry_run': True}
+                    **SCHEDULE, 'date_given': str(timezone.localdate()), 'dry_run': True}
             self.client.force_authenticate(ctx['rival_user'])
             blocked = self.client.post(rival_url, body, format='json')
             self.assertIn('would_block', [r['status'] for r in blocked.data['results'] if r['person_id'] == ctx['people'][0].id])
@@ -252,7 +253,7 @@ class RemovalTests(APITestCase):
             real = distributions._lock_records
 
             def confirm_then_lock(model, ids):
-                model.all_objects.filter(pk=first.pk).update(status=DistributionStatus.CONFIRMED)
+                model.all_objects.filter(pk=first.pk).update(status=DistributionStatus.CONFIRMED, confirmed_at=timezone.now())
                 return real(model, ids)
 
             with mock.patch('interventions.distributions._lock_records', side_effect=confirm_then_lock):

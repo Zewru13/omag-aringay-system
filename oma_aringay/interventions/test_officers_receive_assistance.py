@@ -14,6 +14,7 @@ from associations.models import (
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -71,7 +72,7 @@ class OfficersReceiveAssistanceTests(APITestCase):
 
     def body(self, domain, **extra):
         data = {'assistance_type': DOMAINS[domain]['type'], 'source_agencies': ['DA'], 'quantity': '1 unit',
-                'date_given': str(timezone.localdate())}
+                **SCHEDULE, 'date_given': str(timezone.localdate())}
         data.update(extra)
         return data
 

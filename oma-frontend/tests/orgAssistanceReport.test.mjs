@@ -30,7 +30,7 @@ eq(orgKind('individual_farmers').types, orgKind('farmers').types, 'individual fa
 eq(orgKind('individual_fisherfolk').types, orgKind('fisherfolk').types, 'individual fisherfolk can be given what fisherfolk cooperatives are')
 eq(ORG_KINDS.map((k) => k.searchPlaceholder), ['Search cooperative name', 'Search cooperative name', 'Search farmer name', 'Search fisherfolk name'], 'the search bar says what it searches')
 eq(ORG_KINDS.every((k) => k.types.includes('Cash Assistance') && k.types.includes('Other')), true, 'each kind has its assistance types')
-eq(ORG_ASSISTANCE_STATUSES.map((s) => s[0]), ['confirmed', 'awaiting', 'follow_up'], 'the statuses the backend accepts')
+eq(ORG_ASSISTANCE_STATUSES.map((s) => s[0]), ['received', 'scheduled'], 'the statuses the backend accepts')
 eq(NO_ORG_ASSISTANCE_FILTERS, { date_from: '', date_to: '', assistance_type: '', source_agency: '', status: '' }, 'no filter by default')
 
 // what is asked of the backend

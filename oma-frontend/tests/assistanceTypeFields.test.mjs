@@ -47,7 +47,7 @@ eq(quantityWithUnit(' 2.5 ', ' kg '), '2.5 kg', 'trimmed')
 eq(quantityWithUnit('2', ''), '2', 'no unit configured')
 eq(quantityWithUnit('', 'sack'), '', 'no number, nothing')
 
-const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', source_agencies: ['DA'], quantity_amount: '2', quantity_unit: 'sack', ...over })
+const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', source_agencies: ['DA'], quantity_amount: '2', quantity_unit: 'sack', distribution_time: '09:00', distribution_place: 'Hall', ...over })
 eq(quantityText(form()), '2 sack', 'the review words it with the unit')
 eq(quantityText(form({ assistance_type: 'Cash Assistance', cash_amount: '500' })), '₱500 per head', 'cash is unchanged')
 eq(quantityText(form({ assistance_type: 'Training' })), '', 'training is unchanged')
