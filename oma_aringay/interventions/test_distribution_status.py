@@ -1,6 +1,6 @@
-"""New assistance waits for the recipient: a record created for today or earlier starts Awaiting Confirmation, a future one
-Pending, and both models stamp when they were recorded. Removed records stay in the database but the default manager hides
-them (`all_objects` shows everything)."""
+"""A new record follows its schedule: Received (stored as CONFIRMED) once its day and time have come, Scheduled (PENDING) before
+that; both models stamp when they were recorded. Removed records stay in the database but the default manager hides them
+(`all_objects` shows everything)."""
 import itertools
 from datetime import date, timedelta
 
@@ -48,11 +48,11 @@ class CreationStatusTests(TestCase):
     def people(self):
         return {'crop': make_farmer(), 'fisheries': make_fisherfolk()}
 
-    def test_a_record_for_today_or_earlier_awaits_confirmation_and_a_future_one_is_pending(self):
+    def test_a_record_dated_today_or_earlier_is_received_and_a_future_one_is_scheduled(self):
         today = timezone.localdate()
         for domain, person in self.people().items():
-            for offset, expected in ((0, DistributionStatus.AWAITING_CONFIRMATION),
-                                     (-1, DistributionStatus.AWAITING_CONFIRMATION),
+            for offset, expected in ((0, DistributionStatus.CONFIRMED),
+                                     (-1, DistributionStatus.CONFIRMED),
                                      (1, DistributionStatus.PENDING)):
                 record = make_record(domain, person, today + timedelta(days=offset))
                 self.assertEqual(record.status, expected, (domain, offset))
@@ -86,7 +86,7 @@ class RemovedRowsAreHiddenTests(TestCase):
 
 
 class RecordedNotificationTests(TestCase):
-    def test_the_recipient_is_told_when_a_record_awaits_their_confirmation(self):
+    def test_the_recipient_is_told_when_assistance_is_recorded_as_already_given(self):
         actor = User.objects.create_user(username='nt-staff', password='pw', role='ADMIN', email='nt-staff@x.test')
         for domain, person, link_type in (('crop', make_farmer(), 'FARMER'), ('fisheries', make_fisherfolk(), 'FISHERFOLK')):
             user = User.objects.create_user(username=f'nt-{domain}', password='pw', role='CITIZEN', email=f'nt-{domain}@x.test')
@@ -95,14 +95,15 @@ class RecordedNotificationTests(TestCase):
             notify_assistance_recorded(record, actor)
             notes = Notification.objects.filter(recipient=user, verb='recorded assistance for you:')
             self.assertEqual(notes.count(), 1, domain)
-            self.assertIn('confirm', notes.get().detail.lower(), domain)
+            self.assertIn('given on', notes.get().detail, domain)
+            self.assertNotIn('confirm', notes.get().detail.lower(), domain)
 
-    def test_no_notice_for_a_pending_record_the_actor_or_a_person_without_an_account(self):
+    def test_no_notice_for_the_actor_or_a_person_without_an_account(self):
         actor = User.objects.create_user(username='nt-actor', password='pw', role='CITIZEN', email='nt-actor@x.test')
         farmer = make_farmer()
         link(actor, 'FARMER', farmer)
-        pending = make_record('crop', farmer, timezone.localdate() + timedelta(days=3))
-        notify_assistance_recorded(pending, None)
+        scheduled = make_record('crop', farmer, timezone.localdate() + timedelta(days=3))
+        notify_assistance_recorded(scheduled, actor)
         self.assertEqual(Notification.objects.count(), 0)
         own = make_record('crop', farmer, timezone.localdate())
         notify_assistance_recorded(own, actor)

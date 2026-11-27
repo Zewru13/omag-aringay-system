@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 from associations.models import FisherfolkOrganization, FisherfolkOrganizationMember
 from interventions.models import AssistanceOption, FisherfolkBeneficiaryRecord
 from interventions.test_distribution_history import make_org, make_person
+from interventions.test_helpers import SCHEDULE
 
 User = get_user_model()
 OPTIONS = '/api/interventions/options/'
@@ -108,7 +109,7 @@ class AssistanceOptionTests(APITestCase):
         org = make_org(FisherfolkOrganization, 'Item Org')
         member = make_person('fisherfolk', 'Ito')
         FisherfolkOrganizationMember.objects.create(organization=org, fisherfolk=member, date_joined=date(2022, 1, 1))
-        body = {'assistance_type': 'Feed', 'date_given': TODAY, 'quantity': '5 sack', 'item_type': 'Starter Feed'}
+        body = {'assistance_type': 'Feed', **SCHEDULE, 'date_given': TODAY, 'quantity': '5 sack', 'item_type': 'Starter Feed'}
         r = self.client.post(f'/api/organizations/fisherfolk/{org.id}/distribute-assistance/', body, format='json')
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(FisherfolkBeneficiaryRecord.objects.get(fisherfolk=member).item_type, 'Starter Feed')
@@ -116,7 +117,7 @@ class AssistanceOptionTests(APITestCase):
     def test_giving_to_selected_fisherfolk_keeps_the_type_of_item(self):
         person = make_person('fisherfolk', 'Gia')
         r = self.client.post('/api/interventions/fisherfolk-beneficiaries/adhoc/bulk/', {
-            'fisherfolk_ids': [person.id], 'assistance_type': 'Fishing Gear', 'date_given': TODAY, 'quantity': '2 pcs', 'item_type': 'Gill Net'}, format='json')
+            'fisherfolk_ids': [person.id], 'assistance_type': 'Fishing Gear', **SCHEDULE, 'date_given': TODAY, 'quantity': '2 pcs', 'item_type': 'Gill Net'}, format='json')
         self.assertEqual(r.status_code, 200, r.content)
         record = FisherfolkBeneficiaryRecord.objects.get(fisherfolk=person)
         self.assertEqual((record.item_type, record.quantity), ('Gill Net', '2 pcs'))

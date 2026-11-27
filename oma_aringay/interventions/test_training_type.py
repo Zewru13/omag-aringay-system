@@ -16,6 +16,7 @@ from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import AssistanceOption, BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.test_distribution_members import DOMAINS as ORG_DOMAINS, make_citizen, make_org, make_person
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -50,7 +51,7 @@ class TrainingTypeTests(APITestCase):
     def body(self, domain, **over):
         cfg = DOMAINS[domain]
         data = {cfg['person']: self.people[domain].id, 'assistance_type': 'Training', 'source_agencies': ['ATI'], 'quantity': '',
-                'training_duration_days': 2, 'date_given': self.today}
+                'training_duration_days': 2, **SCHEDULE, 'date_given': self.today}
         data.update(over)
         return data
 
@@ -102,7 +103,7 @@ class TrainingTypeTests(APITestCase):
     def test_the_bulk_form_needs_it_too(self):
         for domain, cfg in DOMAINS.items():
             body = {cfg['ids']: [self.people[domain].id], 'assistance_type': 'Training', 'source_agencies': ['ATI'], 'training_duration_days': 1,
-                    'date_given': self.today}
+                    **SCHEDULE, 'date_given': self.today}
             r = self.client.post(cfg['bulk'], body, format='json')
             self.assertEqual(r.status_code, 400, (domain, r.content))
             self.assertIn('training_type', r.json())
@@ -121,7 +122,7 @@ class TrainingTypeTests(APITestCase):
 
     def test_other_types_keep_no_type_of_training(self):
         r = self.client.post(DOMAINS['crop']['adhoc'], {'farmer': self.people['crop'].id, 'assistance_type': 'Seeds', 'source_agencies': ['DA'],
-                                                        'quantity': '2 sack', 'date_given': self.today, 'training_type': 'left over'}, format='json')
+                                                        'quantity': '2 sack', **SCHEDULE, 'date_given': self.today, 'training_type': 'left over'}, format='json')
         self.assertEqual(r.status_code, 201, r.content)
         self.assertEqual(BeneficiaryRecord.objects.get().training_type, '')
 
@@ -133,7 +134,7 @@ class TrainingTypeTests(APITestCase):
             cfg['member'].objects.create(organization=org, date_joined=date(2025, 1, 1), is_main=True, **{cfg['person_field']: person})
             self.client.force_authenticate(make_citizen(f'tt-org-{domain}', cfg['link'], org.id))
             body = {'assistance_type': 'Training', 'source_agencies': ['ATI'], 'quantity': '', 'training_duration_days': 1,
-                    'date_given': self.today}
+                    **SCHEDULE, 'date_given': self.today}
             url = cfg['url'].format(org.id)
             self.assertEqual(self.client.post(url, body, format='json').status_code, 400, domain)
             res = self.client.post(url, {**body, 'training_type': 'Fish Cage Construction and Tilapia Farming'}, format='json')

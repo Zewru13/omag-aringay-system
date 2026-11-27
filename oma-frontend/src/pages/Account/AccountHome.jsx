@@ -27,7 +27,7 @@ import { capTodos, farmerTodos, fisherfolkTodos, orgTodos } from './todoRules.js
 const ALL_CROPS = 'Planted,Near Harvest,Harvested,Total Loss'
 const ALL_CYCLES = 'Stocked,Near Harvest,Late,Harvested,Total Loss'
 
-// The windows a farmer's to-do buttons open here (Log Activity, Record Harvest, Confirm Received, Report Not Received).
+// The windows a farmer's to-do buttons open here (Log Activity, Record Harvest).
 const HomeWindows = lazy(() => import('./HomeWindows.jsx'))
 
 // How each part is read. The member's loans come grouped by organization; Home only needs the loans.
@@ -52,7 +52,6 @@ function loaders(kind, orgId) {
   }
   return {
     members: () => api.get(org.membersUrl(orgId)),
-    confirmables: () => api.get(org.accountlessConfirmablesUrl),
     loans: () => api.get(`/organizations/${orgType}/${orgId}/equipment-loans/`),
   }
 }

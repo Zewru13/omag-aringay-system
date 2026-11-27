@@ -10,7 +10,7 @@ let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
 const today = '2026-10-27'
-const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', source_agencies: ['DA'], quantity_amount: '2', quantity_unit: 'sacks', ...over })
+const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', source_agencies: ['DA'], quantity_amount: '2', quantity_unit: 'sacks', distribution_time: '09:00', distribution_place: 'Hall', ...over })
 
 // ── the blank form
 const blank = makeAssistanceForm(today)
@@ -56,7 +56,7 @@ eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_d
 
 // ── what is sent to an organization
 eq(organizationRequest(form({ source_agencies: ['DA'], description: 'x' }), { dryRun: true }), {
-  assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, quantity: '2 sacks', description: 'x',
+  assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, distribution_time: '09:00', distribution_place: 'Hall', quantity: '2 sacks', description: 'x',
   training_duration_days: null, training_type: '', equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', dry_run: true,
 }, 'an organization preview')
 eq(organizationRequest(form(), { memberIds: [3, 4] }).member_ids, [3, 4], 'the chosen members go with the real request')
@@ -67,7 +67,7 @@ eq(organizationRequest(form({ assistance_type: 'Training', training_duration_day
 
 // ── what is sent for selected people
 eq(peopleRequest(form({ source_agencies: ['DA'], description: 'Wet season' }), { idsKey: 'farmer_ids', ids: [1, 2], descriptionKey: 'remarks' }), {
-  assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, quantity: '2 sacks', remarks: 'Wet season',
+  assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, distribution_time: '09:00', distribution_place: 'Hall', quantity: '2 sacks', remarks: 'Wet season',
   training_duration_days: null, training_type: '', equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', farmer_ids: [1, 2],
 }, 'farmers: the notes go as remarks')
 const fisher = peopleRequest(form({ assistance_type: 'Feed', description: 'Pond A' }), { idsKey: 'fisherfolk_ids', ids: [7], descriptionKey: 'description', dryRun: true, allowSeedFertilizer: false })

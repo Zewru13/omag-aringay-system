@@ -6,7 +6,7 @@ from .models import FisherfolkOrganizationOfficer, OrganizationOfficer
 def expire_due_officer_terms():
     """
     Lazy status transition for officer terms — no job scheduler, mirrors
-    interventions.lifecycle.advance_due_distributions' pattern. Any
+    interventions.lifecycle.mark_distributions_received's pattern. Any
     is_active officer whose term_end_date has arrived without an early exit
     (End Term Early already flips is_active itself, so this never touches
     those rows again) is flipped to is_active=False here, with

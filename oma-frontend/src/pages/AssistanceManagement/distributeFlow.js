@@ -14,6 +14,8 @@ export const makeAssistanceForm = (today) => ({
   source_other_on: false,   // the "Others" source agency is ticked: its name is typed in source_other
   source_other: '',
   date_given: today,
+  distribution_time: '',    // when and where it is claimed on that date
+  distribution_place: '',
   quantity_amount: '',   // the quantity per recipient is a number and a unit picked from the Units list
   quantity_unit: '',
   cash_amount: '',
@@ -60,6 +62,8 @@ export function assistanceFormProblem(form, { today }) {
   if (sourceAgencies(form).length === 0) return 'Choose the source agency.'
   const dateProblem = assistanceDateProblem(form.date_given, { today })
   if (dateProblem) return dateProblem
+  if (!form.distribution_time) return 'Enter the time of the distribution.'
+  if (!String(form.distribution_place || '').trim()) return 'Enter the place of the distribution.'
   if (isCashType(form.assistance_type) && !(Number(form.cash_amount) > 0)) return 'Enter the cash amount per member.'
   const amount = String(form.quantity_amount ?? '').trim()
   if (!isCashType(form.assistance_type) && !isTrainingType(form.assistance_type)) {
@@ -73,11 +77,13 @@ export function assistanceFormProblem(form, { today }) {
 }
 
 // ── several assistance in one distribution. The first is `form`; `more` holds the extra ones (each a form made by makeAssistanceForm). Each
-// has its own type, quantity and source agencies, but the date and the description are one for the whole distribution (the first form's), and
+// has its own type, quantity and source agencies, but the date, time, place and description are one for the whole distribution (the first form's), and
 // the recipients are the same. Each assistance is saved as its own distribution.
 export const MAX_ASSISTANCES = 5
 
-export const assistanceLines = (form, more = []) => [form, ...(more || []).map((line) => ({ ...line, date_given: form.date_given, description: form.description }))]
+export const assistanceLines = (form, more = []) => [form, ...(more || []).map((line) => ({
+  ...line, date_given: form.date_given, distribution_time: form.distribution_time, distribution_place: form.distribution_place, description: form.description,
+}))]
 
 const sameType = (a, b) => typeName(a).trim().toLowerCase() === typeName(b).trim().toLowerCase()
 
@@ -121,12 +127,15 @@ export function reviewTotalsAll(previewsByLine, selectedByLine) {
 // How many records every assistance of the distribution created (`outcomesByLine`: what outcomeTotals takes, for each assistance).
 export const outcomeCreated = (outcomesByLine) => outcomesByLine.reduce((sum, outcomes) => sum + outcomeTotals(outcomes).created, 0)
 
+const scheduleOf = (form) => ({ distribution_time: form.distribution_time, distribution_place: String(form.distribution_place || '').trim() })
+
 // The body of an organization's request (POST .../distribute-assistance/). `dryRun` previews; `memberIds` chooses the real one's recipients.
 export function organizationRequest(form, { dryRun = false, memberIds = null, allowSeedFertilizer = true } = {}) {
   return {
     assistance_type: typeName(form),
     source_agencies: sourceAgencies(form),
     date_given: form.date_given,
+    ...scheduleOf(form),
     quantity: quantityText(form),
     description: form.description,
     ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer }),
@@ -142,6 +151,7 @@ export function peopleRequest(form, { idsKey, ids, descriptionKey = 'remarks', d
     assistance_type: typeName(form),
     source_agencies: sourceAgencies(form),
     date_given: form.date_given,
+    ...scheduleOf(form),
     quantity: quantityText(form),
     [descriptionKey]: form.description,
     ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer }),
@@ -214,6 +224,7 @@ export function reportRecords(results, form, { organizationName = '' } = {}) {
     quantity: quantityText(form),
     source_agencies: sourceAgencies(form),
     date_given: form.date_given,
+    ...scheduleOf(form),
     organization_name: r.organization_name || organizationName,
   }))
 }

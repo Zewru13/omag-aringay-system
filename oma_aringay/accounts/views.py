@@ -279,15 +279,13 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Lazy scheduled-distribution status transition — see
-        # interventions.lifecycle.advance_due_distributions' own docstring
-        # for why this endpoint (the session-bootstrap call every citizen
-        # screen loads through) is one of its two call sites. Deferred
+        # Scheduled distributions whose time has come become Received (there is
+        # no job scheduler; see interventions.lifecycle). Deferred
         # import: interventions is a downstream app, accounts is not one of
         # its dependencies, so this avoids adding a reverse import at
         # module load time for the sake of one method.
-        from interventions.lifecycle import advance_due_distributions
-        advance_due_distributions(request.user)
+        from interventions.lifecycle import mark_distributions_received
+        mark_distributions_received()
         # Officer-term lazy transition — same no-job-scheduler pattern,
         # global rather than per-user (organization officer terms aren't
         # owned by the session's own user), so it's unconditional and cheap

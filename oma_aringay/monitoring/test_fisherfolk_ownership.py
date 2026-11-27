@@ -186,7 +186,8 @@ class FisherfolkOwnershipTests(FisherfolkOwnershipBase):
             ('get', f'/api/fisheries/fishing-trips/{self.trip_b.id}/', None),
             ('patch', f'/api/fisheries/fishing-trips/{self.trip_b.id}/', {'gear_used': 'x'}),
             ('get', f'/api/fisheries/fishing-trips/{self.trip_b.id}/species/', None),
-            ('post', f'/api/interventions/fisherfolk-beneficiaries/{self.aid_b.id}/confirm-received/', {}),
+            ('patch', f'/api/interventions/fisherfolk-beneficiaries/{self.aid_b.id}/detail/', {'remarks': 'x'}),
+            ('post', '/api/interventions/assistance-removals/', {'domain': 'fisheries', 'record_ids': [self.aid_b.id]}),
         ]
         for method, url, body in denied:
             r = getattr(self.client, method)(url, body, format='json') if body is not None else getattr(self.client, method)(url)

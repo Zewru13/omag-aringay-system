@@ -12,20 +12,19 @@ GET /api/reports/organization-assistance/
     date_from/to     assistance given on or after / on or before this date (YYYY-MM-DD)
     assistance_type  one of that kind's assistance types
     source_agency    assistance from this agency
-    status           confirmed | awaiting | follow_up   (the distribution's overall status; for individual_* the entry's own status)
+    status           received | scheduled   (the distribution's overall status; for individual_* the entry's own status)
     search           organization name (all-organizations report only); for individual_*: the recipient's name
     individual       auto: with a search that leaves exactly one organization, that organization's own report (as if id were sent)
     format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by (Checked by) / noted_by / approved_by, each with its _role, for the PDF)
 
 One row per distribution (the records one distribution submit created, shown as one unit - interventions.distributions).
 Only distributions an organization ran are included in the organization reports (records with `distributed_by_organization`);
-assistance staff logged for a single person is the individual reports' (no `distributed_by_organization`). Entries removed before the
-recipient confirmed are never shown. Staff only.
+assistance staff logged for a single person is the individual reports' (no `distributed_by_organization`). Removed entries are never
+shown. Staff only.
 """
 from datetime import datetime
 
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -34,6 +33,7 @@ from accounts.permissions import IsAdminOrEvaluator
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from core.utils import build_name_search_q, build_text_search_q
 from interventions.distributions import group_id, summary_status
+from interventions.lifecycle import mark_distributions_received
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
 from interventions.types import domain_of, valid_type_names
 
@@ -52,9 +52,9 @@ KINDS = {
                                   title='Individual Fisherfolk Assistance', stem='individual_fisherfolk_assistance',
                                   scope='Assistance given directly to fisherfolk, not through a cooperative'),
 }
-STATUS_FILTERS = {'confirmed': 'Confirmed', 'awaiting': 'Awaiting confirmation', 'follow_up': 'Needs follow-up'}
-HEADERS = ['Cooperative', 'Date Given', 'Assistance', 'Source Agency', 'Quantity', 'Members', 'Confirmed', 'Status']
-PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Date Confirmed']
+STATUS_FILTERS = {'received': 'Received', 'scheduled': 'Scheduled'}
+HEADERS = ['Cooperative', 'Date Given', 'Assistance', 'Source Agency', 'Quantity', 'Members', 'Received', 'Status']
+PERSON_HEADERS = ['Recipient', 'Recipient Type', 'Barangay', 'Assistance', 'Source Agency', 'Date Given', 'Quantity', 'Status', 'Time and Place']
 RECIPIENT_HEADERS = ['Cooperative'] + PERSON_HEADERS
 
 
@@ -137,7 +137,7 @@ def _distributions(records):
         for record in group['members']:
             counts[record.status] = counts.get(record.status, 0) + 1
         group['counts'] = counts
-        group['confirmed'] = counts[DistributionStatus.CONFIRMED]
+        group['received'] = counts[DistributionStatus.CONFIRMED]
         group['status'] = summary_status({DistributionStatus(k): v for k, v in counts.items()})
         result.append(group)
     result.sort(key=lambda g: (g['date_given'], g['organization'].name), reverse=True)
@@ -145,21 +145,26 @@ def _distributions(records):
 
 
 def _status_key(label):
-    return next(key for key, value in STATUS_FILTERS.items() if value == label)
+    """The filter value of a status in words, or None for an older status that cannot be filtered on."""
+    return next((key for key, value in STATUS_FILTERS.items() if value == label), None)
+
+
+def _time_and_place(record):
+    at = record.distribution_time.strftime('%I:%M %p').lstrip('0') if record.distribution_time else ''
+    return ' · '.join(part for part in (at, record.distribution_place) if part) or '—'
 
 
 def _recipient_row(cfg, record, with_organization):
-    """One person who received assistance: who, what kind of person, where they live, what they got, from whom, when, how much, and whether
-    it was confirmed. Organization reports put the distributing organization first."""
+    """One person given assistance: who, what kind of person, where they live, what they got, from whom, when, how much, whether it is
+    scheduled or received, and at what time and place. Cooperative reports put the distributing cooperative first."""
     person = getattr(record, cfg['person'])
     row = [person.full_name, cfg['person_label'], person.barangay or '—', assistance_label(record), ', '.join(record.source_agencies or []) or '—',
-           text(record.date_given), record.quantity or '—', record.get_status_display(),
-           text(timezone.localtime(record.confirmed_at).date()) if record.confirmed_at else '—']
+           text(record.date_given), record.quantity or '—', record.get_status_display(), _time_and_place(record)]
     return [record.distributed_by_organization.name] + row if with_organization else row
 
 
 def _record_status(record):
-    """The overall-status label (Confirmed / Awaiting confirmation / Needs follow-up) of one record on its own."""
+    """The overall-status label (Received / Scheduled) of one record on its own."""
     return summary_status({status: int(status == record.status) for status in DistributionStatus})
 
 
@@ -200,8 +205,8 @@ def build_individual_document(kind, request):
 
     person_key = cfg['person'] + '_id'
     stats = [['Recipients', len({getattr(r, person_key) for r in records})], ['Assistance Records', len(records)],
-             ['Confirmed', sum(1 for r in records if r.status == DistributionStatus.CONFIRMED)],
-             ['Needs Follow-up', sum(1 for r in records if r.status == DistributionStatus.NOT_RECEIVED)]]
+             ['Received', sum(1 for r in records if r.status == DistributionStatus.CONFIRMED)],
+             ['Scheduled', sum(1 for r in records if r.status == DistributionStatus.PENDING)]]
     date_part, parts = _filter_text(request, frm, to, status_filter, 'Recipient')
     rows = [_recipient_row(cfg, r, False) for r in records]
     sections = [{'title': 'Recipients', 'headers': PERSON_HEADERS, 'rows': rows, 'empty': 'No assistance given directly matches these filters.'}]
@@ -212,6 +217,7 @@ def build_individual_document(kind, request):
 
 
 def build_document(kind, request):
+    mark_distributions_received()
     cfg = KINDS[kind]
     if cfg['individual']:
         return build_individual_document(kind, request)
@@ -241,12 +247,12 @@ def build_document(kind, request):
             distributions, frm, to = load(org.id)
 
     rows = [[d['organization'].name, text(d['date_given']), d['label'], ', '.join(d['agencies']) or '—', d['quantity'] or '—',
-             len(d['members']), d['confirmed'], d['status']] for d in distributions]
+             len(d['members']), d['received'], d['status']] for d in distributions]
     person_key = cfg['person'] + '_id'
     reached = len({getattr(r, person_key) for d in distributions for r in d['members']})   # people, not entries: someone helped twice counts once
     stats = [['Distributions', len(distributions)], [f'{cfg["people"]} Reached', reached],
-             ['Confirmed', sum(d['confirmed'] for d in distributions)],
-             ['Needs Follow-up', sum(1 for d in distributions if d['status'] == STATUS_FILTERS['follow_up'])]]
+             ['Received', sum(d['received'] for d in distributions)],
+             ['Scheduled', sum(d['counts'][DistributionStatus.PENDING] for d in distributions)]]
     if not org:
         stats.insert(0, ['Cooperatives', len({d['organization'].id for d in distributions})])
 

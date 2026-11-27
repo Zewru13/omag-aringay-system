@@ -16,6 +16,7 @@ from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 
 from .quantity import quantity_problem
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -59,10 +60,10 @@ class QuantityEndpointTests(APITestCase):
         self.today = timezone.localdate().isoformat()
 
     def farmer_body(self, quantity):
-        return {'farmer': self.farmer.id, 'assistance_type': 'Seeds', 'source_agencies': ['DA'], 'quantity': quantity, 'date_given': self.today}
+        return {'farmer': self.farmer.id, 'assistance_type': 'Seeds', 'source_agencies': ['DA'], 'quantity': quantity, **SCHEDULE, 'date_given': self.today}
 
     def fisher_body(self, quantity):
-        return {'fisherfolk': self.fisher.id, 'assistance_type': 'Feed', 'source_agencies': ['BFAR'], 'quantity': quantity, 'date_given': self.today}
+        return {'fisherfolk': self.fisher.id, 'assistance_type': 'Feed', 'source_agencies': ['BFAR'], 'quantity': quantity, **SCHEDULE, 'date_given': self.today}
 
     def test_a_negative_quantity_is_refused_for_farmers_and_fisherfolk(self):
         for url, body in ((FARMER_ADHOC, self.farmer_body('-5 sacks')), (FISHER_ADHOC, self.fisher_body('-5 sacks'))):
@@ -89,7 +90,7 @@ class QuantityEndpointTests(APITestCase):
 
     def test_the_bulk_form_refuses_a_bad_quantity_with_one_clear_error(self):
         r = self.client.post(FARMER_BULK, {'farmer_ids': [self.farmer.id], 'assistance_type': 'Seeds', 'source_agencies': ['DA'],
-                                           'quantity': '0 kg', 'date_given': self.today}, format='json')
+                                           'quantity': '0 kg', **SCHEDULE, 'date_given': self.today}, format='json')
         self.assertEqual(r.status_code, 400, r.content)
         self.assertIn('quantity', r.json())
         self.assertEqual(BeneficiaryRecord.objects.count(), 0)

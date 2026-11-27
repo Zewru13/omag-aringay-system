@@ -1,8 +1,8 @@
-"""An organization may edit the assistance records it submitted only while they are Pending; once a record is
-Confirmed (or later) it is the recipient's record and only staff can change it. The screens already hide the edit
-button; this pins the backend so a hand-made request cannot get around it."""
+"""A cooperative may edit the assistance records it submitted only while they are Scheduled; once the scheduled time has passed
+the record is Received and only staff can correct it. The screens already hide the edit button; this pins the backend so a
+hand-made request cannot get around it. (Awaiting Confirmation, Not Received and Resolved are older statuses.)"""
 import itertools
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
@@ -61,14 +61,16 @@ class OrganizationEditsOnlyPendingRecordsTests(APITestCase):
 
     def make_record(self, domain, status):
         user = self.org_users[domain]
+        # a Scheduled record is dated ahead, or the next read would turn it into Received
+        day = date.today() + timedelta(days=30) if status == DistributionStatus.PENDING else date(2026, 1, 1)
         if domain == 'farmers':
             record = BeneficiaryRecord.objects.create(
                 farmer=self.person[domain], assistance_type='Seeds', source_agencies=['DA'],
-                date_given=date(2026, 1, 1), recorded_by=user)
+                date_given=day, recorded_by=user)
         else:
             record = FisherfolkBeneficiaryRecord.objects.create(
                 fisherfolk=self.person[domain], assistance_type='Fish Cage', source_agencies=['BFAR'],
-                date_given=date(2026, 1, 1), recorded_by=user)
+                date_given=day, recorded_by=user)
         type(record).objects.filter(pk=record.pk).update(status=status)
         return record
 
@@ -104,8 +106,7 @@ class OrganizationEditsOnlyPendingRecordsTests(APITestCase):
 
 
 class StaffCorrectionsTests(OrganizationEditsOnlyPendingRecordsTests):
-    """New assistance is Awaiting Confirmation from the moment it is logged, so staff must still be able to fix a typo then;
-    once the recipient has reported or the case is followed up, staff cannot rewrite it."""
+    """Staff can still fix a typo on a record from before confirming was removed, but not on an older follow-up case."""
 
     def test_staff_can_edit_a_record_that_is_awaiting_confirmation(self):
         for domain in DOMAINS:

@@ -14,6 +14,7 @@ from associations.models import (
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -73,7 +74,7 @@ class MemberSelectionTests(APITestCase):
 
     def body(self, domain, **extra):
         data = {'assistance_type': DOMAINS[domain]['type'], 'source_agencies': ['DA'], 'quantity': '1 unit',
-                'date_given': str(timezone.localdate())}
+                **SCHEDULE, 'date_given': str(timezone.localdate())}
         data.update(extra)
         return data
 
@@ -144,13 +145,13 @@ class MemberSelectionTests(APITestCase):
             second = self.distribute(domain, member_ids=[self.ctx[domain]['people'][2].id], quantity='2 units')
             self.assertNotEqual(second.data['distribution_id'], first.data['distribution_id'])
 
-    def test_new_records_await_confirmation_and_future_ones_are_pending(self):
+    def test_a_distribution_for_today_is_received_and_a_future_one_is_scheduled(self):
         for domain in DOMAINS:
             self.records(domain).delete()
             ids = [self.ctx[domain]['people'][0].id]
             self.distribute(domain, member_ids=ids)
             self.distribute(domain, member_ids=ids, date_given=str(timezone.localdate() + timedelta(days=5)))
-            self.assertEqual(sorted(self.records(domain).values_list('status', flat=True)), ['AWAITING_CONFIRMATION', 'PENDING'])
+            self.assertEqual(sorted(self.records(domain).values_list('status', flat=True)), ['CONFIRMED', 'PENDING'])
 
     def test_a_single_member_report_gets_a_batch_too(self):
         for domain, url in (('farmers', '/api/interventions/beneficiaries/adhoc/'),
@@ -158,7 +159,7 @@ class MemberSelectionTests(APITestCase):
             person = self.ctx[domain]['people'][0]
             self.client.force_authenticate(self.ctx[domain]['user'])
             body = {DOMAINS[domain]['person_field']: person.id, 'assistance_type': DOMAINS[domain]['type'],
-                    'source_agencies': ['DA'], 'quantity': '1', 'date_given': str(timezone.localdate())}
+                    'source_agencies': ['DA'], 'quantity': '1', **SCHEDULE, 'date_given': str(timezone.localdate())}
             res = self.client.post(url, body, format='json')
             self.assertEqual(res.status_code, 201, (domain, res.data))
             record = DOMAINS[domain]['record'].objects.get(pk=res.data['id'])

@@ -12,7 +12,7 @@ from rest_framework.test import APITestCase
 
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from farmers.models import Farmer
-from interventions.test_confirmation_photos import make_org
+from interventions.test_helpers import make_org
 
 _N = itertools.count(1)
 

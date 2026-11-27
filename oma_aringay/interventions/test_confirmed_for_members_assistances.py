@@ -14,20 +14,16 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from associations.models import FarmersOrganization, FarmersOrganizationMember, FisherfolkOrganization, FisherfolkOrganizationMember
-from core.test_photos import png
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
-from interventions.test_confirmation_photos import make_citizen, make_org
-from interventions.test_org_bulk_confirmation import AWAITING, BULK, FISH_BULK, farmer
+from interventions.test_helpers import earlier_confirmation, farmer, make_citizen, make_org
 
 URL = '/api/interventions/confirmed-for-members/{type}/{id}/assistances/'
 
 
 def record(person, assistance='Seeds', batch=None, day=date(2026, 8, 1), **over):
-    rec = BeneficiaryRecord.objects.create(farmer=person, assistance_type=assistance, date_given=day, quantity='5 sack',
-                                           source_agencies=['DA'], distribution_batch=batch, **over)
-    BeneficiaryRecord.objects.filter(pk=rec.pk).update(status=AWAITING)
-    return BeneficiaryRecord.objects.get(pk=rec.pk)
+    return BeneficiaryRecord.objects.create(farmer=person, assistance_type=assistance, date_given=day, quantity='5 sack',
+                                            source_agencies=['DA'], distribution_batch=batch, **over)
 
 
 class ConfirmedAssistancesTests(APITestCase):
@@ -50,9 +46,7 @@ class ConfirmedAssistancesTests(APITestCase):
             FarmersOrganizationMember.objects.create(organization=self.org, farmer=p, date_joined=date(2026, 1, 1))
 
     def confirm(self, records):
-        self.client.force_authenticate(self.org_user)
-        r = self.client.post(BULK, {'record_ids': [str(x.id) for x in records], 'photos': [png('a.png'), png('b.png')]}, format='multipart')
-        self.assertEqual(r.status_code, 201, r.content)
+        earlier_confirmation(records, self.org, self.org_user)
 
     def rows(self, user=None, org_id=None, type_='farmers', **params):
         self.client.force_authenticate(user or self.staff)
@@ -133,9 +127,7 @@ class ConfirmedAssistancesTests(APITestCase):
         FisherfolkOrganizationMember.objects.create(organization=org, fisherfolk=person, date_joined=date(2026, 1, 1))
         rec = FisherfolkBeneficiaryRecord.objects.create(fisherfolk=person, assistance_type='Feed', date_given=date(2026, 8, 1),
                                                          quantity='2 sack', item_type='Starter Feed', distribution_batch=uuid.uuid4())
-        FisherfolkBeneficiaryRecord.objects.filter(pk=rec.pk).update(status=AWAITING)
-        self.client.force_authenticate(user)
-        self.assertEqual(self.client.post(FISH_BULK, {'record_ids': [str(rec.id)], 'photos': [png('a.png'), png('b.png')]}, format='multipart').status_code, 201)
+        earlier_confirmation([rec], org, user)
         row = self.rows(self.staff, org_id=org.id, type_='fisherfolk')['results'][0]
         self.assertEqual((row['assistance_type'], row['item'], row['member_count'], row['members'][0]['name'], row['members'][0]['rsbsa']),
                          ('Feed', 'Starter Feed', 1, 'Fin Assist', '01-033-02-019-872001'))

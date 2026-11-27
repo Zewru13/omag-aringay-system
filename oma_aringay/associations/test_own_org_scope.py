@@ -324,7 +324,7 @@ class OrgCannotStealMainTests(APITestCase):
 
 
 class OrgAssistanceIsolationTests(APITestCase):
-    """History, confirmables and confirm-on-behalf stay inside the organization (review minor: no tests covered these)."""
+    """A cooperative's history, and what it may change or take off, stay inside the cooperative."""
 
     @classmethod
     def setUpTestData(cls):
@@ -336,30 +336,28 @@ class OrgAssistanceIsolationTests(APITestCase):
         FarmersOrganizationMember.objects.create(organization=cls.org2, farmer=cls.farmer2, date_joined=date(2026, 1, 1))
         cls.rec1 = BeneficiaryRecord.objects.create(farmer=cls.farmer1, assistance_type='Seeds', date_given=date(2026, 8, 1), recorded_by=cls.user1)
         cls.rec2 = BeneficiaryRecord.objects.create(farmer=cls.farmer2, assistance_type='Seeds', date_given=date(2026, 8, 1), recorded_by=cls.user2)
-        BeneficiaryRecord.objects.filter(pk__in=[cls.rec1.pk, cls.rec2.pk]).update(status='AWAITING_CONFIRMATION')
 
     def test_history_lists_only_what_this_organization_reported(self):
         self.client.force_authenticate(self.user1)
         ids = {r['id'] for r in self.client.get('/api/interventions/my-org-beneficiary-history/').json()}
         self.assertEqual(ids, {self.rec1.id})
 
-    def test_confirmables_list_only_this_organizations_members(self):
-        self.client.force_authenticate(self.user1)
-        ids = {r['id'] for r in self.client.get('/api/interventions/my-org-accountless-confirmables/').json()}
-        self.assertEqual(ids, {self.rec1.id})
+    def _remove(self, domain, record):
+        return self.client.post('/api/interventions/assistance-removals/', {'domain': domain, 'record_ids': [record.id]}, format='json')
 
-    def test_an_organization_cannot_confirm_for_another_organizations_member(self):
+    def test_a_cooperative_cannot_take_off_or_edit_another_cooperatives_record(self):
         self.client.force_authenticate(self.user1)
-        response = self.client.post(f'/api/interventions/beneficiaries/{self.rec2.id}/confirm-on-behalf/', {}, format='multipart')
-        self.assertIn(response.status_code, (403, 404), response.content)
+        self.assertEqual(self._remove('crop', self.rec2).status_code, 400)
+        edit = self.client.patch(f'/api/interventions/beneficiaries/{self.rec2.id}/detail/', {'remarks': 'x'}, format='json')
+        self.assertIn(edit.status_code, (403, 404), edit.content)
         self.rec2.refresh_from_db()
-        self.assertEqual(self.rec2.status, 'AWAITING_CONFIRMATION')
+        self.assertEqual((self.rec2.status, self.rec2.removed_at, self.rec2.remarks), ('CONFIRMED', None, ''))
 
     def test_a_fisherfolk_organization_cannot_use_the_crop_routes(self):
         fish_org = make_org(FisherfolkOrganization, 'Iso Fish')
         fish_user = make_citizen('iso-fish-org', 'FISHERFOLK_ORG', fish_org.id)
         self.client.force_authenticate(fish_user)
         self.assertEqual(self.client.get('/api/interventions/my-org-beneficiary-history/').json(), [])
-        self.assertEqual(self.client.get('/api/interventions/my-org-accountless-confirmables/').json(), [])
-        response = self.client.post(f'/api/interventions/beneficiaries/{self.rec1.id}/confirm-on-behalf/', {}, format='multipart')
-        self.assertIn(response.status_code, (403, 404), response.content)
+        self.assertEqual(self._remove('crop', self.rec1).status_code, 403)
+        self.rec1.refresh_from_db()
+        self.assertEqual(self.rec1.removed_at, None)

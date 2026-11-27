@@ -3,60 +3,12 @@ import { Bell } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { notificationRoute } from './notificationRoutes.js'
 
 // Simple polling, not websockets — this is a LAN office app with a handful
 // of concurrent users, so the extra infrastructure (channels/ASGI/a message
 // broker) wouldn't pay for itself here.
 const POLL_INTERVAL_MS = 45 * 1000
-
-// Where a notification takes a STAFF account, keyed by record_type. Every
-// record_type the backend emits has an entry: crop/stocking/fisherfolk_disaster
-// (activity, harvest, disaster), beneficiary/ff_beneficiary (assistance
-// reported as not received), beneficiary_obo/ff_beneficiary_obo (an
-// organization's on-behalf-of confirmation awaiting review) and the four
-// registry types (a citizen's profile-change request). The two review queues
-// live on the staff dashboard.
-const STAFF_ROUTES = {
-  crop: '/crop-monitoring',
-  stocking: '/fisheries-monitoring?tab=stocking',
-  // Disaster management moved out of Fisheries Monitoring into Admin > Disaster > Fisheries Disaster.
-  fisherfolk_disaster: '/disaster?tab=fisheries',
-  // A fisherfolk "logged a fisheries disaster" (submitted to Admin): opens that log (record_id) in
-  // Admin > Disaster > Fisheries Disaster.
-  fisheries_disaster_report: (id) => `/disaster?tab=fisheries${id ? `&report=${id}` : ''}`,
-  // Fisheries production-cycle events (record_id = the production cycle): open that cycle's details.
-  fisheries_cycle_started: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
-  fisheries_force_harvest: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
-  // The emergency Force Harvest (record_id = the saved harvest): opens its details window.
-  fisheries_emergency_force_harvest: (id) => `/fisheries-monitoring?tab=stocking${id ? `&forced=${id}` : ''}`,
-  fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
-  fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
-  beneficiary: '/crop-assistance?tab=needs-follow-up',
-  ff_beneficiary: '/fisheries-assistance?tab=needs-follow-up',
-  beneficiary_obo: '/dashboard',
-  ff_beneficiary_obo: '/dashboard',
-  // An organization's confirmation for its members is final: staff only need to see it (the Organization Assistance report lists every one).
-  beneficiary_obo_confirmed: '/reports?tab=organization_assistance',
-  ff_beneficiary_obo_confirmed: '/reports?tab=organization_assistance',
-  FARMER: '/dashboard',
-  FISHERFOLK: '/dashboard',
-  FARMERS_ORG: '/dashboard',
-  FISHERFOLK_ORG: '/dashboard',
-}
-
-// Fisherfolk accounts have no category tabs on Fisheries Monitoring; their disaster list has its own page.
-const FISHERFOLK_RECORD_TYPE_ROUTES = {
-  stocking: '/fisheries-monitoring',
-  fisherfolk_disaster: '/disaster',
-  fisheries_cycle_started: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-  fisheries_force_harvest: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-  fisheries_emergency_force_harvest: (id) => `/fisheries-monitoring${id ? `?forced=${id}` : ''}`,
-  fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-  fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-  fisheries_harvest_reminder_30d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-  fisheries_harvest_reminder_today: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-  fisheries_harvest_reminder_overdue: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
-}
 
 // Harvest reminders go to the farmer / fisherfolk who owns the crop record / production cycle: 30 and 7 and 3 days before,
 // on the harvest day, and 7 days overdue (core/harvest_reminders.py). The type is `<prefix>_<milestone>`.
@@ -81,12 +33,6 @@ const RECORD_TYPE_TITLES = {
   fisheries_disaster_report: 'New Fisherfolk Disaster Report',
   equipment_loan: 'Equipment Loan',
 }
-
-// A CITIZEN account may only open /my-account — every staff route above ends
-// in a full-page "Access Denied" for them (ProtectedRoute), so a citizen's
-// notification never navigates to one. Their screens are state-driven inside
-// /my-account, so the click just marks it read and lands them at home.
-const CITIZEN_HOME = '/my-account'
 
 function timeAgo(iso) {
   const diffSec = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
@@ -186,25 +132,14 @@ function NotificationBell({ variant = 'dark' }) {
       setUnreadCount(c => Math.max(0, c - 1))
       api.post(`/notifications/${n.id}/read/`).catch(() => {})
     }
-    // A fisherfolk account opens the destination his fisheries notification types point to
-    // (production cycle, disaster log, ...); anything else falls through to the normal rules.
-    if (isFisherfolk) {
-      const own = FISHERFOLK_RECORD_TYPE_ROUTES[n.record_type]
-      const ownTarget = typeof own === 'function' ? own(n.record_id) : own
-      if (ownTarget) { navigate(ownTarget); return }
-    }
     // An equipment loan opens the organization's Borrowed tab, or a member's Borrow Equipment page.
     if (user?.role === 'CITIZEN' && n.record_type === 'equipment_loan') {
       navigate(['FARMERS_ORG', 'FISHERFOLK_ORG'].includes(user.linked_record_type) ? '/my-organization?tab=borrowed' : '/my-equipment')
       return
     }
-    if (user?.role === 'CITIZEN') {
-      if (window.location.pathname !== CITIZEN_HOME) navigate(CITIZEN_HOME)
-      return
-    }
-    const route = STAFF_ROUTES[n.record_type]
-    const target = typeof route === 'function' ? route(n.record_id) : route
-    if (target) navigate(target)
+    // Where each kind of notification leads is in notificationRoutes.js.
+    const target = notificationRoute(n, { isCitizen: user?.role === 'CITIZEN', isFisherfolk })
+    if (target && window.location.pathname + window.location.search !== target) navigate(target)
   }
 
   const handleMarkAllRead = async () => {

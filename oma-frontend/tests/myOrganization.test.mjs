@@ -15,7 +15,7 @@ eq(orgView('?tab=equipment'), { page: 'equipment', tab: 'items' }, 'equipment: I
 eq(orgView('?tab=borrowed'), { page: 'equipment', tab: 'loans' }, 'borrowed (the bell links here): Loans')
 eq(orgView('?tab=borrowed-history'), { page: 'equipment', tab: 'loans' }, 'borrowed history: Loans')
 eq(orgView('?tab=officers'), { page: 'officers' }, 'officers')
-eq(orgView('?tab=confirmed'), { page: 'assistance-confirm' }, 'confirmed for members moved to Assistance')
+eq(orgView('?tab=confirmed'), { page: 'assistance-history' }, 'the old confirmed link opens Assistance history')
 eq(orgView('?tab=nonsense'), { page: 'members' }, 'an unknown tab: Members')
 
 // ── the two kinds of organization
@@ -51,7 +51,7 @@ for (const piece of ['RecordList', 'ListTools', 'AddMemberModal', 'ImportFileMod
   ok(members.includes(piece), `Members uses ${piece}`)
 }
 const route = read('../src/pages/Account/MyOrganizationRoute.jsx')
-ok(route.includes('<Navigate') && route.includes('?tab=confirm') && route.includes('MyMembersPage'), 'the router shows Members and sends confirmed to Assistance')
+ok(route.includes('<Navigate') && route.includes('?tab=history') && route.includes('MyMembersPage'), 'the router shows Members and sends confirmed to Assistance')
 const hook = read('../src/pages/Account/useMyOrganization.js')
 ok(hook.includes('/organizations/${domain.type}/${id}/') && hook.includes("'failed'"), 'one loader for the organization, which can fail')
 const officers = read('../src/pages/Account/MyOfficersPage.jsx')

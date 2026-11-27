@@ -39,7 +39,7 @@ from .dashboard_activity import (
     disaster_trends,
     month_range,
     active_disaster_rows, barangay_rows, crop_activity_status,
-    crop_yield_variance, fisheries_activity_status, fisheries_yield_variance, not_received_count, sector_summary,
+    crop_yield_variance, fisheries_activity_status, fisheries_yield_variance, sector_summary,
 )
 from .models import (
     ActivityType,
@@ -340,7 +340,6 @@ class DashboardActivityStatusView(APIView):
             'sectors': sector_summary(),
             'yield_variance': crop_yield_variance(),
             'fisheries_yield_variance': fisheries_yield_variance(),
-            'not_received_count': not_received_count(),
         })
 
 

@@ -10,6 +10,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
 import { emptyAssistanceText } from './assistanceGroups.js'
+import { STATUS_LABELS, SUMMARY_TONE, canRemove, timeText } from './assistanceStatus.js'
 import { typesWithCustom } from './assistanceFieldHelpers.js'
 import { buildDistributionsReportSpec, historyFilterPairs } from './assistanceHistoryReport.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
@@ -30,36 +31,22 @@ const DOMAINS = {
   },
 }
 
-// The statuses each tab can narrow to (Current: still open; History: finished).
+// The statuses each tab can narrow to (Current: scheduled; History: received).
 const STATUS_FILTERS = {
-  current: [
-    { value: 'AWAITING_CONFIRMATION', label: 'Awaiting confirmation' },
-    { value: 'needs-follow-up', label: 'Needs follow-up' },
-    { value: 'PENDING', label: 'Scheduled (not yet due)' },
-  ],
-  history: [
-    { value: 'CONFIRMED', label: 'Confirmed' },
-    { value: 'RESOLVED', label: 'Resolved' },
-  ],
+  current: [{ value: 'PENDING', label: 'Scheduled' }],
+  history: [{ value: 'CONFIRMED', label: 'Received' }],
 }
-const MEMBER_STATUS_LABELS = {
-  PENDING: 'Scheduled',
-  AWAITING_CONFIRMATION: 'Awaiting confirmation',
-  CONFIRMED: 'Confirmed',
-  NOT_RECEIVED: 'Not received',
-  RESOLVED: 'Resolved',
-}
-const SUMMARY_TONE = { 'Awaiting confirmation': 'amber', 'Needs follow-up': 'rose', Confirmed: 'green' }
-const REMOVABLE = new Set(['PENDING', 'AWAITING_CONFIRMATION'])
 const EMPTY_FILTERS = { status: '', assistance_type: '', date_from: '', date_to: '', source_agency: '' }
 
 const SELECT = 'rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none'
 
-const removableCount = (item) => item.members.filter((m) => REMOVABLE.has(m.status)).length
+const removableCount = (item) => item.members.filter(canRemove).length
+// The day, then the time and the place of a distribution that has them.
+const whenText = (item) => (item.distribution_time ? `${formatDateTime(item.date_given, null)}, ${timeText(item.distribution_time)}` : formatDateTime(item.date_given, item.recorded_at))
 
 function StatusCounts({ counts }) {
   const parts = Object.entries(counts || {}).filter(([, n]) => n > 0)
-    .map(([status, n]) => `${n} ${(MEMBER_STATUS_LABELS[status] || status).toLowerCase()}`)
+    .map(([status, n]) => `${n} ${(STATUS_LABELS[status] || status).toLowerCase()}`)
   return <span className="text-[12px] text-[#4A5A4C]">{parts.join(' · ')}</span>
 }
 
@@ -71,9 +58,9 @@ function MemberList({ item, onRemove }) {
         <li key={m.record_id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 py-2">
           <span className="min-w-0 font-medium text-[#1A2B1A]">{m.name}</span>
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <StatusPill status={m.status}>{MEMBER_STATUS_LABELS[m.status] || m.status}</StatusPill>
-            {m.confirmed_at && <span className="text-[12px] text-[#7A8E7A]">{formatStamp(m.confirmed_at)}</span>}
-            {REMOVABLE.has(m.status) && (
+            <StatusPill status={m.status}>{STATUS_LABELS[m.status] || m.status}</StatusPill>
+            {m.confirmed_at && <span className="text-[12px] text-[#7A8E7A]">confirmed {formatStamp(m.confirmed_at)}</span>}
+            {canRemove(m) && (
               <button type="button" onClick={() => onRemove(m)} className="text-[12px] font-semibold text-rose-700 hover:underline">
                 Remove from the list
               </button>
@@ -140,12 +127,12 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
     setIsBusy(true)
     try {
       // The row only lists the members that match the current filters, so remove exactly those (never the whole batch).
-      const body = { domain, record_ids: one ? [one.record_id] : item.members.filter((m) => REMOVABLE.has(m.status)).map((m) => m.record_id) }
+      const body = { domain, record_ids: one ? [one.record_id] : item.members.filter(canRemove).map((m) => m.record_id) }
       const r = await api.post('/interventions/assistance-removals/', body)
       const { removed = [], kept = [] } = r.data
       showToast(
         `${removed.length} entr${removed.length === 1 ? 'y' : 'ies'} removed from the list`
-          + (kept.length ? `; ${kept.length} stayed because the member already confirmed.` : '.'),
+          + (kept.length ? `; ${kept.length} stayed because their receipt was confirmed earlier.` : '.'),
         removed.length ? 'success' : 'info',
       )
       setRemoving(null)
@@ -162,12 +149,12 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
   const removalMessage = () => {
     if (!removing) return ''
     if (removing.member) {
-      return `${removing.member.name} will no longer receive this assistance. The entry is kept for audit but disappears from the list.`
+      return `${removing.member.name} will be removed from this distribution (use this for someone who will not, or did not, claim it). The entry is kept for audit but disappears from the list.`
     }
     const removable = removableCount(removing.item)
     const kept = removing.item.member_count - removable
-    return `${removable} entr${removable === 1 ? 'y' : 'ies'} will be removed from the list and those members can no longer receive it.`
-      + (kept ? ` ${kept} already confirmed or followed up and will stay.` : '')
+    return `${removable} entr${removable === 1 ? 'y' : 'ies'} will be removed from the list. Use this when those members will not, or did not, claim it.`
+      + (kept ? ` ${kept} confirmed earlier will stay.` : '')
       + (filtersActive ? ' Only the members shown by your filters are affected.' : '')
   }
 
@@ -225,7 +212,8 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-[#1A2B1A]">{item.assistance_type || '—'}</p>
-                    <p className="text-[12px] text-[#7A8E7A]">{formatDateTime(item.date_given, item.recorded_at)}</p>
+                    <p className="text-[12px] text-[#7A8E7A]">{whenText(item)}</p>
+                    {item.distribution_place && <p className="text-[12px] text-[#7A8E7A]">{item.distribution_place}</p>}
                   </div>
                   <StatusPill tone={SUMMARY_TONE[item.summary_status] || 'slate'}>{item.summary_status}</StatusPill>
                 </div>
@@ -257,7 +245,7 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
             <thead>
               <tr className="bg-[#1B4D2E] text-[11px] font-semibold uppercase tracking-wide text-white">
                 <th className="w-8 px-3 py-3" aria-label="Expand" />
-                <th className="px-3 py-3">Date and Time</th>
+                <th className="px-3 py-3">Date, Time and Place</th>
                 <th className="px-3 py-3">Assistance</th>
                 <th className="px-3 py-3">Quantity</th>
                 <th className="px-3 py-3">Members</th>
@@ -286,7 +274,10 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
                         {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                       </button>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 font-medium text-[#1A2B1A]">{formatDateTime(item.date_given, item.recorded_at)}</td>
+                    <td className="px-3 py-3 font-medium text-[#1A2B1A]">
+                      <span className="block whitespace-nowrap">{whenText(item)}</span>
+                      {item.distribution_place && <span className="block text-[12px] font-normal text-[#7A8E7A]">{item.distribution_place}</span>}
+                    </td>
                     <td className="px-3 py-3">
                       <span className="font-medium text-[#1A2B1A]">{item.assistance_type || '—'}</span>
                       {item.source_agencies?.length > 0 && <span className="block text-[12px] text-[#7A8E7A]">{item.source_agencies.join(', ')}</span>}
@@ -298,9 +289,9 @@ export default function OrgDistributionHistory({ domain = 'crop', group = 'curre
                       <span className="mt-1 block"><StatusCounts counts={item.status_counts} /></span>
                     </td>
                     <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      {/* Disabled (not hidden) once every member has confirmed: nothing is left to remove. */}
+                      {/* Disabled (not hidden) when nothing is left to remove. */}
                       <RowActions alwaysMenu actions={[
-                        { key: 'remove', label: removable === 0 ? 'Remove (all members confirmed)' : 'Remove from the list', icon: Trash2, tone: 'rose', disabled: removable === 0, onClick: () => setRemoving({ item }) },
+                        { key: 'remove', label: removable === 0 ? 'Remove (nothing to remove)' : 'Remove from the list', icon: Trash2, tone: 'rose', disabled: removable === 0, onClick: () => setRemoving({ item }) },
                       ]} />
                     </td>
                   </tr>,

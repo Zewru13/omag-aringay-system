@@ -59,11 +59,8 @@ def accountless_or_unactivated_ids(linked_record_type, record_ids):
     Subset of `record_ids` (Farmer or Fisherfolk pks, per `linked_record_type`)
     that have NO working citizen account — no linked shell at all, or one that
     exists but has never been activated (User.is_active False). This is the
-    exact eligibility signal for an organization's on-behalf-of assistance
-    confirmation (interventions.models.BeneficiaryConfirmationRequest /
-    FisherfolkBeneficiaryConfirmationRequest): a beneficiary with a real,
-    active account can always self-confirm through BeneficiaryConfirmReceivedView
-    and must never be offered this path instead.
+    signal for what a cooperative may do on a member's behalf: a member with a
+    working account does it themselves.
 
     Same "active UserLinkedRecord" scoping citizen_account_info() already
     uses for the single-record "Activate Account" button — batched into one

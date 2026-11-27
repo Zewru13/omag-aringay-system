@@ -1,6 +1,7 @@
 // The Assistance Distribution Report: what a confirmation just recorded, as a printable document for the office. Pure (no screen,
 // no network); the print itself is printSpec() from the disaster report document, the same one the harvest report uses.
 import { formatAssistanceQuantity } from './assistanceFieldHelpers.js'
+import { timeText } from './assistanceStatus.js'
 
 const SECTORS = { crop: 'Crop (Farmers)', fisheries: 'Fisheries (Fisherfolk)' }
 
@@ -30,6 +31,8 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
   const dates = records.map((r) => r.date_given).filter(Boolean).sort()
   const dateGiven = dates.length === 0 ? '' : (dates[0] === dates.at(-1) ? fmt(dates[0]) : `${fmt(dates[0])} to ${fmt(dates.at(-1))}`)
   const agencies = unique(records.flatMap((r) => r.source_agencies || [])).sort(byText)
+  const times = unique(records.map((r) => r.distribution_time)).sort()
+  const places = unique(records.map((r) => r.distribution_place)).sort(byText)
 
   const sections = [
     {
@@ -39,6 +42,8 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
         ['Assistance', unique(records.map(assistanceLabel)).sort(byText).join(', ')],
         ...(agencies.length ? [['Source agencies', agencies.join(', ')]] : []),
         ...(dateGiven ? [['Date given', dateGiven]] : []),
+        ...(times.length ? [['Time', times.map(timeText).join(', ')]] : []),
+        ...(places.length ? [['Place', places.join(', ')]] : []),
       ],
     },
     {

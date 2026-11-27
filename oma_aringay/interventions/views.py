@@ -1,38 +1,27 @@
 import uuid
 
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import generics
 from rest_framework import status as drf_status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
-from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import (
-    IsAdminOrEvaluator, IsCitizen, IsOrgMemberRecordCitizen, IsStaffOrFisherfolk,
-    is_fisherfolk_citizen, scope_to_fisherfolk,
+    IsAdminOrEvaluator, IsCitizen, IsOrgMemberRecordCitizen, IsStaffOrFisherfolk, scope_to_fisherfolk,
 )
-from accounts.utils import accountless_or_unactivated_ids
-from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
-from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.idnumbers import by_id_key
-from core.photos import discard_uploaded_files, validated_photos
-from core.validators import validate_uploaded_image
 
-from . import org_confirmation
-from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
+from .lifecycle import CurrentStatusMixin, notify_assistance_recorded, notify_schedule_changed
 from .models import (
     AssistanceAgency,
     AssistanceCustomType,
     AssistanceOption,
     AssistanceTypeUnits,
-    BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
     DistributionStatus,
@@ -44,7 +33,6 @@ from .distributions import build_distributions, filter_records, group_id, record
 from .type_units import STARTING_UNITS, UNITS, in_catalog_order
 from .types import custom_names, domain_of, valid_type_names
 from .serializers import (
-    AccountlessConfirmableSerializer,
     AssistanceAgencySerializer,
     AssistanceCustomTypeCreateSerializer,
     AssistanceCustomTypeSerializer,
@@ -52,7 +40,6 @@ from .serializers import (
     BeneficiaryConfirmationRequestSerializer,
     BeneficiaryRecordCreateSerializer,
     BeneficiaryRecordUpdateSerializer,
-    FisherfolkAccountlessConfirmableSerializer,
     FisherfolkBeneficiaryConfirmationRequestSerializer,
     FisherfolkBeneficiaryRecordCreateSerializer,
     FisherfolkBeneficiaryRecordUpdateSerializer,
@@ -60,12 +47,12 @@ from .serializers import (
 from core.exports import SafeWorkbook
 
 
-class PendingOnlyEditMixin:
+class PendingOnlyEditMixin(CurrentStatusMixin):
     """
     Who may still edit an assistance record, by its state:
-      - an organization (CITIZEN account) only while it is PENDING: once the record is due it belongs to the recipient;
-      - staff while it is PENDING, AWAITING_CONFIRMATION (new assistance starts there, so a typo can still be fixed) or
-        CONFIRMED, but not once the recipient reported non-receipt or the case was resolved.
+      - a cooperative (CITIZEN account) only while it is Scheduled;
+      - staff while it is Scheduled or Received, so a typo can still be fixed (not older follow-up cases).
+    Moving the day, time or place of something still to come tells the recipient.
     """
     ORGANIZATION_EDITABLE = (DistributionStatus.PENDING,)
     STAFF_EDITABLE = (
@@ -78,9 +65,16 @@ class PendingOnlyEditMixin:
         if serializer.instance.status not in allowed:
             raise ValidationError(
                 f'This record cannot be edited — it is {serializer.instance.get_status_display()}, '
-                + ('not Pending.' if is_organization else 'not Pending, Awaiting Confirmation or Confirmed.')
+                + ('not Scheduled.' if is_organization else 'not Scheduled or Received.')
             )
-        serializer.save()
+
+        def schedule(record):
+            return (record.date_given, record.distribution_time, record.distribution_place)
+
+        before = schedule(serializer.instance)
+        record = serializer.save()
+        if record.status == DistributionStatus.PENDING and schedule(record) != before:
+            notify_schedule_changed(record, self.request.user)
 
 
 class BeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateAPIView):
@@ -121,7 +115,7 @@ class RecentAssistanceCheckMixin:
         return super().create(request, *args, **kwargs)
 
 
-class BeneficiaryAdHocListCreateView(RecentAssistanceCheckMixin, generics.ListCreateAPIView):
+class BeneficiaryAdHocListCreateView(CurrentStatusMixin, RecentAssistanceCheckMixin, generics.ListCreateAPIView):
     serializer_class = BeneficiaryRecordCreateSerializer
     pagination_class = None
     org_linked_record_type = 'FARMERS_ORG'
@@ -192,7 +186,7 @@ class FisherfolkBeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.Retri
         return obj.recorded_by_id
 
 
-class FisherfolkBeneficiaryAdHocListCreateView(RecentAssistanceCheckMixin, generics.ListCreateAPIView):
+class FisherfolkBeneficiaryAdHocListCreateView(CurrentStatusMixin, RecentAssistanceCheckMixin, generics.ListCreateAPIView):
     person_field = 'fisherfolk'
     record_model = FisherfolkBeneficiaryRecord
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
@@ -210,8 +204,6 @@ class FisherfolkBeneficiaryAdHocListCreateView(RecentAssistanceCheckMixin, gener
         return request.data.get('fisherfolk')
 
     def get_queryset(self):
-        if is_fisherfolk_citizen(self.request.user):
-            advance_due_distributions(self.request.user)   # same lazy status step as MyFisherfolkBeneficiaryHistoryView
         qs = scope_to_fisherfolk(FisherfolkBeneficiaryRecord.objects.all(), self.request.user) \
             .select_related('fisherfolk', 'recorded_by').order_by('-date_given', '-id')
         params = self.request.query_params
@@ -246,7 +238,7 @@ class FisherfolkBeneficiaryAdHocDetailView(PendingOnlyEditMixin, generics.Retrie
         return super().destroy(request, *args, **kwargs)
 
 
-class MyBeneficiaryHistoryView(generics.ListAPIView):
+class MyBeneficiaryHistoryView(CurrentStatusMixin, generics.ListAPIView):
     """
     Batch 11: CITIZEN-only, read-only view of the caller's own assistance
     history, resolved via get_linked_record() (never a farmer id from the
@@ -265,7 +257,6 @@ class MyBeneficiaryHistoryView(generics.ListAPIView):
         # MyOrgBeneficiaryHistoryView for the ORGANIZATION-role equivalent
         # (different semantics: recorded_by=self, not farmer=self — an
         # organization is never a beneficiary subject itself).
-        advance_due_distributions(self.request.user)
         farmer_id = self.request.user.get_linked_farmer_id()
         if farmer_id is None:
             return BeneficiaryRecord.objects.none()
@@ -274,7 +265,7 @@ class MyBeneficiaryHistoryView(generics.ListAPIView):
         ).select_related('farmer', 'recorded_by').prefetch_related('photos').order_by('-date_given', '-id')
 
 
-class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
+class MyFisherfolkBeneficiaryHistoryView(CurrentStatusMixin, generics.ListAPIView):
     """Batch 11: fisherfolk equivalent of MyBeneficiaryHistoryView."""
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
     permission_classes = [IsAuthenticated, IsCitizen]
@@ -283,7 +274,6 @@ class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
     def get_queryset(self):
         # Batch 12: see MyBeneficiaryHistoryView's comment — same type-guard
         # fix, FISHERFOLK-only here.
-        advance_due_distributions(self.request.user)
         fisherfolk_id = self.request.user.get_linked_fisherfolk_id()
         if fisherfolk_id is None:
             return FisherfolkBeneficiaryRecord.objects.none()
@@ -292,7 +282,7 @@ class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
         ).select_related('fisherfolk', 'recorded_by').order_by('-date_given', '-id')
 
 
-class MyOrgBeneficiaryHistoryView(generics.ListAPIView):
+class MyOrgBeneficiaryHistoryView(CurrentStatusMixin, generics.ListAPIView):
     """
     Batch 12: an ORGANIZATION citizen's own reporting history — records
     THEY submitted (recorded_by = themselves). Deliberately NOT "every
@@ -315,7 +305,7 @@ class MyOrgBeneficiaryHistoryView(generics.ListAPIView):
         ).select_related('farmer').prefetch_related('photos').order_by('-date_given', '-id')
 
 
-class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
+class MyOrgFisherfolkBeneficiaryHistoryView(CurrentStatusMixin, generics.ListAPIView):
     """Batch 12: fisherfolk-organization equivalent of MyOrgBeneficiaryHistoryView."""
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
     permission_classes = [IsAuthenticated, IsCitizen]
@@ -329,7 +319,7 @@ class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
         ).select_related('fisherfolk').order_by('-date_given', '-id')
 
 
-class MyOrgDistributionsView(APIView):
+class MyOrgDistributionsView(CurrentStatusMixin, APIView):
     """An organization's own assistance history as distributions (one entry per distribution, expandable to its
     members), with the filters `status` (a status or `needs-follow-up`), `assistance_type`, `date_from`, `date_to`,
     `member` and `source_agency`. Only records this organization account recorded, never another organization's."""
@@ -352,7 +342,7 @@ class MyOrgFisherfolkDistributionsView(MyOrgDistributionsView):
     person_field = 'fisherfolk'
 
 
-class StaffDistributionsView(APIView):
+class StaffDistributionsView(CurrentStatusMixin, APIView):
     """What staff see on the Assistance pages: every distribution (one row per distribution, named after the organization that gave it,
     or none for assistance given to individuals) with its members, newest first, paged (?page=, 10 a page). Filters: `year`,
     `barangay` (the member's), `status` (a status or `needs-follow-up`), `assistance_type`, `date_from`, `date_to`, `member`,
@@ -507,324 +497,7 @@ class AssistanceRemovalView(APIView):
         return Response(result)
 
 
-# ─── Scheduled distribution + confirmation lifecycle: recipient & staff actions ──
-# Structural reference: production.views.CropDisasterResolveView — plain
-# APIView (no queryset for DRF's object-level permission machinery to hook
-# into), explicit get_object_or_404, explicit status guard, manual
-# ownership check for the CITIZEN branch rather than a permission class,
-# same as that view's own documented reasoning.
-
-def _beneficiary_label(record, person, assistance_type=None):
-    return f'{assistance_type or record.assistance_type or "Assistance"} — {person.full_name}'
-
-
-def _check_recipient_permission(request, owner_linked_type, owner_id):
-    """Shared by both domains' Confirm/ReportNotReceived views. Own-record-
-    only for the CITIZEN who IS the recipient — not the reporting
-    organization (IsOrgMemberRecordCitizen is a different, unrelated
-    permission for a different actor). Staff may act too, same as disaster
-    resolution's own precedent."""
-    if request.user.role in ('ADMIN', 'EVALUATOR'):
-        return None
-    if request.user.role != 'CITIZEN':
-        return Response({'detail': 'You do not have permission to perform this action.'}, status=403)
-    if request.user.linked_record_type != owner_linked_type or request.user.linked_record_id != owner_id:
-        return Response({'detail': 'You do not have permission to perform this action.'}, status=403)
-    return None
-
-
-class BeneficiaryConfirmReceivedView(APIView):
-    permission_classes = [IsAuthenticated]
-    # Multipart so the recipient can attach an optional proof photo; JSON still
-    # works for the bare confirm the older clients send.
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def post(self, request, pk):
-        record = get_object_or_404(BeneficiaryRecord.objects.select_related('farmer'), pk=pk)
-        denied = _check_recipient_permission(request, 'FARMER', record.farmer_id)
-        if denied:
-            return denied
-        if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-            return Response(
-                {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        note = (request.data.get('confirmation_note') or '').strip()
-        # 0-10 proof photos (the older single `confirmation_photo` counts as one), all validated before anything
-        # changes; the status change and the photo rows are one transaction and a failed attempt's files are removed.
-        photos = validated_photos(
-            request, 'confirmation_photos', legacy_field='confirmation_photo', limit=BeneficiaryRecordPhoto.MAX_PER_PARENT)
-        written = []
-        try:
-            with transaction.atomic():
-                # Re-read under a row lock: a second simultaneous confirmation (double tap, retry, two tabs) waits
-                # here and then finds the record already confirmed instead of adding its photos again.
-                record = BeneficiaryRecord.objects.select_for_update().get(pk=record.pk)
-                if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-                    return Response(
-                        {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                        status=400,
-                    )
-                record.confirmation_note = note
-                record.status = DistributionStatus.CONFIRMED
-                record.confirmed_at = timezone.now()
-                record.save()
-                for f in photos:
-                    row = BeneficiaryRecordPhoto.objects.create(beneficiary_record=record, image=f, uploaded_by=request.user)
-                    written.append(row.image.name)
-                record = BeneficiaryRecord.objects.select_related('farmer').prefetch_related('photos').get(pk=record.pk)
-                data = BeneficiaryRecordCreateSerializer(record, context={'request': request}).data
-        except Exception:
-            discard_uploaded_files(written)
-            raise
-        return Response(data)
-
-
-class BeneficiaryReportNotReceivedView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        record = get_object_or_404(BeneficiaryRecord.objects.select_related('farmer', 'attributed_organization'), pk=pk)
-        denied = _check_recipient_permission(request, 'FARMER', record.farmer_id)
-        if denied:
-            return denied
-        if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-            return Response(
-                {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        reason = (request.data.get('non_receipt_reason') or '').strip()
-        if not reason:
-            return Response({'detail': 'A reason is required.'}, status=400)
-
-        record.status = DistributionStatus.NOT_RECEIVED
-        record.non_receipt_reason = reason
-        record.save()
-
-        label = _beneficiary_label(record, record.farmer)
-        notify_staff(
-            actor=request.user, verb='reported not receiving', record_type='beneficiary',
-            record_id=record.id, record_label=label, detail=reason,
-        )
-        notify_user(
-            recipient=resolve_owner_user(farmers_organization_id=record.attributed_organization_id),
-            actor=request.user, verb='reported not receiving', record_type='beneficiary',
-            record_id=record.id, record_label=label, detail=reason,
-        )
-        return Response(BeneficiaryRecordCreateSerializer(record).data)
-
-
-class BeneficiaryMarkResolvedView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-
-    def post(self, request, pk):
-        record = get_object_or_404(BeneficiaryRecord, pk=pk)
-        if record.status != DistributionStatus.NOT_RECEIVED:
-            return Response(
-                {'detail': f'This record is not a Not Received case (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        notes = (request.data.get('follow_up_notes') or '').strip()
-        if not notes:
-            return Response({'detail': 'Follow-up notes are required.'}, status=400)
-        record.status = DistributionStatus.RESOLVED
-        record.follow_up_notes = notes
-        record.save()
-        return Response(BeneficiaryRecordCreateSerializer(record).data)
-
-
-class FisherfolkBeneficiaryConfirmReceivedView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        record = get_object_or_404(FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk'), pk=pk)
-        denied = _check_recipient_permission(request, 'FISHERFOLK', record.fisherfolk_id)
-        if denied:
-            return denied
-        if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-            return Response(
-                {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        record.status = DistributionStatus.CONFIRMED
-        record.confirmed_at = timezone.now()
-        record.save()
-        return Response(FisherfolkBeneficiaryRecordCreateSerializer(record).data)
-
-
-class FisherfolkBeneficiaryReportNotReceivedView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        record = get_object_or_404(
-            FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk', 'attributed_fisherfolk_organization'), pk=pk,
-        )
-        denied = _check_recipient_permission(request, 'FISHERFOLK', record.fisherfolk_id)
-        if denied:
-            return denied
-        if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-            return Response(
-                {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        reason = (request.data.get('non_receipt_reason') or '').strip()
-        if not reason:
-            return Response({'detail': 'A reason is required.'}, status=400)
-
-        record.status = DistributionStatus.NOT_RECEIVED
-        record.non_receipt_reason = reason
-        record.save()
-
-        label = _beneficiary_label(record, record.fisherfolk)
-        notify_staff(
-            actor=request.user, verb='reported not receiving', record_type='ff_beneficiary',
-            record_id=record.id, record_label=label, detail=reason,
-        )
-        notify_user(
-            recipient=resolve_owner_user(fisherfolk_organization_id=record.attributed_fisherfolk_organization_id),
-            actor=request.user, verb='reported not receiving', record_type='ff_beneficiary',
-            record_id=record.id, record_label=label, detail=reason,
-        )
-        return Response(FisherfolkBeneficiaryRecordCreateSerializer(record).data)
-
-
-class FisherfolkBeneficiaryMarkResolvedView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-
-    def post(self, request, pk):
-        record = get_object_or_404(FisherfolkBeneficiaryRecord, pk=pk)
-        if record.status != DistributionStatus.NOT_RECEIVED:
-            return Response(
-                {'detail': f'This record is not a Not Received case (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        notes = (request.data.get('follow_up_notes') or '').strip()
-        if not notes:
-            return Response({'detail': 'Follow-up notes are required.'}, status=400)
-        record.status = DistributionStatus.RESOLVED
-        record.follow_up_notes = notes
-        record.save()
-        return Response(FisherfolkBeneficiaryRecordCreateSerializer(record).data)
-
-
-# ─── Accountless-beneficiary confirmation ────────────────────────────────────
-# See interventions.models.BeneficiaryConfirmationRequest's own module
-# comment for the full design reasoning (separate model, not new
-# BeneficiaryRecord fields; mirrored per-domain, not one polymorphic model;
-# additive to DistributionStatus, not a new state in it).
-
-# The most characters a rejection note can hold (BeneficiaryConfirmationRequest.rejection_reason).
-REJECTION_NOTE_MAX = 255
-
-
-def _required_rejection_note(request):
-    """The note staff must write when they reject an on-behalf-of confirmation: it is sent to the organization,
-    so a blank one, or one too long to store whole, is refused rather than saved empty or cut short."""
-    note = str(request.data.get('rejection_reason') or '').strip()
-    if not note:
-        raise ValidationError({'rejection_reason': ['Write why you are rejecting this confirmation, so the cooperative knows what to fix.']})
-    if len(note) > REJECTION_NOTE_MAX:
-        raise ValidationError({'rejection_reason': [f'Keep the note to {REJECTION_NOTE_MAX} characters or fewer.']})
-    return note
-
-
-class MyOrgAccountlessConfirmablesView(generics.ListAPIView):
-    """
-    An ORGANIZATION citizen's confirmable-on-behalf-of queue: BeneficiaryRecord
-    rows that are AWAITING_CONFIRMATION for a CURRENT member of this org whose
-    citizen account genuinely has no way to self-confirm (no shell, or one
-    that has never been activated — accounts.utils.accountless_or_unactivated_ids,
-    the same signal driving the "Activate Account" button elsewhere).
-
-    Deliberately NOT a widening of MyOrgBeneficiaryHistoryView's scope above
-    (that view's own docstring explicitly scopes surfacing other reporters'
-    submissions as "Step 4, out of scope") — this is a new, narrowly-purposed
-    endpoint instead, needed because most real distributions run through
-    staff's bulk Distribute-to-Organization flow, where recorded_by is the
-    staff user, not the org — MyOrgBeneficiaryHistoryView's recorded_by=self
-    filter would never surface those rows to the org at all.
-    """
-    serializer_class = AccountlessConfirmableSerializer
-    permission_classes = [IsAuthenticated, IsCitizen]
-    pagination_class = None
-
-    def get_queryset(self):
-        if self.request.user.linked_record_type != 'FARMERS_ORG':
-            return BeneficiaryRecord.objects.none()
-        org_id = self.request.user.linked_record_id
-        # Lazily advances any of THIS org's accountless members' due
-        # PENDING records to AWAITING_CONFIRMATION first — see
-        # advance_due_distributions_for_org's own docstring for why this
-        # can never happen via the normal citizen-side path for them.
-        advance_due_distributions_for_org('FARMERS_ORG', org_id)
-        candidates = BeneficiaryRecord.objects.filter(
-            status=DistributionStatus.AWAITING_CONFIRMATION,
-            farmer__farmer_organizations__organization_id=org_id,
-            farmer__farmer_organizations__is_active=True,
-        ).select_related('farmer').prefetch_related('confirmation_requests').distinct()
-        farmer_ids = [r.farmer_id for r in candidates]
-        eligible_ids = accountless_or_unactivated_ids('FARMER', farmer_ids)
-        return candidates.filter(farmer_id__in=eligible_ids).order_by('-date_given', '-id')
-
-
-class MyOrgFisherfolkAccountlessConfirmablesView(generics.ListAPIView):
-    """Fisherfolk equivalent of MyOrgAccountlessConfirmablesView above."""
-    serializer_class = FisherfolkAccountlessConfirmableSerializer
-    permission_classes = [IsAuthenticated, IsCitizen]
-    pagination_class = None
-
-    def get_queryset(self):
-        if self.request.user.linked_record_type != 'FISHERFOLK_ORG':
-            return FisherfolkBeneficiaryRecord.objects.none()
-        org_id = self.request.user.linked_record_id
-        advance_due_distributions_for_org('FISHERFOLK_ORG', org_id)
-        candidates = FisherfolkBeneficiaryRecord.objects.filter(
-            status=DistributionStatus.AWAITING_CONFIRMATION,
-            fisherfolk__fisherfolk_organizations__organization_id=org_id,
-            fisherfolk__fisherfolk_organizations__is_active=True,
-        ).select_related('fisherfolk').prefetch_related('confirmation_requests').distinct()
-        fisherfolk_ids = [r.fisherfolk_id for r in candidates]
-        eligible_ids = accountless_or_unactivated_ids('FISHERFOLK', fisherfolk_ids)
-        return candidates.filter(fisherfolk_id__in=eligible_ids).order_by('-date_given', '-id')
-
-
-class BeneficiaryConfirmOnBehalfView(APIView):
-    """
-    An ORGANIZATION confirms receipt on behalf of one of its members who has no working citizen account. The
-    confirmation is final (no staff approval); the shared flow is in interventions.org_confirmation.
-    """
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request, pk):
-        return Response(org_confirmation.confirm_for_members(request, 'crop', [pk]), status=drf_status.HTTP_201_CREATED)
-
-
-class BeneficiaryConfirmOnBehalfBulkView(APIView):
-    """Confirm several members' assistance at once with one set of proof photos (POST record_ids + photos)."""
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        return Response(org_confirmation.confirm_for_members(request, 'crop'), status=drf_status.HTTP_201_CREATED)
-
-
-class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
-    """Fisherfolk equivalent of BeneficiaryConfirmOnBehalfView above."""
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request, pk):
-        return Response(org_confirmation.confirm_for_members(request, 'fisheries', [pk]), status=drf_status.HTTP_201_CREATED)
-
-
-class FisherfolkBeneficiaryConfirmOnBehalfBulkView(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        return Response(org_confirmation.confirm_for_members(request, 'fisheries'), status=drf_status.HTTP_201_CREATED)
-
+# ─── Earlier confirmations (history only: nobody confirms receipt any more) ────────
 
 class OrgConfirmedForMembersView(generics.ListAPIView):
     """The history of what one organization has confirmed for its members, newest first (each row is one member's
@@ -889,151 +562,6 @@ class OrgConfirmedAssistancesView(OrgConfirmedForMembersView):
             group['members'].sort(key=lambda m: m['name'].lower())
             group['member_count'] = len(group['members'])
         return self.get_paginated_response(page)
-
-
-class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
-    """Staff review queue — mirrors core.profile_self_service.StaffChangeRequestListView exactly."""
-    serializer_class = BeneficiaryConfirmationRequestSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = BeneficiaryConfirmationRequest.objects.select_related(
-            'beneficiary_record__farmer', 'submitted_by_organization', 'submitted_by', 'reviewed_by',
-        ).prefetch_related('photos')
-        status_filter = self.request.query_params.get('status', 'PENDING').upper()
-        if status_filter != 'ALL':
-            qs = qs.filter(status=status_filter)
-        return qs
-
-
-class FisherfolkBeneficiaryConfirmationRequestListView(generics.ListAPIView):
-    """Fisherfolk equivalent of BeneficiaryConfirmationRequestListView above."""
-    serializer_class = FisherfolkBeneficiaryConfirmationRequestSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = FisherfolkBeneficiaryConfirmationRequest.objects.select_related(
-            'beneficiary_record__fisherfolk', 'submitted_by_organization', 'submitted_by', 'reviewed_by',
-        ).prefetch_related('photos')
-        status_filter = self.request.query_params.get('status', 'PENDING').upper()
-        if status_filter != 'ALL':
-            qs = qs.filter(status=status_filter)
-        return qs
-
-
-class BeneficiaryConfirmationRequestDecisionView(APIView):
-    """
-    POST .../<pk>/approve/  -> writes CONFIRMED onto the real BeneficiaryRecord,
-                                in one atomic transaction with the request's
-                                own status flip (mirrors
-                                core.profile_self_service.StaffChangeRequestDecisionView).
-    POST .../<pk>/reject/   -> leaves the real record's status untouched
-                                (still AWAITING_CONFIRMATION) — the real
-                                recipient, or a corrected resubmission, can
-                                still legitimately confirm it later.
-    """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-
-    def post(self, request, pk, action):
-        req = BeneficiaryConfirmationRequest.objects.select_related(
-            'beneficiary_record__farmer', 'submitted_by_organization',
-        ).filter(pk=pk).first()
-        if req is None:
-            return Response({'detail': 'Not found.'}, status=404)
-        if req.status != BeneficiaryConfirmationRequest.Status.PENDING:
-            return Response({'detail': f'This request is already {req.status.lower()}.'}, status=400)
-
-        record = req.beneficiary_record
-        if action == 'approve':
-            if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-                return Response(
-                    {'detail': (
-                        f'The underlying record is no longer awaiting confirmation '
-                        f'(current status: {record.get_status_display()}) — it may already '
-                        f'have been resolved another way. This request cannot be approved as-is.'
-                    )},
-                    status=400,
-                )
-            with transaction.atomic():
-                record.status = DistributionStatus.CONFIRMED
-                record.confirmed_at = timezone.now()
-                record.save()
-                req.status = BeneficiaryConfirmationRequest.Status.APPROVED
-                req.reviewed_by = request.user
-                req.reviewed_at = timezone.now()
-                req.save()
-            verb, detail = 'approved your on-behalf-of confirmation for', ''
-        elif action == 'reject':
-            reason = _required_rejection_note(request)
-            req.status = BeneficiaryConfirmationRequest.Status.REJECTED
-            req.reviewed_by = request.user
-            req.reviewed_at = timezone.now()
-            req.rejection_reason = reason
-            req.save()
-            verb, detail = 'rejected your on-behalf-of confirmation for', reason
-        else:
-            return Response({'detail': f'Unknown action "{action}".'}, status=400)
-
-        notify_user(
-            recipient=req.submitted_by, actor=request.user, verb=verb,
-            record_type='beneficiary_obo', record_id=req.id,
-            record_label=_beneficiary_label(record, record.farmer), detail=detail,
-        )
-        return Response(BeneficiaryConfirmationRequestSerializer(req).data)
-
-
-class FisherfolkBeneficiaryConfirmationRequestDecisionView(APIView):
-    """Fisherfolk equivalent of BeneficiaryConfirmationRequestDecisionView above."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-
-    def post(self, request, pk, action):
-        req = FisherfolkBeneficiaryConfirmationRequest.objects.select_related(
-            'beneficiary_record__fisherfolk', 'submitted_by_organization',
-        ).filter(pk=pk).first()
-        if req is None:
-            return Response({'detail': 'Not found.'}, status=404)
-        if req.status != FisherfolkBeneficiaryConfirmationRequest.Status.PENDING:
-            return Response({'detail': f'This request is already {req.status.lower()}.'}, status=400)
-
-        record = req.beneficiary_record
-        if action == 'approve':
-            if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-                return Response(
-                    {'detail': (
-                        f'The underlying record is no longer awaiting confirmation '
-                        f'(current status: {record.get_status_display()}) — it may already '
-                        f'have been resolved another way. This request cannot be approved as-is.'
-                    )},
-                    status=400,
-                )
-            with transaction.atomic():
-                record.status = DistributionStatus.CONFIRMED
-                record.confirmed_at = timezone.now()
-                record.save()
-                req.status = FisherfolkBeneficiaryConfirmationRequest.Status.APPROVED
-                req.reviewed_by = request.user
-                req.reviewed_at = timezone.now()
-                req.save()
-            verb, detail = 'approved your on-behalf-of confirmation for', ''
-        elif action == 'reject':
-            reason = _required_rejection_note(request)
-            req.status = FisherfolkBeneficiaryConfirmationRequest.Status.REJECTED
-            req.reviewed_by = request.user
-            req.reviewed_at = timezone.now()
-            req.rejection_reason = reason
-            req.save()
-            verb, detail = 'rejected your on-behalf-of confirmation for', reason
-        else:
-            return Response({'detail': f'Unknown action "{action}".'}, status=400)
-
-        notify_user(
-            recipient=req.submitted_by, actor=request.user, verb=verb,
-            record_type='ff_beneficiary_obo', record_id=req.id,
-            record_label=_beneficiary_label(record, record.fisherfolk), detail=detail,
-        )
-        return Response(FisherfolkBeneficiaryConfirmationRequestSerializer(req).data)
 
 
 # ─── Assistance Excel import ─────────────────────────────────────────────────
@@ -1247,11 +775,9 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': 'Will be created.'})
             continue
 
+        # An import loads assistance that already happened: the saved status follows the date (past ones are Received, a
+        # future one is Scheduled), and nobody is told about old records.
         record = serializer.save(recorded_by=user)
-        if record.status == DistributionStatus.AWAITING_CONFIRMATION:
-            # An import loads assistance that already happened, so past-dated rows stay Confirmed (they must not
-            # flood every recipient with old confirmations); future-dated rows stay Pending as before.
-            record_model.objects.filter(pk=record.pk).update(status=DistributionStatus.CONFIRMED)
         if import_batch is None:
             import_batch = start_batch(
                 'crop_assistance' if person_field == 'farmer' else 'fisheries_assistance', user, label=file.name)

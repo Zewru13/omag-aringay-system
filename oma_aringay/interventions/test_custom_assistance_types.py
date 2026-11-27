@@ -16,6 +16,7 @@ from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import AssistanceCustomType, AssistanceTypeUnits, BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.test_distribution_members import DOMAINS as ORG_DOMAINS, make_citizen, make_org, make_person
+from interventions.test_helpers import SCHEDULE
 
 _N = itertools.count(1)
 User = get_user_model()
@@ -57,7 +58,7 @@ class CustomAssistanceTypeTests(APITestCase):
 
     def record_body(self, domain, kind, **over):
         cfg = DOMAINS[domain]
-        data = {cfg['person']: self.people[domain].id, 'assistance_type': kind, 'source_agencies': ['DA'], 'quantity': '3 box', 'date_given': self.today}
+        data = {cfg['person']: self.people[domain].id, 'assistance_type': kind, 'source_agencies': ['DA'], 'quantity': '3 box', **SCHEDULE, 'date_given': self.today}
         data.update(over)
         return data
 
@@ -126,7 +127,7 @@ class CustomAssistanceTypeTests(APITestCase):
             one = self.client.post(cfg['adhoc'], self.record_body(domain, 'Pesticide'), format='json')
             self.assertEqual(one.status_code, 201, (domain, one.content))
             self.assertEqual(one.json()['assistance_type'], 'Pesticide')
-            body = {cfg['ids']: [self.people[domain].id], 'assistance_type': 'Pesticide', 'source_agencies': ['DA'], 'quantity': '1 box', 'date_given': self.today,
+            body = {cfg['ids']: [self.people[domain].id], 'assistance_type': 'Pesticide', 'source_agencies': ['DA'], 'quantity': '1 box', **SCHEDULE, 'date_given': self.today,
                     'confirm_duplicate': True}
             many = self.client.post(cfg['bulk'], body, format='json')
             self.assertEqual(many.status_code, 200, (domain, many.content))
@@ -147,7 +148,7 @@ class CustomAssistanceTypeTests(APITestCase):
             person = make_person(domain, 'Member')
             cfg['member'].objects.create(organization=org, date_joined=date(2025, 1, 1), is_main=True, **{cfg['person_field']: person})
             self.client.force_authenticate(make_citizen(f'cat-org-{domain}', cfg['link'], org.id))
-            body = {'assistance_type': 'Pesticide', 'source_agencies': ['DA'], 'quantity': '1 box', 'date_given': self.today}
+            body = {'assistance_type': 'Pesticide', 'source_agencies': ['DA'], 'quantity': '1 box', **SCHEDULE, 'date_given': self.today}
             self.assertEqual(self.client.post(cfg['url'].format(org.id), body, format='json').status_code, 200, domain)
             self.assertEqual(self.client.post(cfg['url'].format(org.id), {**body, 'assistance_type': 'Made Up'}, format='json').status_code, 400, domain)
             self.client.force_authenticate(self.admin)

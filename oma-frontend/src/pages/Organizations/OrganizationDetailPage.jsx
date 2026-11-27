@@ -989,12 +989,12 @@ function OrganizationDetailPage({ own = false }) {
         { value: "borrowed", label: openRequestCount(loans) > 0 ? `Borrowed (${openRequestCount(loans)})` : "Borrowed" },
         { value: "borrowed-history", label: "Borrowed History" },
         { value: "officers", label: "Officers" },
-        { value: "confirmed", label: "Confirmed for Members" },
+        { value: "confirmed", label: "Earlier Confirmations" },
       ]
     : [
         { value: "members", label: "Members" },
         { value: "equipment", label: "Equipment Inventory" },
-        { value: "confirmed", label: "Confirmed for Members" },
+        { value: "confirmed", label: "Earlier Confirmations" },
       ];
 
   const [organization, setOrganization] = useState(null);
@@ -1295,7 +1295,7 @@ function OrganizationDetailPage({ own = false }) {
               {/* Everything that was lent and came back, on its own page: the Borrowed tab keeps only what is still out */}
               {own && section === "borrowed-history" && <ReturnedTable loans={splitLoans(loans).returned} />}
 
-              {/* The history of what this organization confirmed for its members (final, no staff review) */}
+              {/* What it confirmed for its members while receipt had to be confirmed (history only) */}
               {section === "confirmed" && (
                 <ConfirmedForMembersPanel type={type} organizationId={organization.id} organizationName={organization.name} />
               )}
@@ -1539,8 +1539,8 @@ function OrganizationDetailPage({ own = false }) {
                     {renderBody("equipment")}
                   </ViewSection>
                   <ViewSection
-                    icon={HandHelping} title="Confirmed for Members" summary="Assistance it confirmed" accent={themeColor} soft={themeBg}
-                    subtitle="The history of what this cooperative confirmed for its members."
+                    icon={HandHelping} title="Earlier Confirmations" summary="From before confirming was removed" accent={themeColor} soft={themeBg}
+                    subtitle="What this cooperative confirmed for its members while receipt had to be confirmed."
                   >
                     {renderBody("confirmed")}
                   </ViewSection>

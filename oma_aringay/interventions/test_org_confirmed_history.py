@@ -1,19 +1,19 @@
-"""Each organization keeps a history of what it confirmed for its members (newest first), visible to staff and to that
-organization only; the confirmations themselves are final, so there is no review queue."""
+"""Each cooperative keeps the history of what it confirmed for its members while receipt had to be confirmed (newest first),
+visible to staff and to that cooperative only. Nothing new is added to it; the old rows and photos stay readable."""
 import shutil
 import tempfile
 from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.test import override_settings
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from associations.models import FarmersOrganization, FarmersOrganizationMember, FisherfolkOrganization, FisherfolkOrganizationMember
 from core.test_photos import png
 from fisheries.models import Fisherfolk
-from interventions.models import DistributionStatus, FisherfolkBeneficiaryRecord
-from interventions.test_confirmation_photos import make_citizen, make_org
-from interventions.test_org_bulk_confirmation import AWAITING, BULK, FISH_BULK, awaiting_record, farmer
+from interventions.models import BeneficiaryRecord, BeneficiaryRecordPhoto, FisherfolkBeneficiaryRecord
+from interventions.test_helpers import earlier_confirmation, farmer, make_citizen, make_org
 
 HISTORY = '/api/interventions/confirmed-for-members/{type}/{id}/'
 
@@ -36,12 +36,10 @@ class OrgConfirmedHistoryTests(APITestCase):
         self.people = [farmer(n) for n in ('Ana', 'Ben')]
         for p in self.people:
             FarmersOrganizationMember.objects.create(organization=self.org, farmer=p, date_joined=date(2026, 1, 1))
-        self.records = [awaiting_record(p) for p in self.people]
+        self.records = [BeneficiaryRecord.objects.create(farmer=p, assistance_type='Seeds', date_given=date(2026, 8, 1)) for p in self.people]
 
     def confirm(self, records):
-        self.client.force_authenticate(self.org_user)
-        r = self.client.post(BULK, {'record_ids': [str(x.id) for x in records], 'photos': [png('a.png'), png('b.png')]}, format='multipart')
-        self.assertEqual(r.status_code, 201, r.content)
+        earlier_confirmation(records, self.org, self.org_user)
 
     def history(self, user, org_id=None, type_='farmers'):
         self.client.force_authenticate(user)
@@ -85,31 +83,15 @@ class OrgConfirmedHistoryTests(APITestCase):
             fisherfolk_type='Aquaculture', rsbsa_number='01-033-02-019-871001')
         FisherfolkOrganizationMember.objects.create(organization=org, fisherfolk=person, date_joined=date(2026, 1, 1))
         record = FisherfolkBeneficiaryRecord.objects.create(fisherfolk=person, assistance_type='Feed', date_given=date(2026, 8, 1))
-        FisherfolkBeneficiaryRecord.objects.filter(pk=record.pk).update(status=AWAITING)
-        self.client.force_authenticate(user)
-        r = self.client.post(FISH_BULK, {'record_ids': [str(record.id)], 'photos': [png('a.png'), png('b.png')]}, format='multipart')
-        self.assertEqual(r.status_code, 201, r.content)
+        earlier_confirmation([record], org, user)
         rows = self.history(self.staff, org_id=org.id, type_='fisherfolk').json()['results']
         self.assertEqual([x['assistance_type'] for x in rows], ['Feed'])
         self.assertEqual(rows[0]['member_rsbsa'], '01-033-02-019-871001')
 
-
-class FinalizePendingCommandTests(APITestCase):
-    def test_pending_requests_left_over_are_finalized_into_the_history(self):
-        from io import StringIO
-
-        from django.core.management import call_command
-        from interventions.models import BeneficiaryConfirmationRequest
-
-        org = make_org(FarmersOrganization, 'Legacy Farmers')
-        person = farmer('Leo')
-        record = awaiting_record(person)
-        req = BeneficiaryConfirmationRequest.objects.create(beneficiary_record=record, submitted_by_organization=org)   # Pending
-        call_command('finalize_pending_org_confirmations', '--dry-run', stdout=StringIO())
-        req.refresh_from_db()
-        self.assertEqual(req.status, 'PENDING')
-        call_command('finalize_pending_org_confirmations', stdout=StringIO())
-        req.refresh_from_db()
-        record.refresh_from_db()
-        self.assertEqual((req.status, record.status), ('APPROVED', DistributionStatus.CONFIRMED))
-        self.assertIsNotNone(record.confirmed_at)
+    def test_a_proof_photo_a_farmer_attached_before_is_still_shown(self):
+        record = self.records[0]
+        BeneficiaryRecordPhoto.objects.create(beneficiary_record=record, image=png('mine.png'))
+        BeneficiaryRecord.objects.filter(pk=record.pk).update(confirmed_at=timezone.now(), confirmation_note='Got it')
+        self.client.force_authenticate(make_citizen('hist-photo', 'FARMER', record.farmer_id))
+        mine = self.client.get('/api/interventions/my-beneficiary-history/').json()
+        self.assertEqual([(r['confirmation_note'], len(r['confirmation_photos'])) for r in mine], [('Got it', 1)])
