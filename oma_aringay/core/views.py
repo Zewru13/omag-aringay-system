@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 
 from .harvest_reminders import run_daily_once
 from .locking import acquire_lock
-from .models import Notification, RecordLock
+from .models import Notification, ProfileChangeRequest, RecordLock
+from .notifications import CHANGE_REQUEST_WAITING_VERBS
 from .serializers import NotificationSerializer
 
 User = get_user_model()
@@ -306,6 +307,8 @@ class NotificationListView(APIView):
         run_daily_once()
         qs = Notification.objects.filter(recipient=request.user).select_related('actor')
         unread_count = qs.filter(is_read=False).count()
+        unread_change_requests = qs.filter(
+            is_read=False, record_type__in=ProfileChangeRequest.RecordType.values, verb__in=CHANGE_REQUEST_WAITING_VERBS).count()
 
         page_size = 20
         try:
@@ -318,6 +321,7 @@ class NotificationListView(APIView):
         return Response({
             'count': paginator.count,
             'unread_count': unread_count,
+            'unread_change_requests': unread_change_requests,
             'next': page.next_page_number() if page.has_next() else None,
             'previous': page.previous_page_number() if page.has_previous() else None,
             'results': NotificationSerializer(page.object_list, many=True).data,

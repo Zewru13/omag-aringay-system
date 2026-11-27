@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ClipboardCheck, Fish, MapPin, Sprout, Wheat } from 'lucide-react'
+import { AlertTriangle, Fish, MapPin, Sprout, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
-import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
-import { formatDate, formatDateWithWeekday } from '../../utils/dateFormat.js'
+import { formatDateWithWeekday } from '../../utils/dateFormat.js'
 import DashPanel from './DashPanel.jsx'
 import DisasterTrendsCard from './DisasterTrendsCard.jsx'
 import YieldVarianceCard from './YieldVarianceCard.jsx'
@@ -14,7 +13,7 @@ import YieldVarianceCard from './YieldVarianceCard.jsx'
 // ("New Dashboard base.docx", three frames), then rearranged into rows of equal-height cards that share one header style
 // (DashPanel) so nothing leaves a gap:
 //   sector cards -> disaster reports over time + season snapshot -> harvest against estimate (farmers, fisherfolk)
-//   -> needs attention + pending change requests -> activity status by barangay.
+//   -> needs attention -> activity status by barangay. Change requests are reviewed from the notification bell.
 //
 // Everything here is fed by real endpoints. The per-domain activity counts, the
 // per-barangay table, the sector totals and the yield variance all come from
@@ -29,7 +28,7 @@ import YieldVarianceCard from './YieldVarianceCard.jsx'
 
 const num = (n) => (n ?? 0).toLocaleString()
 const ROW = 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5'
-// Phone order (lg and up keep the page order): sectors, attention, requests and activity, then the charts.
+// Phone order (lg and up keep the page order): sectors, attention, activity, then the charts.
 const PHONE_ORDER = { sectors: 'order-1', attention: 'order-2', lists: 'order-3', charts: 'order-4', pies: 'order-5' }
 const LG_FLOW = 'lg:order-none'
 
@@ -94,38 +93,16 @@ const TD = 'px-3 py-3 md:px-5 text-[14px]'
 export default function StaffDashboard({ user }) {
   const navigate = useNavigate()
   const [board, setBoard] = useState(null)
-  const [requests, setRequests] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [busyId, setBusyId] = useState(null)
   const [tableDomain, setTableDomain] = useState('crop')
-  const loadRequests = useCallback(() => {
-    api.get('/staff/change-requests/', { params: { status: 'PENDING' } })
-      .then((r) => setRequests(Array.isArray(r.data) ? r.data : r.data?.results || []))
-      .catch(() => setRequests([]))
-  }, [])
-
   useEffect(() => {
     let cancelled = false
     api.get('/production/dashboard/activity-status/')
       .then((r) => { if (!cancelled) setBoard(r.data) })
       .catch(() => {})
       .finally(() => { if (!cancelled) setIsLoading(false) })
-    loadRequests()
     return () => { cancelled = true }
-  }, [loadRequests])
-
-  const decide = async (req, action) => {
-    setBusyId(req.id)
-    try {
-      const body = action === 'reject' ? { rejection_reason: 'Rejected from dashboard review.' } : {}
-      await api.post(`/staff/change-requests/${req.id}/${action}/`, body)
-    } catch {
-      // Someone else may have decided it first; the reload below shows where it stands.
-    } finally {
-      loadRequests()
-      setBusyId(null)
-    }
-  }
+  }, [])
 
   const today = formatDateWithWeekday(new Date())
   const roleLabel = user?.role === 'ADMIN' ? 'Administrator view' : 'Focal Person view'
@@ -191,8 +168,8 @@ export default function StaffDashboard({ user }) {
 
       </div>
 
-      {/* ── Activity status by barangay (left) and pending change requests (right) ── */}
-      <div className={`${ROW} ${PHONE_ORDER.lists} ${LG_FLOW}`}>
+      {/* ── Activity status by barangay ─────────────────────────────────── */}
+      <div className={`grid grid-cols-1 gap-4 ${PHONE_ORDER.lists} ${LG_FLOW}`}>
         <DashPanel
           title="Barangay Activity Status" icon={MapPin}
           subtitle="Overdue, due today and upcoming"
@@ -245,59 +222,6 @@ export default function StaffDashboard({ user }) {
               </tbody>
             </table>
           </div>
-        </DashPanel>
-        <DashPanel
-          className="order-first lg:order-none"
-          title="Pending Change Requests" icon={ClipboardCheck} count={requests.length}
-          action={requests.length ? 'Review all →' : null} onAction={() => navigate('/users')}
-        >
-          {requests.length === 0 ? (
-            <p className="flex flex-1 items-center justify-center px-5 py-8 text-center text-[13px] italic text-text-muted">
-              No change requests waiting for review.
-            </p>
-          ) : (
-            <ul className="lg:max-h-[268px] lg:overflow-y-auto">
-              {requests.map((r, i) => (
-                <li key={r.id} className={`px-4 py-3.5 md:px-5 ${i === requests.length - 1 ? '' : 'border-b border-border'}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="truncate text-[14px] font-semibold text-text-primary">
-                      {r.record_label || r.requested_by_name || `Request #${r.id}`}
-                    </p>
-                    <span className="shrink-0 text-[12px] tabular-nums text-text-muted">
-                      {formatDate(r.requested_at, { empty: '' })}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[13px] capitalize text-[color:var(--color-semantic-info)]">
-                    {r.field_label || (r.field_name || '').replace(/_/g, ' ') || 'Change request'}
-                  </p>
-                  <p className="mt-0.5 break-words text-[12.5px] text-text-muted">
-                    {r.old_value || '—'} → {r.requested_value || '—'}
-                  </p>
-                  {r.requires_both && (
-                    <p className="mt-1 text-[12px] text-text-secondary" data-testid="approval-lines">
-                      {approvalLines(r).map((line, idx) => (
-                        <span key={line.role}>
-                          {idx > 0 ? ' · ' : ''}
-                          {line.done ? `${line.role} ✓ ${line.by}`.trim() : `${line.role} pending`}
-                        </span>
-                      ))}
-                    </p>
-                  )}
-                  <div className="mt-2.5 flex gap-2">
-                    <button type="button" disabled={busyId === r.id || hasApproved(r, user?.role)} onClick={() => decide(r, 'approve')}
-                      title={hasApproved(r, user?.role) ? 'You already approved this' : undefined}
-                      className="min-h-[40px] flex-1 cursor-pointer rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 md:min-h-[34px] md:flex-none">
-                      <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
-                    </button>
-                    <button type="button" disabled={busyId === r.id} onClick={() => decide(r, 'reject')}
-                      className="min-h-[40px] flex-1 cursor-pointer rounded-[6px] border border-border-strong px-3 transition-colors hover:bg-surface-2 disabled:opacity-50 md:min-h-[34px] md:flex-none">
-                      <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
         </DashPanel>
       </div>
     </div>

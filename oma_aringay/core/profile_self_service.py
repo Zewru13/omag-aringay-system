@@ -29,7 +29,7 @@ from accounts.permissions import IsAdminOrEvaluator
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from core.constants import BARANGAY_CHOICES
 from core.models import ProfileChangeRequest
-from core.notifications import fit, notify_staff, notify_user
+from core.notifications import CHANGE_REQUEST_FILED, CHANGE_REQUEST_NEEDS_APPROVAL, fit, notify_staff, notify_user
 from core.validators import validate_contact_number, validate_uploaded_image
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -361,7 +361,7 @@ class MyProfileChangeRequestView(_OwnRecordMixin, APIView):
 
         notify_staff(
             actor=request.user,
-            verb='requested a profile change',
+            verb=CHANGE_REQUEST_FILED,
             record_type=rtype,
             record_id=record.pk,
             record_label=_record_label(record),
@@ -385,6 +385,11 @@ class StaffChangeRequestListView(APIView):
         rtype = request.query_params.get('record_type')
         if rtype:
             qs = qs.filter(linked_record_type=rtype)
+        record_id = request.query_params.get('record_id')
+        if record_id:
+            if not record_id.isdecimal():
+                return Response({'record_id': ['Send the record number.']}, status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(linked_record_id=int(record_id))
         return Response(ProfileChangeRequestSerializer(qs, many=True).data)
 
 
@@ -505,7 +510,7 @@ class StaffChangeRequestDecisionView(APIView):
                            f'waiting for the {ROLE_TITLES[other]}', 'detail'),
             )
             _notify_role(
-                other, request.user, req, record, 'needs your approval',
+                other, request.user, req, record, CHANGE_REQUEST_NEEDS_APPROVAL,
                 f'{label}: "{req.old_value}" → "{req.requested_value}"',
             )
             return Response(ProfileChangeRequestSerializer(req).data)
