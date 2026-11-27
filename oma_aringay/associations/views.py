@@ -256,12 +256,8 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
         qs = FarmersOrganizationMember.objects.filter(
             organization_id=self.kwargs['pk'],
         ).select_related('farmer')
-        # Toggle-not-delete batch: officer assignment's search-select opts
-        # into this filter (an inactive membership can't hold an officer
-        # position, enforced in the serializer already) — Report
-        # Assistance's reuse of this same endpoint deliberately does NOT
-        # pass it, since reporting to an inactive member can still be
-        # legitimate.
+        # `active_only` leaves former members out: officer assignment and the cooperative's own list for giving
+        # assistance ask for it (an ended membership can neither hold a position nor receive something new).
         if self.request.method == 'GET' and self.request.query_params.get('active_only') in ('1', 'true', 'True'):
             qs = qs.filter(is_active=True)
         search = self.request.query_params.get('search', '').strip()
