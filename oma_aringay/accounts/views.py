@@ -16,6 +16,7 @@ from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from auditlog import recorder
 from core.utils import build_text_search_q
 from core.validators import validate_uploaded_image
 
@@ -164,6 +165,7 @@ class LoginView(APIView):
         db_user = _resolve_login_identifier(identifier)
         if db_user is None:
             _spend_password_time(password)
+            recorder.sign_in_failed(None, 'no account matches what was typed')
             return Response({'detail': LOGIN_FAILED}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Check the password directly, BEFORE calling authenticate(). Django's
@@ -176,11 +178,13 @@ class LoginView(APIView):
         if not db_user.has_usable_password():
             _spend_password_time(password)
         if not db_user.check_password(password):
+            recorder.sign_in_failed(db_user, 'wrong password')
             return Response({'detail': LOGIN_FAILED}, status=status.HTTP_401_UNAUTHORIZED)
 
         # A temporary password past its expiry no longer works. Checked only after the password itself
         # is right, so a wrong guess never learns whether the account's password has expired.
         if temp_password_expired(db_user):
+            recorder.sign_in_failed(db_user, 'the temporary password has expired')
             if setup_window.cancel_if_overdue(db_user):
                 return Response({'detail': setup_window.CANCELLED, 'code': 'setup_expired'},
                                 status=status.HTTP_403_FORBIDDEN)
@@ -198,6 +202,7 @@ class LoginView(APIView):
         # create_citizen_accounts and ActivateCitizenAccountView). Gating
         # this check on role, not touching it for the two existing roles.
         if db_user.role != User.Roles.CITIZEN and not db_user.is_email_verified:
+            recorder.sign_in_failed(db_user, 'the e-mail address is not verified yet')
             return Response(
                 {
                     'detail': 'Please verify your email first. Check your inbox for the verification link.',
@@ -207,6 +212,7 @@ class LoginView(APIView):
             )
 
         if not db_user.is_active:
+            recorder.sign_in_failed(db_user, 'the account is deactivated')
             if db_user.role == User.Roles.CITIZEN:
                 return Response(
                     {
@@ -226,6 +232,7 @@ class LoginView(APIView):
             password=password,
         )
         if user is None:
+            recorder.sign_in_failed(db_user, 'wrong password')
             return Response({'detail': LOGIN_FAILED}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
@@ -240,6 +247,7 @@ class LoginView(APIView):
         # stored one-time reveal is genuinely obsolete.
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
+        recorder.signed_in(user)
 
         return Response({
             'refresh': str(refresh),

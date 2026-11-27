@@ -6,4 +6,5 @@ class AuditlogConfig(AppConfig):
     name = 'auditlog'
 
     def ready(self):
+        import auditlog.capture  # noqa: F401
         import auditlog.signals  # noqa: F401

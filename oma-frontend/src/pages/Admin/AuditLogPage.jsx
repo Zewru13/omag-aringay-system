@@ -10,26 +10,8 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
-
-const MODEL_OPTIONS = [
-  { label: 'All Models', value: '' },
-  { label: 'Farmer', value: 'Farmer' },
-  { label: 'Farm Parcel', value: 'FarmParcel' },
-  { label: 'Fisherfolk', value: 'Fisherfolk' },
-  { label: 'Beneficiary Record', value: 'BeneficiaryRecord' },
-  { label: 'Fisherfolk Beneficiary', value: 'FisherfolkBeneficiaryRecord' },
-  { label: 'Harvest Record', value: 'HarvestRecord' },
-  { label: 'User', value: 'User' },
-]
-
-const ACTION_OPTIONS = [
-  { label: 'All Actions', value: '' },
-  { label: 'Create', value: 'CREATE' },
-  { label: 'Update', value: 'UPDATE' },
-  { label: 'Delete', value: 'DELETE' },
-]
-
-const ACTION_TONE = { CREATE: 'green', UPDATE: 'blue', DELETE: 'rose' }
+import AuditEntryWindow from './AuditEntryWindow.jsx'
+import { ACTION_OPTIONS, actionLabel, actionTone } from './auditLog.js'
 
 // Entries attributed to the shared system/automation account (a real save
 // that happened outside a real HTTP request — a management command, a
@@ -59,8 +41,8 @@ function AuditLogPage() {
   const [entries, setEntries] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [opened, setOpened] = useState(null)   // the entry shown in the details window
 
-  const [modelName, setModelName] = useState('')
   const [action, setAction] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -78,7 +60,6 @@ function AuditLogPage() {
     try {
       const params = new URLSearchParams()
       params.set('page', currentPage)
-      if (modelName) params.set('model_name', modelName)
       if (action) params.set('action', action)
       if (dateFrom) params.set('date_from', dateFrom)
       if (dateTo) params.set('date_to', dateTo)
@@ -100,7 +81,7 @@ function AuditLogPage() {
   useEffect(() => {
     setPage(1)
     load(1)
-  }, [modelName, action, dateFrom, dateTo])
+  }, [action, dateFrom, dateTo])
 
   const goToPage = (newPage) => {
     setPage(newPage)
@@ -109,27 +90,21 @@ function AuditLogPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
-  const activeFilterCount = [modelName, action, dateFrom, dateTo].filter(Boolean).length
+  const activeFilterCount = [action, dateFrom, dateTo].filter(Boolean).length
+  // A phone card opens its entry with the finger or the keyboard. In the table the whole row can be clicked, and the description is
+  // the button the keyboard reaches.
+  const opens = (entry) => ({
+    role: 'button', tabIndex: 0, onClick: () => setOpened(entry),
+    onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpened(entry) } },
+    'aria-label': `Open the entry: ${entry.object_repr}`,
+  })
 
   return (
-    <PageLayout title="Audit Log" subtitle="Track all user actions and system activity">
+    <PageLayout title="Audit Log" subtitle="Who did what and when. Click an entry to see the details.">
       <div className="space-y-5">
         {/* Filters — no free-text search field exists for this list, so the
             panel is filters-only (see FilterPanel's optional search box). */}
         <FilterPanel activeCount={activeFilterCount}>
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
-            Model
-            <select
-              className={baseInputClasses}
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-            >
-              {MODEL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-
           <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
             Action
             <select
@@ -165,7 +140,7 @@ function AuditLogPage() {
 
           {activeFilterCount > 0 && (
             <Button
-              onClick={() => { setModelName(''); setAction(''); setDateFrom(''); setDateTo('') }}
+              onClick={() => { setAction(''); setDateFrom(''); setDateTo('') }}
               size="sm"
               type="button"
               variant="ghost"
@@ -188,17 +163,17 @@ function AuditLogPage() {
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                  {...opens(entry)}
+                  className="cursor-pointer rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:bg-[#F9FAF9]"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <StatusPill tone={ACTION_TONE[entry.action] || 'slate'}>
-                      {entry.action}
+                    <StatusPill tone={actionTone(entry.action)}>
+                      {actionLabel(entry.action)}
                     </StatusPill>
                     <p className="text-[12px] text-[#7A8E7A]">{formatTimestamp(entry.timestamp)}</p>
                   </div>
                   <p className="mt-2 text-[13px] font-semibold text-[#1A2B1A]">{entry.object_repr}</p>
                   <div className="mt-2 space-y-0.5 text-[12px] text-[#4A5E4A]">
-                    <p><span className="font-medium">Model:</span> {entry.model_name}</p>
                     <p className="flex items-center gap-1.5">
                       <span className="font-medium">User:</span>
                       {entry.user?.is_system
@@ -220,13 +195,12 @@ function AuditLogPage() {
                       <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white whitespace-nowrap">Date / Time</th>
                       <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">User</th>
                       <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Action</th>
-                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Model</th>
                       <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Description</th>
                     </tr>
                   </thead>
                   <tbody>
                     {entries.map((entry) => (
-                      <tr key={entry.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9]">
+                      <tr key={entry.id} onClick={() => setOpened(entry)} className="cursor-pointer border-b border-[#F0F4F0] hover:bg-[#F9FAF9] focus-within:bg-[#F0F4F0]">
                         <td className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#7A8E7A]">
                           {formatTimestamp(entry.timestamp)}
                         </td>
@@ -247,14 +221,14 @@ function AuditLogPage() {
                           )}
                         </td>
                         <td className="px-4 py-[13px]">
-                          <StatusPill tone={ACTION_TONE[entry.action] || 'slate'}>
-                            {entry.action}
+                          <StatusPill tone={actionTone(entry.action)}>
+                            {actionLabel(entry.action)}
                           </StatusPill>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A]">
-                          {entry.model_name}
+                        <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
+                          {/* the click reaches the row, which opens the entry */}
+                          <button type="button" className="cursor-pointer break-words text-left hover:underline">{entry.object_repr}</button>
                         </td>
-                        <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{entry.object_repr}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -294,6 +268,7 @@ function AuditLogPage() {
           </>
         )}
       </div>
+      {opened && <AuditEntryWindow entry={opened} onClose={() => setOpened(null)} />}
     </PageLayout>
   )
 }

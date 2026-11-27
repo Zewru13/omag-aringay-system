@@ -30,8 +30,16 @@ class CurrentUserMiddleware:
                 pass
 
         _thread_locals.user = user
+        # Imported here: both read get_current_user from this module.
+        from auditlog import capture, recorder
+        collector = capture.begin(request) if request.method in recorder.WRITE_METHODS else None
         try:
-            response = self.get_response(request)
+            try:
+                response = self.get_response(request)
+            finally:
+                capture.end()
+            # The one entry of what a staff member changed or downloaded.
+            recorder.record_request(request, response, collector)
         finally:
             _thread_locals.user = None
 

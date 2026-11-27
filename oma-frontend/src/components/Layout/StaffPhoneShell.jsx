@@ -142,7 +142,7 @@ function AccountMenu({ onLogout }) {
             </button>
             {user?.role === 'ADMIN' && (
               <button type="button" role="menuitem" className={item} onClick={() => go('/audit-log')}>
-                <History size={16} className="text-text-muted" aria-hidden="true" /> Activity Log
+                <History size={16} className="text-text-muted" aria-hidden="true" /> Audit Log
               </button>
             )}
             <button type="button" role="menuitem" className={item} onClick={() => go('/manual')}>

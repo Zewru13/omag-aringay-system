@@ -13,6 +13,7 @@ the online copy is removed (`remove_online_copy`). The entry in the list is neve
 
 A RESTORE puts a backup back: the uploaded files first, then every record in one database transaction (so a restore that fails changes no record). Before
 it starts, a safety backup of how things are now is made, and the restore does not go on without it. Nothing else may be started while one is running.
+A restore never replaces the AUDIT LOG: what staff did stays on record, and the restore itself is added to it.
 """
 import hashlib
 import json
@@ -38,6 +39,8 @@ from django.db import connections, router, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from auditlog import recorder
+
 from .models import BackupRecord
 
 logger = logging.getLogger(__name__)
@@ -46,9 +49,10 @@ EXCLUDE = ['sessions', 'contenttypes', 'auth.permission', 'admin.logentry', 'tok
 # Left out of a backup, but they point at accounts: emptied by a restore so that no row is left pointing at an account that is no longer there.
 # (Everyone signs in again after a restore.)
 CLEARED_BY_RESTORE = ['admin.logentry', 'token_blacklist']
-# The activity log and the notifications. A backup can leave them out (they only grow, and a backup is smaller and quicker without them). They point at
-# accounts (an entry names who did something, a notification who it is for), so restoring a backup that has none keeps what is there and tidies those links.
-AUDIT_MODELS = ['auditlog.auditlogentry', 'core.notification']
+# The Audit Log and the notifications. A backup can leave them out (they only grow, and a backup is smaller and quicker without them). They point at
+# accounts (an entry names who did something, a notification who it is for), so whatever a restore keeps has those links tidied.
+AUDIT_LOG = 'auditlog.auditlogentry'                    # kept by every restore, whatever the file holds
+AUDIT_MODELS = [AUDIT_LOG, 'core.notification']
 # What a backup holds, in groups the Backup & Restore page shows (the app of each model decides its group; the audit models are their own group).
 DATA_GROUPS = [
     {'key': 'accounts', 'label': 'Accounts and logins', 'apps': ['accounts', 'auth'], 'optional': False,
@@ -67,8 +71,10 @@ DATA_GROUPS = [
      'description': 'Assistance given to farmers, fisherfolk and cooperatives, agencies, types and confirmations.'},
     {'key': 'other', 'label': 'Signatories, imports and other records', 'apps': ['reports', 'core'], 'optional': False,
      'description': 'Report signatories, import batches, PCIC form photos, record locks and profile change requests.'},
-    {'key': 'audit', 'label': 'Activity log and notifications', 'apps': [], 'optional': True,
-     'description': 'Who did what and when, and the notifications sent to users. Kept for the record; a backup is much smaller and quicker without them.'},
+    {'key': 'audit', 'label': 'Audit Log', 'apps': [], 'optional': True,
+     'description': 'Who did what and when. A restore never replaces it: the Audit Log stays as it is.'},
+    {'key': 'notifications', 'label': 'Notifications', 'apps': [], 'optional': True,
+     'description': 'The notifications sent to users. A backup is smaller and quicker without them and the Audit Log.'},
 ]
 PREFIX = 'backups'
 STALE_AFTER_MINUTES = 30
@@ -107,7 +113,7 @@ def backed_up_models(using='default', include_audit=True):
 def group_key(model):
     """The group of DATA_GROUPS a model belongs to."""
     if model in audit_models():
-        return 'audit'
+        return 'audit' if model._meta.label_lower == AUDIT_LOG else 'notifications'
     for group in DATA_GROUPS:
         if model._meta.app_label in group['apps']:
             return group['key']
@@ -134,8 +140,8 @@ def zip_counts(zip_path):
 
 
 def group_rows(now, in_file=None, audit_in_file=True):
-    """The groups of the Backup & Restore page, each with its records now and (for a file being restored) in the file. A group the file leaves out
-    (the audit trail of a backup made without it) has in_file None and is `kept`: a restore leaves it as it is."""
+    """The groups of the Backup & Restore page, each with its records now and (for a file being restored) in the file. A group a restore leaves as it
+    is (the Audit Log always; the notifications when the file has none) has in_file None and is `kept`."""
     labels = {model._meta.label_lower: group_key(model) for model in backed_up_models()}
     rows = []
     for group in DATA_GROUPS:
@@ -143,7 +149,7 @@ def group_rows(now, in_file=None, audit_in_file=True):
         row = {key: group[key] for key in ('key', 'label', 'description', 'optional')}
         row['count'] = row['now'] = sum(now.get(label, 0) for label in keys)
         if in_file is not None:
-            kept = group['key'] == 'audit' and not audit_in_file
+            kept = group['key'] == 'audit' or (group['key'] == 'notifications' and not audit_in_file)
             row['in_file'] = None if kept else sum(in_file.get(label, 0) for label in keys)
             row['kept'] = kept
         rows.append(row)
@@ -407,7 +413,7 @@ def restore_media(zf, storage, workdir):
 
 def insert_records(model, objects, using):
     """Insert the records exactly as the backup has them: their own ids, their own dates (no "now" for created/updated), and no signal sent,
-    so a restore writes no activity-log entry of its own."""
+    so a restore writes no Audit Log entry for each record it puts back."""
     fields = [f for f in model._meta.local_concrete_fields if not getattr(f, 'generated', False)]
     manager = model._base_manager.using(using)
     for start in range(0, len(objects), INSERT_BATCH):
@@ -427,12 +433,21 @@ def insert_links(model, deserialized, using):
             through._base_manager.using(using).bulk_create(rows, batch_size=INSERT_BATCH)
 
 
-def keep_links_to_accounts(using):
-    """After a restore that left the activity log and the notifications as they were: an entry that names an account the restore removed names nobody now
-    (an entry that must have one, a notification, goes with the account)."""
+def remember_who(using):
+    """Before the accounts are replaced: every Audit Log entry keeps, as text, the name of whoever did it."""
+    Entry = apps.get_model(AUDIT_LOG)
+    nameless = Entry._base_manager.using(using).filter(user_name='', user__isnull=False)
+    people = get_user_model()._base_manager.using(using).filter(pk__in=nameless.values('user'))
+    for person in people:
+        nameless.filter(user=person).update(user_name=(person.full_name or person.get_username())[:255], user_email=(person.email or '')[:254])
+
+
+def keep_links_to_accounts(using, kept):
+    """After a restore, for the records it left as they were (`kept` models): one that names an account the restore removed names nobody now
+    (one that must have an account, a notification, goes with it)."""
     User = get_user_model()
     accounts = User._base_manager.using(using).values('pk')
-    for model in audit_models():
+    for model in kept:
         for field in model._meta.fields:
             if not field.is_relation or field.related_model is not User:
                 continue
@@ -445,9 +460,10 @@ def keep_links_to_accounts(using):
 
 def restore_database(json_path, using='default', include_audit=True):
     """Replace every backed-up record with the records of `json_path`, in ONE transaction: all of it or none of it. Returns how many records.
-    A backup made without the audit trail (`include_audit` False) leaves the activity log and the notifications as they are."""
+    The Audit Log is never replaced. A backup made without the audit trail (`include_audit` False) leaves the notifications as they are too."""
     connection = connections[using]
-    models = list(backed_up_models(using, include_audit))
+    models = [model for model in backed_up_models(using, include_audit) if model._meta.label_lower != AUDIT_LOG]
+    kept = [model for model in audit_models() if model not in models]
     by_model = {model: [] for model in models}
     with open(json_path, 'r', encoding='utf-8') as f:
         # A field or a model the system no longer has is skipped, so a backup of a slightly older version still goes back in.
@@ -463,6 +479,7 @@ def restore_database(json_path, using='default', include_audit=True):
     quote = connection.ops.quote_name
     total = 0
     with transaction.atomic(using=using):
+        remember_who(using)
         with connection.constraint_checks_disabled():
             with connection.cursor() as cursor:
                 for table in tables:
@@ -477,13 +494,12 @@ def restore_database(json_path, using='default', include_audit=True):
             # The Backup list is not replaced; an entry made by an account that the backup does not have keeps its name (made_by) only.
             accounts = get_user_model()._base_manager.using(using).values('pk')
             BackupRecord.objects.using(using).exclude(created_by__isnull=True).exclude(created_by__in=accounts).update(created_by=None)
-            if not include_audit:
-                keep_links_to_accounts(using)
+            keep_links_to_accounts(using, kept)
             with connection.cursor() as cursor:
                 for statement in connection.ops.sequence_reset_sql(no_style(), tables):
                     cursor.execute(statement)
         # every link between the restored records must hold, or the whole restore is undone
-        checked = tables + ([] if include_audit else audit_models())
+        checked = tables + kept
         connection.check_constraints(table_names=[table._meta.db_table for table in checked])
     return total
 
@@ -532,6 +548,10 @@ def run_restore(restore_id, safety_id, zip_path):
     restore.finished_at = timezone.now()
     # Only these columns: the account that asked may not be in the restored records any more.
     restore.save(update_fields=['status', 'records_count', 'files_count', 'detail', 'finished_at'])
+    done = restore.status == BackupRecord.Status.DONE
+    recorder.record(
+        get_user_model()._base_manager.filter(username=restore.made_by).first(), 'RESTORE',
+        f'{restore.name} finished' if done else f'{restore.name} failed: {restore.detail}', 'backups.backuprecord', user_name=restore.made_by)
 
 
 def start_restore(restore_id, safety_id, zip_path):

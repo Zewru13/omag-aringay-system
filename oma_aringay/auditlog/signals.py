@@ -1,6 +1,7 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
+from auditlog.capture import actor_of, current, staff_request_running
 from auditlog.middleware import get_current_user
 from auditlog.models import AuditLogEntry
 from auditlog.system_user import get_system_user
@@ -16,6 +17,10 @@ from production.models import HarvestRecord
 
 
 def _log(action, model_name, object_repr):
+    # A staff member's request gets ONE entry for the whole action (auditlog.recorder), so nothing is added per record here.
+    # This per-record entry is for everyone else: farmer, fisherfolk and cooperative accounts, and the system itself.
+    if staff_request_running():
+        return
     # Outside a real HTTP request (a management command, a shell script, a
     # one-off investigation script) there's no thread-local user to read —
     # this used to just return here, silently losing the entry entirely.
@@ -23,7 +28,8 @@ def _log(action, model_name, object_repr):
     # this signal covers gets a real entry, always correctly attributed
     # either to who actually did it (a real request) or to the fact that
     # it happened outside the app (the system account) — never neither.
-    user = get_current_user() or get_system_user()
+    collector = current()
+    user = (actor_of(collector.request) if collector is not None else get_current_user()) or get_system_user()
     AuditLogEntry.objects.create(
         user=user,
         action=action,
@@ -32,10 +38,17 @@ def _log(action, model_name, object_repr):
     )
 
 
+RESET_BY_LINK = {'password', 'must_change_password', 'temp_password_expires_at'}
+
+
 # ── accounts.User ─────────────────────────────────────────────────────────────
 
 @receiver(post_save, sender=User)
-def on_user_save(sender, instance, created, **kwargs):
+def on_user_save(sender, instance, created, update_fields=None, **kwargs):
+    if update_fields and set(update_fields) == {'last_login'}:
+        return   # signing in changes nothing about the account; staff sign-ins have their own entry
+    if update_fields and set(update_fields) == RESET_BY_LINK and instance.role != User.Roles.CITIZEN:
+        return   # a staff password reset from the e-mail link has its own entry, in the person's name (accounts.password_reset)
     action = AuditLogEntry.Action.CREATE if created else AuditLogEntry.Action.UPDATE
     _log(action, 'User', f'{instance.full_name} ({instance.email})')
 
