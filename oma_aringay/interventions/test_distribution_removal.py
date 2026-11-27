@@ -240,9 +240,10 @@ class RemovalTests(APITestCase):
             record = self.records(domain)[0]
             before = AuditLogEntry.objects.count()
             self.remove(domain, record_ids=[record.id])
-            entries = AuditLogEntry.objects.order_by('-id')[:AuditLogEntry.objects.count() - before]
-            self.assertTrue(any('Removed from the list' in e.object_repr and e.user_id == self.ctx[domain]['user'].id
-                                for e in entries), domain)
+            entries = list(AuditLogEntry.objects.order_by('-id')[:AuditLogEntry.objects.count() - before])
+            self.assertEqual(len(entries), 1, (domain, [e.object_repr for e in entries]))   # one entry for the whole removal
+            self.assertTrue(entries[0].object_repr.startswith('Removed people from an assistance distribution'), entries[0].object_repr)
+            self.assertEqual(entries[0].user_id, self.ctx[domain]['user'].id, domain)
 
     # concurrency ------------------------------------------------------------------------
     def test_an_entry_confirmed_between_the_read_and_the_lock_is_kept(self):

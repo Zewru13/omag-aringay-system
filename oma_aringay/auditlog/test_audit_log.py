@@ -1,6 +1,7 @@
-"""The Audit Log: everything the staff do is recorded, one entry per action, with a plain description and the old and new values;
-sign-ins and failed sign-ins and report downloads too. Page visits, reading notices and trial runs are not. Passwords, keys and
-whatever was typed into a failed sign-in are never stored. What other accounts change is recorded as it always was."""
+"""The Audit Log: what every signed-in account does is recorded, one entry per action, with a plain description and the old and new
+values; file downloads too, and the sign-ins, sign-outs and failed sign-ins of staff (not those of farmers, fisherfolk and
+cooperatives). Page visits, reading notices and trial runs are not. Passwords, keys and whatever was typed into a failed sign-in are
+never stored. What a script saves outside a request is noted record by record under the system account."""
 import json
 from datetime import date, timedelta
 
@@ -15,14 +16,17 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIRequestFactory, APITestCase
 
 from accounts.models import UserLinkedRecord
+from associations.models import FarmersOrganization, FarmersOrganizationMember
 from auditlog import capture
 from auditlog.catalog import ROUTES
 from auditlog.models import AuditLogEntry
+from auditlog.system_user import SYSTEM_AUTOMATION_USER_EMAIL
 from core.models import ProfileChangeRequest
 from core.test_profile_consent import STAFF_URL, ConsentFixture, make_farmer
 from farmers.models import Farmer
 from interventions.models import BeneficiaryRecord
-from production.models import CropMonitoringRecord, CropType, SeedSource
+from interventions.test_helpers import make_org
+from production.models import CropDisasterReport, CropMonitoringRecord, CropType, SeedSource
 
 User = get_user_model()
 SOURCES = '/api/production/seed-sources/'
@@ -254,13 +258,113 @@ class ApprovalAndOtherAccountsTests(ConsentFixture, APITestCase):
         barangay = [f for c in found[0].details['changes'] for f in c['fields'] if f['field'] == 'Barangay']
         self.assertEqual([(f['old'], f['new']) for f in barangay], [('Alaska', 'Basca')])
 
-    def test_what_a_citizen_changes_is_still_recorded_as_before(self):
+    def test_a_citizen_gets_one_entry_with_what_changed(self):
         AuditLogEntry.objects.all().delete()
         self.client.force_authenticate(self.farmer_user)
         res = self.client.patch('/api/profile/contact-number/', {'contact_number': '09170002222'}, format='json')
         self.assertEqual(res.status_code, 200, res.content)
-        found = entries_of(self.farmer_user)
-        self.assertEqual([(e.action, e.model_name) for e in found], [('UPDATE', 'Farmer')])
+        self.assertEqual(AuditLogEntry.objects.count(), 1, 'one entry for the action, nothing per record')
+        entry = entries_of(self.farmer_user)[0]
+        self.assertEqual((entry.action, entry.module), ('UPDATE', 'Sign-in & Account'))
+        self.assertTrue(entry.object_repr.startswith('Updated a contact number'), entry.object_repr)
+        values = [f['new'] for c in entry.details['changes'] for f in c['fields'] if f['field'] == 'Contact number']
+        self.assertIn('09170002222', values)
+
+
+class CitizenActionTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.farmer, cls.other = make_farmer('Cita'), make_farmer('Otro')
+        cls.user = make_citizen('al-own-farmer', 'FARMER', cls.farmer.id)
+        rice = CropType.objects.create(name='Citizen Rice', days_to_harvest=100)
+
+        def crop(owner):
+            return CropMonitoringRecord.objects.create(
+                farmer=owner, crop_type=rice, season='Wet', year=2026, farm_location_barangay='Alaska', land_status='Owner',
+                area_planted_ha='1.00', status='Planted', date_planted=date.today() - timedelta(days=40), variety_used='')
+
+        cls.crop, cls.others_crop = crop(cls.farmer), crop(cls.other)
+
+    def setUp(self):
+        cache.clear()
+        AuditLogEntry.objects.all().delete()
+        self.client.force_authenticate(self.user)
+
+    def log_activity(self, crop):
+        return self.client.post(f'/api/production/monitoring/{crop.id}/logs/', {
+            'monitoring_record': crop.id, 'activity_type': 'Weeding', 'date_of_activity': str(date.today()), 'notes': 'Weeded'}, format='json')
+
+    def only_entry(self):
+        found = list(AuditLogEntry.objects.all())
+        self.assertEqual(len(found), 1, [e.object_repr for e in found])
+        return found[0]
+
+    def test_a_farmer_logging_an_activity_is_recorded(self):
+        res = self.log_activity(self.crop)
+        self.assertEqual(res.status_code, 201, res.content)
+        entry = self.only_entry()
+        self.assertEqual((entry.user_id, entry.action, entry.module), (self.user.id, 'CREATE', 'Crop Management'))
+        self.assertTrue(entry.object_repr.startswith('Logged a crop activity: '), entry.object_repr)
+
+    def test_a_cooperative_logging_for_a_member_is_shown_as_who(self):
+        coop = make_org(FarmersOrganization, 'Log Coop')
+        FarmersOrganizationMember.objects.create(organization=coop, farmer=self.farmer, date_joined=date(2025, 1, 1))
+        coop_user = make_citizen('al-own-coop', 'FARMERS_ORG', coop.id)
+        User.objects.filter(pk=self.user.pk).update(is_active=False)    # the member has not activated an account
+        AuditLogEntry.objects.all().delete()                             # creating the accounts above is noted too
+        self.client.force_authenticate(coop_user)
+        res = self.client.post('/api/production/monitoring/bulk-logs/', {
+            'record_ids': [self.crop.id], 'activity_type': 'Weeding', 'date_of_activity': str(date.today()), 'notes': 'x'}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertEqual((self.only_entry().user_id, self.only_entry().module), (coop_user.id, 'Crop Management'))
+
+    def test_a_citizen_reporting_a_disaster_is_recorded(self):
+        res = self.client.post(f'/api/production/monitoring/{self.crop.id}/disasters/', {
+            'monitoring_record': self.crop.id, 'disaster_type': 'Typhoon', 'date_of_occurrence': str(date.today()),
+            'estimated_damage': 'Flattened', 'area_affected_ha': '0.50'}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        entry = self.only_entry()
+        self.assertEqual((entry.user_id, entry.module), (self.user.id, 'Disaster'))
+
+    def test_a_refused_citizen_request_leaves_no_entry_and_no_error(self):
+        res = self.log_activity(self.others_crop)
+        self.assertIn(res.status_code, (400, 403, 404), res.content)
+        self.assertEqual(AuditLogEntry.objects.count(), 0)
+
+    def test_a_citizen_download_is_recorded(self):
+        report = CropDisasterReport.objects.create(monitoring_record=self.crop, disaster_type='Typhoon',
+                                                   date_of_occurrence=date.today(), estimated_damage='x')
+        AuditLogEntry.objects.all().delete()
+        res = self.client.get(f'/api/production/disaster-logs/{report.id}/pdf/')
+        self.assertEqual(res.status_code, 200)
+        entry = self.only_entry()
+        self.assertEqual((entry.action, entry.user_id, entry.module), ('DOWNLOAD', self.user.id, 'Disaster'))
+
+    def test_a_citizen_signing_out_is_not_recorded(self):
+        self.client.force_authenticate(None)
+        tokens = self.client.post(LOGIN, {'email': self.user.email, 'password': 'Citizen-pass#2026'}, format='json').data
+        res = self.client.post('/api/accounts/logout/', {'refresh': tokens['refresh']}, format='json',
+                               HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual([e.object_repr for e in AuditLogEntry.objects.all()], [])
+
+    def test_a_citizen_password_reset_from_the_link_is_one_entry_without_the_password(self):
+        self.client.force_authenticate(None)
+        link = {'uid': urlsafe_base64_encode(force_bytes(self.user.pk)), 'token': default_token_generator.make_token(self.user)}
+        res = self.client.post('/api/accounts/reset-password/', {
+            **link, 'new_password': 'Brand-new-Pass#3162', 'confirm_new_password': 'Brand-new-Pass#3162'}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        entry = self.only_entry()
+        self.assertEqual((entry.user_id, entry.object_repr, entry.module),
+                         (self.user.id, 'Reset their password from the e-mail link', 'Sign-in & Account'))
+        self.assertNotIn('Brand-new-Pass#3162', everything_stored())
+
+    def test_a_script_save_is_still_noted_by_the_system_account(self):
+        self.client.force_authenticate(None)
+        self.farmer.contact_number = '09170003333'
+        self.farmer.save()
+        entry = self.only_entry()
+        self.assertEqual((entry.model_name, entry.user_email), ('Farmer', SYSTEM_AUTOMATION_USER_EMAIL))
 
 
 class SignInTests(APITestCase):

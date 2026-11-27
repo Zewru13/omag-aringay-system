@@ -1,4 +1,5 @@
-"""Writes the Audit Log entries of what staff do: one per successful changing request and per downloaded file, plus sign-ins.
+"""Writes the Audit Log entries of what signed-in accounts do: one per successful changing request and per downloaded file, plus the
+sign-ins of staff.
 
 Recording must never break what is being done, so every public function here swallows (and logs) its own errors. Nothing typed by
 anyone is stored: only the words of auditlog.catalog and what auditlog.capture read from the saved records.
@@ -11,16 +12,18 @@ from django.contrib.auth import get_user_model
 from auditlog import catalog
 from auditlog.capture import actor_of, is_staff
 from auditlog.models import AuditLogEntry
+from auditlog.modules import ACCOUNT, module_of
 
 logger = logging.getLogger(__name__)
 
 WRITE_METHODS = ('POST', 'PUT', 'PATCH', 'DELETE')
 
 
-def record(user, action, text, model_name='', details=None, user_name=''):
+def record(user, action, text, model_name='', details=None, user_name='', module=''):
     """One entry. An account that is no longer there (a restore can remove it) is kept by name only."""
     try:
-        fields = {'action': action, 'model_name': model_name[:100], 'object_repr': text[:255], 'details': details}
+        fields = {'action': action, 'model_name': model_name[:100], 'object_repr': text[:255], 'details': details,
+                  'module': module[:40]}
         if user is not None:
             fields['user_name'] = (user.full_name or user.get_username())[:255]
             fields['user_email'] = (user.email or '')[:254]
@@ -36,14 +39,14 @@ def record(user, action, text, model_name='', details=None, user_name=''):
 
 def signed_in(user):
     if is_staff(user):
-        record(user, 'SIGN_IN', 'Signed in', 'accounts.user')
+        record(user, 'SIGN_IN', 'Signed in', 'accounts.user', module=ACCOUNT)
 
 
 def sign_in_failed(user, reason):
     """A refused sign-in on a staff account, or for something that is no account at all (what was typed is not kept: people do type
     a password into the first box). Farmers, fisherfolk and cooperatives are not recorded."""
     if user is None or is_staff(user):
-        record(user, 'SIGN_IN_FAILED', f'Failed sign-in: {reason}', 'accounts.user')
+        record(user, 'SIGN_IN_FAILED', f'Failed sign-in: {reason}', 'accounts.user', module=ACCOUNT)
 
 
 def _file_name(response):
@@ -66,20 +69,20 @@ def _headline(changes, more):
 
 
 def record_request(request, response, collector):
-    """After a request: the entry for what a staff member changed or downloaded, if anything."""
+    """After a request: the entry for what a signed-in account changed or downloaded, if anything."""
     try:
         match = getattr(request, 'resolver_match', None)
         if match is None or response.status_code >= 400:
             return
         user = actor_of(request)
-        if not is_staff(user):
+        if user is None:
             return
         route = match.route[len('api/'):] if match.route.startswith('api/') else match.route
         name = _file_name(response)
         if name is not None:
             if 'template' not in route:      # blank import forms are not records
                 words = 'Downloaded a backup file' if route.startswith('backups/') else 'Downloaded a file'
-                record(user, 'DOWNLOAD', f'{words}: {name}', 'download')
+                record(user, 'DOWNLOAD', f'{words}: {name}', 'download', module=module_of(route))
             return
         if request.method not in WRITE_METHODS:
             return
@@ -88,7 +91,10 @@ def record_request(request, response, collector):
         if found is None:
             return
         action, text = found
+        if action == 'SIGN_OUT' and not is_staff(user):
+            return                                       # like their sign-ins, not recorded
         changes, more = collector.finish() if collector is not None else ([], 0)
+        people = collector.people if collector is not None else []
         if action == 'IMPORT' and isinstance(data, dict) and isinstance(data.get('created'), int):
             text = f'{text} ({data["created"]} added)'
         headline = _headline(changes, more)
@@ -96,6 +102,7 @@ def record_request(request, response, collector):
             headline = str(data.get('name') or '')       # a backup and a restore are known by their name
         main_model = next((c['model'] for c in changes if c['model'] not in ('accounts.user', 'accounts.userlinkedrecord')), '')
         record(user, action, f'{text}: {headline}' if headline else text, main_model,
-               {'changes': changes, 'more': more} if changes or more else None)
+               {'changes': changes, 'more': more, 'people': people} if changes or more or people else None,
+               module=module_of(route, changes))
     except Exception:
         logger.exception('Recording a request in the Audit Log failed (non-fatal): %s %s', request.method, request.path)

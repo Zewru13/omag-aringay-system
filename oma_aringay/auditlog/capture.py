@@ -1,4 +1,4 @@
-"""What one request of a staff member changes, gathered while it runs, for its single Audit Log entry.
+"""What one request of a signed-in account changes, gathered while it runs, for its single Audit Log entry.
 
 Each record is remembered the first time the request touches it (how it was before). When the request is over, the records are read
 again and compared, so the entry says what is really in the database now: a change that was rolled back is not listed. Passwords
@@ -64,10 +64,10 @@ def current():
     return getattr(_local, 'collector', None)
 
 
-def staff_request_running():
-    """True while a staff member's changing request is running: its one entry covers what it saves."""
+def request_being_recorded():
+    """True while a signed-in account's changing request is running: its one entry covers what it saves."""
     collector = current()
-    return collector is not None and is_staff(actor_of(collector.request))
+    return collector is not None and actor_of(collector.request) is not None
 
 
 def _change_request_name(request):
@@ -159,12 +159,23 @@ def _show(field, value):
     return str(value)[:MAX_TEXT]
 
 
+def _owner(record):
+    """Whom the record is about, found now while its links still exist. Never raises."""
+    try:
+        from auditlog import people     # reads the apps' models, which are not ready while this module is imported
+        return people.owner_of(record)
+    except Exception:
+        logger.exception('Naming whom a change is about failed (non-fatal): %s', type(record).__name__)
+        return None
+
+
 class Collector:
     def __init__(self, request):
         self.request = request
         self.records = {}    # (model, pk) -> {'kind', 'before', 'name'}, in the order first touched
         self.waiting = {}    # (model, pk) -> how it was, between pre_save and post_save
         self.more = set()    # touched after the list was full
+        self.people = []     # whom the listed changes are about (auditlog.people), filled by finish()
 
     def _full(self, key):
         if len(self.records) >= MAX_RECORDS:
@@ -187,7 +198,8 @@ class Collector:
         before = self.waiting.pop(key, None)
         if key in self.records or self._full(key):
             return
-        self.records[key] = {'kind': 'created' if created else 'updated', 'before': before, 'name': label_of(record)}
+        self.records[key] = {'kind': 'created' if created else 'updated', 'before': before, 'name': label_of(record),
+                             'owner': _owner(record)}
 
     def before_delete(self, record):
         key = (type(record), record.pk)
@@ -196,7 +208,7 @@ class Collector:
             seen['kind'] = 'added and removed' if seen['kind'] == 'created' else 'deleted'
             return
         if not self._full(key):
-            self.records[key] = {'kind': 'deleted', 'before': _snapshot(record), 'name': label_of(record)}
+            self.records[key] = {'kind': 'deleted', 'before': _snapshot(record), 'name': label_of(record), 'owner': _owner(record)}
 
     def finish(self):
         """(changes, how many more records were touched than are listed). One query for each kind of record, to see how it is now."""
@@ -204,7 +216,7 @@ class Collector:
         for model, pk in self.records:
             wanted.setdefault(model, []).append(pk)
         now = {(model, row.pk): row for model, pks in wanted.items() for row in model._base_manager.filter(pk__in=pks)}
-        changes = []
+        changes, owners = [], []
         for key, seen in self.records.items():
             model, record, kind, before = key[0], now.get(key), seen['kind'], seen['before']
             if kind == 'created' and record is not None:
@@ -218,10 +230,13 @@ class Collector:
                 fields = [self._field(f, before[f.attname], None) for f in _kept_fields(model, True) if not _empty(before[f.attname])]
             else:
                 continue    # rolled back, or added and removed again
+            owners.append(seen['owner'])
             changes.append({
                 'record': _title(model._meta.verbose_name), 'model': model._meta.label_lower, 'change': kind,
                 'name': label_of(record) if record is not None else seen['name'], 'fields': fields,
             })
+        from auditlog.people import unique
+        self.people = unique(owners)
         return changes, len(self.more)
 
     @staticmethod
@@ -233,7 +248,7 @@ def _collector_for(sender):
     collector = current()
     if collector is None or sender._meta.app_label not in OUR_APPS or sender._meta.label_lower in NOT_TRACKED:
         return None
-    return collector if is_staff(actor_of(collector.request)) else None
+    return collector if actor_of(collector.request) is not None else None
 
 
 @receiver(pre_save, dispatch_uid='audit_capture_pre_save')
