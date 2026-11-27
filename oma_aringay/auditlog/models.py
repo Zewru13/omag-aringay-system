@@ -32,6 +32,8 @@ class AuditLogEntry(models.Model):
     # who it was, kept as text: a restore can remove the account
     user_name = models.CharField(max_length=255, blank=True, default='')
     user_email = models.CharField(max_length=254, blank=True, default='')
+    # the part of the system, named the way the menu names it (auditlog.modules); '' where it cannot be told
+    module = models.CharField(max_length=40, blank=True, default='')
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:

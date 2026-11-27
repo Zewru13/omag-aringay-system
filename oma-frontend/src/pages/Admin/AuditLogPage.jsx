@@ -1,274 +1,31 @@
-import { useEffect, useState } from 'react'
-import { Bot } from 'lucide-react'
-import api from '../../api/axiosInstance.js'
-import EmptyState from '../../components/UI/EmptyState.jsx'
-import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
-import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
+import { useSearchParams } from 'react-router-dom'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
-import Button from '../../components/UI/Button.jsx'
-import StatusPill from '../../components/UI/StatusPill.jsx'
-import FilterPanel from '../../components/UI/FilterPanel.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import { DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
-import AuditEntryWindow from './AuditEntryWindow.jsx'
-import { ACTION_OPTIONS, actionLabel, actionTone } from './auditLog.js'
+import PillTabs from '../../components/UI/PillTabs.jsx'
+import AuditActivityTab from './AuditActivityTab.jsx'
+import AuditHistoryTab from './AuditHistoryTab.jsx'
+import { historyTarget } from './auditLog.js'
 
-// Entries attributed to the shared system/automation account (a real save
-// that happened outside a real HTTP request — a management command, a
-// shell script — so there was no logged-in staff member to attribute it
-// to). Icon + text, not color alone, matching how the rest of the app
-// marks anything that needs to read as unmistakably distinct at a glance.
-function SystemUserBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F0F4F0] px-2.5 py-1 text-[12px] font-medium text-[#5A6B5C]">
-      <Bot size={13} aria-hidden="true" />
-      System / Automation
-    </span>
-  )
-}
-
-function formatTimestamp(ts) {
-  return new Intl.DateTimeFormat('en-PH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(ts))
-}
+// Admin > Audit Log: All Activity, and the history of one farmer, fisherfolk or cooperative. The tab, and whom a history shows, are
+// in the address, so a "View history" link opens it and Back returns.
+const TABS = [
+  { id: 'all', label: 'All Activity' },
+  { id: 'farmer', label: 'Farmer History' },
+  { id: 'fisherfolk', label: 'Fisherfolk History' },
+  { id: 'cooperative', label: 'Cooperative History' },
+]
 
 function AuditLogPage() {
-  const [entries, setEntries] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [opened, setOpened] = useState(null)   // the entry shown in the details window
-
-  const [action, setAction] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-
-  const [page, setPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [hasNext, setHasNext] = useState(false)
-  const [hasPrev, setHasPrev] = useState(false)
-
-  const PAGE_SIZE = 20
-
-  const load = async (currentPage = 1) => {
-    setIsLoading(true)
-    setError('')
-    try {
-      const params = new URLSearchParams()
-      params.set('page', currentPage)
-      if (action) params.set('action', action)
-      if (dateFrom) params.set('date_from', dateFrom)
-      if (dateTo) params.set('date_to', dateTo)
-
-      const response = await api.get(`/auditlog/?${params.toString()}`)
-      const data = response.data
-      setEntries(data.results ?? data)
-      setTotalCount(data.count ?? (data.results?.length ?? 0))
-      setHasNext(Boolean(data.next))
-      setHasPrev(Boolean(data.previous))
-    } catch (err) {
-      const detail = err.response?.data?.detail || err.message || 'Unknown server error'
-      setError(`Unable to load audit log. ${detail}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    setPage(1)
-    load(1)
-  }, [action, dateFrom, dateTo])
-
-  const goToPage = (newPage) => {
-    setPage(newPage)
-    load(newPage)
-  }
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-
-  const activeFilterCount = [action, dateFrom, dateTo].filter(Boolean).length
-  // A phone card opens its entry with the finger or the keyboard. In the table the whole row can be clicked, and the description is
-  // the button the keyboard reaches.
-  const opens = (entry) => ({
-    role: 'button', tabIndex: 0, onClick: () => setOpened(entry),
-    onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpened(entry) } },
-    'aria-label': `Open the entry: ${entry.object_repr}`,
-  })
+  const [params, setParams] = useSearchParams()
+  const { tab, kind, id } = historyTarget(params)
 
   return (
-    <PageLayout title="Audit Log" subtitle="Who did what and when. Click an entry to see the details.">
-      <div className="space-y-5">
-        {/* Filters — no free-text search field exists for this list, so the
-            panel is filters-only (see FilterPanel's optional search box). */}
-        <FilterPanel activeCount={activeFilterCount}>
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
-            Action
-            <select
-              className={baseInputClasses}
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-            >
-              {ACTION_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className={DATE_FILTER_LABEL}>
-            Date From
-            <input
-              className={baseInputClasses}
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </label>
-
-          <label className={DATE_FILTER_LABEL}>
-            Date To
-            <input
-              className={baseInputClasses}
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </label>
-
-          {activeFilterCount > 0 && (
-            <Button
-              onClick={() => { setAction(''); setDateFrom(''); setDateTo('') }}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Clear filters
-            </Button>
-          )}
-        </FilterPanel>
-
-        {isLoading && <LoadingSpinner message="Loading audit log..." />}
-        {!isLoading && error && <ErrorMessage message={error} onRetry={() => load(page)} />}
-        {!isLoading && !error && entries.length === 0 && (
-          <EmptyState message="No audit log entries found." />
-        )}
-
-        {!isLoading && !error && entries.length > 0 && (
-          <>
-            {/* Mobile cards */}
-            <div className="block space-y-3 md:hidden">
-              {entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  {...opens(entry)}
-                  className="cursor-pointer rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:bg-[#F9FAF9]"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <StatusPill tone={actionTone(entry.action)}>
-                      {actionLabel(entry.action)}
-                    </StatusPill>
-                    <p className="text-[12px] text-[#7A8E7A]">{formatTimestamp(entry.timestamp)}</p>
-                  </div>
-                  <p className="mt-2 text-[13px] font-semibold text-[#1A2B1A]">{entry.object_repr}</p>
-                  <div className="mt-2 space-y-0.5 text-[12px] text-[#4A5E4A]">
-                    <p className="flex items-center gap-1.5">
-                      <span className="font-medium">User:</span>
-                      {entry.user?.is_system
-                        ? <SystemUserBadge />
-                        : (entry.user?.full_name || entry.user?.email || <span className="italic text-[#A8BCA8]">System</span>)
-                      }
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:block">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left">
-                  <thead className="bg-[#1B4D2E]">
-                    <tr>
-                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white whitespace-nowrap">Date / Time</th>
-                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">User</th>
-                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Action</th>
-                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entries.map((entry) => (
-                      <tr key={entry.id} onClick={() => setOpened(entry)} className="cursor-pointer border-b border-[#F0F4F0] hover:bg-[#F9FAF9] focus-within:bg-[#F0F4F0]">
-                        <td className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#7A8E7A]">
-                          {formatTimestamp(entry.timestamp)}
-                        </td>
-                        <td className="px-4 py-[13px]">
-                          {entry.user?.is_system ? (
-                            <SystemUserBadge />
-                          ) : entry.user ? (
-                            <>
-                              <p className="text-[13px] font-medium text-[#1A2B1A]">
-                                {entry.user.full_name}
-                              </p>
-                              {entry.user.email && (
-                                <p className="text-[12px] text-[#7A8E7A]">{entry.user.email}</p>
-                              )}
-                            </>
-                          ) : (
-                            <p className="text-[13px] italic text-[#A8BCA8]">System</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-[13px]">
-                          <StatusPill tone={actionTone(entry.action)}>
-                            {actionLabel(entry.action)}
-                          </StatusPill>
-                        </td>
-                        <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
-                          {/* the click reaches the row, which opens the entry */}
-                          <button type="button" className="cursor-pointer break-words text-left hover:underline">{entry.object_repr}</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between rounded-xl border border-[#E2E8E2] bg-white px-4 py-3">
-              <p className="text-[13px] text-[#4A5E4A]">
-                Page {page} of {totalPages}
-                {totalCount > 0 && (
-                  <span className="ml-2 text-[#7A8E7A]">({totalCount} entries)</span>
-                )}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  disabled={!hasPrev}
-                  onClick={() => goToPage(page - 1)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Previous
-                </Button>
-                <Button
-                  disabled={!hasNext}
-                  onClick={() => goToPage(page + 1)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
+    <PageLayout title="Audit Log">
+      <div className="space-y-4">
+        <PillTabs ariaLabel="Audit Log views" tabs={TABS} value={tab} onChange={(id) => setParams(id === 'all' ? {} : { tab: id })} />
+        {tab === 'all'
+          ? <AuditActivityTab />
+          : <AuditHistoryTab key={tab} tab={tab} kind={kind} id={id} />}
       </div>
-      {opened && <AuditEntryWindow entry={opened} onClose={() => setOpened(null)} />}
     </PageLayout>
   )
 }

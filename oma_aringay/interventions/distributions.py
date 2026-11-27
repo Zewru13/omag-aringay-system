@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from auditlog.capture import staff_request_running
+from auditlog.capture import request_being_recorded
 from auditlog.models import AuditLogEntry
 from core.utils import build_name_search_q
 
@@ -213,7 +213,7 @@ def remove_records(domain, user, record_ids=None, distribution=None):
             record.confirmation_requests.filter(status='PENDING').update(
                 status='REJECTED', reviewed_by=user, reviewed_at=now,
                 rejection_reason='The assistance was removed from the list.')
-            if not staff_request_running():   # staff get one entry for the whole removal, which lists each record
+            if not request_being_recorded():   # a request gets one entry for the whole removal, which lists each record
                 AuditLogEntry.objects.create(
                     user=user, action=AuditLogEntry.Action.UPDATE, model_name=model.__name__,
                     object_repr=f'Removed from the list: {record.assistance_type} for {getattr(record, person_field).full_name} '

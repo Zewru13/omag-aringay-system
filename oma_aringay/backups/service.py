@@ -40,6 +40,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from auditlog import recorder
+from auditlog.modules import BACKUP as BACKUP_MODULE
 
 from .models import BackupRecord
 
@@ -551,7 +552,8 @@ def run_restore(restore_id, safety_id, zip_path):
     done = restore.status == BackupRecord.Status.DONE
     recorder.record(
         get_user_model()._base_manager.filter(username=restore.made_by).first(), 'RESTORE',
-        f'{restore.name} finished' if done else f'{restore.name} failed: {restore.detail}', 'backups.backuprecord', user_name=restore.made_by)
+        f'{restore.name} finished' if done else f'{restore.name} failed: {restore.detail}', 'backups.backuprecord',
+        user_name=restore.made_by, module=BACKUP_MODULE)
 
 
 def start_restore(restore_id, safety_id, zip_path):

@@ -17,6 +17,7 @@ from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from auditlog import recorder
+from auditlog.modules import ACCOUNT
 from core.mailer import in_background
 
 from .login_email import normalize
@@ -167,6 +168,6 @@ class ResetPasswordView(APIView):
         except Exception:
             logger.exception('Token blacklist failed after password reset (non-fatal): user_id=%s', user.pk)
         in_background(send_password_changed_email, user)
-        if user.role != User.Roles.CITIZEN:   # done while signed out, so it would otherwise not be in the staff member's name
-            recorder.record(user, 'UPDATE', 'Reset their password from the e-mail link', 'accounts.user')
+        # done while signed out, so it would otherwise not be in the person's name
+        recorder.record(user, 'UPDATE', 'Reset their password from the e-mail link', 'accounts.user', module=ACCOUNT)
         return Response({'detail': 'Your password has been changed. Sign in with your new password.'})
