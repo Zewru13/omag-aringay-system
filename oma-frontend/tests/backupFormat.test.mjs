@@ -61,8 +61,8 @@ eq(JSON.stringify(restoreChange({ in_file: 9, now: 5 })), JSON.stringify({ text:
 eq(JSON.stringify(restoreChange({ in_file: 3, now: 5 })), JSON.stringify({ text: '2 removed', tone: 'removed' }), 'more now than in the file')
 eq(restoreChange({ in_file: 1200, now: 1 }).text, '1,199 put back', 'big numbers have separators')
 eq(JSON.stringify(restoreChange({ in_file: null, now: 160, kept: true })), JSON.stringify({ text: 'Kept as it is', tone: 'kept' }), 'a group the file leaves out')
-eq(restoreHeadline({ records: { in_file: 1200, now: 1300 }, files: { in_file: 35 } }), '1,200 records and 35 files in this backup. The system holds 1,300 records now.', 'the headline')
-eq(restoreHeadline({ records: { in_file: 1, now: 1 }, files: { in_file: 1 } }), '1 record and 1 file in this backup. The system holds 1 record now.', 'singular')
+eq(restoreHeadline({ records: { in_file: 1200, now: 1300 }, files: { in_file: 35 } }), '1,200 records and 35 files will be put back, in place of 1,300 records held now. The Audit Log is kept.', 'the headline')
+eq(restoreHeadline({ records: { in_file: 1, now: 1 }, files: { in_file: 1 } }), '1 record and 1 file will be put back, in place of 1 record held now. The Audit Log is kept.', 'singular')
 
 // the page downloads by itself the backup it just made, and the safety backup of the restore it just ran
 const rows = [
@@ -103,7 +103,7 @@ ok(leaveGuard.includes("'beforeunload'") && leaveGuard.includes("'popstate'"), '
 ok(/export default function useLeaveGuard\(active\)/.test(leaveGuard) && /removeEventListener\('beforeunload'/.test(leaveGuard), 'it lets go the moment the work is done')
 ok(page.includes("'/backups/summary/'"), 'the Create backup tab shows what a backup holds, from the server')
 const groupsFile = readFileSync(new URL('../src/pages/Backup/BackupGroups.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
-ok(groupsFile.includes('Include the audit trail and notification history') && page.includes('include_audit'), 'the audit trail is an optional tick')
+ok(groupsFile.includes('Include the Audit Log and notification history') && page.includes('include_audit'), 'the audit trail is an optional tick')
 ok(page.includes('Download backup'), 'the button is Download backup')
 const restoreTab = readFileSync(new URL('../src/pages/Backup/RestoreModal.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 ok(restoreTab.includes("'/backups/restore/preview/'") && restoreTab.includes("'/backups/restore/'"), 'the Restore tab previews the dropped file, then restores it')

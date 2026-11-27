@@ -342,15 +342,19 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
 
     def test_restore_gives_back_exactly_what_was_backed_up(self):
-        # every record, its dates, its many-to-many links - and nothing more (no activity-log entry is written by the restore itself)
+        # every record, its dates, its many-to-many links - and nothing more. The Audit Log is the exception: a restore keeps it and adds to it.
         self.admin.groups.add(Group.objects.create(name='bk-group'))
-        before = self.dump()
+
+        def restored():
+            return [row for row in self.dump() if row['model'] != 'auditlog.auditlogentry']
+
+        before = restored()
         record = self.make()
         self.change_things()
-        self.assertNotEqual(self.dump(), before)
+        self.assertNotEqual(restored(), before)
         self.assertEqual(self.restore(record).status_code, 202)
         self.assertEqual(BackupRecord.objects.get(kind='restore').status, 'done')
-        self.assertEqual(self.dump(), before)
+        self.assertEqual(restored(), before)
         self.assertEqual(list(self.admin.groups.values_list('name', flat=True)), ['bk-group'])
 
     def test_new_records_can_be_added_after_a_restore(self):
@@ -509,8 +513,10 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(r.status_code, 200, r.content)
         groups = {g['key']: g for g in r.json()['groups']}
         self.assertGreaterEqual(groups['farmers']['count'], 1)
-        self.assertGreaterEqual(groups['audit']['count'], 2)
-        self.assertTrue(groups['audit']['optional'])
+        self.assertGreaterEqual(groups['audit']['count'], 1)
+        self.assertGreaterEqual(groups['notifications']['count'], 1)
+        self.assertTrue(groups['audit']['optional'] and groups['notifications']['optional'])
+        self.assertEqual(groups['audit']['label'], 'Audit Log')
         self.assertFalse(groups['farmers']['optional'])
         for group in groups.values():
             self.assertTrue(group['label'] and group['description'])
@@ -544,24 +550,47 @@ class BackupTests(TransactionTestCase):
         later = get_user_model().objects.create_user(username='bk-later', password='pw', role='CITIZEN', email='bl@x.test')
         self.make_audit_things(self.admin)
         self.make_audit_things(later)
-        entries_before = AuditLogEntry.objects.count()
+        entries_before = set(AuditLogEntry.objects.values_list('id', flat=True))
         self.assertEqual(self.restore(record).status_code, 202)
         done = BackupRecord.objects.get(kind='restore')
         self.assertEqual(done.status, 'done', done.detail)
         self.assertFalse(get_user_model().objects.filter(username='bk-later').exists())          # that account is not in the backup
-        self.assertEqual(AuditLogEntry.objects.count(), entries_before)                         # the log is kept as it was
+        self.assertTrue(entries_before <= set(AuditLogEntry.objects.values_list('id', flat=True)))   # the log is kept as it was
         self.assertTrue(AuditLogEntry.objects.filter(object_repr='Test entry', user__isnull=True).exists())   # ... the gone account's entry names nobody now
         self.assertTrue(Notification.objects.filter(recipient=self.admin, verb='did something').exists())
         self.assertFalse(Notification.objects.filter(verb='did something').exclude(recipient=self.admin).exists())   # a notification for a gone account goes
 
-    def test_restoring_a_full_backup_still_replaces_the_log_and_the_notifications(self):
+    def test_restoring_a_full_backup_keeps_the_audit_log_and_replaces_the_notifications(self):
+        from auditlog.models import AuditLogEntry
+        from core.models import Notification
         self.make_audit_things()
         record = self.make()
-        before = self.audit_counts()
+        notifications_then = Notification.objects.count()
         self.make_audit_things()
-        self.assertNotEqual(self.audit_counts(), before)
+        kept = set(AuditLogEntry.objects.values_list('id', 'object_repr', 'timestamp'))
         self.assertEqual(self.restore(record).status_code, 202)
-        self.assertEqual(self.audit_counts(), before)
+        self.assertTrue(kept <= set(AuditLogEntry.objects.values_list('id', 'object_repr', 'timestamp')), 'every entry is still there, unchanged')
+        self.assertEqual(Notification.objects.count(), notifications_then)
+
+    def test_a_restore_is_in_the_audit_log_when_it_starts_and_when_it_finishes(self):
+        from auditlog.models import AuditLogEntry
+        record = self.make(name='October copy')
+        AuditLogEntry.objects.all().delete()
+        self.assertEqual(self.restore(record).status_code, 202)
+        found = {e.object_repr: e for e in AuditLogEntry.objects.filter(action='RESTORE')}
+        self.assertIn('Restore of "October copy" finished', found, list(found))
+        self.assertIn('Started a restore: Restore of "October copy"', found, list(found))
+        self.assertEqual({e.user_name for e in found.values()}, {self.admin.full_name or self.admin.username})
+
+    def test_an_entry_keeps_the_name_of_an_account_the_restore_removes(self):
+        from auditlog.models import AuditLogEntry
+        record = self.make()
+        later = get_user_model().objects.create_user(username='bk-later2', password='pw', role='ADMIN', email='bl2@x.test', full_name='Lara Later')
+        entry = AuditLogEntry.objects.create(user=later, action='DELETE', model_name='Farmer', object_repr='Deleted a farmer: Someone')
+        AuditLogEntry.objects.filter(pk=entry.pk).update(user_name='', user_email='')     # an entry written before names were kept
+        self.assertEqual(self.restore(record).status_code, 202)
+        entry.refresh_from_db()
+        self.assertEqual((entry.user_id, entry.user_name, entry.user_email), (None, 'Lara Later', 'bl2@x.test'))
 
     # --- the Restore tab: drop the file, see what would change, then restore
     def test_the_preview_recognises_the_file_and_says_what_a_restore_would_change(self):
@@ -577,7 +606,11 @@ class BackupTests(TransactionTestCase):
         self.assertFalse(farmers['kept'])
         self.assertTrue(body['audit_included'])
         self.assertEqual(body['files']['in_file'], record.files_count)
-        self.assertEqual(body['records']['in_file'], record.records_count)
+        groups = {g['key']: g for g in body['groups']}
+        self.assertEqual((groups['audit']['kept'], groups['audit']['in_file']), (True, None), 'the Audit Log is never replaced')
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            in_the_log = sum(item['model'] == 'auditlog.auditlogentry' for item in json.loads(zf.read('database.json')))
+        self.assertEqual(body['records']['in_file'], record.records_count - in_the_log, 'what a restore would put back')
         self.assertEqual(Farmer.objects.count(), 2)                         # nothing was changed ...
         self.assertFalse(BackupRecord.objects.filter(kind__in=['restore', 'safety']).exists())   # ... and no safety backup or restore was started
 

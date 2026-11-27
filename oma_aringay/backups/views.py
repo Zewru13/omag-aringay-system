@@ -274,7 +274,8 @@ class BackupRestorePreviewView(APIView):
         return Response({
             'backup': backup, 'in_history': record is not None, 'file': {'name': upload.name, 'size_bytes': upload.size},
             'made_at': manifest.get('created_at'), 'audit_included': audit_in_file, 'groups': groups,
-            'records': {'in_file': sum(in_file.values()), 'now': sum(g['now'] for g in groups if not g.get('kept'))},
+            # both counts are of what the restore would replace: what it keeps (the Audit Log) is in neither
+            'records': {'in_file': sum(g['in_file'] or 0 for g in groups if not g['kept']), 'now': sum(g['now'] for g in groups if not g['kept'])},
             'files': {'in_file': manifest.get('files', record.files_count if record is not None else 0)},
         })
 

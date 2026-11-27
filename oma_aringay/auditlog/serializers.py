@@ -9,9 +9,12 @@ class AuditLogEntrySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AuditLogEntry
-        fields = ['id', 'user', 'action', 'model_name', 'object_repr', 'timestamp']
+        fields = ['id', 'user', 'action', 'model_name', 'object_repr', 'details', 'timestamp']
 
     def get_user(self, obj):
+        # The name kept on the entry is the one that did it, even after a restore removed or replaced that account.
+        if obj.user_name:
+            return {'full_name': obj.user_name, 'email': obj.user_email, 'is_system': obj.user_email == SYSTEM_AUTOMATION_USER_EMAIL}
         # obj.user is None only for entries predating this fallback (the
         # FK is SET_NULL) or a deleted system account — real going-forward
         # non-request saves now attribute to the system account itself

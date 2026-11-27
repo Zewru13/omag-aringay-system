@@ -55,8 +55,8 @@ export function restoreConfirmProblem({ file, password }) {
   return restoreFileProblem(file) || (password ? '' : 'Type your password.')
 }
 
-// What a restore would do to one group of records: the file's count next to the count now. A group the file leaves out (the audit trail of a backup
-// made without it) is kept as it is.
+// What a restore would do to one group of records: the file's count next to the count now. A group the restore leaves alone (the Audit Log always, and the
+// notifications when the file has none) is kept as it is.
 export function restoreChange({ in_file: inFile, now, kept }) {
   if (kept) return { text: 'Kept as it is', tone: 'kept' }
   const diff = Number(inFile) - Number(now)
@@ -65,9 +65,9 @@ export function restoreChange({ in_file: inFile, now, kept }) {
   return diff > 0 ? { text: `${n} put back`, tone: 'added' } : { text: `${n} removed`, tone: 'removed' }
 }
 
-// The one line under the file's name: how much the file holds, and how much the system holds now.
+// The one line under the file's name: how much a restore puts back, and how much of what the system holds now it replaces.
 export function restoreHeadline({ records, files }) {
-  return `${plural(records.in_file, 'record')} and ${plural(files.in_file, 'file')} in this backup. The system holds ${plural(records.now, 'record')} now.`
+  return `${plural(records.in_file, 'record')} and ${plural(files.in_file, 'file')} will be put back, in place of ${plural(records.now, 'record')} held now. The Audit Log is kept.`
 }
 
 // The file the page saves to the computer without being asked: the backup it has just made (`wanted.ids`) or the safety backup of the restore it

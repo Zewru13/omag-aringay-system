@@ -64,7 +64,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
               straight to /profile — clicking a profile chip and landing on
               a dropdown instead of the profile page is the dead-end this
               specifically avoids. The chevron is the separate control that
-              still opens the dropdown for Help/Logout (and Activity Log for
+              still opens the dropdown for Help/Logout (and Audit Log for
               Admin), since "My Profile" no longer needs to live in there. */}
           <Link
             to={profilePath}
@@ -115,7 +115,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                   onClick={() => setDropdownOpen(false)}
                 >
                   <History size={14} className="text-text-muted" aria-hidden="true" />
-                  Activity Log
+                  Audit Log
                 </Link>
               )}
 

@@ -22,7 +22,7 @@ import {
 } from './backupFormat.js'
 
 // Admin > Backup & Restore, one page with two buttons. DOWNLOAD BACKUP: a backup is one file (.zip) with the whole database (and, if the Admin ticks it, the
-// activity log and notifications) and every uploaded file. It is made only when the Admin presses it, and it is made for download: when it is done the page
+// Audit Log and notifications) and every uploaded file. It is made only when the Admin presses it, and it is made for download: when it is done the page
 // saves it to the computer and the online copy is removed. The history keeps every backup ever made (nothing is deleted) with its name, date, time and the
 // place the Admin says the file is kept; those notes can be edited. RESTORE opens a table form: the Admin drops a backup's file, sees what it would change
 // and confirms with their password (RestoreModal.jsx); a safety backup of how things are now is made first. A backup made elsewhere is restored the same
@@ -130,7 +130,7 @@ export default function BackupPage() {
   const { showToast } = useToast()
   const [restoring, setRestoring] = useState(null)   // null = closed, {} = Restore from any file, a row = the backup whose file was asked for
   const [groups, setGroups] = useState(null)      // what a backup holds, from the server (null while loading)
-  const [includeAudit, setIncludeAudit] = useState(false)   // the activity log and notifications go in the backup only when the Admin ticks it
+  const [includeAudit, setIncludeAudit] = useState(false)   // the Audit Log and notifications go in the backup only when the Admin ticks it
   const [rows, setRows] = useState(null)          // null while loading
   const [busy, setBusy] = useState(false)         // a backup or a restore is running (the server says so)
   const [error, setError] = useState('')
