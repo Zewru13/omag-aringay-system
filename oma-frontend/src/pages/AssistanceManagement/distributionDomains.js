@@ -44,7 +44,7 @@ export const FARMER_DISTRIBUTION_DOMAIN = {
   loadPeople: ({ search, page }) => api.get('/farmers/', { params: { search, page } })
     .then((r) => pageOf(r.data, (f) => ({ id: f.id, name: f.full_name, rsbsa: f.rsbsa_number || '—', barangay: f.barangay || '—' }))),
   loadOrganizations: ({ search, page }) => api.get('/organizations/farmers/', { params: { search, page } }).then((r) => pageOf(r.data, orgRow)),
-  loadOwnMembers: (memberUrl, query) => api.get(memberUrl)
+  loadOwnMembers: (memberUrl, query) => api.get(memberUrl, { params: { active_only: 1 } })   // current members only
     .then((r) => pageMembers(asList(r.data), query, (m) => ({ id: m.farmer, name: m.farmer_full_name, rsbsa: m.farmer_rsbsa_number || '—', barangay: m.farmer_barangay || '—' }))),
 }
 
@@ -73,7 +73,7 @@ export const FISHERFOLK_DISTRIBUTION_DOMAIN = {
   loadPeople: ({ search, page }) => api.get('/fisheries/fisherfolk/', { params: { search, page } })
     .then((r) => pageOf(r.data, (f) => ({ id: f.id, name: f.full_name, rsbsa: f.rsbsa_number || '—', barangay: f.barangay || '—', type: f.fisherfolk_type || '—' }))),
   loadOrganizations: ({ search, page }) => api.get('/organizations/fisherfolk/', { params: { search, page } }).then((r) => pageOf(r.data, orgRow)),
-  loadOwnMembers: (memberUrl, query) => api.get(memberUrl)
+  loadOwnMembers: (memberUrl, query) => api.get(memberUrl, { params: { active_only: 1 } })   // current members only
     .then((r) => pageMembers(asList(r.data), query, (m) => ({
       id: m.fisherfolk, name: m.fisherfolk_full_name, rsbsa: m.fisherfolk_rsbsa_number || '—', barangay: m.fisherfolk_barangay || '—', type: '—',
     }))),

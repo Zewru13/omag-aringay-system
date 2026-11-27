@@ -267,11 +267,13 @@ class IsStaffOrFarmerReadOnly(IsStaffOrFarmer):
         return request.user.role in STAFF_ROLES or request.method in SAFE_METHODS
 
 
-def _person_is_org_member(linked_record_type, org_id, person_id):
+def _person_is_org_member(linked_record_type, org_id, person_id, current_only=False):
     """
     Batch 12: is `person_id` (a Farmer or Fisherfolk pk, depending on
-    linked_record_type) ACTUALLY a current member of the organization
-    `org_id` — checked via each domain's own confirmed-live membership
+    linked_record_type) a member of the organization `org_id` — with
+    `current_only`, still one (an ended membership does not count: new
+    assistance); without it, ever one (correcting what was given while they
+    were a member) — checked via each domain's own confirmed-live membership
     mechanism (Step 0), never assumed equal to attributed_organization/
     attributed_fisherfolk_organization (interventions.models), which can
     legitimately point at a DIFFERENT organization than the one doing the
@@ -284,15 +286,16 @@ def _person_is_org_member(linked_record_type, org_id, person_id):
     """
     if org_id is None or person_id is None:
         return False
+    still_there = {'is_active': True} if current_only else {}
     if linked_record_type == 'FARMERS_ORG':
         from associations.models import FarmersOrganizationMember
         return FarmersOrganizationMember.objects.filter(
-            farmer_id=person_id, organization_id=org_id,
+            farmer_id=person_id, organization_id=org_id, **still_there,
         ).exists()
     if linked_record_type == 'FISHERFOLK_ORG':
         from associations.models import FisherfolkOrganizationMember
         return FisherfolkOrganizationMember.objects.filter(
-            fisherfolk_id=person_id, organization_id=org_id,
+            fisherfolk_id=person_id, organization_id=org_id, **still_there,
         ).exists()
     return False
 
@@ -350,8 +353,8 @@ class IsOrgMemberRecordCitizen(BasePermission):
             return True
 
         person_id = get_target_person_id(request)
-        return _person_is_org_member(
-            request.user.linked_record_type, request.user.linked_record_id, person_id,
+        return _person_is_org_member(   # giving something new: a current member only
+            request.user.linked_record_type, request.user.linked_record_id, person_id, current_only=True,
         )
 
     def has_object_permission(self, request, view, obj):

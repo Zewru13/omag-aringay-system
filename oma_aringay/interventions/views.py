@@ -378,7 +378,7 @@ class BulkIndividualAssistanceView(APIView):
     """Give one assistance to several selected farmers in one request: one record each, all sharing one distribution id (so they are one
     row in the staff table). Body: `farmer_ids` plus the fields of one assistance record; `dry_run` only checks. The answer lists, per
     person, `created` / `would_create` or `error` with the reason, and the record id. Staff may choose anyone; an organization account
-    only its own members. Each person is saved on its own, so one refusal never blocks the rest."""
+    only its own current members. Each person is saved on its own, so one refusal never blocks the rest."""
     permission_classes = [IsAuthenticated]
     org_linked_record_type = 'FARMERS_ORG'
     record_model = BeneficiaryRecord
@@ -432,7 +432,7 @@ class BulkIndividualAssistanceView(APIView):
                 continue
             row = {'person_id': person.id, 'name': person.full_name, 'id_number': person.rsbsa_number or '', 'barangay': person.barangay}
             if user.role == 'CITIZEN' and not self._is_member(user, person):
-                results.append({**row, 'status': 'error', 'reason': 'Not a member of your cooperative.'})
+                results.append({**row, 'status': 'error', 'reason': 'Not a current member of your cooperative.'})
                 continue
             serializer = self.serializer_class(data={**shared, self.person_field: person.id})
             if not serializer.is_valid():
@@ -460,7 +460,7 @@ class BulkIndividualAssistanceView(APIView):
 
     def _is_member(self, user, person):
         from accounts.permissions import _person_is_org_member
-        return _person_is_org_member(user.linked_record_type, user.linked_record_id, person.id)
+        return _person_is_org_member(user.linked_record_type, user.linked_record_id, person.id, current_only=True)
 
 
 class FisherfolkBulkIndividualAssistanceView(BulkIndividualAssistanceView):
