@@ -3,7 +3,7 @@ import { Bell } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { approvalLines, hasApproved, waitingText } from '../../utils/approvalStatus.js'
 import { formatDateTime } from '../../utils/dateFormat.js'
-import ModalShell from '../ui/ModalShell.jsx'
+import ModalShell from '../UI/ModalShell.jsx'
 import { RECORD_TYPE_TITLES, isChangeRequestNotice, notificationTitle, requestForNotification } from './notificationDetails.js'
 
 // The window every notification opens: what happened and when, a button to the page it is about, and, for a request to change
