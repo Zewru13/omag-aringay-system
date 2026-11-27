@@ -3,36 +3,15 @@ import { Bell } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { notificationRoute } from './notificationRoutes.js'
+import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
+import { formatDate } from '../../utils/dateFormat.js'
+import NotificationDetailsWindow from './NotificationDetailsWindow.jsx'
+import { RECORD_TYPE_TITLES, badgeCount, isChangeRequestNotice, notificationAction } from './notificationDetails.js'
 
 // Simple polling, not websockets — this is a LAN office app with a handful
 // of concurrent users, so the extra infrastructure (channels/ASGI/a message
 // broker) wouldn't pay for itself here.
 const POLL_INTERVAL_MS = 45 * 1000
-
-// Harvest reminders go to the farmer / fisherfolk who owns the crop record / production cycle: 30 and 7 and 3 days before,
-// on the harvest day, and 7 days overdue (core/harvest_reminders.py). The type is `<prefix>_<milestone>`.
-const HARVEST_REMINDER_TITLES = {
-  '30d': 'Harvest in 30 Days',
-  '7d': 'Harvest in 7 Days',
-  '3d': 'Harvest in 3 Days',
-  today: 'Harvest Day',
-  overdue: 'Harvest Overdue',
-}
-const harvestReminderTitles = Object.fromEntries(
-  ['crop_harvest_reminder', 'fisheries_harvest_reminder'].flatMap(prefix =>
-    Object.entries(HARVEST_REMINDER_TITLES).map(([key, title]) => [`${prefix}_${key}`, title])),
-)
-
-// A short title shown above the message for these event types (other notifications are unchanged).
-const RECORD_TYPE_TITLES = {
-  ...harvestReminderTitles,
-  fisheries_cycle_started: 'Production Cycle Started',
-  fisheries_force_harvest: 'Force Harvest Recorded',
-  fisheries_emergency_force_harvest: 'Emergency Force Harvest Recorded',
-  fisheries_disaster_report: 'New Fisherfolk Disaster Report',
-  equipment_loan: 'Equipment Loan',
-}
 
 function timeAgo(iso) {
   const diffSec = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
@@ -41,6 +20,10 @@ function timeAgo(iso) {
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
   return `${Math.floor(diffSec / 86400)}d ago`
 }
+
+// The staff notices that announce a request waiting for review (core.notifications.CHANGE_REQUEST_WAITING_VERBS).
+const WAITING_VERBS = ['requested a profile change', 'needs your approval']
+const isWaitingNotice = (n) => isChangeRequestNotice(n) && WAITING_VERBS.includes(n.verb)
 
 // `variant`: 'dark' (default, unchanged) is for a colored/dark bar — white
 // icon, white/10 hover — still correct for the citizen Organization header,
@@ -62,7 +45,9 @@ const VARIANT_CLASSES = {
 
 function NotificationBell({ variant = 'dark' }) {
   const navigate = useNavigate()
-  const { user, isFisherfolk } = useAuth()
+  const { user, isFarmer, isFisherfolk } = useAuth()
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'EVALUATOR'
+  const viewer = { isCitizen: user?.role === 'CITIZEN', isFarmer, isFisherfolk, linkedRecordType: user?.linked_record_type || '' }
   const [open, setOpen] = useState(false)
   // `notifications` is always the newest page (refreshed by the poll);
   // `older` holds pages the user asked for with "Load older", so a poll never
@@ -73,6 +58,11 @@ function NotificationBell({ variant = 'dark' }) {
   const [nextPage, setNextPage] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadChangeRequests, setUnreadChangeRequests] = useState(0)
+  // Staff only: the change requests waiting for review, listed on top. null until they are loaded.
+  const [waiting, setWaiting] = useState(null)
+  // What the details window shows: { notification } or { request }, or null when it is closed.
+  const [selected, setSelected] = useState(null)
   const ref = useRef(null)
   const pagingStarted = useRef(false)
 
@@ -81,6 +71,7 @@ function NotificationBell({ variant = 'dark' }) {
       const r = await api.get('/notifications/')
       setNotifications(r.data.results || [])
       setUnreadCount(r.data.unread_count || 0)
+      setUnreadChangeRequests(r.data.unread_change_requests || 0)
       // Only the very first fetch decides where "Load older" starts; after
       // that the user's own paging owns it.
       if (!pagingStarted.current) {
@@ -89,6 +80,19 @@ function NotificationBell({ variant = 'dark' }) {
       }
     } catch { /* transient — next poll retries */ }
   }, [])
+
+  const fetchWaiting = useCallback(async () => {
+    if (!isStaff) return
+    try {
+      const r = await api.get('/staff/change-requests/', { params: { status: 'PENDING' } })
+      setWaiting(Array.isArray(r.data) ? r.data : r.data?.results || [])
+    } catch { /* transient — next poll retries */ }
+  }, [isStaff])
+
+  const refresh = useCallback(() => {
+    fetchNotifications()
+    fetchWaiting()
+  }, [fetchNotifications, fetchWaiting])
 
   const loadOlder = async () => {
     if (!nextPage || loadingMore) return
@@ -112,10 +116,10 @@ function NotificationBell({ variant = 'dark' }) {
   }
 
   useEffect(() => {
-    fetchNotifications()
-    const id = setInterval(fetchNotifications, POLL_INTERVAL_MS)
+    refresh()
+    const id = setInterval(refresh, POLL_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [fetchNotifications])
+  }, [refresh])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -130,16 +134,21 @@ function NotificationBell({ variant = 'dark' }) {
     if (!n.is_read) {
       markLocalRead(n.id)
       setUnreadCount(c => Math.max(0, c - 1))
+      if (isWaitingNotice(n)) setUnreadChangeRequests(c => Math.max(0, c - 1))
       api.post(`/notifications/${n.id}/read/`).catch(() => {})
     }
-    // An equipment loan opens the organization's Borrowed tab, or a member's Borrow Equipment page.
-    if (user?.role === 'CITIZEN' && n.record_type === 'equipment_loan') {
-      navigate(['FARMERS_ORG', 'FISHERFOLK_ORG'].includes(user.linked_record_type) ? '/my-organization?tab=borrowed' : '/my-equipment')
-      return
-    }
-    // Where each kind of notification leads is in notificationRoutes.js.
-    const target = notificationRoute(n, { isCitizen: user?.role === 'CITIZEN', isFisherfolk })
-    if (target && window.location.pathname + window.location.search !== target) navigate(target)
+    setSelected({ notification: n })
+  }
+
+  const openWaiting = (request) => {
+    setOpen(false)
+    setSelected({ request })
+  }
+
+  // The window's button. Where each kind of notification leads is in notificationRoutes.js.
+  const goTo = (target) => {
+    setSelected(null)
+    if (window.location.pathname + window.location.search !== target) navigate(target)
   }
 
   const handleMarkAllRead = async () => {
@@ -147,6 +156,7 @@ function NotificationBell({ variant = 'dark' }) {
     setNotifications(markAll)
     setOlder(markAll)
     setUnreadCount(0)
+    setUnreadChangeRequests(0)
     try {
       await api.post('/notifications/read-all/')
     } catch {
@@ -154,24 +164,29 @@ function NotificationBell({ variant = 'dark' }) {
     }
   }
 
+  const badge = badgeCount({ unreadCount, unreadChangeRequests }, waiting, user?.role)
+  // The window's button. A request opened from "Needs action" has no notice: its button leads to the record it is about.
+  const selectedAction = selected && notificationAction(
+    selected.notification || { record_type: selected.request.linked_record_type, record_id: selected.request.linked_record_id }, viewer)
+
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         className={`relative w-9 h-9 flex items-center justify-center rounded-lg press-scale transition-colors ${VARIANT_CLASSES[variant] || VARIANT_CLASSES.dark}`}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { if (!open) refresh(); setOpen(v => !v) }}
         aria-label="Notifications"
       >
         <Bell size={18} />
-        {unreadCount > 0 && (
-          <span key={unreadCount} className="badge-pop absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white leading-none">
-            {unreadCount > 99 ? '99+' : unreadCount}
+        {badge > 0 && (
+          <span key={badge} className="badge-pop absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white leading-none">
+            {badge > 99 ? '99+' : badge}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="modal-content absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] w-80 max-h-96 flex flex-col origin-top-right max-md:fixed max-md:inset-x-3 max-md:top-[60px] max-md:mt-0 max-md:w-auto max-md:max-h-[70vh]">
+        <div className="modal-content absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] w-80 max-h-[min(32rem,80vh)] flex flex-col origin-top-right max-md:fixed max-md:inset-x-3 max-md:top-[60px] max-md:mt-0 max-md:w-auto max-md:max-h-[70vh]">
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#F0F4F0] flex-shrink-0">
             <p className="text-[13px] font-semibold text-[#1A2B1A]">Notifications</p>
             {unreadCount > 0 && (
@@ -185,6 +200,30 @@ function NotificationBell({ variant = 'dark' }) {
             )}
           </div>
           <div className="overflow-y-auto flex-1">
+            {waiting?.length > 0 && (
+              <section aria-label="Needs action" data-testid="needs-action">
+                <p className="border-b border-[#F0E6C8] bg-[#FEF6E0] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8A6100]">
+                  Needs action ({waiting.length})
+                </p>
+                {waiting.map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => openWaiting(r)}
+                    className="w-full border-b border-[#F0E6C8] bg-[#FFFBEF] px-3 py-2.5 text-left transition-colors hover:bg-[#FEF6E0]"
+                  >
+                    <p className="text-[12px] font-semibold text-[#1A2B1A]">{r.record_label || r.requested_by_name || `Request #${r.id}`}</p>
+                    <p className="break-words text-[12px] leading-snug text-[#1A2B1A]">
+                      <span className="capitalize">{r.field_label}</span>: {r.old_value || '—'} → {r.requested_value || '—'}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[#7A8E7A]">
+                      {formatDate(r.requested_at, { empty: '' })}
+                      {hasApproved(r, user?.role) && ` · You approved. Waiting for the ${approvalLines(r).find(line => !line.done)?.role || 'other approval'}.`}
+                    </p>
+                  </button>
+                ))}
+              </section>
+            )}
             {visible.length === 0 ? (
               <p className="px-3 py-6 text-center text-[12px] text-[#A8BCA8]">No notifications yet.</p>
             ) : visible.map(n => (
@@ -222,6 +261,19 @@ function NotificationBell({ variant = 'dark' }) {
             )}
           </div>
         </div>
+      )}
+
+      {selected && (
+        <NotificationDetailsWindow
+          key={selected.notification ? `n${selected.notification.id}` : `r${selected.request.id}`}
+          notification={selected.notification}
+          request={selected.request}
+          role={user?.role}
+          action={selectedAction}
+          onAction={goTo}
+          onClose={() => setSelected(null)}
+          onDecided={refresh}
+        />
       )}
     </div>
   )

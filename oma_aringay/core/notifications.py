@@ -16,6 +16,13 @@ logger = logging.getLogger(__name__)
 _NOTIFICATION_TEXT_FIELDS = ['record_type', 'verb', 'record_label', 'detail']
 
 
+# What staff are told when a profile change request is waiting for them. The bell lists those requests themselves under
+# "Needs action", so it counts these notices apart from the rest.
+CHANGE_REQUEST_FILED = 'requested a profile change'
+CHANGE_REQUEST_NEEDS_APPROVAL = 'needs your approval'
+CHANGE_REQUEST_WAITING_VERBS = (CHANGE_REQUEST_FILED, CHANGE_REQUEST_NEEDS_APPROVAL)
+
+
 def notify_all_except(actor, verb, record_type, record_id, record_label, detail=''):
     """
     Fan out a Notification to every active user except `actor`. Small office,

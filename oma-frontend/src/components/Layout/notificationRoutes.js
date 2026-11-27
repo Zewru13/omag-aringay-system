@@ -1,7 +1,7 @@
-// Where clicking a notification goes, by its record_type. No screen and no network.
+// Where the button in a notification's window goes, by its record_type. No screen and no network.
 //
-// Staff: every record_type the server sends has an entry (crop / stocking / fisherfolk_disaster activity, harvest and disaster;
-// beneficiary / ff_beneficiary assistance; the four registry types of a citizen's profile-change request, answered on the dashboard).
+// Staff: crop / stocking / fisherfolk_disaster activity, harvest and disaster; beneficiary / ff_beneficiary assistance; and the
+// four registry types of a citizen's profile-change request (answered in the window itself; the button opens the record).
 // Older notices of confirmations that no longer exist lead to the assistance they were about.
 export const STAFF_ROUTES = {
   crop: '/crop-monitoring',
@@ -24,10 +24,10 @@ export const STAFF_ROUTES = {
   ff_beneficiary_obo: '/fisheries-assistance?tab=history',
   beneficiary_obo_confirmed: '/reports?tab=organization_assistance',
   ff_beneficiary_obo_confirmed: '/reports?tab=organization_assistance',
-  FARMER: '/dashboard',
-  FISHERFOLK: '/dashboard',
-  FARMERS_ORG: '/dashboard',
-  FISHERFOLK_ORG: '/dashboard',
+  FARMER: (id) => (id ? `/farmers/${id}` : ''),
+  FISHERFOLK: (id) => (id ? `/fisheries/${id}` : ''),
+  FARMERS_ORG: (id) => (id ? `/organizations/farmers/${id}` : ''),
+  FISHERFOLK_ORG: (id) => (id ? `/organizations/fisherfolk/${id}` : ''),
 }
 
 // Fisherfolk accounts have no category tabs on Fisheries Monitoring; their disaster list has its own page.
@@ -45,15 +45,24 @@ export const FISHERFOLK_RECORD_TYPE_ROUTES = {
 }
 
 // A citizen account may open only its own pages: every staff address would end on "Access Denied". An assistance notice opens
-// their Assistance page (where it is claimed); anything else just lands on their Home.
+// their Assistance page (where it is claimed), a loan their borrowed equipment, an answer about their profile their profile, and
+// a farmer's crop notices their crops; anything else just lands on their Home.
 const CITIZEN_HOME = '/my-account'
-const CITIZEN_ROUTES = { beneficiary: '/crop-assistance', ff_beneficiary: '/fisheries-assistance' }
+const CITIZEN_ROUTES = {
+  beneficiary: '/crop-assistance', ff_beneficiary: '/fisheries-assistance',
+  FARMER: '/my-profile', FISHERFOLK: '/my-profile', FARMERS_ORG: '/my-profile', FISHERFOLK_ORG: '/my-profile',
+}
+const COOPERATIVE_ACCOUNTS = ['FARMERS_ORG', 'FISHERFOLK_ORG']
 
 const resolve = (route, id) => (typeof route === 'function' ? route(id) : route)
 
-export function notificationRoute(notification, { isCitizen = false, isFisherfolk = false } = {}) {
-  const type = notification.record_type
+export function notificationRoute(notification, { isCitizen = false, isFarmer = false, isFisherfolk = false, linkedRecordType = '' } = {}) {
+  const type = notification.record_type || ''
+  if (isCitizen && type === 'equipment_loan') {
+    return COOPERATIVE_ACCOUNTS.includes(linkedRecordType) ? '/my-organization?tab=borrowed' : '/my-equipment'
+  }
   if (isFisherfolk && FISHERFOLK_RECORD_TYPE_ROUTES[type]) return resolve(FISHERFOLK_RECORD_TYPE_ROUTES[type], notification.record_id)
+  if (isFarmer && (type === 'crop' || type.startsWith('crop_harvest_reminder_'))) return '/crop-monitoring'
   if (isCitizen) return CITIZEN_ROUTES[type] || CITIZEN_HOME
   return resolve(STAFF_ROUTES[type] || '', notification.record_id)   // an unknown type goes nowhere
 }
