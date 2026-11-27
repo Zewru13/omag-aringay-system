@@ -17,20 +17,22 @@ import {
   MAX_CROPS, allHalfway, buildPayload, cropLabel, doneMessage, filterCrops, formProblem, growingCrops, logButtonLabel, offeredActivities,
   serverProblem, showsFertilizer, showsPest,
 } from './bulkCropLog.js'
+import { MEMBER_CROPS_URL, WHO_APPEARS, nothingToLogText } from './memberLogging.js'
 
 // "Log activity on many crops" (the farmer's My Crops page): one activity done on many crops on the same day is logged once. Fill in the activity
 // (the same boxes as a single crop's Log Activity), tick the crops it was done on, and it is saved on every one of them. The server checks each
 // crop exactly like its own Log Activity window and saves all or none: if one crop cannot take it (for example it was planted after that date), the
 // message names the crop and nothing is saved, so it can be unticked and the rest saved.
+// With `forMembers` it is the farmers' cooperative's window: the crops of its members who have no activated account, each named.
 const GROWING_STATUSES = 'Planted,Near Harvest'
 const BOX = 'h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 accent-[#1B4D2E] focus:ring-[#1B4D2E]/30'
 const listOf = (data) => (Array.isArray(data) ? data : data?.results || [])
 
-export default function LogActivityManyCropsModal({ onClose, onDone }) {
+export default function LogActivityManyCropsModal({ onClose, onDone, forMembers = false }) {
   const { showToast } = useToast()
   const today = todayISO()
   // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm('crop-log-many')
+  const draft = useDraftForm(forMembers ? 'crop-log-members' : 'crop-log-many')
   const [activity, setActivity] = useDraftField(draft, 'activity', '')
   const [activityOther, setActivityOther] = useDraftField(draft, 'activityOther', '')
   const [date, setDate] = useDraftField(draft, 'date', today)
@@ -45,6 +47,7 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
   const [picked, setPicked] = useDraftField(draft, 'picked', {})   // { [cropId]: true }
 
   const [crops, setCrops] = useState(null)          // null while loading, false when it failed
+  const [memberCount, setMemberCount] = useState(0)   // for a cooperative: how many members it may log for
   const [activityNames, setActivityNames] = useState([])
   const [fertilizerNames, setFertilizerNames] = useState([])
   const [search, setSearch] = useState('')
@@ -54,7 +57,10 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
 
   useEffect(() => {
     let alive = true
-    fetchAllPages('/production/monitoring/', { status: GROWING_STATUSES })
+    const rowsWanted = forMembers
+      ? api.get(MEMBER_CROPS_URL).then((r) => { if (alive) setMemberCount(r.data.member_count); return r.data.records })
+      : fetchAllPages('/production/monitoring/', { status: GROWING_STATUSES })
+    rowsWanted
       .then((rows) => alive && setCrops(growingCrops(rows)))
       .catch(() => alive && setCrops(false))
     api.get('/production/activity-types/')
@@ -64,7 +70,7 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
       .then((r) => alive && setFertilizerNames(listOf(r.data).filter((t) => t.input_type === 'Fertilizer' && t.is_active).map((t) => t.name)))
       .catch(() => alive && setFertilizerNames([]))
     return () => { alive = false }
-  }, [])
+  }, [forMembers])
 
   const available = useMemo(() => (Array.isArray(crops) ? crops : []), [crops])
   const shown = useMemo(() => filterCrops(available, search), [available, search])
@@ -107,8 +113,8 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
   const failed = crops === false
   return (
     <ModalShell
-      title="Log Activity on Many Crops"
-      subtitle="Done the same thing on several crops? Log it once and tick the crops."
+      title={forMembers ? 'Log Activity for Members' : 'Log Activity on Many Crops'}
+      subtitle={forMembers ? WHO_APPEARS : 'Done the same thing on several crops? Log it once and tick the crops.'}
       icon={ClipboardList}
       onClose={onClose}
       maxWidth="max-w-3xl"
@@ -195,16 +201,18 @@ export default function LogActivityManyCropsModal({ onClose, onDone }) {
 
         <FormSection title={`Crops (${ids.length} ticked)`}>
           <div className="space-y-2 p-3">
-            {crops === null && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading your crops…</p>}
-            {failed && <p role="alert" className="px-1 py-6 text-center text-[13px] text-rose-600">Your crops could not be loaded. Close this window and try again.</p>}
+            {crops === null && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading the crops…</p>}
+            {failed && <p role="alert" className="px-1 py-6 text-center text-[13px] text-rose-600">The crops could not be loaded. Close this window and try again.</p>}
             {Array.isArray(crops) && available.length === 0 && (
-              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">No crop is growing right now, so there is nothing to log on.</p>
+              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">
+                {forMembers ? nothingToLogText(memberCount, 'a growing crop') : 'No crop is growing right now, so there is nothing to log on.'}
+              </p>
             )}
             {available.length > 0 && (
               <>
                 <div className="flex items-center rounded-xl border border-slate-300 bg-white px-3">
                   <Search size={16} className="shrink-0 text-[#A8BCA8]" aria-hidden="true" />
-                  <input type="search" aria-label="Search crops" placeholder="Search crop, variety or place…" value={search} onChange={(e) => setSearch(e.target.value)}
+                  <input type="search" aria-label="Search crops" placeholder={forMembers ? 'Search member, crop or place…' : 'Search crop, variety or place…'} value={search} onChange={(e) => setSearch(e.target.value)}
                     className="h-[40px] w-full border-0 bg-transparent px-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none" />
                 </div>
                 <label className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg bg-[#F0F4F0] px-3 text-[13px] font-semibold text-[#1A2B1A]">

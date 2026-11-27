@@ -12,8 +12,12 @@ answer names the cycle (and pond/cage).
         { log_date, notes, unit_logs: [{ cycle, production_unit, observation, mortality_count, treatment_applied }] }
         One AquacultureHealthLog per pond/cage (force harvest, mortality and history stay per pond/cage, as on the single form).
 
-A fisherfolk account only, for its OWN cycles (a cycle of anyone else is answered as "not found", as if it did not exist; the office does not log
-on many cycles at once). Only an Active cycle takes a log. At most 100 cycles (and 500 ponds/cages) at a time.
+A fisherfolk account for its OWN cycles, or a fisherfolk cooperative for the cycles of its members who have no activated account
+(associations.member_logging); a cycle of anyone else is answered as "not found", as if it did not exist, and the office does not log on many
+cycles at once. Only an Active cycle takes a log. At most 100 cycles (and 500 ponds/cages) at a time.
+
+    GET /api/monitoring/aquaculture-cycles/member-cycles/ lists the cycles a cooperative may pick: only what is needed to tell them and
+    their ponds/cages apart.
 """
 from django.db import transaction
 from rest_framework import status as drf_status
@@ -23,6 +27,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import is_fisherfolk_citizen
+from associations.member_logging import is_cooperative_for, loggable_member_ids
 
 from .models import AquacultureProductionCycle, AquacultureProductionUnit
 from .serializers import AquacultureFeedingLogSerializer, AquacultureHealthLogSerializer
@@ -31,11 +36,28 @@ MAX_CYCLES = 100
 MAX_UNITS = 500
 
 
-class IsFisherfolkAccount(BasePermission):
-    """A citizen account linked to a fisherfolk: the only kind that logs on many cycles at once."""
+class MayLogOnManyCycles(BasePermission):
+    """A citizen account linked to a fisherfolk, or to a fisherfolk cooperative (for members who cannot log for themselves)."""
 
     def has_permission(self, request, view):
-        return is_fisherfolk_citizen(request.user)
+        return is_fisherfolk_citizen(request.user) or is_cooperative_for(request.user, 'FISHERFOLK')
+
+
+class IsFisherfolkCooperative(BasePermission):
+    def has_permission(self, request, view):
+        return is_cooperative_for(request.user, 'FISHERFOLK')
+
+
+def _reachable_cycles(user):
+    """The cycles this account may log on. A fisherfolk: their own. A cooperative: its members' who have no activated account.
+    Anyone else: none (the fisherfolk filter would not narrow anything for a cooperative, so it is only used for a fisherfolk)."""
+    from .views import _cycle_queryset
+    if is_cooperative_for(user, 'FISHERFOLK'):
+        return AquacultureProductionCycle.objects.filter(
+            fisherfolk_id__in=loggable_member_ids(user, 'FISHERFOLK')).select_related('fisherfolk')
+    if is_fisherfolk_citizen(user):
+        return _cycle_queryset(user)
+    return AquacultureProductionCycle.objects.none()
 
 
 def _int_ids(values, field, label):
@@ -46,16 +68,20 @@ def _int_ids(values, field, label):
 
 
 def _owned_active(request, ids, field):
-    """{id: cycle} for the cycles named, all of them the caller's own (any other id is simply missing from this lookup)."""
-    from .views import _cycle_queryset
-    cycles = {c.id: c for c in _cycle_queryset(request.user).filter(pk__in=ids)}
+    """{id: cycle} for the cycles named, all of them ones the caller may log on (any other id is simply missing from this lookup)."""
+    cycles = {c.id: c for c in _reachable_cycles(request.user).filter(pk__in=ids)}
     if len(cycles) != len(set(ids)):
         raise ValidationError({field: 'One of the cycles could not be found.'})
     return cycles
 
 
-def _not_active(cycle, what):
-    return {'cycle': [f'{cycle.cycle_name} is not active any more (it is {cycle.status}), so {what} cannot be logged on it.']} \
+def _name_of(user, cycle):
+    """The cycle as a message names it. A cooperative logs for several people, so it also says whose cycle it is."""
+    return f'{cycle.fisherfolk.full_name}, {cycle.cycle_name}' if is_cooperative_for(user, 'FISHERFOLK') else cycle.cycle_name
+
+
+def _not_active(cycle, name, what):
+    return {'cycle': [f'{name} is not active any more (it is {cycle.status}), so {what} cannot be logged on it.']} \
         if cycle.status != 'Active' else None
 
 
@@ -78,7 +104,7 @@ def _refusal(label, errors_list):
 
 
 class AquacultureBulkFeedingView(APIView):
-    permission_classes = [IsAuthenticated, IsFisherfolkAccount]
+    permission_classes = [IsAuthenticated, MayLogOnManyCycles]
 
     def post(self, request):
         body = request.data
@@ -98,16 +124,17 @@ class AquacultureBulkFeedingView(APIView):
         validated, errors = [], []
         for item, cycle_id in zip(items, ids):
             cycle = cycles[cycle_id]
-            problem = _not_active(cycle, 'a feeding')
+            name = _name_of(request.user, cycle)
+            problem = _not_active(cycle, name, 'a feeding')
             if problem:
-                errors.append({'cycle': cycle.id, 'label': cycle.cycle_name, 'errors': problem})
+                errors.append({'cycle': cycle.id, 'label': name, 'errors': problem})
                 continue
             serializer = AquacultureFeedingLogSerializer(
                 data={**shared, 'unit_quantities': item.get('unit_quantities') or []}, context={'request': request, 'cycle_id': cycle.id})
             if serializer.is_valid():
                 validated.append((cycle, serializer))
             else:
-                errors.append({'cycle': cycle.id, 'label': cycle.cycle_name, 'errors': serializer.errors})
+                errors.append({'cycle': cycle.id, 'label': name, 'errors': serializer.errors})
         if errors:
             return _refusal('cycle', errors)
         with transaction.atomic():
@@ -116,7 +143,7 @@ class AquacultureBulkFeedingView(APIView):
 
 
 class AquacultureBulkHealthView(APIView):
-    permission_classes = [IsAuthenticated, IsFisherfolkAccount]
+    permission_classes = [IsAuthenticated, MayLogOnManyCycles]
     UNIT_FIELDS = ('production_unit', 'observation', 'mortality_count', 'treatment_applied')
 
     def post(self, request):
@@ -140,10 +167,11 @@ class AquacultureBulkHealthView(APIView):
         for entry, cycle_id, unit_id in zip(entries, cycle_ids, unit_ids):
             cycle = cycles[cycle_id]
             unit = units.get(unit_id)
-            where = cycle.cycle_name + (f', {unit.get_unit_type_display()} {unit.unit_number}' if unit else '')
-            problem = _not_active(cycle, 'a health log')
-            if problem:
-                errors.append({'cycle': cycle.id, 'production_unit': unit_id, 'label': where, 'errors': problem})
+            name = _name_of(request.user, cycle)
+            where = name + (f', {unit.get_unit_type_display()} {unit.unit_number}' if unit else '')
+            problem = _not_active(cycle, name, 'a health log')
+            if problem:   # about the whole cycle, so the message does not name the pond
+                errors.append({'cycle': cycle.id, 'production_unit': unit_id, 'label': name, 'errors': problem})
                 continue
             serializer = AquacultureHealthLogSerializer(
                 data={**shared, **{k: entry[k] for k in self.UNIT_FIELDS if k in entry}}, context={'request': request, 'cycle_id': cycle.id})
@@ -156,3 +184,30 @@ class AquacultureBulkHealthView(APIView):
         with transaction.atomic():
             logs = [serializer.save(production_cycle=cycle) for cycle, serializer in validated]
         return Response({'logged': len(logs), 'ids': [log.id for log in logs]}, status=drf_status.HTTP_201_CREATED)
+
+
+class MemberCycleListView(APIView):
+    """The active cycles (with their ponds/cages) a fisherfolk cooperative may log on for its members without an activated account."""
+    permission_classes = [IsAuthenticated, IsFisherfolkCooperative]
+
+    def get(self, request):
+        members = loggable_member_ids(request.user, 'FISHERFOLK')
+        cycles = AquacultureProductionCycle.objects.filter(fisherfolk_id__in=members, status='Active').select_related(
+            'fisherfolk').prefetch_related('units').order_by('fisherfolk__last_name', 'fisherfolk__first_name', '-stocking_date', '-id')
+        records = []
+        for cycle in cycles:
+            units = sorted(cycle.units.all(), key=lambda u: (u.unit_type, u.unit_number))
+            if not units:
+                continue
+            records.append({
+                'id': cycle.id,
+                'member_id': cycle.fisherfolk_id,
+                'member_name': cycle.fisherfolk.full_name,
+                'cycle_name': cycle.cycle_name,
+                'species_farmed': cycle.species_farmed,
+                'culture_system': cycle.culture_system,
+                'status': cycle.status,
+                'stocking_date': cycle.stocking_date,
+                'units': [{'id': u.id, 'unit_type': u.unit_type, 'unit_number': u.unit_number} for u in units],
+            })
+        return Response({'member_count': len(members), 'records': records})
