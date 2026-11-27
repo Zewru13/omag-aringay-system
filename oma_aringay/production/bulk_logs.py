@@ -11,12 +11,16 @@ past that step's deadline).
 What cannot be shared between crops is left out on purpose: the area affected by a pest or disease (each crop has its own area, so
 Pest Control / Disease Control is answered with the severity) and Disaster Remedy (it belongs to one crop's disaster report).
 
-A farmer account only, for its OWN crops (a crop of anyone else is answered as "not found", as if it did not exist; the office does not log on
-many crops at once). All or nothing: if any crop cannot take the log, nothing is saved and the answer names that crop. At most 100 crops at a time.
+A farmer account for its OWN crops, or a farmers' cooperative for the crops of its members who have no activated account
+(associations.member_logging); a crop of anyone else is answered as "not found", as if it did not exist, and the office does not log on
+many crops at once. All or nothing: if any crop cannot take the log, nothing is saved and the answer names that crop. At most 100 crops at a time.
+
+GET /api/production/monitoring/member-crops/ lists the crops a cooperative may pick: only what is needed to tell them apart.
 """
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import status as drf_status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
@@ -24,6 +28,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import is_farmer_citizen, scope_to_farmer
+from associations.member_logging import is_cooperative_for, loggable_member_ids
 from core.locking import assert_not_locked_by_other
 
 from .forced_harvest import _crop_label
@@ -40,11 +45,29 @@ SHARED_FIELDS = (
 )
 
 
-class IsFarmerAccount(BasePermission):
-    """A citizen account linked to a farmer: the only kind that logs on many crops at once."""
+class MayLogOnManyCrops(BasePermission):
+    """A citizen account linked to a farmer, or to a farmers' cooperative (for members who cannot log for themselves)."""
 
     def has_permission(self, request, view):
-        return is_farmer_citizen(request.user)
+        return is_farmer_citizen(request.user) or is_cooperative_for(request.user, 'FARMER')
+
+
+class IsFarmersCooperative(BasePermission):
+    def has_permission(self, request, view):
+        return is_cooperative_for(request.user, 'FARMER')
+
+
+def _member_crops(member_ids):
+    """The crops of these members; those of a removed parcel have left Crop Monitoring and are left out here too."""
+    return CropMonitoringRecord.objects.filter(farmer_id__in=member_ids).filter(
+        Q(farm_parcel__isnull=True) | Q(farm_parcel__purged_at__isnull=True))
+
+
+def _reachable_crops(user):
+    """The crops this account may log on. A farmer: their own. A cooperative: its members' who have no activated account."""
+    if is_cooperative_for(user, 'FARMER'):
+        return _member_crops(loggable_member_ids(user, 'FARMER'))
+    return scope_to_farmer(CropMonitoringRecord.objects.all(), user, 'farmer_id')
 
 
 def overdue_target_day(record, activity_type, today):
@@ -85,7 +108,7 @@ def _first_message(errors):
 
 
 class CropActivityBulkLogView(APIView):
-    permission_classes = [IsAuthenticated, IsFarmerAccount]
+    permission_classes = [IsAuthenticated, MayLogOnManyCrops]
 
     def post(self, request):
         body = request.data
@@ -104,17 +127,22 @@ class CropActivityBulkLogView(APIView):
         if activity_type == 'Disaster Remedy':
             raise ValidationError({'activity_type': 'Disaster Remedy is logged on the crop itself, because it belongs to that crop\'s disaster report.'})
 
-        # A farmer account only reaches its own crops: any other id is simply missing from this lookup.
-        owned = scope_to_farmer(CropMonitoringRecord.objects.select_related('crop_type', 'farmer'), request.user, 'farmer_id')
-        records = {r.id: r for r in owned.filter(pk__in=ids)}
+        # Any id this account may not log on is simply missing from this lookup.
+        records = {r.id: r for r in _reachable_crops(request.user).select_related('crop_type', 'farmer').filter(pk__in=ids)}
         if len(records) != len(ids):
             raise ValidationError({'record_ids': 'One of the crops could not be found.'})
 
         data = {key: body[key] for key in SHARED_FIELDS if key in body and body[key] not in (None, '')}
+        cooperative = is_cooperative_for(request.user, 'FARMER')
+
+        def label_of(record):
+            # A cooperative logs for several people, so a message also says whose crop it is.
+            return f'{record.farmer.full_name}, {_crop_label(record)}' if cooperative else _crop_label(record)
+
         validated, errors = [], []
         for record_id in ids:
             record = records[record_id]
-            label = _crop_label(record)
+            label = label_of(record)
             if record.status not in GROWING:
                 errors.append({'monitoring_record': record.id,
                                'errors': {'monitoring_record': [f'{label} is not growing any more (it is {record.status}), so an activity cannot be logged on it.']}})
@@ -127,7 +155,7 @@ class CropActivityBulkLogView(APIView):
         if errors:
             first = errors[0]
             message = _first_message(first['errors'])
-            label = _crop_label(records[first['monitoring_record']])
+            label = label_of(records[first['monitoring_record']])
             return Response({'detail': message if message.startswith(label) else f'{label}: {message}', 'errors': errors},
                             status=drf_status.HTTP_400_BAD_REQUEST)
 
@@ -144,3 +172,26 @@ class CropActivityBulkLogView(APIView):
                     is_late=is_late(record, target_day, activity_date),
                 ))
         return Response({'logged': len(created), 'ids': [log.id for log in created]}, status=drf_status.HTTP_201_CREATED)
+
+
+class MemberCropListView(APIView):
+    """The growing crops a farmers' cooperative may log on for its members without an activated account."""
+    permission_classes = [IsAuthenticated, IsFarmersCooperative]
+
+    def get(self, request):
+        members = loggable_member_ids(request.user, 'FARMER')
+        crops = _member_crops(members).filter(status__in=GROWING).select_related('crop_type', 'farmer', 'farm_parcel').order_by(
+            'farmer__last_name', 'farmer__first_name', '-date_planted', '-id')
+        return Response({'member_count': len(members), 'records': [{
+            'id': crop.id,
+            'member_id': crop.farmer_id,
+            'member_name': crop.farmer.full_name,
+            'crop_type_name': crop.crop_type.name if crop.crop_type else '',
+            'variety_used': crop.variety_used,
+            'farm_location_barangay': crop.farm_location_barangay,
+            'farm_parcel_number': crop.farm_parcel.parcel_number if crop.farm_parcel else '',
+            'area_planted_ha': str(crop.area_planted_ha) if crop.area_planted_ha is not None else None,
+            'date_planted': crop.date_planted,
+            'expected_harvest_date': crop.expected_harvest_date,
+            'status': crop.status,
+        } for crop in crops]})

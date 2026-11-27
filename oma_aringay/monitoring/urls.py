@@ -2,7 +2,7 @@ from django.urls import path
 
 from fisheries.views import DisasterEligibilityView, GeneralDisasterReportDetailView, GeneralDisasterReportListCreateView
 
-from .bulk_logs import AquacultureBulkFeedingView, AquacultureBulkHealthView
+from .bulk_logs import AquacultureBulkFeedingView, AquacultureBulkHealthView, MemberCycleListView
 from .views import (
     AquacultureFeedingLogDeleteView,
     AquacultureFeedingLogListCreateView,
@@ -31,6 +31,7 @@ urlpatterns = [
     # One feeding / health log on the ponds and cages of several cycles at once (monitoring/bulk_logs.py)
     path('aquaculture-cycles/bulk-feeding/', AquacultureBulkFeedingView.as_view(), name='aquaculture-bulk-feeding'),
     path('aquaculture-cycles/bulk-health/', AquacultureBulkHealthView.as_view(), name='aquaculture-bulk-health'),
+    path('aquaculture-cycles/member-cycles/', MemberCycleListView.as_view(), name='aquaculture-member-cycles'),
     path('aquaculture-cycles/<int:cycle_id>/feeding/', AquacultureFeedingLogListCreateView.as_view(), name='aquaculture-feeding-list'),
     path('aquaculture-cycles/feeding/<int:pk>/', AquacultureFeedingLogDeleteView.as_view(), name='aquaculture-feeding-delete'),
     path('aquaculture-cycles/<int:cycle_id>/health/', AquacultureHealthLogListCreateView.as_view(), name='aquaculture-health-list'),

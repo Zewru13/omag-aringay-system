@@ -12,11 +12,12 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 // Only a crop that is still growing takes a log (a harvested crop or a total loss is read-only).
 export const growingCrops = (records) => (Array.isArray(records) ? records.filter((r) => GROWING.includes(r.status)) : [])
 
-export const cropLabel = (r) => `${r.crop_type_name || 'Crop'}${r.variety_used ? ` (${r.variety_used})` : ''}`
+// A cooperative's list holds several members' crops, so each one also says whose it is.
+export const cropLabel = (r) => `${r.member_name ? `${r.member_name} · ` : ''}${r.crop_type_name || 'Crop'}${r.variety_used ? ` (${r.variety_used})` : ''}`
 
 // The search box: every word typed has to be found in the crop, its variety, its place or its planting date, in any order.
 export const filterCrops = (records, query) => records.filter((r) => matchesSearch(
-  [r.crop_type_name, r.variety_used, r.farm_location_barangay, r.farm_parcel_number, r.date_planted].filter(Boolean).join(' '), query,
+  [r.member_name, r.crop_type_name, r.variety_used, r.farm_location_barangay, r.farm_parcel_number, r.date_planted].filter(Boolean).join(' '), query,
 ))
 
 export const showsFertilizer = (activity) => activity === 'Fertilizer Application'

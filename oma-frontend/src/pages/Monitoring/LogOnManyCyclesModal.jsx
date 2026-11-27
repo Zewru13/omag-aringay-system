@@ -17,12 +17,14 @@ import {
 import {
   FEED_TYPE_CHOICES, HEALTH_OBSERVATION_OPTIONS, HEALTH_RECOMMENDED_TREATMENT, HEALTH_TREATMENT_OPTIONS, LOG_ACTIVITY_OPTIONS, OTHER_FEED_OPTIONS, isForceObservation,
 } from './cycleLogForms.js'
+import { MEMBER_CYCLES_URL, WHO_APPEARS, asMemberCycles, nothingToLogText } from './memberLogging.js'
 
 // "Log on many cycles" (the fisherfolk's Cycles page; the office does not have it): the same feeding, or the same observation, made
 // on the ponds and cages of several production cycles is logged once. Choose Feeding Log or Health Log, fill in the details once, tick the cycles
 // (Feeding: then the kg of each pond and cage, with a fill-all box) or the ponds and cages (Health: with the count of dead fish for each one
 // when the observation is Fish Mortality), then save. The server saves all or none: if something cannot be saved (a pond that already has a Health
 // Log in its cycle, for example) the message names the cycle and pond and the row turns red, so it can be unticked and the rest saved.
+// With `forMembers` it is the fisherfolk cooperative's window: the cycles of its members who have no activated account, each named.
 const BOX = 'h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 accent-[#1B4D2E] focus:ring-[#1B4D2E]/30'
 const ICONS = { feeding: Utensils, health: HeartPulse }
 const listOf = (data) => (Array.isArray(data) ? data : data?.results || [])
@@ -33,11 +35,11 @@ function CycleBox({ state, label, onToggle }) {
   return <input ref={ref} type="checkbox" className={BOX} checked={state === 'all'} onChange={onToggle} aria-label={label} />
 }
 
-export default function LogOnManyCyclesModal({ onClose, onDone }) {
+export default function LogOnManyCyclesModal({ onClose, onDone, forMembers = false }) {
   const { showToast } = useToast()
   const today = todayISO()
   // What is typed is a draft: still here when the window is opened again (see hooks/useDraftForm.js).
-  const draft = useDraftForm('cycle-log-many')
+  const draft = useDraftForm(forMembers ? 'cycle-log-members' : 'cycle-log-many')
   const [kind, setKind] = useDraftField(draft, 'kind', 'feeding')
   const [feedForm, setFeedForm] = useDraftField(draft, 'feedForm', { date: today, feedType: '', feedOther: '', feedCustom: '', notes: '' })
   const [healthForm, setHealthForm] = useDraftField(draft, 'healthForm', { date: today, observation: '', observationOther: '', treatment: '', notes: '' })
@@ -48,6 +50,7 @@ export default function LogOnManyCyclesModal({ onClose, onDone }) {
   const [fillValue, setFillValue] = useState('')
 
   const [cycles, setCycles] = useState(null)         // null while loading, false when it failed
+  const [memberCount, setMemberCount] = useState(0)   // for a cooperative: how many members it may log for
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
   const [refused, setRefused] = useState({ cycles: new Set(), units: new Set() })
@@ -55,11 +58,14 @@ export default function LogOnManyCyclesModal({ onClose, onDone }) {
 
   useEffect(() => {
     let alive = true
-    api.get('/monitoring/aquaculture-cycles/', { params: { status: 'Active' } })
-      .then((r) => alive && setCycles(activeCycles(listOf(r.data))))
+    const rowsWanted = forMembers
+      ? api.get(MEMBER_CYCLES_URL).then((r) => { if (alive) setMemberCount(r.data.member_count); return asMemberCycles(r.data.records) })
+      : api.get('/monitoring/aquaculture-cycles/', { params: { status: 'Active' } }).then((r) => listOf(r.data))
+    rowsWanted
+      .then((rows) => alive && setCycles(activeCycles(rows)))
       .catch(() => alive && setCycles(false))
     return () => { alive = false }
-  }, [])
+  }, [forMembers])
 
   const available = useMemo(() => (Array.isArray(cycles) ? cycles : []), [cycles])
   const shown = useMemo(() => filterCycles(available, search), [available, search])
@@ -111,8 +117,8 @@ export default function LogOnManyCyclesModal({ onClose, onDone }) {
   const hForce = isForceObservation(healthForm.observation)
   return (
     <ModalShell
-      title="Log on Many Cycles"
-      subtitle="Did the same feeding or saw the same thing in several cycles? Log it once."
+      title={forMembers ? 'Log for Members' : 'Log on Many Cycles'}
+      subtitle={forMembers ? WHO_APPEARS : 'Did the same feeding or saw the same thing in several cycles? Log it once.'}
       icon={ClipboardList}
       onClose={onClose}
       maxWidth="max-w-4xl"
@@ -238,13 +244,15 @@ export default function LogOnManyCyclesModal({ onClose, onDone }) {
             {cycles === null && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading the cycles…</p>}
             {failed && <p role="alert" className="px-1 py-6 text-center text-[13px] text-rose-600">The cycles could not be loaded. Close this window and try again.</p>}
             {Array.isArray(cycles) && available.length === 0 && (
-              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">You have no active cycle with ponds or cages, so there is nothing to log on.</p>
+              <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">
+                {forMembers ? nothingToLogText(memberCount, 'an active cycle with ponds or cages') : 'You have no active cycle with ponds or cages, so there is nothing to log on.'}
+              </p>
             )}
             {available.length > 0 && (
               <>
                 <div className="flex items-center rounded-xl border border-slate-300 bg-white px-3">
                   <Search size={16} className="shrink-0 text-[#A8BCA8]" aria-hidden="true" />
-                  <input type="search" aria-label="Search cycles" placeholder="Search cycle or species…" value={search} onChange={(e) => setSearch(e.target.value)}
+                  <input type="search" aria-label="Search cycles" placeholder={forMembers ? 'Search member, cycle or species…' : 'Search cycle or species…'} value={search} onChange={(e) => setSearch(e.target.value)}
                     className="h-[40px] w-full border-0 bg-transparent px-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none" />
                 </div>
                 <label className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg bg-[#F0F4F0] px-3 text-[13px] font-semibold text-[#1A2B1A]">

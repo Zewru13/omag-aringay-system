@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Upload, UserPlus } from 'lucide-react'
+import { ClipboardList, Upload, UserPlus } from 'lucide-react'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { formatDate } from '../../utils/dateFormat.js'
 import { AddMemberModal } from '../Organizations/OrganizationDetailPage.jsx'
+import LogActivityManyCropsModal from '../Monitoring/LogActivityManyCropsModal.jsx'
+import LogOnManyCyclesModal from '../Monitoring/LogOnManyCyclesModal.jsx'
 import { heldPositions } from '../Organizations/positionRules.js'
 import AccountPage from './AccountPage.jsx'
 import { searchRows } from './accountSearch.js'
@@ -13,11 +15,11 @@ import RecordList from './RecordList.jsx'
 import useMyOrganization from './useMyOrganization.js'
 
 // An organization account's Members page: everyone in the organization, active members first. Add member and Import members are the
-// existing windows. The backend gives the organization only its own record.
+// existing windows. Log activity is for the members without an activated account. The backend gives the organization only its own record.
 export default function MyMembersPage() {
   const { org, state, reload, retry, domain, id } = useMyOrganization()
   const [search, setSearch] = useState('')
-  const [open, setOpen] = useState(null)     // 'add' | 'import'
+  const [open, setOpen] = useState(null)     // 'add' | 'import' | 'log'
 
   const members = useMemo(() => org?.members || [], [org])
   const rows = useMemo(
@@ -39,6 +41,7 @@ export default function MyMembersPage() {
       helper="Everyone in your cooperative."
       action={(
         <div className="grid grid-cols-2 gap-2 sm:flex">
+          <Button variant="outline" icon={ClipboardList} className="col-span-2" onClick={() => setOpen('log')}>Log activity</Button>
           <Button variant="outline" icon={Upload} onClick={() => setOpen('import')}>Import</Button>
           <Button icon={UserPlus} onClick={() => setOpen('add')}>Add member</Button>
         </div>
@@ -57,6 +60,9 @@ export default function MyMembersPage() {
           : { title: 'No members yet', hint: `Add the registered ${domain.personLabel} who belong to your cooperative.` }}
       />
 
+      {open === 'log' && org && (domain.type === 'fisherfolk'
+        ? <LogOnManyCyclesModal forMembers onClose={close} onDone={close} />
+        : <LogActivityManyCropsModal forMembers onClose={close} onDone={close} />)}
       {open === 'add' && org && (
         <AddMemberModal
           type={domain.type}
