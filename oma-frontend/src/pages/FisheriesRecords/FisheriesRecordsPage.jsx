@@ -266,11 +266,11 @@ export function StockingDetailModal({ record, onClose, staffView = false }) {
 // Delete lives inside EditStockingModal's Danger Zone, not in this menu.
 
 // The row itself expands the cycle's ponds/cages, and the Feeding Log / Health Log are entered from the Log Activity button there (no longer in this
-// menu, nor is Print Report: that is the button above the table). The menu is the same for every account: View Logs / Record Harvest / Report
-// Disaster are not repeated in it - harvest is the fishing-net button beside the menu; disasters are reported through Disaster.
+// menu). Print Report prints this one cycle (the same report as the phone card's Print button). The menu is the same for every account: View Logs /
+// Record Harvest / Report Disaster are not repeated in it - harvest is the fishing-net button beside the menu; disasters are reported through Disaster.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName,
-  onViewDetails, onEdit, onActivityLogs, onForceHarvest, onRecordHarvest, onForceUnlock,
+  onViewDetails, onEdit, onActivityLogs, onPrint, onForceHarvest, onRecordHarvest, onForceUnlock,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -281,6 +281,7 @@ function StockingRowActions({
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
     // The Feeding Logs and Health Logs saved for this production cycle (every role that sees the row; the logs keep their own access rules).
     rec.production_cycle && { key: 'activity-logs', label: 'Activity Logs', icon: ClipboardList, onClick: onActivityLogs, group: 'crud' },
+    { key: 'print', label: 'Print Report', icon: Printer, onClick: onPrint, group: 'crud' },
     // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
     // harvest) and the Health Log Force Harvest are unchanged.
     canForceHarvest(rec) && { key: 'force-harvest', label: 'Force Harvest', icon: Zap, onClick: onForceHarvest, tone: 'rose', group: 'lifecycle' },
@@ -672,6 +673,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
         onActivityLogs={() => setActivityLogsRec(rec)}
+        onPrint={() => printCycle(rec)}
         onForceHarvest={() => setForceRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
         onForceUnlock={() => handleForceUnlock(rec.id)}

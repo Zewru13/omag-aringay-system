@@ -46,6 +46,7 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['removing who did not claim', 'Remove (not claimed)'],
     ['where suggestions are set', 'set per crop in Crop Settings'],
     ['printing the registration tables', 'press Print Report'],
+    ['printing one production cycle', 'in Aquaculture Monitoring, open the cycle\'s ⋮ menu and choose Print Report'],
     ['the distribute windows', 'Distribute Farmer Assistance'],
     ['printing after distributing', 'Print Report: it prints the Assistance Distribution Report'],
     ['the distributions table', 'Each row is one distribution'],
@@ -62,7 +63,7 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
 // ── what was removed or renamed is not explained any more
 for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
   const text = everything(help)
-  for (const gone of ['awaiting confirmation', 'reported as not received', 'marked resolved', 'Borrowed tab', 'Borrowed History', 'Distribute to Organizations', 'press Add Parcel', 'Save Farmer and Add Farm Parcels', 'Organization-Owned']) {
+  for (const gone of ['awaiting confirmation', 'reported as not received', 'marked resolved', 'Borrowed tab', 'Borrowed History', 'Distribute to Organizations', 'press Add Parcel', 'Save Farmer and Add Farm Parcels', 'Organization-Owned', 'no print button for one cycle']) {
     assert.ok(!text.includes(gone), `${label} help should not mention "${gone}"`); n++
   }
   assert.ok(!/\borganizations?\b/i.test(text), `${label} help should say cooperative, not organization`); n++

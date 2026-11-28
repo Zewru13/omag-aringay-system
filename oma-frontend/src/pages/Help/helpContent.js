@@ -212,11 +212,11 @@ export const SECTIONS = [
       },
       {
         q: 'Can I print one parcel or one production cycle?',
-        a: 'A parcel: yes. On Crop Records, open its ⋮ menu and choose Print report; it prints the details of that parcel and its crop records. A production cycle: on a phone, press Print on its card in Aquaculture Monitoring. On a computer there is no print button for one cycle in the office pages; use Reports for the printed lists.',
+        a: 'A parcel: yes. On Crop Records, open its ⋮ menu and choose Print report; it prints the details of that parcel and its crop records. A production cycle: yes. On a computer, in Aquaculture Monitoring, open the cycle\'s ⋮ menu and choose Print Report; on a phone, press Print on its card. It prints the cycle\'s details and its ponds or cages, not its feeding and health logs.',
       },
       {
         q: 'Can I print or download the crop and fisheries tables?',
-        a: 'Yes, on Capture Monitoring. Crop Records, Crop Monitoring and Aquaculture Monitoring no longer have these two buttons above the table (one parcel still prints from its three-dot menu); for the other lists use Reports. On Capture Monitoring, Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
+        a: 'Yes, on Capture Monitoring. Crop Records, Crop Monitoring and Aquaculture Monitoring no longer have these two buttons above the table (one parcel and one production cycle still print from their three-dot menus); for the other lists use Reports. On Capture Monitoring, Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
       },
       {
         q: 'How do I filter by date?',

@@ -2055,6 +2055,11 @@ export default {
    },
    {
     "n": 4,
+    "label": "Print Report",
+    "desc": "Prints a report of this one cycle: its details and its ponds or cages. Feeding and health logs are not in it."
+   },
+   {
+    "n": 5,
     "label": "Force Harvest",
     "desc": "Harvests the cycle before it is ready, for a reason such as an upcoming typhoon."
    }
