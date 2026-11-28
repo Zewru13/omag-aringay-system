@@ -29,7 +29,7 @@ export default function ParcelReviewStep({ rows, cropTypes, farmerName }) {
               <EntryCell label="Area (ha)" className="text-[13px] text-[#1A2B1A]">{line.area}</EntryCell>
               <EntryCell label="Land Ownership">
                 <p className="text-[13px] text-[#1A2B1A]">{line.ownership}</p>
-                <p className="text-[12px] text-[#7A8E7A]">Tax Dec: {line.taxDec}</p>
+                {line.taxDec && <p className="text-[12px] text-[#7A8E7A]">Tax Dec: {line.taxDec}</p>}
               </EntryCell>
               <EntryCell label="Farm Type / Schedule">
                 <p className="text-[13px] text-[#1A2B1A]">{line.farmType}</p>

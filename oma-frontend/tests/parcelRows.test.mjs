@@ -186,11 +186,25 @@ assert.notEqual(form.classifications, stored.classifications); n++
 eq(editProblem(form), '', 'an untouched parcel is fine')
 eq(editProblem({ ...form, area_hectares: '' }), 'enter the area (ha)', 'area needed')
 assert.match(editProblem({ ...form, land_owner_name: '' }), /land owner name/); n++
-assert.match(editProblem({ ...form, tax_declaration_number: '01-002-00005-2023-0142', parcel_number: '' }), /parcel number is required/); n++
+assert.match(editProblem({ ...form, land_ownership: 'Owner', tax_declaration_number: '01-002-00005-2023-0142', parcel_number: '' }), /parcel number is required/); n++
 eq(editPayload(form, stored), {
   parcel_number: NO, area_hectares: 2.5, land_ownership: 'Tenant', land_owner_name: 'Juan', land_owner_rsbsa_number: '',
-  tax_declaration_number: '', barangay: 'Alaska', farm_type: '', classifications: ['Organic Farm'], cropping_schedule: 'Double Cropping',
-}, 'the PATCH body')
+  barangay: 'Alaska', farm_type: '', classifications: ['Organic Farm'], cropping_schedule: 'Double Cropping',
+}, 'the PATCH body of a tenant parcel has no tax declaration number')
+
+// ── a Tenant or Lessee parcel has no Tax Dec: not asked for, not checked, not sent; a saved one is left alone
+const TAX = '01-002-00005-2023-0142'
+for (const kind of ['Tenant', 'Lessee']) {
+  const tenant = (over = {}) => ok(1, { land_ownership: kind, land_owner_name: 'Juan', ...over })
+  eq(rowProblem(tenant({ tax_declaration_number: '01-002' })), '', `${kind}: a half-typed number left in the hidden box does not block`)
+  eq(rowProblem(tenant({ tax_declaration_number: TAX, parcel_number: '' })), '', `${kind}: the hidden number does not require a parcel number`)
+  eq(parcelPayload(tenant({ tax_declaration_number: TAX }), CONTEXT).tax_declaration_number, '', `${kind}: a new parcel is sent without it`)
+  const held = parcelToForm({ ...stored, land_ownership: kind, tax_declaration_number: TAX })
+  eq(held.tax_declaration_number, TAX, `${kind}: the window keeps the saved number, so Owner shows it again`)
+  eq('tax_declaration_number' in editPayload(held, stored), false, `${kind}: an edit never writes the field`)
+  eq(editPayload({ ...held, land_ownership: 'Owner' }, stored).tax_declaration_number, TAX, `${kind}: back to Owner sends it`)
+}
+eq(parcelPayload(ok(1, { tax_declaration_number: TAX }), CONTEXT).tax_declaration_number, TAX, 'an owner parcel keeps its tax dec')
 eq(editPayload({ ...form, land_ownership: 'Owner' }, stored).land_owner_name, '', 'an owner parcel sends no land owner')
 eq(parcelSkipsSchedule(stored), false, 'an onion parcel has a schedule')
 eq(editPayload(form, { ...stored, crops: [{ crop_name: 'Mango', is_main_crop: true }] }).cropping_schedule, '', 'a tree main crop sends no schedule')

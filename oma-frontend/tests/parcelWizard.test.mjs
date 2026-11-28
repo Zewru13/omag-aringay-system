@@ -21,6 +21,20 @@ const ok = (id = 1, over = {}) => ({
   ...makeParcelRow(id), area_hectares: '1.5', barangay: 'Alaska', parcel_number: `01-33-02-005-001-02-${100 + id}`, land_ownership: 'Owner',
   farm_type: 'Irrigated', cropping_schedule: 'Single Cropping', ...over,
 })
+// ── Tax Dec is for Owner parcels only: no line in the review, and neither form asks a tenant or lessee for it
+for (const kind of ['Tenant', 'Lessee']) {
+  eq(reviewRows([ok(1, { land_ownership: kind, land_owner_name: 'Juan', tax_declaration_number: '01-002-00005-2023-0142' })], [])[0].taxDec, '', `${kind}: no tax dec in the review`)
+}
+eq(reviewRows([ok(1)], [])[0].taxDec, '—', 'an owner parcel without one shows a dash')
+assert.ok(read('../src/pages/CropInformation/ParcelReviewStep.jsx').includes('{line.taxDec && ')); n++
+for (const [file, flag] of [['../src/pages/CropInformation/ParcelDetailsStep.jsx', '{!tenure && ('], ['../src/pages/Farmers/EditParcelModal.jsx', '{!isTenure(form.land_ownership) && (']]) {
+  const text = read(file)
+  const label = text.indexOf('label="Tax Dec No."')
+  const guard = text.lastIndexOf(flag, label)
+  assert.ok(guard > 0 && label - guard < 120, `${file}: the Tax Dec No. row is only drawn when the parcel is not tenanted or leased`); n++
+}
+assert.match(read('../src/pages/Monitoring/ParcelViewModal.jsx'), /\.\.\.\(isTenure\(parcel\.land_ownership\) \? \[\] : \[\['Tax declaration no\.'/); n++
+
 const record = (id = 1, over = {}) => ({ ...makeCropRecord(id), land_status: 'Owner', crop_type: '7', date_planted: '2026-10-20', area_planted_ha: '1', variety_used: 'Rc 222', ...over })
 const CROP_TYPES = [{ id: 7, name: 'Rice', planting_type: 'Seed' }]
 

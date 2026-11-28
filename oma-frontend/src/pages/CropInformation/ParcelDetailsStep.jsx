@@ -79,14 +79,16 @@ function ParcelForm({ row, index, total, offered, error, onUpdate, onRemove }) {
               </select>
             </FormCell>
           </FormRow>
-          <FormRow>
-            <FormCell label="Tax Dec No." wide>
-              <div className="md:max-w-[26rem]">
-                <IdNumberInput groups={TAX_DECLARATION_GROUPS} maxDigits={TAX_DECLARATION_DIGITS} value={row.tax_declaration_number}
-                  placeholder="01-002-00005-2023-0142" onChange={(v) => set('tax_declaration_number', v)} />
-              </div>
-            </FormCell>
-          </FormRow>
+          {!tenure && (
+            <FormRow>
+              <FormCell label="Tax Dec No." wide>
+                <div className="md:max-w-[26rem]">
+                  <IdNumberInput groups={TAX_DECLARATION_GROUPS} maxDigits={TAX_DECLARATION_DIGITS} value={row.tax_declaration_number}
+                    placeholder="01-002-00005-2023-0142" onChange={(v) => set('tax_declaration_number', v)} />
+                </div>
+              </FormCell>
+            </FormRow>
+          )}
           <FormRow>
             <FormCell label="Classifications" wide>
               <div className="flex flex-wrap gap-x-5 gap-y-1">

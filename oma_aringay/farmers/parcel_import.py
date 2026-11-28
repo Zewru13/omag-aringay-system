@@ -168,7 +168,7 @@ def parse_parcel_cells(row):
         'land_ownership': land_ownership,
         'land_owner_name': owner if land_ownership in ('Tenant', 'Lessee') else '',
         'land_owner_rsbsa_number': owner_rsbsa if land_ownership in ('Tenant', 'Lessee') else '',
-        'tax_declaration_number': tax,
+        'tax_declaration_number': '' if land_ownership in ('Tenant', 'Lessee') else tax,   # the land owner's, so not taken
         'farm_type': _choice(farm_type, FARM_TYPES, 'Farm type'),
         'classifications': [c.strip() for c in classifications.replace(';', ',').split(',') if c.strip()],
         'cropping_schedule': _choice(schedule, CROPPING_SCHEDULES, 'Cropping schedule'),
@@ -216,6 +216,7 @@ def parcel_note():
         f'{PARCEL_NOTE_PREFIX} one row per CROP, with the parcel columns repeated; rows with the same Parcel Number are one parcel. '
         'A parcel with no crops is one row with the crop columns left blank. Rows without a Parcel Number are separate parcels. '
         f'Land Ownership: {", ".join(OWNERSHIPS)} (a Tenant or Lessee also needs the Land Owner Name). '
+        'Tax Dec Number is for Owner parcels only (ignored for a Tenant or Lessee). '
         f'Farm Type: {", ".join(FARM_TYPES)}. Classifications: any of {offered}, separated by commas (leave blank for none). '
         f'Cropping Schedule: {", ".join(CROPPING_SCHEDULES)}. Barangay must be an Aringay barangay. '
         f'Crop columns: {CROP_NOTE[len(CROP_NOTE_PREFIX) + 1:]}'
