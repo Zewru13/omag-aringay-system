@@ -47,7 +47,9 @@ export function runningMessage(rows) {
   return running.some((r) => r.kind === 'restore') ? 'A restore is running.' : 'A backup is being made.'
 }
 
-export const notesProblem = (form) => ((form.name || '').trim() ? '' : 'Type a name for the backup.')
+// The Location column fills itself with the name of the file once it is saved. A browser never tells a website which folder the
+// Admin chose. Until the file is saved the entry's name is only the server's, so nothing is shown.
+export const savedFile = (row) => (row.kind !== 'restore' && row.status === 'done' && !row.has_file ? row.file_name || '' : '')
 
 // The name the Save As window suggests, with the day and time of the browser: omag-backup-2026-11-28-1505.zip
 export function suggestedFileName(date) {

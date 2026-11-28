@@ -227,6 +227,28 @@ common questions get the same check. All pictures are retaken with `scripts/manu
 
 ---
 
+## Changes the user asked for after Part 2 went live (approved 2026-11-28, "proceed")
+
+**Backup & Restore**
+
+- **Download backup** opens Save As at once. The notes window (name, location, remarks) is gone.
+- **Location** fills itself with the saved file's name (a browser never tells a website the folder).
+- The history has **no Actions column** (so no Edit, View result or row Restore). The one exception is a **Download** link under
+  *Waiting to be downloaded*, so a file whose save failed can still be had.
+
+**Part 3 is now "Help", copied from theirs.** This replaces what the Part 3 section above says wherever they differ:
+
+- The page, menu entry and address are **Help**.
+- One topic at a time; title "Help" and the number of topics; the topic list on the right with **Search help**, grouped by
+  account type, following the menu, with groups that open, and its own scrollbar.
+- Pictures with **red** numbered circles, arrows and boxes (not our orange boxes), **Enlarge**, and for several pictures arrows,
+  dots and "1 of 3". Under them one numbered list and one tip. No separate "How to use this page" section.
+- Every explanation is kept; the numbers shown are those of the picture shown.
+- Common questions and About This System stay, as topics.
+- **Print / Save as PDF** and the introduction sections are removed.
+
+---
+
 ## Checks for each part
 
 - Server tests and website tests pass (the six known Python 3.14 errors aside); the website builds.

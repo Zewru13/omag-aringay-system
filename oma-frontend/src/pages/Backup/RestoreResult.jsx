@@ -2,7 +2,7 @@ import { CircleCheck, CircleX } from 'lucide-react'
 import { keptWords, moreSkipped } from './backupFormat.js'
 
 // What a restore did: how much it Wrote, Removed and Skipped, the same for each row, and every skipped entry with its reason.
-// Used on the Restore tab when a restore ends, and by View result in the history. `entry` is the restore's history entry.
+// Shown on the Restore tab when a restore ends. `entry` is the restore's history entry.
 const TOTALS = [
   { key: 'written', label: 'Written', tone: 'text-[#1B4D2E]' },
   { key: 'removed', label: 'Removed', tone: 'text-rose-700' },
