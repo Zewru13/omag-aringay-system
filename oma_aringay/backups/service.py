@@ -13,18 +13,19 @@ the online copy is removed (`remove_online_copy`). The entry in the list is neve
 
 A RESTORE puts a backup back: the uploaded files first, then every record in one database transaction (so a restore that fails changes no record). Before
 it starts, a safety backup of how things are now is made, and the restore does not go on without it. Nothing else may be started while one is running.
-A restore never replaces the AUDIT LOG: what staff did stays on record, and the restore itself is added to it.
+A restore never replaces the AUDIT LOG: what staff did stays on record, and the restore itself is added to it. A "View history" link of an entry
+that no longer matches its record is taken off the entry. Every finished restore keeps a report of what it wrote, removed and skipped.
 """
 import hashlib
 import json
 import logging
 import os
 import posixpath
-import re
 import shutil
 import tempfile
 import threading
 import zipfile
+from collections import Counter
 from datetime import timedelta
 
 from django.apps import apps
@@ -39,7 +40,7 @@ from django.db import connections, router, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from auditlog import recorder
+from auditlog import people, recorder
 from auditlog.modules import BACKUP as BACKUP_MODULE
 
 from .models import BackupRecord
@@ -123,21 +124,21 @@ def group_key(model):
 
 def model_counts(using='default'):
     """{'app.model': records now} for every model a full backup holds."""
-    return {model._meta.label_lower: model._default_manager.using(using).count() for model in backed_up_models(using)}
+    return {model._meta.label_lower: model._base_manager.using(using).count() for model in backed_up_models(using)}
 
 
-MODEL_MARK = re.compile(rb'"model": "([A-Za-z0-9_]+\.[A-Za-z0-9_]+)"')
+NOT_A_LIST = 'The database in that file is not a list of records, so it is not a backup made here.'
 
 
 def zip_counts(zip_path):
-    """{'app.model': records} of the backup at `zip_path`, counted in its database.json without changing anything."""
+    """{'app.model': records} of the backup at `zip_path`, counted in its database.json without changing anything.
+    The records are read as records: an Audit Log entry's details also name models, and those are not records."""
     with zipfile.ZipFile(zip_path) as zf, zf.open('database.json') as f:
         data = f.read()
-    counts = {}
-    for match in MODEL_MARK.finditer(data):
-        label = match.group(1).decode('ascii')
-        counts[label] = counts.get(label, 0) + 1
-    return counts
+    try:
+        return dict(Counter(item['model'] for item in json.loads(data.decode('utf-8-sig'))))
+    except (ValueError, TypeError, KeyError):
+        raise RestoreError(NOT_A_LIST)
 
 
 def group_rows(now, in_file=None, audit_in_file=True):
@@ -165,11 +166,14 @@ def link_tables(model):
 def objects_to_dump(using='default', include_audit=True):
     """Every record to back up, in the same order as `manage.py dumpdata` (app by app, by primary key), minus EXCLUDE.
 
+    It reads each table through the model's BASE manager. Some default managers hide records from the lists (removed assistance,
+    purged farm parcels), and a restore replaces the whole table: a record a backup did not hold would be gone for good.
+
     dumpdata asks the database once more for every record that has a many-to-many field. Over a network that is thousands of round trips
     (a run from GitHub to Supabase did not finish in 20 minutes), so the many-to-many values are prefetched a chunk at a time instead:
     the output is the same, in a handful of queries per model."""
     for model in backed_up_models(using, include_audit):
-        queryset = model._default_manager.using(using).order_by(model._meta.pk.name)
+        queryset = model._base_manager.using(using).order_by(model._meta.pk.name)
         many = [f.name for f in model._meta.many_to_many if f.remote_field.through._meta.auto_created]
         if many:
             queryset = queryset.prefetch_related(*many)
@@ -181,14 +185,8 @@ def dump_database(path, include_audit=True):
     # Written as UTF-8 explicitly: dumpdata's own --output uses the server's default encoding, which cannot hold a peso sign on every host.
     with open(path, 'w', encoding='utf-8') as out:
         serializers.serialize('json', objects_to_dump(include_audit=include_audit), stream=out)
-    count, tail = 0, b''
-    needle = b'"model": "'
-    with open(path, 'rb') as f:
-        while chunk := f.read(1 << 20):
-            data = tail + chunk
-            count += data.count(needle)
-            tail = data[-(len(needle) - 1):]
-    return count
+    with open(path, 'r', encoding='utf-8') as f:
+        return len(json.load(f))
 
 
 def iter_media(storage, folder=''):
@@ -238,6 +236,11 @@ def checksum_of(fileobj):
 
 def default_name(when=None):
     return f'Backup of {timezone.localtime(when or timezone.now()):%b %d, %Y %I:%M %p}'.replace(' 0', ' ')
+
+
+def maker_name(record):
+    """Who made a backup: the name kept as text, else the account's, else the nightly runs of an earlier version."""
+    return record.made_by or (record.created_by.username if record.created_by_id else 'Automatic')
 
 
 def is_busy():
@@ -298,9 +301,13 @@ def run_backup(record_id, include_audit=True):
             files, skipped, notes = add_media(zf, default_storage, _setting('BACKUP_MAX_MEDIA_BYTES', 500 * 1024 * 1024))
             zf.writestr('manifest.json', json.dumps({
                 'created_at': started.isoformat(), 'kind': record.kind, 'records': records, 'files': files, 'files_skipped': skipped,
+                'made_by': maker_name(record),
+                # every list the file covers, with or without entries: a restore must tell "no entries" from "not in this file"
+                'models': [model._meta.label_lower for model in backed_up_models(include_audit=include_audit)],
                 'audit_included': include_audit, 'left_out': notes[:200],
             }, indent=2))
-        name = f'{PREFIX}/oma_backup_{timezone.localtime(started):%Y%m%d_%H%M%S}.zip'
+        # two backups of the same minute do not overwrite each other: the storage adds to the second one's name
+        name = f'{PREFIX}/omag-backup-{timezone.localtime(started):%Y-%m-%d-%H%M}.zip'
         logger.info('Backup %s: %s files packed, %s skipped. Saving %s (%s bytes)...', record_id, files, skipped, name, os.path.getsize(zip_path))
         with open(zip_path, 'rb') as f:
             checksum = checksum_of(f)
@@ -346,7 +353,7 @@ def check_backup_file(path):
     with zipfile.ZipFile(path) as zf, zf.open('database.json') as f:
         start = f.read(64).lstrip(b'\xef\xbb\xbf \t\r\n')
     if not start.startswith(b'['):
-        raise RestoreError('The database in that file is not a list of records, so it is not a backup made here.')
+        raise RestoreError(NOT_A_LIST)
     return manifest
 
 
@@ -459,8 +466,15 @@ def keep_links_to_accounts(using, kept):
                 gone.delete()
 
 
+def make_report(rows, skipped=()):
+    """What a restore did, as the Backup & Restore page shows it: `rows` of {key, label, written, removed, skipped, kept}, their totals,
+    and the entries that were skipped ({list, name, reason})."""
+    return {'rows': rows, 'totals': {key: sum(row[key] for row in rows) for key in ('written', 'removed', 'skipped')}, 'skipped': list(skipped)}
+
+
 def restore_database(json_path, using='default', include_audit=True):
-    """Replace every backed-up record with the records of `json_path`, in ONE transaction: all of it or none of it. Returns how many records.
+    """Replace every backed-up record with the records of `json_path`, in ONE transaction: all of it or none of it.
+    Returns the report (`make_report`), one row per group of DATA_GROUPS.
     The Audit Log is never replaced. A backup made without the audit trail (`include_audit` False) leaves the notifications as they are too."""
     connection = connections[using]
     models = [model for model in backed_up_models(using, include_audit) if model._meta.label_lower != AUDIT_LOG]
@@ -478,9 +492,12 @@ def restore_database(json_path, using='default', include_audit=True):
         tables.append(model)
         tables.extend(link_tables(model))
     quote = connection.ops.quote_name
-    total = 0
+    counts = {group['key']: {'written': 0, 'removed': 0} for group in DATA_GROUPS}
     with transaction.atomic(using=using):
         remember_who(using)
+        for model in models:          # counted before anything goes: removed = there now and not in the file
+            now = set(model._base_manager.using(using).values_list('pk', flat=True))
+            counts[group_key(model)]['removed'] += len(now - {item.object.pk for item in by_model[model]})
         with connection.constraint_checks_disabled():
             with connection.cursor() as cursor:
                 for table in tables:
@@ -491,22 +508,27 @@ def restore_database(json_path, using='default', include_audit=True):
                     continue
                 insert_records(model, [item.object for item in items], using)
                 insert_links(model, items, using)
-                total += len(items)
+                counts[group_key(model)]['written'] += len(items)
             # The Backup list is not replaced; an entry made by an account that the backup does not have keeps its name (made_by) only.
             accounts = get_user_model()._base_manager.using(using).values('pk')
             BackupRecord.objects.using(using).exclude(created_by__isnull=True).exclude(created_by__in=accounts).update(created_by=None)
             keep_links_to_accounts(using, kept)
-            with connection.cursor() as cursor:
-                for statement in connection.ops.sequence_reset_sql(no_style(), tables):
-                    cursor.execute(statement)
+            people.drop_stale_links(using)          # a number can belong to someone else now
         # every link between the restored records must hold, or the whole restore is undone
         checked = tables + kept
         connection.check_constraints(table_names=[table._meta.db_table for table in checked])
-    return total
+        # last: PostgreSQL keeps a number counter's new value even when the transaction is undone
+        with connection.cursor() as cursor:
+            for statement in connection.ops.sequence_reset_sql(no_style(), tables):
+                cursor.execute(statement)
+    kept_groups = {'audit'} if include_audit else {'audit', 'notifications'}
+    return make_report([{'key': group['key'], 'label': group['label'], **counts[group['key']], 'skipped': 0, 'kept': group['key'] in kept_groups}
+                        for group in DATA_GROUPS])
 
 
-def restore_from_zip(zip_path):
-    """Put the backup at `zip_path` back: the uploaded files, then the records. Returns (records, files written, files already there)."""
+def restore_from_zip(zip_path, scope=BackupRecord.Scope.EVERYTHING):
+    """Put the backup at `zip_path` back. Everything: the uploaded files, then the records. Settings and lists: the lists only, and no
+    uploaded file is touched. Returns (report, files written, files already there)."""
     manifest = read_backup_zip(zip_path)
     include_audit = manifest.get('audit_included', True) is not False       # a backup made before the choice existed holds everything
     workdir = tempfile.mkdtemp(prefix='oma_restore_')
@@ -515,9 +537,12 @@ def restore_from_zip(zip_path):
             db_path = os.path.join(workdir, 'database.json')
             with zf.open('database.json') as src, open(db_path, 'wb') as dst:
                 shutil.copyfileobj(src, dst, 1 << 20)
+            if scope == BackupRecord.Scope.SETTINGS:
+                from .settings_restore import restore_settings          # it uses this module
+                return restore_settings(db_path, manifest), 0, 0
             written, same = restore_media(zf, default_storage, workdir)
-        records = restore_database(db_path, include_audit=include_audit)
-        return records, written, same
+        report = restore_database(db_path, include_audit=include_audit)
+        return report, written, same
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
@@ -532,9 +557,10 @@ def run_restore(restore_id, safety_id, zip_path):
         if safety.status != BackupRecord.Status.DONE:
             raise RestoreError(f'The safety backup could not be made, so nothing was restored. ({safety.detail})')
         logger.info('Restore %s: safety backup %s is done. Putting the backup back...', restore_id, safety_id)
-        records, written, same = restore_from_zip(zip_path)
+        report, written, same = restore_from_zip(zip_path, restore.scope)
         restore.status = BackupRecord.Status.DONE
-        restore.records_count, restore.files_count = records, written + same
+        restore.report = report
+        restore.records_count, restore.files_count = report['totals']['written'], written + same
         restore.detail = ''
     except Exception as exc:
         logger.exception('Restore %s failed', restore_id)
@@ -548,12 +574,15 @@ def run_restore(restore_id, safety_id, zip_path):
             pass
     restore.finished_at = timezone.now()
     # Only these columns: the account that asked may not be in the restored records any more.
-    restore.save(update_fields=['status', 'records_count', 'files_count', 'detail', 'finished_at'])
-    done = restore.status == BackupRecord.Status.DONE
-    recorder.record(
-        get_user_model()._base_manager.filter(username=restore.made_by).first(), 'RESTORE',
-        f'{restore.name} finished' if done else f'{restore.name} failed: {restore.detail}', 'backups.backuprecord',
-        user_name=restore.made_by, module=BACKUP_MODULE)
+    restore.save(update_fields=['status', 'report', 'records_count', 'files_count', 'detail', 'finished_at'])
+    if restore.status == BackupRecord.Status.DONE:
+        totals = restore.report['totals']
+        text = (f'{restore.name} finished ({restore.get_scope_display().lower()}): {totals["written"]:,} written, '
+                f'{totals["removed"]:,} removed, {totals["skipped"]:,} skipped')
+    else:
+        text = f'{restore.name} failed: {restore.detail}'
+    recorder.record(get_user_model()._base_manager.filter(username=restore.made_by).first(), 'RESTORE', text, 'backups.backuprecord',
+                    user_name=restore.made_by, module=BACKUP_MODULE)
 
 
 def start_restore(restore_id, safety_id, zip_path):

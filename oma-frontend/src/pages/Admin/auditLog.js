@@ -46,8 +46,10 @@ export function showingText(page, size, total) {
 
 // Whom an entry is about (entries made before this was kept have nobody). A row links to a history only when it is about exactly one.
 export const peopleOf = (entry) => entry?.details?.people || []
-// When more records were changed than are listed, the others may be about other people, so the row names nobody.
-export const rowPerson = (entry) => (peopleOf(entry).length === 1 && !entry.details.more ? peopleOf(entry)[0] : null)
+// When more records were changed than are listed, the others may be about other people, so the row names nobody. The same
+// when a restore took a link off the entry (`people_dropped`).
+export const rowPerson = (entry) => (peopleOf(entry).length === 1 && !entry.details.more && !entry.details.people_dropped
+  ? peopleOf(entry)[0] : null)
 
 const COOPERATIVE_KINDS = ['farmers-cooperative', 'fisherfolk-cooperative']
 const TABS = ['all', 'farmer', 'fisherfolk', 'cooperative']
