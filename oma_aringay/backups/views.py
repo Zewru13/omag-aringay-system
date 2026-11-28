@@ -5,7 +5,7 @@ import tempfile
 from django.core.files.storage import default_storage
 from django.http import FileResponse
 from rest_framework import status
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin
 
-from . import service
+from . import service, settings_restore
 from .models import BackupRecord
 from .service import start_backup, start_restore
 
@@ -24,11 +24,15 @@ NOTES = (('name', 120), ('location', 255), ('remarks', 255))
 def row(record):
     done = record.status == BackupRecord.Status.DONE
     has_file = done and bool(record.file_path)
+    kind_label = record.get_kind_display()
+    if record.kind == BackupRecord.Kind.RESTORE:
+        kind_label = f'{kind_label} ({record.get_scope_display().lower()})'
     return {
-        'id': record.id, 'kind': record.kind, 'kind_label': record.get_kind_display(), 'status': record.status, 'status_label': record.get_status_display(),
+        'id': record.id, 'kind': record.kind, 'kind_label': kind_label, 'status': record.status, 'status_label': record.get_status_display(),
+        'scope': record.scope, 'report': record.report,
         'name': record.name or service.default_name(record.created_at), 'location': record.location, 'remarks': record.remarks,
         'created_at': record.created_at, 'finished_at': record.finished_at, 'downloaded_at': record.downloaded_at,
-        'made_by': record.made_by or (record.created_by.username if record.created_by_id else 'Automatic'),
+        'made_by': service.maker_name(record),
         'file_name': record.file_name or os.path.basename(record.file_path),
         'size_bytes': record.size_bytes, 'records_count': record.records_count, 'files_count': record.files_count,
         'files_skipped': record.files_skipped, 'detail': record.detail,
@@ -55,6 +59,14 @@ def wants_audit(data):
     if isinstance(value, str):
         return value.strip().lower() not in ('false', '0', 'no', 'off', '')
     return bool(value)
+
+
+def wanted_scope(data):
+    """What to restore. A request that does not say means everything (the page of an earlier version does not)."""
+    value = data.get('scope') or BackupRecord.Scope.EVERYTHING
+    if value not in BackupRecord.Scope.values:
+        raise ParseError('Choose what to restore.')
+    return value
 
 
 def clean_notes(data, partial):
@@ -132,14 +144,28 @@ class BackupDownloadView(APIView):
         return response
 
 
+def chosen_file_name(data):
+    """The name the Admin saved the file under, as the page sends it: without folders; '' unless it is a usable .zip name."""
+    value = data.get('file_name')
+    if not isinstance(value, str):
+        return ''
+    name = value.replace('\\', '/').rsplit('/', 1)[-1].strip()
+    return name if len(name) <= 120 and name.lower().endswith('.zip') else ''
+
+
 class BackupDownloadedView(APIView):
-    """The page calls this once the whole file has reached the Admin's browser: the online copy is removed, the entry stays."""
+    """The page calls this once the whole file has reached the Admin's computer: the online copy is removed, the entry stays.
+    `file_name` (optional) is the name it was saved under, so the history can say which file to look for."""
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request, pk):
         record = get_record(pk, status=BackupRecord.Status.DONE)
         if service.is_busy():
             return busy_response()
+        name = chosen_file_name(request.data)
+        if name:
+            record.file_name = name
+            record.save(update_fields=['file_name'])
         if record.file_path:
             service.remove_online_copy(record)
         return Response(row(record))
@@ -159,6 +185,7 @@ class BackupRestoreView(APIView):
             return self.refuse('Only a finished backup can be restored.')
         if not request.user.check_password(str(request.data.get('password') or '')):
             return self.refuse('The password is not correct.')
+        scope = wanted_scope(request.data)
 
         upload = request.FILES.get('file')
         handle, local = tempfile.mkstemp(prefix='oma_restore_', suffix='.zip')
@@ -187,7 +214,7 @@ class BackupRestoreView(APIView):
             os.remove(local)
             raise
 
-        return begin_restore(request, entry_name(record), local)
+        return begin_restore(request, entry_name(record), local, scope)
 
     @staticmethod
     def refuse(message):
@@ -198,12 +225,13 @@ def entry_name(record):
     return record.name or service.default_name(record.created_at)
 
 
-def begin_restore(request, name, local):
+def begin_restore(request, name, local, scope):
     """Start the restore of the backup called `name` from the checked local copy of its file: a safety backup of how things are now first, in the same run."""
     who = request.user.username
     safety = BackupRecord.objects.create(
         created_by=request.user, made_by=who, kind=BackupRecord.Kind.SAFETY, name=f'Before restoring "{name}"'[:120], remarks='Made automatically before a restore.')
-    restore = BackupRecord.objects.create(created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, name=f'Restore of "{name}"'[:120])
+    restore = BackupRecord.objects.create(
+        created_by=request.user, made_by=who, kind=BackupRecord.Kind.RESTORE, scope=scope, name=f'Restore of "{name}"'[:120])
     start_restore(restore.id, safety.id, local)
     restore.refresh_from_db()
     return Response(row(restore), status=status.HTTP_202_ACCEPTED)
@@ -271,9 +299,11 @@ class BackupRestorePreviewView(APIView):
         backup = row(record) if record is not None else {
             'id': None, 'name': name, 'location': '', 'made_by': 'another copy of the system', 'created_at': manifest.get('created_at'), 'file_name': upload.name,
         }
+        made_by = manifest.get('made_by') or backup['made_by']
         return Response({
             'backup': backup, 'in_history': record is not None, 'file': {'name': upload.name, 'size_bytes': upload.size},
-            'made_at': manifest.get('created_at'), 'audit_included': audit_in_file, 'groups': groups,
+            'made_at': manifest.get('created_at'), 'made_by': str(made_by)[:150], 'audit_included': audit_in_file, 'groups': groups,
+            'lists': settings_restore.list_rows(in_file, manifest),          # the table of "Settings and lists"; `groups` is Everything's
             # both counts are of what the restore would replace: what it keeps (the Audit Log) is in neither
             'records': {'in_file': sum(g['in_file'] or 0 for g in groups if not g['kept']), 'now': sum(g['now'] for g in groups if not g['kept'])},
             'files': {'in_file': manifest.get('files', record.files_count if record is not None else 0)},
@@ -291,6 +321,7 @@ class BackupRestoreFileView(APIView):
             return busy_response()
         if not request.user.check_password(str(request.data.get('password') or '')):
             return refuse('The password is not correct.')
+        scope = wanted_scope(request.data)
         upload = request.FILES.get('file')
         if upload is None:
             return refuse('Choose the backup file from your computer.')
@@ -303,4 +334,4 @@ class BackupRestoreFileView(APIView):
         except Exception:
             os.remove(local)
             raise
-        return begin_restore(request, name, local)
+        return begin_restore(request, name, local, scope)

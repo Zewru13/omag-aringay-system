@@ -176,3 +176,48 @@ class EntryPeopleTests(APITestCase):
         entry = self.only_entry()
         self.assertEqual(entry.details['people'], [])
         self.assertTrue(entry.details['changes'])
+
+
+class DropStaleLinksTests(APITestCase):
+    """After an everything restore a number can belong to someone else: a link that no longer matches its record is dropped."""
+
+    def entry(self, *links, more=0):
+        return AuditLogEntry.objects.create(user_name='Someone', action='UPDATE', object_repr='Did something',
+                                            details={'changes': [], 'more': more, 'people': list(links)})
+
+    @staticmethod
+    def link(farmer, **over):
+        return {'kind': 'farmer', 'id': farmer.id, 'name': farmer.full_name, **over}
+
+    def test_a_link_to_a_record_that_is_gone_or_renamed_is_dropped(self):
+        farmer = make_farmer('Stays')
+        coop = make_org(FarmersOrganization, 'Still here')
+        right = self.entry(self.link(farmer))
+        cooperative = self.entry({'kind': 'farmers-cooperative', 'id': coop.id, 'name': coop.name})
+        renamed = self.entry(self.link(farmer, name='Another Person'))
+        gone = self.entry(self.link(farmer, id=farmer.id + 1000))
+        unknown = self.entry(self.link(farmer, kind='something-else'))
+        self.assertEqual(people.drop_stale_links(), 3)
+        for entry in (right, cooperative, renamed, gone, unknown):
+            entry.refresh_from_db()
+        self.assertEqual(right.details, {'changes': [], 'more': 0, 'people': [self.link(farmer)]})
+        self.assertEqual(len(cooperative.details['people']), 1)
+        self.assertEqual((renamed.details['people'], gone.details['people'], unknown.details['people']), ([], [], []))
+        self.assertEqual(renamed.object_repr, 'Did something')
+
+    def test_an_entry_about_two_never_becomes_a_single_row_link(self):
+        farmer, other = make_farmer('Kept'), make_farmer('Dropped')
+        two = self.entry(self.link(farmer), self.link(other, name='Not them any more'), more=3)
+        people.drop_stale_links()
+        two.refresh_from_db()
+        self.assertEqual(two.details['people'], [self.link(farmer)])
+        self.assertTrue(two.details['people_dropped'])
+        self.assertEqual(two.details['more'], 3)          # still the number of changes that are not listed
+
+    def test_entries_without_people_are_left_alone(self):
+        plain = AuditLogEntry.objects.create(user_name='Someone', action='SIGN_IN', object_repr='Signed in')
+        empty = AuditLogEntry.objects.create(user_name='Someone', action='UPDATE', object_repr='x', details={'changes': [], 'more': 0})
+        self.assertEqual(people.drop_stale_links(), 0)
+        plain.refresh_from_db()
+        empty.refresh_from_db()
+        self.assertEqual((plain.details, empty.details), (None, {'changes': [], 'more': 0}))

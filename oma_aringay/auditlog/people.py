@@ -5,6 +5,7 @@ import logging
 from django.db import models, transaction
 
 from associations.models import FarmersOrganization, FisherfolkOrganization
+from auditlog.models import AuditLogEntry
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
@@ -74,6 +75,38 @@ def owner_of(record):
     except Exception:
         logger.exception('Finding whom an Audit Log record is about failed (non-fatal): %s', type(record).__name__)
         return None
+
+
+def drop_stale_links(using='default'):
+    """After an everything restore a number can belong to someone else, so every "View history" link whose record is gone, or has
+    another name now, is taken off its entry (the entry and its words stay). An entry that was about more than one is marked
+    `people_dropped`, so that the one who is left never looks like the only one it was about. Returns how many links went."""
+    with_people = AuditLogEntry._base_manager.using(using).filter(details__has_key='people')
+    wanted = {}
+    for details in with_people.values_list('details', flat=True).iterator(chunk_size=2000):
+        for person in details.get('people') or []:
+            wanted.setdefault(person.get('kind'), set()).add(person.get('id'))
+    names = {}          # (kind, number) -> the name a link to it would be given today
+    for model, kind in PERSON_KINDS + COOPERATIVE_KINDS:
+        if kind in wanted:
+            for record in model._base_manager.using(using).filter(pk__in=wanted[kind]):
+                names[kind, record.pk] = _entry(kind, record)['name']
+
+    stale, dropped = [], 0
+    for number, details in with_people.values_list('pk', 'details').iterator(chunk_size=2000):
+        links = details.get('people') or []
+        kept = [link for link in links
+                if (link.get('kind'), link.get('id')) in names and names[link.get('kind'), link.get('id')] == link.get('name')]
+        if len(kept) == len(links):
+            continue
+        dropped += len(links) - len(kept)
+        changed = {**details, 'people': kept}
+        if len(links) > 1:
+            changed['people_dropped'] = True
+        stale.append((number, changed))
+    for number, details in stale:          # written after the reading is over
+        AuditLogEntry._base_manager.using(using).filter(pk=number).update(details=details)
+    return dropped
 
 
 def unique(owners):

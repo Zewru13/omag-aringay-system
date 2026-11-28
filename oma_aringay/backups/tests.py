@@ -17,7 +17,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.db import connection
+from django.db import connection, connections
 from django.test import TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -26,6 +26,7 @@ from rest_framework.test import APIClient
 from backups import service
 from backups.models import BackupRecord
 from farmers.models import Farmer
+from production.models import SeedSource
 
 _MEDIA = tempfile.mkdtemp(prefix='oma_test_media_backup_')
 STORAGES = {
@@ -72,7 +73,7 @@ class BackupTests(TransactionTestCase):
     def test_a_backup_holds_the_database_the_uploaded_files_and_a_manifest(self):
         record = self.make()
         self.assertEqual(record.status, 'done', record.detail)
-        self.assertTrue(record.file_path.startswith('backups/oma_backup_') and record.file_path.endswith('.zip'))
+        self.assertTrue(record.file_path.startswith('backups/omag-backup-') and record.file_path.endswith('.zip'))
         self.assertGreater(record.size_bytes, 0)
         names = self.open_zip(record).namelist()
         self.assertIn('database.json', names)
@@ -108,7 +109,8 @@ class BackupTests(TransactionTestCase):
         finally:
             os.remove(path)
         out = io.StringIO()
-        call_command('dumpdata', exclude=service.EXCLUDE, format='json', stdout=out, verbosity=0)
+        # ... with --all: the records a default manager hides are in a backup too
+        call_command('dumpdata', exclude=service.EXCLUDE, format='json', use_base_manager=True, stdout=out, verbosity=0)
         self.assertEqual(ours, json.loads(out.getvalue()))
         self.assertTrue(any(row['model'] == 'farmers.farmer' for row in ours))
 
@@ -159,7 +161,7 @@ class BackupTests(TransactionTestCase):
     def test_a_backup_keeps_its_name_its_file_name_and_its_fingerprint(self):
         record = self.make(name='Before the harvest season', location='Office computer, drive D', remarks='Monthly copy')
         self.assertEqual((record.name, record.location, record.remarks), ('Before the harvest season', 'Office computer, drive D', 'Monthly copy'))
-        self.assertTrue(record.file_name.startswith('oma_backup_') and record.file_name.endswith('.zip'), record.file_name)
+        self.assertTrue(record.file_name.startswith('omag-backup-') and record.file_name.endswith('.zip'), record.file_name)
         with default_storage.open(record.file_path, 'rb') as f:
             self.assertEqual(record.checksum, hashlib.sha256(f.read()).hexdigest())
 
@@ -176,8 +178,8 @@ class BackupTests(TransactionTestCase):
         with mock.patch('backups.views.start_backup', side_effect=lambda *args: service.run_backup(*args)):
             return self.client.post(URL, body, format='json')
 
-    def restore(self, record, password='pw', data=None):
-        body = {'password': password}
+    def restore(self, record, password='pw', data=None, **more):
+        body = {'password': password, **more}
         if data is not None:
             body['file'] = SimpleUploadedFile('backup.zip', data, content_type='application/zip')
         with mock.patch('backups.views.start_restore', side_effect=lambda *args: service.run_restore(*args)):
@@ -201,7 +203,7 @@ class BackupTests(TransactionTestCase):
         d = self.client.get(f"{URL}{row['id']}/download/")
         self.assertEqual(d.status_code, 200)
         self.assertEqual(d['Content-Type'], 'application/zip')
-        self.assertIn('attachment; filename="oma_backup_', d['Content-Disposition'])
+        self.assertIn('attachment; filename="omag-backup-', d['Content-Disposition'])
         self.assertTrue(zipfile.ZipFile(io.BytesIO(b''.join(d.streaming_content))).namelist())
 
     def test_a_backup_with_no_name_is_named_by_its_date(self):
@@ -440,7 +442,7 @@ class BackupTests(TransactionTestCase):
             self.assertEqual(self.restore(bad).status_code, 400)
         rows = {row['id']: row for row in self.client.get(URL).json()['results']}
         self.assertFalse(rows[entry.id]['can_restore'] or rows[failed.id]['can_restore'])
-        self.assertEqual(rows[entry.id]['kind_label'], 'Restore')
+        self.assertEqual(rows[entry.id]['kind_label'], 'Restore (everything)')
 
     def test_a_backup_file_cannot_write_outside_the_uploaded_files(self):
         # a doctored zip: its file names try to leave the storage or to overwrite the backups themselves
@@ -494,8 +496,8 @@ class BackupTests(TransactionTestCase):
         body = {} if data is None else {'file': SimpleUploadedFile('backup.zip', data, content_type='application/zip')}
         return self.client.post(f'{URL}restore/preview/', body, format='multipart')
 
-    def restore_file(self, data, password='pw'):
-        body = {'password': password}
+    def restore_file(self, data, password='pw', **more):
+        body = {'password': password, **more}
         if data is not None:
             body['file'] = SimpleUploadedFile('backup.zip', data, content_type='application/zip')
         with mock.patch('backups.views.start_restore', side_effect=lambda *args: service.run_restore(*args)):
@@ -578,7 +580,7 @@ class BackupTests(TransactionTestCase):
         AuditLogEntry.objects.all().delete()
         self.assertEqual(self.restore(record).status_code, 202)
         found = {e.object_repr: e for e in AuditLogEntry.objects.filter(action='RESTORE')}
-        self.assertIn('Restore of "October copy" finished', found, list(found))
+        self.assertTrue([text for text in found if text.startswith('Restore of "October copy" finished (everything): ')], list(found))
         self.assertIn('Started a restore: Restore of "October copy"', found, list(found))
         self.assertEqual({e.user_name for e in found.values()}, {self.admin.full_name or self.admin.username})
 
@@ -726,6 +728,270 @@ class BackupTests(TransactionTestCase):
         self.assertEqual(self.preview(odd).status_code, 200)
         self.assertEqual(self.restore_file(odd).status_code, 202)
         self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Back')
+
+    def test_a_restore_entry_says_which_kind_of_restore_it_was(self):
+        for scope, label in (('settings', 'Restore (settings and lists)'), ('everything', 'Restore (everything)')):
+            entry = BackupRecord.objects.create(kind='restore', status='done', scope=scope, report={'totals': {'written': 1}})
+            got = next(r for r in self.client.get(URL).data['results'] if r['id'] == entry.id)
+            self.assertEqual((got['kind_label'], got['scope'], got['report']), (label, scope, {'totals': {'written': 1}}))
+        old = BackupRecord.objects.create(status='done')
+        self.assertEqual((old.scope, old.report), ('everything', None))
+
+    # --- the file's name and what its manifest says about it
+    def test_the_manifest_names_who_took_it_and_every_list_it_covers(self):
+        record = self.make(made_by='bk-admin')
+        manifest = json.loads(self.open_zip(record).read('manifest.json'))
+        self.assertEqual(manifest['made_by'], 'bk-admin')
+        self.assertIn('fisheries.fingerlingsource', manifest['models'])          # covered although it has no entries
+        self.assertNotIn('fisheries.fingerlingsource', self.models_in(record))
+        self.assertIn('auditlog.auditlogentry', manifest['models'])
+        small = json.loads(self.open_zip(self.make_without_audit()).read('manifest.json'))
+        self.assertNotIn('auditlog.auditlogentry', small['models'])
+
+    def test_the_manifest_of_an_entry_without_a_name_of_its_own_says_who_made_it(self):
+        manifest = json.loads(self.open_zip(self.make()).read('manifest.json'))
+        self.assertEqual(manifest['made_by'], 'bk-admin')          # from the account that asked
+
+    def test_the_file_is_named_the_new_way(self):
+        record = self.make()
+        self.assertRegex(record.file_name, r'^omag-backup-\d{4}-\d{2}-\d{2}-\d{4}.*\.zip$')
+
+    def test_the_name_the_admin_chose_is_kept(self):
+        def downloaded_as(chosen):
+            record = self.make()
+            before = record.file_name
+            r = self.client.post(f'{URL}{record.id}/downloaded/', {'file_name': chosen}, format='json')
+            self.assertEqual(r.status_code, 200, r.content)
+            record.refresh_from_db()
+            return before, record.file_name
+
+        self.assertEqual(downloaded_as(r'D:\x\my copy.zip')[1], 'my copy.zip')
+        self.assertEqual(downloaded_as('/home/a/Other.ZIP')[1], 'Other.ZIP')
+        for bad in ('notes.txt', '', 'x' * 200 + '.zip', None, 5):
+            before, after = downloaded_as(bad)
+            self.assertEqual(after, before, bad)
+
+    # --- what a restore wrote and removed
+    def report_of(self, record):
+        self.assertEqual(self.restore(record).status_code, 202)
+        done = BackupRecord.objects.filter(kind='restore').order_by('-id').first()
+        self.assertEqual(done.status, 'done', done.detail)
+        return done
+
+    def test_an_everything_restore_counts_what_it_wrote_and_removed(self):
+        record = self.make()
+        Farmer.objects.create(rsbsa_number='01-033-02-019-990002', first_name='Later', last_name='One', gender='Male',
+                              birthdate=date(1990, 1, 1), barangay='Alaska', civil_status='Single')
+        done = self.report_of(record)
+        report = done.report
+        rows = {r['key']: r for r in report['rows']}
+        self.assertEqual([r['key'] for r in report['rows']], [g['key'] for g in service.DATA_GROUPS])
+        self.assertEqual((rows['farmers']['written'], rows['farmers']['removed'], rows['farmers']['skipped']), (1, 1, 0))
+        self.assertTrue(rows['audit']['kept'])
+        self.assertEqual((rows['audit']['written'], rows['audit']['removed']), (0, 0))
+        self.assertFalse(rows['notifications']['kept'])
+        for total in ('written', 'removed', 'skipped'):
+            self.assertEqual(report['totals'][total], sum(r[total] for r in report['rows']), total)
+        self.assertEqual(report['skipped'], [])
+        self.assertEqual(done.records_count, report['totals']['written'])
+
+    def test_a_restore_of_a_backup_without_notifications_says_they_were_kept(self):
+        rows = {r['key']: r for r in self.report_of(self.make_without_audit()).report['rows']}
+        self.assertTrue(rows['audit']['kept'] and rows['notifications']['kept'])
+
+    def test_after_an_everything_restore_no_history_link_points_at_someone_else(self):
+        from auditlog.models import AuditLogEntry
+        stays = Farmer.objects.get(rsbsa_number='01-033-02-019-990001')
+        record = self.make()
+        later = Farmer.objects.create(rsbsa_number='01-033-02-019-990002', first_name='Later', last_name='One', gender='Male',
+                                      birthdate=date(1990, 1, 1), barangay='Alaska', civil_status='Single')
+        made = {}
+        for farmer in (stays, later):
+            made[farmer.pk] = AuditLogEntry.objects.create(
+                user=self.admin, action='UPDATE', object_repr=f'Updated a farmer: {farmer.full_name}',
+                details={'changes': [], 'more': 0, 'people': [{'kind': 'farmer', 'id': farmer.pk, 'name': farmer.full_name}]})
+        self.report_of(record)
+        for entry in made.values():
+            entry.refresh_from_db()
+        self.assertEqual([p['id'] for p in made[stays.pk].details['people']], [stays.pk])
+        self.assertEqual(made[later.pk].details['people'], [])
+        self.assertEqual(made[later.pk].object_repr, 'Updated a farmer: ' + later.full_name)      # the words of the log stay
+
+    # --- what to restore: "Settings and lists" or "Everything"
+    def later_farmer_and_seed_source(self):
+        farmer = Farmer.objects.create(rsbsa_number='01-033-02-019-990004', first_name='Registered', last_name='Since', gender='Male',
+                                       birthdate=date(1992, 4, 4), barangay='Alaska', civil_status='Single')
+        return farmer, SeedSource.objects.create(name='ZZ added after the backup')
+
+    def last_restore(self):
+        return BackupRecord.objects.filter(kind='restore').order_by('-id').first()
+
+    def assert_only_the_lists_went_back(self, farmer, source):
+        self.assertTrue(Farmer.objects.filter(pk=farmer.pk).exists())
+        self.assertFalse(SeedSource.objects.filter(pk=source.pk).exists())
+        done = self.last_restore()
+        self.assertEqual((done.status, done.scope), ('done', 'settings'), done.detail)
+        self.assertEqual(len(done.report['rows']), 22)
+        self.assertEqual(done.records_count, done.report['totals']['written'])
+        self.assertEqual(BackupRecord.objects.filter(kind='safety').order_by('-id').first().status, 'done')
+
+    def test_the_preview_has_a_row_for_every_list(self):
+        SeedSource.objects.create(name='ZZ in the backup')
+        record = self.make(made_by='bk-admin')
+        data = self.downloaded(record)
+        SeedSource.objects.create(name='ZZ added after the backup')
+        body = self.preview(data).json()
+        self.assertEqual(len(body['lists']), 22)
+        seeds = next(r for r in body['lists'] if r['key'] == 'production.seedsource')
+        self.assertEqual((seeds['label'], seeds['now'] - seeds['in_file'], seeds['kept']), ('Seed sources', 1, False))
+        self.assertEqual(body['made_by'], 'bk-admin')
+        self.assertEqual(len(body['groups']), len(service.DATA_GROUPS))          # both tables in one answer
+
+    def test_the_preview_says_who_made_a_backup_of_another_copy(self):
+        data = self.unknown_file()
+        self.assertEqual(self.preview(data).json()['made_by'], 'bk-admin')
+        manifest = json.loads(zipfile.ZipFile(io.BytesIO(data)).read('manifest.json'))
+        del manifest['made_by'], manifest['models']                              # a backup made before this version
+        older = self.zip_with(data, manifest=json.dumps(manifest).encode('utf-8'))
+        self.assertEqual(self.preview(older).json()['made_by'], 'another copy of the system')
+
+    def test_a_settings_restore_by_file_changes_only_the_lists(self):
+        data = self.downloaded(self.make())
+        farmer, source = self.later_farmer_and_seed_source()
+        r = self.restore_file(data, scope='settings')
+        self.assertEqual(r.status_code, 202, r.content)
+        self.assertEqual(r.json()['kind_label'], 'Restore (settings and lists)')
+        self.assert_only_the_lists_went_back(farmer, source)
+
+    def test_a_settings_restore_from_the_history_changes_only_the_lists(self):
+        record = self.make()
+        farmer, source = self.later_farmer_and_seed_source()
+        self.assertEqual(self.restore(record, scope='settings').status_code, 202)
+        self.assert_only_the_lists_went_back(farmer, source)
+
+    def test_a_settings_restore_touches_no_uploaded_file(self):
+        record = self.make()
+        self.change_things()
+        with mock.patch('backups.service.restore_media') as media:
+            self.assertEqual(self.restore(record, scope='settings').status_code, 202)
+        media.assert_not_called()
+        self.assertEqual(self.last_restore().status, 'done', self.last_restore().detail)
+        self.assertEqual(self.last_restore().files_count, 0)
+        with default_storage.open('photos/one.txt', 'rb') as f:
+            self.assertEqual(f.read(), b'a different photo')
+        self.assertEqual(Farmer.objects.get(rsbsa_number='01-033-02-019-990001').first_name, 'Changed')
+
+    def test_a_request_without_a_choice_restores_everything(self):
+        record = self.make()
+        farmer, _ = self.later_farmer_and_seed_source()
+        self.assertEqual(self.restore(record).status_code, 202)
+        self.assertFalse(Farmer.objects.filter(pk=farmer.pk).exists())
+        self.assertEqual(self.last_restore().scope, 'everything')
+
+    def test_an_unknown_choice_is_refused_and_nothing_starts(self):
+        record = self.make()
+        data = self.download(record)
+        before = BackupRecord.objects.count()
+        for answer in (self.restore(record, scope='half'), self.restore_file(data, scope='Settings')):
+            self.assertEqual(answer.status_code, 400, answer.content)
+            self.assertEqual(answer.json()['detail'], 'Choose what to restore.')
+        self.assertEqual(BackupRecord.objects.count(), before)
+
+    def test_a_settings_restore_wants_the_admins_own_password(self):
+        record = self.make()
+        data = self.download(record)
+        with mock.patch('backups.views.start_restore') as start:
+            for address in (f'{URL}{record.id}/restore/', f'{URL}restore/'):
+                r = self.client.post(address, {'password': 'not-it', 'scope': 'settings', 'file': SimpleUploadedFile('b.zip', data)},
+                                     format='multipart')
+                self.assertEqual(r.status_code, 400, r.content)
+        start.assert_not_called()
+
+    def test_the_audit_log_says_what_a_restore_wrote_removed_and_skipped(self):
+        from auditlog.models import AuditLogEntry
+        record = self.make(name='October copy')
+        self.later_farmer_and_seed_source()
+        self.assertEqual(self.restore(record, scope='settings').status_code, 202)
+        totals = self.last_restore().report['totals']
+        self.assertEqual(totals['removed'], 1)
+        wanted = (f'Restore of "October copy" finished (settings and lists): {totals["written"]:,} written, 1 removed, '
+                  f'{totals["skipped"]:,} skipped')
+        self.assertTrue(AuditLogEntry.objects.filter(action='RESTORE', object_repr=wanted).exists(),
+                        list(AuditLogEntry.objects.filter(action='RESTORE').values_list('object_repr', flat=True)))
+
+    def test_no_settings_restore_when_the_safety_backup_cannot_be_made(self):
+        record = self.make()
+        _, source = self.later_farmer_and_seed_source()
+        with mock.patch('backups.service.dump_database', side_effect=RuntimeError('disk full')):
+            self.assertEqual(self.restore(record, scope='settings').status_code, 202)
+        self.assertEqual(self.last_restore().status, 'failed')
+        self.assertIn('safety backup', self.last_restore().detail)
+        self.assertTrue(SeedSource.objects.filter(pk=source.pk).exists())
+
+    def test_a_restore_that_fails_at_the_link_check_leaves_the_numbers_usable(self):
+        # on PostgreSQL a reset number counter is not undone with the transaction: it must not be reset before the check
+        record = self.make()
+        self.change_things()
+        with mock.patch.object(type(connections['default']), 'check_constraints', side_effect=RuntimeError('a broken link')):
+            self.assertEqual(self.restore(record).status_code, 202)
+        self.assertEqual(self.last_restore().status, 'failed')
+        Farmer.objects.create(rsbsa_number='01-033-02-019-990005', first_name='Still', last_name='Works', gender='Male',
+                              birthdate=date(1993, 5, 5), barangay='Alaska', civil_status='Single')
+
+    # --- records the system hides from its lists are records too
+    def hidden_records(self):
+        """A removed assistance record and a purged farm parcel with a crop record on it: no list shows the first two."""
+        from farmers.models import FarmParcel
+        from interventions.models import BeneficiaryRecord, DistributionStatus
+        from production.models import CropMonitoringRecord, CropType
+        farmer = Farmer.objects.get(rsbsa_number='01-033-02-019-990001')
+        parcel = FarmParcel.objects.create(farmer=farmer, parcel_number='P-gone', area_hectares='1.00', barangay='Alaska')
+        crop = CropMonitoringRecord.objects.create(
+            farmer=farmer, farm_parcel=parcel, farm_location_barangay='Alaska', land_status='Owner',
+            crop_type=CropType.objects.create(name='ZZ on a purged parcel', days_to_harvest=90), season='Wet', year=2026,
+            date_planted=date(2026, 5, 1), area_planted_ha='0.50')
+        given = BeneficiaryRecord.objects.create(farmer=farmer, assistance_type='Seeds', date_given=date(2026, 8, 1))
+        BeneficiaryRecord.all_objects.filter(pk=given.pk).update(status=DistributionStatus.REMOVED)
+        FarmParcel.all_objects.filter(pk=parcel.pk).update(purged_at=timezone.now())
+        return parcel, given, crop
+
+    def test_a_backup_holds_removed_assistance_and_purged_parcels(self):
+        parcel, given, _ = self.hidden_records()
+        record = self.make()
+        found = {(item['model'], item['pk']) for item in json.loads(self.open_zip(record).read('database.json'))}
+        self.assertIn(('farmers.farmparcel', parcel.pk), found)
+        self.assertIn(('interventions.beneficiaryrecord', given.pk), found)
+
+    def test_an_everything_restore_keeps_removed_assistance_and_purged_parcels(self):
+        from farmers.models import FarmParcel
+        from interventions.models import BeneficiaryRecord
+        parcel, given, crop = self.hidden_records()
+        done = self.report_of(self.make())          # a crop record on the purged parcel: the restore must still go through
+        self.assertTrue(BeneficiaryRecord.all_objects.filter(pk=given.pk).exists())
+        self.assertTrue(FarmParcel.all_objects.filter(pk=parcel.pk).exists())
+        crop.refresh_from_db()
+        self.assertEqual(crop.farm_parcel_id, parcel.pk)
+        self.assertEqual(done.report['totals']['removed'], 0)
+
+    def test_the_cards_count_the_hidden_records_too(self):
+        before = {g['key']: g['count'] for g in self.client.get(f'{URL}summary/').json()['groups']}
+        self.hidden_records()
+        after = {g['key']: g['count'] for g in self.client.get(f'{URL}summary/').json()['groups']}
+        self.assertEqual((after['farmers'] - before['farmers'], after['assistance'] - before['assistance']), (1, 1))
+
+    # --- counting the records of a file
+    def test_text_in_the_audit_log_is_not_counted_as_records(self):
+        # an Audit Log entry keeps the model's label in its details: it is not another record of that model
+        from auditlog.models import AuditLogEntry
+        for _ in range(3):
+            AuditLogEntry.objects.create(user=self.admin, action='UPDATE', object_repr='x', details={
+                'changes': [{'record': 'Farmer', 'model': 'farmers.farmer', 'change': 'updated', 'name': 'x', 'fields': []}], 'more': 0})
+        record = self.make()
+        items = json.loads(self.open_zip(record).read('database.json'))
+        self.assertEqual(record.records_count, len(items))
+        data = self.download(record)
+        farmers = {g['key']: g for g in self.preview(data).json()['groups']}['farmers']
+        self.assertEqual(farmers['in_file'], sum(item['model'].startswith('farmers.') for item in items))
 
     def test_there_is_no_import_backup_file_any_more(self):
         from django.urls import Resolver404, resolve

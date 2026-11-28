@@ -22,6 +22,10 @@ export function backupSummary(row) {
   const restore = row.kind === 'restore'
   if (row.status === 'running') return restore ? 'Restoring…' : 'Running…'
   if (row.status === 'failed') return row.detail || 'It did not finish.'
+  if (restore && row.report?.totals) {
+    const { written, removed, skipped } = row.report.totals
+    return `${written.toLocaleString('en-US')} written · ${removed.toLocaleString('en-US')} removed · ${skipped.toLocaleString('en-US')} skipped`
+  }
   const parts = [plural(row.records_count, 'record'), plural(row.files_count, 'file')]
   if (restore) return `${parts.join(' · ')} put back`
   if (row.files_skipped) parts.push(`${plural(row.files_skipped, 'file')} left out`)
@@ -45,6 +49,38 @@ export function runningMessage(rows) {
 
 export const notesProblem = (form) => ((form.name || '').trim() ? '' : 'Type a name for the backup.')
 
+// The name the Save As window suggests, with the day and time of the browser: omag-backup-2026-11-28-1505.zip
+export function suggestedFileName(date) {
+  const two = (n) => String(n).padStart(2, '0')
+  return `omag-backup-${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}-${two(date.getHours())}${two(date.getMinutes())}.zip`
+}
+
+export const savedMessage = (row) => `Backup saved. ${plural(row.records_count, 'record')} and ${plural(row.files_count, 'file')} saved to your computer.`
+
+// Under the chosen file's name on the Restore tab. `timeZone` is only given by the tests.
+export function takenLine(preview, timeZone) {
+  const when = preview.made_at || preview.backup?.created_at
+  return `Taken ${formatDate(when, timeZone)} at ${formatTime(when, timeZone)} by ${preview.made_by || preview.backup?.made_by || 'another copy of the system'}`
+}
+
+// What to restore. The safe choice comes first and is preselected.
+export const RESTORE_SCOPES = [
+  {
+    id: 'settings', label: 'Settings and lists', button: 'Restore settings',
+    text: 'The lists of the settings pages and the signatories. People, farms, ponds and their records are left alone.',
+  },
+  {
+    id: 'everything', label: 'Everything', button: 'Restore everything', danger: true,
+    text: 'Also replaces accounts, registrations and all records. Anything recorded since the backup was taken is lost.',
+  },
+]
+
+// The server of an earlier version does not read the choice and would restore everything. Only a preview that carries the lists
+// comes from one that does, so only then may "Settings and lists" be offered.
+export const offersSettings = (preview) => Array.isArray(preview?.lists)
+export const defaultScope = (preview) => (offersSettings(preview) ? 'settings' : 'everything')
+export const previewRows = (preview, scope) => (scope === 'settings' ? preview?.lists : preview?.groups) || []
+
 // The Restore tab: the Admin drops the backup's file (a .zip), sees what it would change, then confirms with their password.
 export function restoreFileProblem(file) {
   if (!file) return 'Choose the backup file from your computer.'
@@ -55,20 +91,17 @@ export function restoreConfirmProblem({ file, password }) {
   return restoreFileProblem(file) || (password ? '' : 'Type your password.')
 }
 
-// What a restore would do to one group of records: the file's count next to the count now. A group the restore leaves alone (the Audit Log always, and the
-// notifications when the file has none) is kept as it is.
-export function restoreChange({ in_file: inFile, now, kept }) {
-  if (kept) return { text: 'Kept as it is', tone: 'kept' }
-  const diff = Number(inFile) - Number(now)
-  if (diff === 0) return { text: 'No change', tone: 'same' }
-  const n = Math.abs(diff).toLocaleString('en-US')
-  return diff > 0 ? { text: `${n} put back`, tone: 'added' } : { text: `${n} removed`, tone: 'removed' }
+// What the confirm window says is replaced: the records the file holds next to the records held now, of what the restore replaces.
+export function confirmCounts(preview, scope) {
+  if (scope === 'everything') return preview.records
+  const covered = previewRows(preview, scope).filter((row) => !row.kept)
+  const sum = (key) => covered.reduce((total, row) => total + row[key], 0)
+  return { in_file: sum('in_file'), now: sum('now') }
 }
 
-// The one line under the file's name: how much a restore puts back, and how much of what the system holds now it replaces.
-export function restoreHeadline({ records, files }) {
-  return `${plural(records.in_file, 'record')} and ${plural(files.in_file, 'file')} will be put back, in place of ${plural(records.now, 'record')} held now. The Audit Log is kept.`
-}
+// The result of a restore: what its table says for a row the restore left alone, and how many skipped entries it does not name.
+export const keptWords = (scope) => (scope === 'settings' ? 'not in this backup' : 'kept')
+export const moreSkipped = (report) => report.totals.skipped - report.skipped.length
 
 // The file the page saves to the computer without being asked: the backup it has just made (`wanted.ids`) or the safety backup of the restore it
 // has just run (`wanted.safety`). Other files still online wait for their Download button.

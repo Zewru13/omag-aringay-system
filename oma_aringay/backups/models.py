@@ -21,7 +21,14 @@ class BackupRecord(models.Model):
         DONE = 'done', 'Done'
         FAILED = 'failed', 'Failed'
 
+    class Scope(models.TextChoices):
+        """What a restore puts back (only restore entries use it)."""
+        EVERYTHING = 'everything', 'Everything'
+        SETTINGS = 'settings', 'Settings and lists'
+
     kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.MANUAL)
+    scope = models.CharField(max_length=12, choices=Scope.choices, default=Scope.EVERYTHING)
+    report = models.JSONField(null=True, blank=True)          # a finished restore: what it wrote, removed and skipped
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.RUNNING)
     created_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)

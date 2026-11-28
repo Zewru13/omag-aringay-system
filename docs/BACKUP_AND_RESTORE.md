@@ -1,51 +1,93 @@
 # Backup & Restore
 
-Admin > **Backup & Restore** is one page with two buttons: **Download backup** (make a backup) and **Restore** (a form: drop a backup file, see what it would change, then confirm; a backup made on another copy of the system is accepted too). Below them are the cards of what a backup holds and the Backup history.
+Admin > **Backup & Restore** has two tabs at the top right: **Create backup** (make a backup, and the Backup history) and **Restore** (add a backup file, see what it would change, then confirm; a backup made on another copy of the system is accepted too). Only an Admin can use it.
 
 ## What a backup is
 
-Download backup makes **one .zip file** of the whole system:
+A backup is **one .zip file** of the whole system:
 
 | In the zip | What it holds |
 |---|---|
-| `database.json` | Every record of every app (farmers, fisherfolk, organizations, crops, harvests, fisheries, assistance, disasters, users with their password **hashes**, audit log...). Sessions, permissions, content types, the Django admin log, the login-token blacklist and the Backup list itself are left out: the system rebuilds them. |
+| `database.json` | Every record of every app (farmers, fisherfolk, cooperatives, crops, harvests, fisheries, assistance, disasters, users with their password **hashes**, the Audit Log if ticked...). Sessions, permissions, content types, the Django admin log, the login-token blacklist and the Backup list itself are left out: the system rebuilds them. |
 | `media/...` | Every uploaded file (damage photos, PCIC forms, profile photos, documents), by its path in the file storage. Backups are never packed into a backup. |
-| `manifest.json` | When it was made, how many records and files, whether the audit trail is in it (`audit_included`), and any file that was left out. |
+| `manifest.json` | When it was made and by whom (`made_by`), how many records and files, every list and table it covers (`models`), whether the Audit Log is in it (`audit_included`), and any file that was left out. |
 
 Files above the size limit (`BACKUP_MAX_MEDIA_BYTES`, 500 MB of uploads by default) are left out and named in the manifest and on the page.
 
-The zip holds personal records and password hashes: **download it only on a trusted computer and store it somewhere safe** (it is not encrypted).
+**Two things the file cannot hold** (the yellow box on the page): the system itself (the program and the design of the database are in the project's code) and the server settings and keys (such as the e-mail and file storage keys, which are kept on the server).
+
+The zip holds personal records and password hashes: **save it only on a trusted computer and keep it somewhere safe** (it is not encrypted).
 
 ## Making a backup
 
-Backups are made **only by hand**: Admin > Backup & Restore > **Download backup**. There is no automatic or nightly backup.
+Backups are made **only by hand**. There is no automatic or nightly backup.
 
-The page shows what a backup holds, in groups (accounts, farmers, crops, fisheries, cycles, organizations, assistance, other records) with how many records each has now (`GET /api/backups/summary/`). One group is optional: **Include the audit trail and notification history** (the activity log and the notifications). It is **unticked by default**: the backup is then smaller and quicker, and a restore of it keeps the activity log and notifications already in the system (an entry that names an account the restore removed names nobody afterwards, and a notification for a removed account is dropped). A request to the API that does not say anything (`include_audit` missing) still makes a full backup.
+The Create backup tab shows what a backup holds, in groups with how many records each has now (`GET /api/backups/summary/`). One choice is optional: **Include the Audit Log and notification history**. It is **unticked by default**: the backup is then smaller and quicker, and a restore of it keeps the notifications already in the system. A request to the API that says nothing (`include_audit` missing) still makes a full backup.
 
 1. Press **Download backup**. Type a name and the **Location** where the file will be kept (both can be left empty; an empty name becomes "Backup of <date and time>"), then **Start Backup**.
-2. It runs in the background (a few minutes for a large system). While it runs, the page is locked: no other backup, edit, download or restore can be started until it is done. Keep the page open.
-3. When it is done the page **saves the file to the computer** (`oma_backup_YYYYMMDD_HHMMSS.zip`, usually in Downloads) and the online copy is removed. The zip is **not kept online**. If the page was closed before the file arrived, the entry says *Waiting to be downloaded*: press **Download** in its row menu.
+2. A **Save As** window opens: choose where the file goes. The suggested name is `omag-backup-YYYY-MM-DD-HHMM.zip`. Closing the window starts nothing. The window opens before the backup starts because a browser only allows it right after a click.
+   **Browsers without this window** (Firefox, Safari, phones, and some with it switched off) download the file the usual way, usually to Downloads.
+3. The backup runs (a few minutes for a large system). The screen is held ("Creating backup…"): no other page, backup, edit, download or restore until it is done. Keep the page open.
+4. The file is written to the chosen place and the page says how many records and files were saved. **Only then is the online copy removed.** If the file cannot be written, the online copy stays: press **Download** in the entry's row menu. The same applies if the page was closed before the file arrived (the entry says *Waiting to be downloaded*).
 
 ## The Backup history
 
 - Every backup stays in the list with its name, date, time, location, kind, who made it, size and status. **Nothing can be deleted from it.**
 - **Edit** (row menu) changes the name, the location and the remarks. The date, the time and the result are facts and cannot be changed.
-- Kinds: *Manual* (Download backup), *Before restore* (the safety backup a restore makes), *Restore* (a restore that was run), *Automatic* (nightly backups made by an earlier version; none are made any more).
-- Each backup keeps the fingerprint (SHA-256) of its file, so that the same file can be recognised when it is chosen for a restore.
+- **View result** (row menu of a finished restore) shows what that restore wrote, removed and skipped. Restores made before this version have no result.
+- Kinds: *Manual*, *Before restore* (the safety backup a restore makes), *Restore (settings and lists)*, *Restore (everything)*, *Automatic* (nightly backups made by an earlier version; none are made any more).
+- Each backup keeps the fingerprint (SHA-256) of its file, so that the same file can be recognised when it is added for a restore.
 
-## Restoring (the Restore form)
+## Restoring
 
 Restoring replaces data, so do it deliberately and when nobody else is using the system.
 
-1. Admin > Backup & Restore > **Restore** (or the row menu of a finished backup in the history > **Restore**, which opens the same form).
-2. **Drag the backup file** onto the form, or press **Browse files**. The file is only read: the system recognises it by its fingerprint among the backups of the history (a genuine backup of this system that the history does not know, for example one made on another copy of the system or after the list was lost, is accepted too and shown as made elsewhere) and shows, group by group, the records in the file next to the records now and what a restore would do (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
-3. Type **your own password** and press **Restore** (`POST /api/backups/restore/`).
-4. The system first makes a **safety backup** of how things are now (it appears as *Before restore* and is saved to the computer too). If the safety backup cannot be made, nothing is restored.
-5. Then the backup is put back: the uploaded files, and every record in one step. If anything fails, **no record is changed** and the entry says *Failed* with the reason.
+1. Open the **Restore** tab (or press **Restore** in the row menu of a finished backup in the history).
+2. **Drag the backup file** onto the box, or press **Browse files**. The file is only read: the page shows its name and when and by whom it was taken, and what a restore would change (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
+3. Choose **What to restore**:
+   - **Settings and lists** (preselected): the lists of the settings pages and the report signatories. People, farms, ponds and their records, and the uploaded files, are left alone. The table has one row per list.
+   - **Everything** (in red): also accounts, registrations, all records and the uploaded files. **Anything recorded since the backup was taken is lost.** The table has one row per group of records; the Audit Log is marked *kept*.
+4. Press **Restore settings** or **Restore everything**, type **your own password** and press **Yes, restore** (`POST /api/backups/restore/` with `scope` = `settings` or `everything`; a request without `scope` means everything).
+5. Both kinds first make a **safety backup** of how things are now (it appears as *Before restore* and downloads to the computer when the restore ends). If it cannot be made, nothing is restored.
+6. The restore runs ("Restoring data…") in one database transaction: **if anything fails, no record is changed** and the result says why.
+7. **Restore complete** shows how many were **Written**, **Removed** and **Skipped**, the same per row, and every skipped entry with its reason (the first 200 by name).
+   - *Written*: put back from the file. *Removed*: in the system and not in the file. *Skipped*: a list entry deliberately left as it is.
 
-After a restore, the records, uploaded files, user accounts and passwords are those of the backup (the activity log and notifications too, unless the backup was made without them: those stay as they are); everyone signs in again. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup.
+The Audit Log is **never replaced**; the restore is added to it, for example "Restore of "October copy" finished (settings and lists): 120 written, 3 removed, 1 skipped". After an Everything restore, a **View history** link in the Audit Log whose record is gone, or has another name now, is removed from its entry (the entry stays), so that it cannot open the wrong person.
 
-A backup restores best into the same version of the system that made it. Fields or tables the system no longer has are skipped.
+### After an Everything restore
+
+The records, uploaded files, user accounts and passwords are those of the backup (the notifications too, unless the backup was made without them); everyone signs in again. If the restore removes the signed-in Admin's own account, they are signed out. Files uploaded after the backup are left in the storage. To undo a restore, restore its *Before restore* backup (as Everything).
+
+## The Settings and lists rules
+
+The lists: crop categories, subcategories, types, varieties, input types, activity steps, harvest unit weights, seed sources and crop activity types; species categories, species, species activity steps, feed types, disease types, fingerling sources and fisheries activity types; assistance agencies, list entries, added types and type units; parcel classifications; report signatories.
+
+An entry is **in use** when a record outside these lists is linked to it (a crop record to its crop type, a stocking to its species), directly or through an entry that would be removed with it.
+
+| Case | Result |
+|---|---|
+| In the file, not in the system | added (Written) |
+| In both, same name (capital letters do not count) | set back to the file's values (Written) |
+| In both, different name, not in use | set back (Written) |
+| In both, different name, in use | **Skipped**: an entry in use is never renamed, because its number may mean something else in the backup |
+| Only in the system, not in use | removed (Removed) |
+| Only in the system, in use | **Skipped**: kept |
+| Cannot be added because a kept entry has that name | **Skipped** |
+
+So that kept entries stay whole:
+
+- What belongs to an entry kept because records use it stays too (a new crop type in use keeps its varieties and activity steps), and so does what belongs to those.
+- The entry a kept entry belongs to (a crop type's category) is not removed or renamed.
+- A backup entry whose parent was not restored is not restored either.
+- A name clash counts only where the database keeps names unique (two signatories may share a name).
+- A backup made before a list existed, or before this version and with that list empty, leaves that list alone. A field the file does not have keeps its current value.
+
+Records that copied a list's words (such as a seed source or an assistance type) keep their words. The old disaster and disease advice rows, which nothing shows any more, do not hold an entry: they are removed with it.
+
+## Old backup files
+
+Backup files made by earlier versions can still be restored, both ways. A backup restores best into the same version of the system that made it. Fields or tables the system no longer has are skipped.
 
 ## Restoring into an empty copy (disaster recovery)
 
@@ -62,5 +104,4 @@ If the restored system is a different copy (not the live one), set its own envir
 ## Notes
 
 - A backup never changes the system's own data; the only row it adds is its entry in the Backup list.
-- Only an Admin can see, make, download, edit or restore backups.
 - A backup or a restore still shown as Running 30 minutes after it started (the server restarted under it) is marked Failed, so the page is not locked for ever.
