@@ -1,4 +1,4 @@
-// Screens of the Farmer, Fisherfolk and Organization accounts on a computer (the phone pictures are in phone.mjs). They show the account
+// Screens of the Farmer, Fisherfolk and Cooperative accounts on a computer (the phone pictures are in phone.mjs). They show the account
 // pages of pages/Account: the five-entry menu (Home, then the account's lists, More), a heading and one line under it, the list (rows on a
 // phone, a table on a computer) and the existing windows the buttons open.
 import { FA, FI, O, click, SIDEBAR, MENU_TOGGLE } from './common.mjs'
@@ -14,10 +14,11 @@ const btn = (text, nth = 0) => ({ text, tag: 'button, a', exact: true, nth })
 
 const MENU = (entries) => ({ find: SIDEBAR, label: 'Menu', desc: `${entries} More holds the other pages of your account. The page you are on is highlighted.` })
 const MENU_BTN = { find: MENU_TOGGLE, label: 'Menu button', desc: 'Hides the left menu to give the page more room, or shows it again.' }
-const TOP = { find: { css: 'button[aria-label="Open account menu"]', up: 2 }, label: 'Bell and your name', desc: 'The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out.' }
+const TOP = { find: { css: 'button[aria-label="Open account menu"]', up: 2 }, label: 'Bell and your name', desc: 'The bell lists your notices. Your name opens your profile; the arrow beside it opens a short menu with Help and Logout.' }
 const TITLE = (desc) => ({ find: [H1, HELPER], label: 'Page heading', desc })
 const SEARCH_BOX = (what) => ({ find: SEARCH, label: 'Search box', desc: `Type to narrow the list to ${what}. The words can be in any order.` })
 const SECTIONS = (desc) => ({ find: SECTION_ROW, label: 'Sections', desc })
+const STATUS_BADGE = { find: { css: 'main tbody tr:not(:has(th)) td:last-child', nth: 0 }, label: 'Status', desc: 'Scheduled means claim it on that date, at that time and place. After that time it shows as Received. There is nothing for you to press.' }
 const COLUMNS = (desc) => ({ find: TABLE_HEAD, label: 'Columns', desc })
 const TODO = { find: { text: 'To do today', tag: 'h2', closest: 'section' }, label: 'To do today', desc: 'Only what needs you now, the most urgent first. Each line has the button that does it.' }
 const SUMMARY = { find: { text: 'Summary', tag: 'h2', closest: 'section' }, label: 'Summary', desc: 'Three figures. A dash means that figure could not be read; Try again at the top reloads it.' }
@@ -32,12 +33,12 @@ const PROFILE = (who) => [
 
 export const CITIZEN = [
   // ───────────────────────────── Farmer ─────────────────────────────
-  FA({ id: 'farmer-home', file: 'farmer/home.png', url: '/my-account', wait: 7000, height: 900, title: 'Home (Farmer)', purpose: 'What needs you today, then your crops.',
+  FA({ id: 'farmer-home', file: 'farmer/home.png', url: '/my-account', wait: 7000, height: 1300, title: 'Home (Farmer)', purpose: 'What needs you today, then your crops.',
     callouts: [
       MENU('Home, Crops, Assistance and Disasters.'), MENU_BTN, TOP,
       TITLE('Your name, the kind of account and today\'s date.'),
       TODO,
-      { find: { css: 'main li button, main li a', nth: 0 }, label: 'The button of a to-do', desc: 'Log activity, Record harvest, Received or Not received opens that form right here; View loan opens Borrow equipment.' },
+      { find: { css: 'main li button, main li a', nth: 0 }, label: 'The button of a to-do', desc: 'View assistance opens your Assistance page. Log activity and Record harvest open that form right here. View loan opens Borrow equipment.' },
       { find: { text: 'My crops', tag: 'h2', closest: 'section' }, label: 'My crops', desc: 'The crops still in the field, each with Details.' },
       SUMMARY,
     ] }),
@@ -54,15 +55,15 @@ export const CITIZEN = [
   FA({ id: 'farmer-crop-details', file: 'farmer/crop-details.png', url: '/crop-monitoring', wait: 6000, js: click('Details'), after: 2500, height: 900, title: 'Crop details (Farmer)', purpose: 'One crop: its facts, its history and what you can do with it.',
     callouts: [
       { find: WINDOW, label: 'Crop details', desc: 'The crop, its parcel, its dates and how far it has grown, then its activities, disasters and remarks.' },
-      { find: [btn('Log Activity'), btn('Record Harvest'), btn('Force Harvest'), btn('Report Disaster')], label: 'Buttons', desc: 'Record Harvest opens once half of the growing time has passed; before that it says when. Force Harvest harvests early when a storm or flood is coming. Report Disaster is not offered for a harvested crop.' },
+      { find: ['Log Activity', 'Record Harvest', 'Force Harvest', 'Report Disaster'].map((name) => ({ ...btn(name), in: '.modal-content' })), label: 'Buttons', desc: 'Log Activity records work done on the crop. Record Harvest opens once half of the growing time has passed; before that it says when. Force Harvest harvests early when a storm or flood is coming. Report Disaster is not offered for a harvested crop.' },
     ] }),
   FA({ id: 'farmer-assistance', file: 'farmer/assistance.png', url: '/crop-assistance', wait: 6000, title: 'Assistance (Farmer)', purpose: 'Help recorded for you.',
     callouts: [
-      TITLE('Help recorded for you by the office or your organization.'),
+      TITLE('Help recorded for you by the office or your cooperative.'),
       SEARCH_BOX('one kind of assistance'),
-      COLUMNS('What was given, how much, from which agency, on which day, and where it stands.'),
-      SECTIONS('Waiting for you, Being followed up, Scheduled and History.'),
-      { find: [btn('Received'), btn('Not received')], label: 'Received / Not received', desc: 'Your answer for assistance that has reached its date. Not received asks for the reason, and the office follows it up.' },
+      COLUMNS('What was given, how much, from which agency, the date, time and place, and the status.'),
+      SECTIONS('Scheduled first: what you can still claim. History is what has passed.'),
+      STATUS_BADGE,
     ] }),
   FA({ id: 'farmer-disasters', file: 'farmer/disasters.png', url: '/disaster', wait: 6000, title: 'Disasters (Farmer)', purpose: 'Damage you reported, ongoing first.',
     callouts: [
@@ -83,16 +84,16 @@ export const CITIZEN = [
       { find: SECTION_ROW, label: 'Growing / Harvested', desc: 'A harvested crop shows the difference from its estimate: green when more, red when less.' },
       { find: btn('Details'), label: 'Details', desc: 'How the estimate was made, and the office\'s remarks.' },
     ] }),
-  FA({ id: 'farmer-equipment', file: 'farmer/equipment.png', url: '/my-equipment', wait: 6000, title: 'Borrow equipment (Farmer)', purpose: 'Equipment your organization lends, under More.',
+  FA({ id: 'farmer-equipment', file: 'farmer/equipment.png', url: '/my-equipment', wait: 6000, title: 'Borrow equipment (Farmer)', purpose: 'Equipment your cooperative lends, under More.',
     callouts: [
-      { find: { text: 'Available to borrow', tag: 'h3, h2, p', up: 1 }, label: 'Available to borrow', desc: 'Your organization\'s equipment with units free now. Open one to ask for it: how many units and when you will return it.' },
+      { find: { text: 'Available to borrow', tag: 'h3, h2, p', up: 1 }, label: 'Available to borrow', desc: 'Your cooperative\'s equipment with units free now. Open one to ask for it: how many units and when you will return it.' },
       { find: { text: 'My loans', tag: 'h3, h2, p', up: 1 }, label: 'My loans', desc: 'What you asked for or borrowed, and its status. Cancel request, or I returned it when you bring it back.' },
     ] }),
   FA({ id: 'farmer-more', file: 'farmer/more.png', url: '/more', wait: 5000, title: 'More (Farmer)', purpose: 'The rest of your account.',
     callouts: [
-      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment (when you belong to an organization), My profile, the User Manual, and Log out.' },
+      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment (when you belong to a cooperative), My profile, Help, and Log out.' },
     ] }),
-  FA({ id: 'farmer-profile', file: 'farmer/profile.png', url: '/my-profile', wait: 6000, height: 1300, title: 'My profile (Farmer)', purpose: 'What the office has on record about you.',
+  FA({ id: 'farmer-profile', file: 'farmer/profile.png', url: '/my-profile', wait: 6000, height: 1600, title: 'My profile (Farmer)', purpose: 'What the office has on record about you.',
     callouts: PROFILE('Your name, Farmer, and your RSBSA number') }),
 
   // ───────────────────────────── Fisherfolk ─────────────────────────────
@@ -126,10 +127,10 @@ export const CITIZEN = [
     ] }),
   FI({ id: 'fisherfolk-assistance', file: 'fisherfolk/assistance.png', url: '/fisheries-assistance', wait: 6000, title: 'Assistance (Fisherfolk)', purpose: 'Help recorded for you.',
     callouts: [
-      TITLE('Help recorded for you by the office or your organization.'),
-      COLUMNS('What was given, how much, from which agency, on which day, and where it stands.'),
-      SECTIONS('Waiting for you, Being followed up, Scheduled and History.'),
-      { find: [btn('Received'), btn('Not received')], label: 'Received / Not received', desc: 'Your answer for assistance that has reached its date.' },
+      TITLE('Help recorded for you by the office or your cooperative.'),
+      COLUMNS('What was given, how much, from which agency, the date, time and place, and the status.'),
+      SECTIONS('Scheduled first: what you can still claim. History is what has passed.'),
+      STATUS_BADGE,
     ] }),
   FI({ id: 'fisherfolk-disasters', file: 'fisherfolk/disasters.png', url: '/disaster', wait: 7000, title: 'Disasters (Fisherfolk)', purpose: 'Damage you reported on your ponds and cages.',
     callouts: [
@@ -148,65 +149,69 @@ export const CITIZEN = [
   FI({ id: 'fisherfolk-profile', file: 'fisherfolk/profile.png', url: '/my-profile', wait: 6000, height: 1300, title: 'My profile (Fisherfolk)', purpose: 'What the office has on record about you.',
     callouts: PROFILE('Your name, Fisherfolk, and your RSBSA number') }),
 
-  // ───────────────────────────── Organization ─────────────────────────────
-  O({ id: 'org-home', file: 'org/home.png', url: '/my-account', wait: 7000, title: 'Home (Organization)', purpose: 'What needs your organization today.',
+  // ───────────────────────────── Cooperative ─────────────────────────────
+  O({ id: 'org-home', file: 'org/home.png', url: '/my-account', wait: 7000, title: 'Home (Cooperative)', purpose: 'What needs your cooperative today.',
     callouts: [
       MENU('Home, Members, Assistance and Equipment.'), MENU_BTN, TOP,
-      TITLE('The organization\'s name, the kind of account and today\'s date.'),
+      TITLE('The cooperative\'s name, the kind of account and today\'s date.'),
       TODO,
       SUMMARY,
     ] }),
-  O({ id: 'org-members', file: 'org/members.png', url: '/my-organization', wait: 6000, title: 'Members (Organization)', purpose: 'Everyone in your organization.',
+  O({ id: 'org-members', file: 'org/members.png', url: '/my-organization', wait: 6000, title: 'Members (Cooperative)', purpose: 'Everyone in your cooperative.',
     callouts: [
       TITLE('Members: active first, then those no longer active.'),
+      { find: btn('Log activity'), label: 'Log activity', desc: 'For members who have no activated account: choose the work and the date once, tick their crops (cycles for a fisherfolk cooperative), and it is saved on each.' },
       { find: [btn('Add member'), btn('Import')], label: 'Add member / Import', desc: 'Add member finds registered people by name, several at a time. Import adds many from a spreadsheet (download its template first).' },
       SEARCH_BOX('a member, an RSBSA number or a position'),
-      COLUMNS('The name, the RSBSA number, the position, the date joined and whether this is the person\'s main organization.'),
+      COLUMNS('The name, the RSBSA number, the position, the date joined and whether this is the person\'s main cooperative.'),
       SECTIONS('Active and Inactive.'),
     ] }),
-  O({ id: 'org-add-member', file: 'org/add-member.png', url: '/my-organization', wait: 6000, js: click('Add member'), after: 1500, title: 'Add member (Organization)', purpose: 'Only registered farmers or fisherfolk can be added.',
+  O({ id: 'org-add-member', file: 'org/add-member.png', url: '/my-organization', wait: 6000, js: click('Add member'), after: 1500, title: 'Add member (Cooperative)', purpose: 'Only registered farmers or fisherfolk can be added.',
     callouts: [
-      { find: WINDOW, label: 'Add member', desc: 'Search a name and pick the person, then search for the next and pick again: everyone picked is listed under Members to Add. Choose the date joined and add them all together. Someone already in another organization is shown, and can belong to both.' },
+      { find: WINDOW, label: 'Add member', desc: 'Search a name and pick the person, then search for the next and pick again: everyone picked is listed under Members to Add. Choose the date joined and add them all together. Someone already in another cooperative is shown, and can belong to both.' },
     ] }),
-  O({ id: 'org-equipment', file: 'org/equipment.png', url: '/my-organization?tab=equipment', wait: 6000, title: 'Equipment (Organization)', purpose: 'What your organization owns, and what it lends.',
+  O({ id: 'org-equipment', file: 'org/equipment.png', url: '/my-organization?tab=equipment', wait: 6000, title: 'Equipment (Cooperative)', purpose: 'What your cooperative owns, and what it lends.',
     callouts: [
       { find: [btn('Lend equipment'), btn('Import'), btn('Add equipment')], label: 'Buttons', desc: 'Lend equipment records units lent to several members at once. Import adds equipment from a spreadsheet. Add equipment adds one.' },
       { find: { css: 'main [role=tablist]' }, label: 'Items / Loans', desc: 'Items is what you own. Loans lists requests and loans; its number is how many requests wait.' },
       COLUMNS('The equipment, its units, their condition, how many are out and how many can be lent now.'),
       { find: btn('Details'), label: 'Details', desc: 'The units by condition, each with Change condition, Record repair, Lend, History and Remove.' },
     ] }),
-  O({ id: 'org-item-details', file: 'org/item-details.png', url: '/my-organization?tab=equipment', wait: 6000, js: click('Details'), after: 1500, title: 'An item\'s details (Organization)', purpose: 'One kind of equipment, by condition.',
+  O({ id: 'org-item-details', file: 'org/item-details.png', url: '/my-organization?tab=equipment', wait: 6000, js: click('Details'), after: 1500, title: 'An item\'s details (Cooperative)', purpose: 'One kind of equipment, by condition.',
     callouts: [
       { find: WINDOW, label: 'By condition', desc: 'Each condition opens onto its units: how many are out, who has them, and its buttons. Only units in Good condition can be lent.' },
     ] }),
-  O({ id: 'org-loans', file: 'org/loans.png', url: '/my-organization?tab=borrowed', wait: 6000, title: 'Loans (Organization)', purpose: 'Borrow requests, what is out, and what came back.',
+  O({ id: 'org-loans', file: 'org/loans.png', url: '/my-organization?tab=borrowed', wait: 6000, title: 'Loans (Cooperative)', purpose: 'Borrow requests, what is out, and what came back.',
     callouts: [
       COLUMNS('The equipment, who borrowed it, the units, the dates and the status. The rows come in sections: Requests, On loan (overdue ones first) and Returned.'),
       { find: [btn('Approve'), btn('Reject')], label: 'Approve / Reject', desc: 'Your answer to a member\'s request. Reject asks for the reason, which the member sees.' },
       { find: btn('Mark returned'), label: 'Mark returned', desc: 'When units come back: returned, damaged or never returned.' },
     ] }),
-  O({ id: 'org-officers', file: 'org/officers.png', url: '/my-organization?tab=officers', wait: 6000, title: 'Officers (Organization)', purpose: 'Who holds each position now, under More.',
+  O({ id: 'org-officers', file: 'org/officers.png', url: '/my-organization?tab=officers', wait: 6000, title: 'Officers (Cooperative)', purpose: 'Who holds each position now, under More.',
     callouts: [
       { find: [btn('Officer history'), btn('Assign officer')], label: 'Officer history / Assign officer', desc: 'Officer history lists everyone who held a position. Assign officer gives a free position to an active member.' },
       COLUMNS('The officer, the position, the term, and whether the officer is a member (one who is not cannot receive assistance through you).'),
       { find: btn('End term early'), label: 'End term early', desc: 'Ends a term before its date, with the reason, so the position can be given again.' },
     ] }),
-  O({ id: 'org-assistance', file: 'org/assistance.png', url: '/crop-assistance', wait: 6000, title: 'Assistance (Organization)', purpose: 'Assistance your organization gave its members.',
+  O({ id: 'org-assistance', file: 'org/assistance.png', url: '/crop-assistance', wait: 6000, title: 'Assistance (Cooperative)', purpose: 'Assistance your cooperative gave its members.',
     callouts: [
-      { find: btn('Distribute assistance'), label: 'Distribute assistance', desc: 'Asks first whether it goes to one member or to all members (see the picture after next).' },
-      { find: { css: 'main [role=tablist]' }, label: 'To do / History / Confirm for members', desc: 'To do: assistance still waiting. History: what was received. Confirm for members: members who cannot confirm for themselves.' },
+      { find: btn('Distribute assistance'), label: 'Distribute assistance', desc: 'Records new assistance. It asks first whether it goes to one member or to all members.' },
+      { find: { css: 'main [role=tablist]' }, label: 'Scheduled / History', desc: 'Scheduled is what members can still claim. History is what has passed, with Earlier confirmations under it.' },
+      { find: { css: 'main input[placeholder^="Search member"]' }, label: 'Search member', desc: 'Type a member\'s name to find the assistance given to that person.' },
+      { find: { text: 'Filters', tag: 'button' }, label: 'Filters', desc: 'Narrows the list by status, kind of assistance, source agency and dates.' },
+      { find: { css: 'main table thead' }, label: 'Columns', desc: 'The date, time and place, what was given and by which agency, how much, how many members, and the status.' },
+      { find: { css: 'main table tbody tr', nth: 0 }, label: 'One distribution', desc: 'One row for each time you gave assistance. Click the row to see its members (next picture).' },
     ] }),
-  O({ id: 'org-confirm-members', file: 'org/confirm-members.png', url: '/crop-assistance?tab=confirm', wait: 6000, height: 900, title: 'Confirm for members (Organization)', purpose: 'For members who have no working account.',
+  O({ id: 'org-assistance-members', file: 'org/assistance-members.png', url: '/crop-assistance', wait: 6000, js: `document.querySelector('main table tbody tr').click()`, after: 1200, title: 'A distribution\'s members (Cooperative)', purpose: 'Who is on the list of one distribution.',
     callouts: [
-      { find: { css: 'main input[type=search]' }, label: 'Search members', desc: 'Type the name of a member, a barangay or an assistance to narrow the list. What you already ticked stays ticked.' },
-      { find: { css: 'main th[scope=colgroup]' }, label: 'Assistance heading', desc: 'What was given: the type, the date, the quantity and the agency, and how many members are listed under it. The box in the heading ticks every member of that assistance.' },
-      { find: { css: '[data-testid=confirm-action-bar]' }, label: 'Confirm the ticked ones', desc: 'How many are ticked, Select all, and the button that confirms them together with at least two proof photos.' },
+      { find: { css: '[aria-label="Members in this distribution"]' }, label: 'Members', desc: 'Everyone who was given this assistance, each with a status. Nobody has to confirm anything.' },
+      { find: { text: 'Remove from the list', tag: 'button', exact: true }, label: 'Remove from the list', desc: 'Takes off a member who did not claim it.' },
     ] }),
-  O({ id: 'org-distribute-choice', file: 'org/distribute-choice.png', url: '/crop-assistance', wait: 6000, js: click('Distribute assistance'), after: 1500, title: 'Distribute assistance (Organization)', purpose: 'Who receives it?',
+  O({ id: 'org-distribute-choice', file: 'org/distribute-choice.png', url: '/crop-assistance', wait: 6000, js: click('Distribute assistance'), after: 1500, title: 'Distribute assistance (Cooperative)', purpose: 'Who receives it?',
     callouts: [
-      { find: WINDOW, label: 'One member or all members', desc: 'One member: tick the members by name. All members: every current member gets the same. Both then ask what was given, by which agency and when.' },
+      { find: WINDOW, label: 'One member or all members', desc: 'Give to one member: pick the members by name. Give to all members: every current member gets the same. Both then ask what is given, by which agency, and the date, time and place to claim it.' },
     ] }),
-  O({ id: 'org-profile', file: 'org/profile.png', url: '/my-profile', wait: 6000, height: 1400, title: 'Organization profile', purpose: 'Your organization\'s details and account.',
-    callouts: PROFILE('The organization\'s name and logo, and its registration number') }),
+  O({ id: 'org-profile', file: 'org/profile.png', url: '/my-profile', wait: 6000, height: 1400, title: 'Cooperative profile', purpose: 'Your cooperative\'s details and account.',
+    callouts: PROFILE('The cooperative\'s name and logo, and its registration number') }),
 ]
 

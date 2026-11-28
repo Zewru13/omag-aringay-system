@@ -7,7 +7,7 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import { DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
+import { DATE_FILTER_BOX, DATE_FILTER_LABEL } from '../../components/UI/DateRangeFields.jsx'
 import AuditEntryWindow from './AuditEntryWindow.jsx'
 import NumberedPages from './NumberedPages.jsx'
 import { ACTION_OPTIONS, MODULE_OPTIONS, historyLink, rowPerson } from './auditLog.js'
@@ -137,11 +137,11 @@ export default function AuditActivityTab() {
         </label>
         <label className={DATE_FILTER_LABEL}>
           From Date
-          <input className={baseInputClasses} type="date" value={filters.from} max={filters.to || undefined} onChange={set('from')} />
+          <input className={`${baseInputClasses} md:w-44 ${DATE_FILTER_BOX}`} type="date" value={filters.from} max={filters.to || undefined} onChange={set('from')} />
         </label>
         <label className={DATE_FILTER_LABEL}>
           To Date
-          <input className={baseInputClasses} type="date" value={filters.to} min={filters.from || undefined} onChange={set('to')} />
+          <input className={`${baseInputClasses} md:w-44 ${DATE_FILTER_BOX}`} type="date" value={filters.to} min={filters.from || undefined} onChange={set('to')} />
         </label>
       </FilterPanel>
 

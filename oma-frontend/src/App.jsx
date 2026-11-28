@@ -44,7 +44,7 @@ const AddCropMonitoringPage = lazy(() => import("./pages/Monitoring/AddCropMonit
 const CropSettingsHub = lazy(() => import("./pages/CropSettings/CropSettingsHub.jsx"));
 const ActivitySettingsHub = lazy(() => import("./pages/ActivitySettings/ActivitySettingsHub.jsx"));
 const UserManagementPage = lazy(() => import("./pages/Users/UserManagementPage.jsx"));
-const ManualPage = lazy(() => import("./pages/Manual/ManualPage.jsx"));
+const HelpPage = lazy(() => import("./pages/Help/HelpPage.jsx"));
 const CropAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.CropAssistanceRoute })));
 const FisheriesAssistanceRoute = lazy(() => import("./pages/Account/accountRoutes.jsx").then((m) => ({ default: m.FisheriesAssistanceRoute })));
 const CitizenHomePage = lazy(() => import("./pages/Citizen/CitizenHomePage.jsx"));
@@ -156,16 +156,16 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* The User Manual (screen guides) is one page for every kind of account; Help (quick guide and questions) is /help or /my-help. */}
+          {/* Help is one page for every kind of account. /manual and /my-help are its old addresses. */}
           <Route
-            path="/manual"
+            path="/help"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
-                <ManualPage />
+                <HelpPage />
               </ProtectedRoute>
             }
           />
-          <Route path="/my-help" element={<Navigate to="/manual" replace />} />
+          <Route path="/my-help" element={<Navigate to="/help" replace />} />
           {/* Disaster: one module, role-appropriate views - fisherfolk accounts get My Logged Disasters
               (Log Disaster = submitted to Admin), Admin/Evaluator get Farmer Disaster + Fisheries Disaster.
               The old fisherfolk /disaster/reports page was folded into it. */}
@@ -475,7 +475,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/help" element={<Navigate to="/manual" replace />} />
+          <Route path="/manual" element={<Navigate to="/help" replace />} />
           {/* An address that does not exist (an old bookmark, the removed /production page) goes home, which sends each account to its own start page. */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

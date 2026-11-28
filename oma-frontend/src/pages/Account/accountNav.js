@@ -16,15 +16,15 @@ export const accountTheme = (kind) => (kind === 'fisherfolk' || kind === 'orgFis
 const HOME = { key: 'home', to: '/my-account', label: 'Home', icon: 'home' }
 const MORE = { key: 'more', to: '/more', label: 'More', icon: 'more' }
 const PROFILE = { key: 'profile', to: '/my-profile', label: 'My profile', icon: 'profile' }
-// The User Manual is the one help page: screen guides, common questions and About This System.
-const MANUAL = { key: 'manual', to: '/manual', label: 'User Manual', icon: 'manual' }
+// Help is the one help page: how to use each page, common questions and About This System.
+const HELP = { key: 'help', to: '/help', label: 'Help', icon: 'help' }
 const BORROW = { key: 'borrow', to: '/my-equipment', label: 'Borrow equipment', icon: 'borrow' }
 
 // A farmer or fisherfolk who belongs to an organization can also borrow its equipment (`isMember`).
 function personNav({ records, assistance, forecast }, isMember) {
   return {
     main: [HOME, records, { key: 'assistance', to: assistance, label: 'Assistance', icon: 'assistance' }, { key: 'disasters', to: '/disaster', label: 'Disasters', icon: 'disaster' }, MORE],
-    more: [{ key: 'forecast', to: forecast, label: 'Forecast', icon: 'forecast' }, ...(isMember ? [BORROW] : []), PROFILE, MANUAL],
+    more: [{ key: 'forecast', to: forecast, label: 'Forecast', icon: 'forecast' }, ...(isMember ? [BORROW] : []), PROFILE, HELP],
   }
 }
 
@@ -37,7 +37,7 @@ function orgNav(assistance) {
       { key: 'equipment', to: '/my-organization?tab=equipment', label: 'Equipment', icon: 'equipment' },
       MORE,
     ],
-    more: [{ key: 'officers', to: '/my-organization?tab=officers', label: 'Officers', icon: 'officers' }, { ...PROFILE, label: 'Cooperative profile' }, MANUAL],
+    more: [{ key: 'officers', to: '/my-organization?tab=officers', label: 'Officers', icon: 'officers' }, { ...PROFILE, label: 'Cooperative profile' }, HELP],
   }
 }
 

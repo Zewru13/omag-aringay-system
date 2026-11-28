@@ -1,5 +1,5 @@
 // People read "Cooperative" where the website used to say "Organization". Addresses, field names and saved values keep the old
-// word, so nothing in the database changes. The User Manual (pages/Manual and the common questions) is updated separately.
+// word, so nothing in the database changes. That includes the words of the Help pictures (pages/Manual/manualScreens.js).
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
@@ -9,7 +9,6 @@ import path from 'node:path'
 const { parse } = createRequire(import.meta.url)('@babel/parser')
 const src = fileURLToPath(new URL('../src', import.meta.url))
 const WORD = /organi[sz]ation/i
-const MANUAL = ['pages/Manual/', 'pages/Help/helpContent.js', 'pages/Account/helpAnswers.js']
 
 // Written like an address, a field name or a code: no spaces, and not a capitalised word that would be read as a label.
 const isCode = (value, kind) => {
@@ -48,7 +47,7 @@ const walk = (dir) => {
     if (entry.isDirectory()) walk(full)
     else if (/\.(js|jsx)$/.test(entry.name)) {
       const name = path.relative(src, full).replace(/\\/g, '/')
-      if (!MANUAL.some((m) => name.startsWith(m))) readFile(full, name)
+      readFile(full, name)
     }
   }
 }

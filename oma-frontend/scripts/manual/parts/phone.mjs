@@ -1,4 +1,4 @@
-// Phone-size pictures (390 x 844) of the Farmer, Fisherfolk and Organization accounts, with the sign-in page.
+// Phone-size pictures (390 x 844) of the Farmer, Fisherfolk and Cooperative accounts, with the sign-in page.
 import { FA, FI, O } from './common.mjs'
 
 const NAV = { css: 'nav[aria-label="Main navigation"]' }
@@ -46,7 +46,7 @@ export const PHONE = [
     ] }),
   FA({ id: 'farmer-p-more', phone: true, file: 'farmer/phone-more.png', url: '/more', wait: 5000, title: 'More on a phone (Farmer)', purpose: 'The fifth tab of the bottom menu.',
     callouts: [
-      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment, My profile, the User Manual and Log out.' },
+      { find: { css: 'main ul' }, label: 'Pages', desc: 'Forecast, Borrow equipment, My profile, Help and Log out.' },
       BOTTOM('Home, Crops, Assistance, Disasters and More.'),
     ] }),
 
@@ -70,19 +70,20 @@ export const PHONE = [
       BOTTOM('Home, Cycles, Assistance, Disasters and More.'),
     ] }),
 
-  // ───────────────────────────── Organization ─────────────────────────────
-  O({ id: 'org-p-home', phone: true, file: 'org/phone-home.png', url: '/my-account', wait: 7000, title: 'Home on a phone (Organization)', purpose: 'The same Home, with the menu along the bottom.',
+  // ───────────────────────────── Cooperative ─────────────────────────────
+  O({ id: 'org-p-home', phone: true, file: 'org/phone-home.png', url: '/my-account', wait: 7000, title: 'Home on a phone (Cooperative)', purpose: 'The same Home, with the menu along the bottom.',
     callouts: [
       BELL, TODO,
       BOTTOM('Home, Members, Assistance, Equipment and More.'),
     ] }),
-  O({ id: 'org-p-members', phone: true, file: 'org/phone-members.png', url: '/my-organization', wait: 6000, title: 'Members on a phone (Organization)', purpose: 'One card per member.',
+  O({ id: 'org-p-members', phone: true, file: 'org/phone-members.png', url: '/my-organization', wait: 6000, title: 'Members on a phone (Cooperative)', purpose: 'One card per member.',
     callouts: [
+      { find: { text: 'Log activity', tag: 'button', exact: true }, label: 'Log activity', desc: 'Records farm work for members who have no activated account: choose it once, then tick their crops or cycles.' },
       { find: [{ text: 'Import', tag: 'button', exact: true }, { text: 'Add member', tag: 'button', exact: true }], label: 'Import / Add member', desc: 'Add several members at once by searching and picking each, or from a spreadsheet.' },
       ROW1('A member', 'The name, the position and the date joined.'),
       BOTTOM('Home, Members, Assistance, Equipment and More.'),
     ] }),
-  O({ id: 'org-p-equipment', phone: true, file: 'org/phone-equipment.png', url: '/my-organization?tab=borrowed', wait: 6000, title: 'Equipment on a phone (Organization)', purpose: 'Answer borrow requests with one tap.',
+  O({ id: 'org-p-equipment', phone: true, file: 'org/phone-equipment.png', url: '/my-organization?tab=borrowed', wait: 6000, title: 'Equipment on a phone (Cooperative)', purpose: 'Answer borrow requests with one tap.',
     callouts: [
       { find: { css: 'main [role=tablist]' }, label: 'Items / Loans', desc: 'The number on Loans is how many requests wait.' },
       ROW1('A loan', 'Approve or Reject a request; Mark returned when the units come back.'),

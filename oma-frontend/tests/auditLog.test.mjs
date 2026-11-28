@@ -106,4 +106,8 @@ for (const file of ['../src/components/Layout/Navbar.jsx', '../src/components/La
 }
 ok(!/activity log/i.test(read('../src/pages/Backup/BackupGroups.jsx')), 'the backup page says Audit Log')
 
+// the two date boxes keep a readable width: the shared box style is as wide as its holder, and a filter label has no width of its own
+const dateBoxes = activity.split('\n').filter((line) => line.includes('type="date"'))
+eq(dateBoxes.length, 2, 'From Date and To Date')
+for (const line of dateBoxes) ok(line.includes('md:w-44') && line.includes('DATE_FILTER_BOX'), 'a date box has its own width on a computer and fills the row on a phone')
 console.log('audit log: all checks passed')
