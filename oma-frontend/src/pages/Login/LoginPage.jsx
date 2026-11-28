@@ -5,7 +5,7 @@ import api from "../../api/axiosInstance.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import logo from "../../assets/LOGO OMAg-small.png";
 import LoginArt from "./LoginArt.jsx";
-import { SYSTEM_TITLE_READABLE } from "../../constants/appInfo.js";
+import { OFFICE_SIGN_IN_EMAIL, SYSTEM_TITLE_READABLE } from "../../constants/appInfo.js";
 
 const FIELD =
   "w-full h-12 rounded-[var(--radius-sm)] border border-border-strong bg-surface pl-11 pr-3.5 text-[16px] split:text-[15px] text-text-primary placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:bg-surface-2";
@@ -259,6 +259,10 @@ function LoginPage() {
 
             <p className="login-rise mt-8 border-t border-border pt-5 text-[13px] leading-relaxed text-text-secondary" style={{ "--i": 5 }}>
               No account yet, or the reset email does not arrive? Visit the Office of the Municipal Agriculturist with a valid ID.
+              <span className="mt-2 block">
+                Email the office:{" "}
+                <a href={`mailto:${OFFICE_SIGN_IN_EMAIL}`} className="break-all font-semibold text-primary hover:underline">{OFFICE_SIGN_IN_EMAIL}</a>
+              </span>
             </p>
           </div>
         </div>

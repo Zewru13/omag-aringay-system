@@ -175,7 +175,8 @@ export function rowProblem(row) {
   if (!positive(row.area_hectares)) return 'enter the area (ha)'
   if (!row.barangay) return 'choose the barangay'
   if (row.parcel_number && !PARCEL_NUMBER_RE.test(row.parcel_number)) return `the parcel number needs all ${PARCEL_NUMBER_DIGITS} digits: RR-PP-MM-BBB-SSS-LL-NNN, e.g. ${PARCEL_NUMBER_PLACEHOLDER}`
-  const taxDec = (row.tax_declaration_number || '').trim()
+  // A tenant or lessee parcel has no Tax Dec (the box is hidden), so whatever is left in it is not checked.
+  const taxDec = isTenure(row.land_ownership) ? '' : (row.tax_declaration_number || '').trim()
   if (taxDec && !TAX_DECLARATION_RE.test(taxDec)) return 'the tax declaration number needs all 18 digits: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142'
   if (taxDec && !row.parcel_number) return 'a parcel number is required when a tax declaration number is given'
   if (isTenure(row.land_ownership) && !(row.land_owner_name || '').trim()) return 'enter the land owner name for a tenant or lessee parcel'
@@ -281,7 +282,7 @@ export function parcelPayload(row, context) {
     land_ownership: row.land_ownership,
     land_owner_name: isTenure(row.land_ownership) ? row.land_owner_name : '',
     land_owner_rsbsa_number: isTenure(row.land_ownership) ? row.land_owner_rsbsa_number : '',
-    tax_declaration_number: row.tax_declaration_number,
+    tax_declaration_number: isTenure(row.land_ownership) ? '' : row.tax_declaration_number,
     barangay: row.barangay,
     farm_type: row.farm_type,
     classifications: row.classifications || [],
@@ -353,7 +354,8 @@ export function editProblem(form) {
   return rowProblem({ ...form, crops: [] })
 }
 
-// The PATCH body: only what this window edits, with a tenant's land owner dropped for an owner parcel.
+// The PATCH body: only what this window edits, with a tenant's land owner dropped for an owner parcel. A tenant or lessee parcel
+// sends no Tax Dec at all, so a number saved earlier stays in the database.
 export function editPayload(form, parcel) {
   const body = {
     parcel_number: form.parcel_number,
@@ -361,7 +363,7 @@ export function editPayload(form, parcel) {
     land_ownership: form.land_ownership,
     land_owner_name: isTenure(form.land_ownership) ? form.land_owner_name : '',
     land_owner_rsbsa_number: isTenure(form.land_ownership) ? form.land_owner_rsbsa_number : '',
-    tax_declaration_number: form.tax_declaration_number,
+    ...(isTenure(form.land_ownership) ? {} : { tax_declaration_number: form.tax_declaration_number }),
     barangay: form.barangay,
     farm_type: form.farm_type,
     classifications: form.classifications || [],

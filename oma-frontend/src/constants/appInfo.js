@@ -17,7 +17,10 @@ export const MAIN_DEVELOPER = {
 export const CO_DEVELOPER = { name: 'Carl Jhoaquin B. Inong' }
 export const SCHOOL = 'Saint Louis College'
 
+// The Office of the Municipal Agriculturist's own address, shown on the sign-in page.
+export const OFFICE_SIGN_IN_EMAIL = 'agriculture2503aringay@gmail.com'
+
 // The office's own contact details, shown in Help > About This System.
 export const OFFICE_CONTACT = {
-  emails: ['agriculture2503aringay@gmail.com', 'lgu_aringay@yahoo.com'],
+  emails: [OFFICE_SIGN_IN_EMAIL, 'lgu_aringay@yahoo.com'],
 }

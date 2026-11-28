@@ -195,26 +195,35 @@ class FarmParcelSerializer(serializers.ModelSerializer):
         return names
 
     def validate(self, data):
-        # Cross-field rule: Parcel Number becomes required only once a Tax
-        # Declaration Number is provided (not every parcel has a Tax Dec yet,
-        # but if one is on file, the parcel it belongs to should be
-        # identifiable). No reverse rule — Tax Dec stays optional regardless
-        # of Parcel Number. Falls back to the existing instance for fields
-        # not present in the payload, so a partial update is checked against
-        # the resulting combined state, not just the patched fields.
-        parcel_number = data.get('parcel_number', getattr(self.instance, 'parcel_number', ''))
-        tax_declaration_number = data.get('tax_declaration_number', getattr(self.instance, 'tax_declaration_number', ''))
-        if (tax_declaration_number or '').strip() and not (parcel_number or '').strip():
-            raise serializers.ValidationError({
-                'parcel_number': 'Parcel Number is required when a Tax Declaration Number is provided.'
-            })
+        ownership = data.get('land_ownership', getattr(self.instance, 'land_ownership', ''))
+        tenure = ownership in (FarmParcel.LandOwnership.TENANT, FarmParcel.LandOwnership.LESSEE)
+        if tenure:
+            # A tenant or lessee parcel has no Tax Dec (it is the land owner's): a new one is saved without it. A number saved
+            # before this rule stays as it is, so an edit never writes the field.
+            if self.instance is None:
+                data['tax_declaration_number'] = ''
+            else:
+                data.pop('tax_declaration_number', None)
+        else:
+            # Cross-field rule: Parcel Number becomes required only once a Tax
+            # Declaration Number is provided (not every parcel has a Tax Dec yet,
+            # but if one is on file, the parcel it belongs to should be
+            # identifiable). No reverse rule — Tax Dec stays optional regardless
+            # of Parcel Number. Falls back to the existing instance for fields
+            # not present in the payload, so a partial update is checked against
+            # the resulting combined state, not just the patched fields.
+            parcel_number = data.get('parcel_number', getattr(self.instance, 'parcel_number', ''))
+            tax_declaration_number = data.get('tax_declaration_number', getattr(self.instance, 'tax_declaration_number', ''))
+            if (tax_declaration_number or '').strip() and not (parcel_number or '').strip():
+                raise serializers.ValidationError({
+                    'parcel_number': 'Parcel Number is required when a Tax Declaration Number is provided.'
+                })
         # A tenant or lessee parcel belongs to someone else, so it needs that owner's name (the RSBSA number stays optional). Checked
         # for a new parcel, and for an edit that sends the ownership or the name; an edit of anything else leaves an older parcel with
         # no name still correctable.
         if self.instance is None or 'land_ownership' in data or 'land_owner_name' in data:
-            ownership = data.get('land_ownership', getattr(self.instance, 'land_ownership', ''))
             owner = data.get('land_owner_name', getattr(self.instance, 'land_owner_name', ''))
-            if ownership in (FarmParcel.LandOwnership.TENANT, FarmParcel.LandOwnership.LESSEE) and not (owner or '').strip():
+            if tenure and not (owner or '').strip():
                 raise serializers.ValidationError({'land_owner_name': 'Enter the land owner name for a tenant or lessee parcel.'})
         if self.instance is not None:
             self._check_edit(data)

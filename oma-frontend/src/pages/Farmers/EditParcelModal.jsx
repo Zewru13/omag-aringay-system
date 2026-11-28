@@ -146,14 +146,16 @@ function EditParcelModal({ parcel, onClose, onSuccess }) {
                 </FormCell>
               </FormRow>
             )}
-            <FormRow>
-              <FormCell label="Tax Dec No." wide error={errors.tax_declaration_number}>
-                <div className="md:max-w-[26rem]">
-                  <IdNumberInput groups={TAX_DECLARATION_GROUPS} maxDigits={TAX_DECLARATION_DIGITS} value={form.tax_declaration_number}
-                    placeholder="01-002-00005-2023-0142" onChange={(v) => set('tax_declaration_number', v)} />
-                </div>
-              </FormCell>
-            </FormRow>
+            {!isTenure(form.land_ownership) && (
+              <FormRow>
+                <FormCell label="Tax Dec No." wide error={errors.tax_declaration_number}>
+                  <div className="md:max-w-[26rem]">
+                    <IdNumberInput groups={TAX_DECLARATION_GROUPS} maxDigits={TAX_DECLARATION_DIGITS} value={form.tax_declaration_number}
+                      placeholder="01-002-00005-2023-0142" onChange={(v) => set('tax_declaration_number', v)} />
+                  </div>
+                </FormCell>
+              </FormRow>
+            )}
           </FormRows>
         </FormSection>
 

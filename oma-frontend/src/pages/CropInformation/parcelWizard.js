@@ -37,7 +37,7 @@ export const reviewRows = (rows, cropTypes) => rows.map((row) => ({
   barangay: row.barangay,
   area: row.area_hectares,
   ownership: isTenure(row.land_ownership) ? `${row.land_ownership} (owner: ${row.land_owner_name})` : row.land_ownership,
-  taxDec: row.tax_declaration_number || '—',
+  taxDec: isTenure(row.land_ownership) ? '' : row.tax_declaration_number || '—',     // '' = no line: Owner parcels only
   farmType: row.farm_type,
   schedule: row.cropping_schedule,
   classifications: (row.classifications || []).join(', ') || '—',

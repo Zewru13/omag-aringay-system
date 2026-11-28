@@ -71,7 +71,7 @@ export function parcelReport({ parcel, crops, now }) {
       ['Farmer', parcel.farmer_name], ['RSBSA Number', parcel.rsbsa_number], ['Parcel Number', parcel.parcel_number || `Parcel #${parcel.id}`],
       ['Barangay', parcel.barangay], ['Area (ha)', ha(parcel.area_hectares)], ['Land Ownership', parcel.land_ownership],
       ...(tenure ? [['Land Owner', parcel.land_owner_name], ['Land Owner RSBSA Number', parcel.land_owner_rsbsa_number]] : []),
-      ['Tax Declaration Number', parcel.tax_declaration_number], ['Farm Type', parcel.farm_type], ['Cropping Schedule', parcel.cropping_schedule],
+      ...(tenure ? [] : [['Tax Declaration Number', parcel.tax_declaration_number]]), ['Farm Type', parcel.farm_type], ['Cropping Schedule', parcel.cropping_schedule],
       ['Classifications', (parcel.classifications || []).join(', ')], ['Crop Records', String(crops.length)],
     ],
     sections: [{

@@ -184,7 +184,7 @@ class ParcelImportTests(APITestCase):
                               classifications='organic farm; Within Ancestral Domain , Agrarian Reform Beneficiary')])
         parcel = FarmParcel.objects.get(farmer=self.farmer)
         self.assertEqual((parcel.land_ownership, parcel.land_owner_name, parcel.land_owner_rsbsa_number, parcel.tax_declaration_number),
-                         ('Tenant', 'Juan Dela Cruz', '01-33-02-014-058212', '01-002-00005-2023-0142'))
+                         ('Tenant', 'Juan Dela Cruz', '01-33-02-014-058212', ''))   # a tenant parcel takes no Tax Dec
         self.assertEqual(parcel.classifications, ['Organic Farm', 'Within Ancestral Domain', 'Agrarian Reform Beneficiary'])
 
     def test_a_parcel_without_crops_is_one_row_with_the_crop_cells_blank(self):
