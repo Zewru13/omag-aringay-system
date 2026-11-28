@@ -77,10 +77,10 @@ for (const file of ['pages/Farmers/MachineryEditor.jsx', 'pages/Farmers/FarmerMa
 }
 
 // A crop's seed source is saved as the text picked, so Edit Crop keeps saving 'Organization' and only shows "Cooperative".
-const { seedSourceLabel, EDIT_SEED_SOURCES } = await import(new URL('../src/pages/CropInformation/cropEntry.js', import.meta.url).href)
-eq(EDIT_SEED_SOURCES.at(-1), { value: 'Organization', label: 'Cooperative' }, 'the saved seed source value is unchanged')
+const { seedSourceLabel, seedSourceChoices } = await import(new URL('../src/pages/CropInformation/cropEntry.js', import.meta.url).href)
+eq(seedSourceChoices([], 'Organization'), [{ value: 'Organization', label: 'Cooperative' }], 'the saved seed source value is unchanged')
 eq(['Organization', 'Commercial', '', undefined].map(seedSourceLabel), ['Cooperative', 'Commercial', '', ''], 'and it is shown as Cooperative')
-eq(read('pages/CropInformation/CropInformationPage.jsx').includes('options={EDIT_SEED_SOURCES}'), true, 'Edit Crop uses that list')
+eq(read('pages/CropInformation/CropInformationPage.jsx').includes('options={seedSourceChoices('), true, 'Edit Crop uses that list')
 for (const file of ['pages/CropInformation/CropInformationPage.jsx', 'pages/Farmers/farmerProfile.js', 'pages/Monitoring/cropDetails.js']) {
   eq(/seedSourceLabel\(/.test(read(file)), true, `${file} shows the label`)
 }

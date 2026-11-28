@@ -77,4 +77,30 @@ eq(seedUnitOptions([{ unit: 'sacks' }, { unit: 'Bags' }, { unit: 'cavan' }, { un
 eq(seedUnitOptions([], 'tin'), ['kg', 'bags', 'pcs', 'bundles', 'tin'], 'a unit already saved on the record stays choosable')
 eq(seedUnitOptions([{ unit: 'sacks' }], 'SACKS'), ['kg', 'bags', 'pcs', 'bundles', 'sacks'], 'the saved unit is not listed twice')
 
+// ── Edit Crop picks from the same lists as Add Crop (Crop Settings), and never loses what a record already says
+const { varietyChoices, seedSourceChoices } = await import(new URL('../src/pages/CropInformation/cropEntry.js', import.meta.url).href)
+const VARIETIES = [
+  { name: 'Rc 222', crop_type: 7, is_active: true }, { name: 'Old One', crop_type: 7, is_active: false },
+  { name: 'Native', crop_type: null, is_active: true }, { name: 'Sweet', crop_type: 8, is_active: true }, { name: 'Rc 222', crop_type: null, is_active: true },
+]
+eq(varietyChoices(VARIETIES, 7, ''), ['Rc 222', 'Native'], 'the active varieties of this crop and the ones for every crop, each once')
+eq(varietyChoices(VARIETIES, '7', 'Rc 222'), ['Rc 222', 'Native'], 'a listed current value is not repeated')
+eq(varietyChoices(VARIETIES, 7, 'Uncle seed'), ['Rc 222', 'Native', 'Uncle seed'], 'a current value that is not listed stays choosable')
+eq(varietyChoices(VARIETIES, 7, 'Old One'), ['Rc 222', 'Native', 'Old One'], 'so does a deactivated one')
+eq(varietyChoices(VARIETIES, 7, 'Other'), ['Rc 222', 'Native'], '"Other" is already the last choice of the box')
+const SOURCES = [{ name: 'Certified Seed', is_active: true }, { name: 'Gone', is_active: false }]
+eq(seedSourceChoices(SOURCES, ''), ['Certified Seed'], 'the active seed sources')
+eq(seedSourceChoices(SOURCES, 'Certified Seed'), ['Certified Seed'], 'once')
+eq(seedSourceChoices(SOURCES, 'Own Seeds'), ['Certified Seed', 'Own Seeds'], 'an old fixed value stays choosable on its own record')
+eq(seedSourceChoices(SOURCES, 'Other'), ['Certified Seed'], 'no second Other')
+eq(seedSourceChoices(SOURCES, 'Organization'), ['Certified Seed', { value: 'Organization', label: 'Cooperative' }], 'the older saved name reads as Cooperative')
+{
+  const page = (await import('node:fs')).default.readFileSync(new URL('../src/pages/CropInformation/CropInformationPage.jsx', import.meta.url), 'utf8')
+  const edit = page.slice(page.indexOf('function EditCropModal('), page.indexOf('\nfunction ', page.indexOf('function EditCropModal(') + 10))
+  assert.ok(edit.includes('options={varietyChoices(varieties, record.crop_type, originalData.variety_used)}'), 'Variety is picked from the list'); n++
+  assert.ok(edit.includes('options={seedSourceChoices(seedSources, originalData.seed_source)}'), 'Seed Source is picked from the list'); n++
+  assert.ok(!page.includes('EDIT_SEED_SOURCES'), 'the old fixed list is gone'); n++
+  assert.ok(edit.includes('Type the variety, or choose one from the list.') && edit.includes('Type the seed source, or choose one from the list.'), 'an empty Other is stopped with a plain message'); n++
+}
+
 console.log(`cropEntry: ${n} checks passed`)

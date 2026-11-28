@@ -117,4 +117,14 @@ export function areaProblem(rows, index, parcels) {
 
 // A crop's seed source is saved as the text picked. 'Organization' keeps its older saved name; people read it as Cooperative.
 export const seedSourceLabel = (value) => (value === 'Organization' ? 'Cooperative' : value || '')
-export const EDIT_SEED_SOURCES = ['Own Seeds', 'DA/LGU Provided', 'Commercial', { value: 'Organization', label: seedSourceLabel('Organization') }]
+
+// What Edit Crop offers: the same lists of Crop Settings as Add Crop, plus the record's own value when it is not listed (an older or
+// deactivated one), so opening a record never loses what it says. "Other" is the box's own last choice.
+const withCurrent = (names, current) => {
+  const listed = [...new Set(names)]
+  return current && current !== 'Other' && !listed.includes(current) ? [...listed, current] : listed
+}
+export const varietyChoices = (varieties, cropTypeId, current) => withCurrent(
+  (varieties || []).filter((v) => v.is_active && (!v.crop_type || String(v.crop_type) === String(cropTypeId))).map((v) => v.name), current)
+export const seedSourceChoices = (seedSources, current) => withCurrent((seedSources || []).filter((s) => s.is_active).map((s) => s.name), current)
+  .map((value) => (value === 'Organization' ? { value, label: seedSourceLabel(value) } : value))

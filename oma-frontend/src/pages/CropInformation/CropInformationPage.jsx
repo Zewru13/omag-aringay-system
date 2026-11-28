@@ -17,6 +17,7 @@ import BARANGAYS from "../../constants/barangays.js";
 import { DetailTable, FormCell, FormRow, FormRows, FormSection, FormValue } from "../../components/UI/FormTable.jsx";
 import { formatDate } from "../../utils/dateFormat.js";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
+import { useCropFormLookups } from "../Monitoring/useCropFormLookups.js";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import AddButton from "../../components/UI/AddButton.jsx";
@@ -49,7 +50,7 @@ import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
 import AddFarmParcelsWindow from "./AddFarmParcelsWindow.jsx";
 import { closeAddParcelsParams, openAddParcelsParams, readAddParcels } from "../../utils/parcelWindowAddress.js";
-import { CROP_OWNERSHIP_OPTIONS, EDIT_SEED_SOURCES, PLANTING_MATERIALS, seedSourceLabel, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload, seedUnitOptions } from "./cropEntry.js";
+import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, seedSourceLabel, seedSourceChoices, varietyChoices, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload, seedUnitOptions } from "./cropEntry.js";
 import {
   DEFAULT_GROUP, GROUP_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
@@ -387,6 +388,8 @@ function EditCropModal({ record, onClose, onSaved }) {
 
   // Crop types (for harvest preview)
   const [cropTypes, setCropTypes] = useState([]);
+  // The lists Variety and Seed Source are picked from (Crop Settings), as on Add Crop.
+  const { seedSources, varieties } = useCropFormLookups();
 
   // Form
   const originalData = {
@@ -467,6 +470,14 @@ function EditCropModal({ record, onClose, onSaved }) {
     }
     if (!form.area_planted_ha) {
       setError("Area planted (ha) is required.");
+      return;
+    }
+    if (form.variety_used_is_other && !form.variety_used.trim()) {
+      setError("Type the variety, or choose one from the list.");
+      return;
+    }
+    if (form.seed_source === "Other" && !form.seed_source_other_specify.trim()) {
+      setError("Type the seed source, or choose one from the list.");
       return;
     }
     const nextFieldErrors = {};
@@ -574,13 +585,15 @@ function EditCropModal({ record, onClose, onSaved }) {
                 </select>
               </FormCell>
               <FormCell label="Variety Used">
-                <input
-                  type="text"
-                  className={baseInputClasses}
-                  placeholder="e.g. RC9, PSB Rc18"
-                  value={form.variety_used}
-                  aria-label="Variety Used"
-                  onChange={(e) => set("variety_used", e.target.value)}
+                <ComboboxWithOther
+                  options={varietyChoices(varieties, record.crop_type, originalData.variety_used)}
+                  value={form.variety_used_is_other ? "Other" : form.variety_used}
+                  otherValue={form.variety_used}
+                  onChange={(v) => setForm((f) => (v === "Other"
+                    ? { ...f, variety_used_is_other: true, variety_used: "" }
+                    : { ...f, variety_used_is_other: false, variety_used: v }))}
+                  onOtherChange={(v) => set("variety_used", v)}
+                  placeholder="Select…"
                 />
               </FormCell>
             </FormRow>
@@ -656,7 +669,7 @@ function EditCropModal({ record, onClose, onSaved }) {
               </FormCell>
               <FormCell label="Seed Source">
                 <ComboboxWithOther
-                  options={EDIT_SEED_SOURCES}
+                  options={seedSourceChoices(seedSources, originalData.seed_source)}
                   value={form.seed_source}
                   otherValue={form.seed_source_other_specify}
                   onChange={(v) => set("seed_source", v)}
