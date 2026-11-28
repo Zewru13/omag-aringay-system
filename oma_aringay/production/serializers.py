@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.db import transaction
 from rest_framework import serializers
 from core.pcic import PcicPhotoListMixin, photo_list
 import math
@@ -16,6 +17,7 @@ from .unit_weights import apply_unit_weight
 from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates, growing_area_on_parcel
 from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
+from .remembered_choices import remember_crop_choices
 
 from .models import (
     ActivityType, BarangayCropSummary, CropActivityLog, CropActivityStage,
@@ -861,6 +863,18 @@ class CropMonitoringRecordSerializer(PcicPhotoListMixin, serializers.ModelSerial
                     'crop_type': duplicate_message(found[0], record_crop, record_barangay, bool(record_parcel)),
                 })
         return data
+
+    # Every way of saving a crop record comes through here: a typed "Other" variety or seed source is added to the lists of Crop
+    # Settings in the same transaction, so a refused or failed save adds nothing.
+    def create(self, validated_data):
+        with transaction.atomic():
+            remember_crop_choices(validated_data)
+            return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            remember_crop_choices(validated_data, instance)
+            return super().update(instance, validated_data)
 
 
 class CropMonitoringDetailSerializer(CropMonitoringRecordSerializer):
