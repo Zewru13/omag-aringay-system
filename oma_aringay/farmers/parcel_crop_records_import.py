@@ -13,9 +13,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
+from core.import_templates import import_template_response
 from production.models import CropType, SeedSource
 
-from .parcel_import import _choice, _decimal, _read, _template_response, _text
+from .parcel_import import _choice, _decimal, _read, _text
 
 CROP_RECORD_HEADERS = [
     'Crop', 'Date Planted', 'Area Planted (ha)', 'Variety', 'Crop Status', 'Crop Owner Name', 'Seed Source', 'Qty of Seeds (kg)', 'Qty of Trees',
@@ -34,7 +35,7 @@ def _crop_record_note():
         'not in the future). Area Planted (ha): more than 0. Variety is required. Crop Status: Owner, Tenant or Lessee; leave it blank to use '
         "the parcel's own ownership. Crop Owner Name: only for a Tenant or Lessee crop; leave it blank to use the parcel's land owner. "
         'Seed Source: one of the seed sources in Crop Settings, or any other text (recorded as Other). Fill in Qty of Seeds (kg) for a crop '
-        'planted from seed, or Qty of Trees (a whole number) for trees; both are optional. Delete the sample row.'
+        'planted from seed, or Qty of Trees (a whole number) for trees; both are optional.'
     )
 
 
@@ -42,8 +43,8 @@ class ParcelCropRecordsTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _template_response('farm_parcel_crops_planted_import_template.xlsx', CROP_RECORD_HEADERS, CROP_RECORD_WIDTHS,
-                                  CROP_RECORD_SAMPLE, _crop_record_note())
+        return import_template_response('farm_parcel_crops_planted_import_template.xlsx', CROP_RECORD_HEADERS, CROP_RECORD_WIDTHS,
+                                        CROP_RECORD_SAMPLE, _crop_record_note())
 
 
 def _planting_date(text):

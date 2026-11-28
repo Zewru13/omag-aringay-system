@@ -68,6 +68,47 @@ KNOWN_HEADER_VERSIONS = {
 }
 
 
+# The sample fill-up shown on row 4 of the downloadable template, in EXPECTED_HEADERS_V2 order. A row left exactly like this is never read.
+RSBSA_SAMPLE_ROW = [
+    '01-033-02-019-000000', 'SAMPLE', 'Juan', 'Reyes', 'Dela Cruz', '', 'Alaska', 'Aringay', 'La Union', '1980-01-15', 'Male',
+    '09170000000', 'Rice', '1.5', '1.5', 'YES', 'NO', 'NO', 'DA', 'Irrigated', '2026-01-15', '', '',
+]
+# The heading row is on row 1 of the office's own export and on row 3 of the template.
+HEADER_SEARCH_ROWS = 6
+
+
+def _plain(value):
+    return ' '.join(str(value or '').lower().split())
+
+
+def is_template_sample(row):
+    """True for the template's untouched sample row (ignoring case and spacing)."""
+    return all(_plain(row.get(header)) == _plain(sample) for header, sample in zip(EXPECTED_HEADERS_V2, RSBSA_SAMPLE_ROW))
+
+
+def find_header_row(numbered_rows):
+    """Reads (number, cells) pairs up to the heading row and returns its header version; the caller goes on reading data from the
+    same iterator. Raises ValueError when the file is empty or none of its first rows is a known heading row."""
+    first = None
+    for number, cells in numbered_rows:
+        actual = [str(h).strip().lower() if h is not None else '' for h in cells]
+        if first is None:
+            first = actual
+        version = detect_header_version(actual)
+        if version is not None:
+            return version
+        if number >= HEADER_SEARCH_ROWS:
+            break
+    if first is None:
+        raise ValueError('The file is empty.')
+    raise ValueError(
+        f'File headers do not match a known RSBSA/BFAR export format.\n'
+        f'Expected (current): {EXPECTED_HEADERS_V2}\n'
+        f'Expected (older): {EXPECTED_HEADERS_V1}\n'
+        f'Actual: {first}'
+    )
+
+
 def detect_header_version(actual_headers):
     """Returns 'v1', 'v2', or None — whichever known RSBSA/BFAR export
     header shape actual_headers matches exactly, if any."""
@@ -203,32 +244,22 @@ def parse_rsbsa_xlsx(fileobj, filename=None):
     core.utils.iter_spreadsheet_rows — defaults to the upload's own `.name`
     when not passed explicitly.
 
-    Raises ValueError (caller turns this into a 400) if the header row
-    doesn't match a known RSBSA/BFAR export shape (see
-    detect_header_version), or the file has no rows at all.
+    The heading row may be row 1 (the export) or row 3 (the template, whose
+    untouched sample row is skipped). Each dict also carries `_row_number`,
+    its row in the file.
+
+    Raises ValueError (caller turns this into a 400) if no heading row
+    matches a known RSBSA/BFAR export shape (see find_header_row), or the
+    file has no rows at all.
     """
     from core.utils import iter_spreadsheet_rows
 
     filename = filename or getattr(fileobj, 'name', '') or '.xlsx'
-    rows_iter = iter_spreadsheet_rows(fileobj, filename)
-    try:
-        header_row = next(rows_iter)
-    except StopIteration:
-        raise ValueError('The file is empty.')
-
-    actual_headers = [str(h).strip().lower() if h is not None else '' for h in header_row]
-    version = detect_header_version(actual_headers)
-    if version is None:
-        raise ValueError(
-            f'File headers do not match a known RSBSA/BFAR export format.\n'
-            f'Expected (current): {EXPECTED_HEADERS_V2}\n'
-            f'Expected (older): {EXPECTED_HEADERS_V1}\n'
-            f'Actual: {actual_headers}'
-        )
-    headers = KNOWN_HEADER_VERSIONS[version]
+    numbered = enumerate(iter_spreadsheet_rows(fileobj, filename), start=1)
+    headers = KNOWN_HEADER_VERSIONS[find_header_row(numbered)]
 
     rows = []
-    for raw_row in rows_iter:
+    for number, raw_row in numbered:
         if raw_row is None or all(cell is None for cell in raw_row):
             continue  # skip fully blank trailing rows
         row = {}
@@ -250,7 +281,10 @@ def parse_rsbsa_xlsx(fileobj, filename=None):
                 row[key] = str(int(value))
             else:
                 row[key] = str(value).strip()
+        if is_template_sample(row):
+            continue
         row['rsbsa_no'] = normalize_rsbsa(row['rsbsa_no'])
+        row['_row_number'] = number
         rows.append(row)
 
     return rows
@@ -268,9 +302,11 @@ def parse_rsbsa_csv(fileobj):
     a file re-saved through Excel still reads. The RSBSA number is trimmed
     and upper-cased (see normalize_rsbsa).
 
-    Raises ValueError (caller turns this into a 400) if the header row
-    doesn't match a known RSBSA/BFAR export shape, or the file has no data
-    rows.
+    As for .xlsx, the heading row may be row 1 or row 3 and the template's
+    untouched sample row is skipped.
+
+    Raises ValueError (caller turns this into a 400) if no heading row
+    matches a known RSBSA/BFAR export shape, or the file has no data rows.
     """
     from core.utils import (
         MAX_IMPORT_ROWS, ImportFileError, check_upload_size, csv_reader_for, decode_csv_bytes,
@@ -281,27 +317,18 @@ def parse_rsbsa_csv(fileobj):
         fileobj.seek(0)
     except Exception:
         pass
-    reader = csv_reader_for(decode_csv_bytes(fileobj.read()))
-    try:
-        header = next(reader)
-    except StopIteration:
-        raise ValueError('The file is empty.')
-
-    actual_headers = [h.strip().lower() for h in header]
-    if detect_header_version(actual_headers) is None:
-        raise ValueError(
-            f'File headers do not match a known RSBSA/BFAR export format.\n'
-            f'Expected (current): {EXPECTED_HEADERS_V2}\n'
-            f'Expected (older): {EXPECTED_HEADERS_V1}\n'
-            f'Actual: {actual_headers}'
-        )
+    numbered = enumerate(csv_reader_for(decode_csv_bytes(fileobj.read())), start=1)
+    headers = KNOWN_HEADER_VERSIONS[find_header_row(numbered)]
 
     rows = []
-    for raw in reader:
+    for number, raw in numbered:
         if not any((v or '').strip() for v in raw):
             continue
-        row = {actual_headers[i]: (raw[i].strip() if i < len(raw) else '') for i in range(len(actual_headers))}
+        row = {headers[i]: (raw[i].strip() if i < len(raw) else '') for i in range(len(headers))}
+        if is_template_sample(row):
+            continue
         row['rsbsa_no'] = normalize_rsbsa(row['rsbsa_no'])
+        row['_row_number'] = number
         rows.append(row)
         if len(rows) > MAX_IMPORT_ROWS:
             raise ImportFileError(

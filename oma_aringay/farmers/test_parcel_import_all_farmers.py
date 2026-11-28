@@ -104,8 +104,8 @@ class AllFarmersParcelImportTests(APITestCase):
         r = self.client.get(TEMPLATE_URL)
         self.assertEqual(r.status_code, 200)
         sheet = load_workbook(BytesIO(r.content)).active
-        self.assertEqual([c.value for c in sheet[1]], ALL_HEADERS)
-        self.assertIn('first column is the RSBSA number of the farmer', sheet['A4'].value)
+        self.assertEqual([c.value for c in sheet[3]], ALL_HEADERS)
+        self.assertIn('first column is the RSBSA number of the farmer', sheet['A2'].value)
         from django.core.files.uploadedfile import SimpleUploadedFile
         upload = SimpleUploadedFile('t.xlsx', r.content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         again = self.client.post(IMPORT_URL, {'file': upload}, format='multipart')

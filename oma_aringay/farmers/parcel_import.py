@@ -10,9 +10,7 @@ Two files share one set of crop columns:
   transaction, and what it creates is remembered as an undoable batch (each parcel, then its crops).
 """
 from decimal import Decimal, InvalidOperation
-from io import BytesIO
 
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -21,9 +19,9 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from core.constants import BARANGAY_CHOICES
-from core.exports import SafeWorkbook
 from core.idnumbers import by_id_key, id_key
 from core.import_batches import record_created, start_batch
+from core.import_templates import import_template_response
 from core.utils import ImportFileError, cell_text, read_template_rows, run_import_atomically
 
 from . import area_rules
@@ -181,33 +179,10 @@ def parse_parcel_cells(row):
 
 # ── templates ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-def _template_response(filename, headers, widths, sample_row, note):
-    from openpyxl.styles import Font, PatternFill
-
-    book = SafeWorkbook()
-    sheet = book.active
-    sheet.title = 'Import'
-    fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
-    font = Font(color='FFFFFF', bold=True)
-    for column, (header, width) in enumerate(zip(headers, widths), 1):
-        cell = sheet.cell(row=1, column=column, value=header)
-        cell.fill = fill
-        cell.font = font
-        sheet.column_dimensions[cell.column_letter].width = width
-    for column, value in enumerate(sample_row, 1):
-        sheet.cell(row=2, column=column, value=value)
-    sheet.cell(row=4, column=1, value=note)
-    buffer = BytesIO()
-    book.save(buffer)
-    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
-
-
 CROP_NOTE = (
     f'{CROP_NOTE_PREFIX} one row per crop. Crop Name: {", ".join(CROP_NAMES)} (anything else is recorded as Other with your text). '
     f'Main Crop: Yes for the one main crop, otherwise No. Seed Source: {", ".join(SEED_SOURCES)}. Seeds Unit: {", ".join(SEED_UNITS)}. '
-    'No. of Trees is for tree crops only. Delete the sample row.'
+    'No. of Trees is for tree crops only.'
 )
 def parcel_note():
     """The template's instructions; the Classifications line names what Classification Settings offers right now."""
@@ -227,14 +202,14 @@ class ParcelCropsTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _template_response('farm_parcel_crops_import_template.xlsx', CROP_HEADERS, CROP_WIDTHS, CROP_SAMPLE, CROP_NOTE)
+        return import_template_response('farm_parcel_crops_import_template.xlsx', CROP_HEADERS, CROP_WIDTHS, CROP_SAMPLE, CROP_NOTE)
 
 
 class ParcelImportTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _template_response('farm_parcels_import_template.xlsx', PARCEL_HEADERS, PARCEL_WIDTHS, PARCEL_SAMPLE + CROP_SAMPLE, parcel_note())
+        return import_template_response('farm_parcels_import_template.xlsx', PARCEL_HEADERS, PARCEL_WIDTHS, PARCEL_SAMPLE + CROP_SAMPLE, parcel_note())
 
 
 def _read(file, headers, sample, prefix, max_rows):
@@ -393,10 +368,11 @@ ALL_SAMPLE = [FARMER_SAMPLE] + PARCEL_SAMPLE + CROP_SAMPLE
 
 def all_farmers_note():
     """The template's instructions: the parcel file's, with the farmer column explained first."""
+    rest = parcel_note()[len(PARCEL_NOTE_PREFIX) + 1:]
     return (
         f'{PARCEL_NOTE_PREFIX} the first column is the RSBSA number of the farmer who owns the parcel; the farmer must already be '
         'registered, and one file can hold the parcels of many farmers. A farmer\'s rows with the same Parcel Number are one parcel. '
-        + parcel_note()[len(PARCEL_NOTE_PREFIX) + 1:]
+        + rest[0].upper() + rest[1:]
     )
 
 
@@ -469,4 +445,4 @@ class ParcelAllFarmersTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _template_response('farm_parcels_all_farmers_import_template.xlsx', ALL_HEADERS, ALL_WIDTHS, ALL_SAMPLE, all_farmers_note())
+        return import_template_response('farm_parcels_all_farmers_import_template.xlsx', ALL_HEADERS, ALL_WIDTHS, ALL_SAMPLE, all_farmers_note())

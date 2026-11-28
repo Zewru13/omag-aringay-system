@@ -5,10 +5,8 @@ Add Member view (the member serializer, then `_resolve_and_assign_main`). Every 
 run rolls the whole import back, so the preview shows what the confirm will do, including the main-organization rule.
 """
 import datetime
-from io import BytesIO
 
 from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser
 from rest_framework.exceptions import ValidationError
@@ -19,6 +17,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from core.idnumbers import by_id_key
 from core.import_batches import record_created, start_batch
+from core.import_templates import import_template_response
 from core.utils import ImportFileError, cell_text, is_plain_int, read_template_rows, run_import_atomically
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -33,7 +32,6 @@ from .serializers import (
 )
 from .positions import check_position_free
 from .views import MainChoiceRequired, _resolve_and_assign_main
-from core.exports import SafeWorkbook
 
 DOMAINS = {
     'farmers': {
@@ -71,30 +69,6 @@ def parse_import_date(raw):
         return datetime.date.fromisoformat(str(raw).strip()[:10])
     except ValueError:
         raise ValueError(f'Invalid date "{raw}". Use YYYY-MM-DD.')
-
-
-def _template_response(filename, headers, widths, sample_row, note):
-    from openpyxl.styles import Font, PatternFill
-
-    book = SafeWorkbook()
-    ws = book.active
-    ws.title = 'Import'
-    green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
-    white_font = Font(color='FFFFFF', bold=True)
-    for col, (header, width) in enumerate(zip(headers, widths), 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.fill = green_fill
-        cell.font = white_font
-        ws.column_dimensions[cell.column_letter].width = width
-    for col, value in enumerate(sample_row, 1):
-        ws.cell(row=2, column=col, value=value)
-    ws.cell(row=4, column=1, value=note)
-    buffer = BytesIO()
-    book.save(buffer)
-    response = HttpResponse(
-        buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
 
 
 def _read_rows(file, headers, sample_row, note_prefix):
@@ -333,7 +307,7 @@ class MemberImportTemplateView(_OrgImportView):
     def get(self, request, pk):
         self.organization(pk)
         positions = ', '.join(DOMAINS[self.domain]['member_model'].Position.values)
-        return _template_response(
+        return import_template_response(
             f'{self.domain}_cooperative_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
             ['01-033-02-019-000000', 'Member', '2026-01-15'], f'{MEMBER_NOTE_PREFIX} {positions}')
 
@@ -345,7 +319,7 @@ class MemberRegistrationTemplateView(APIView):
 
     def get(self, request):
         positions = ', '.join(DOMAINS[self.domain]['member_model'].Position.values)
-        return _template_response(
+        return import_template_response(
             f'{self.domain}_cooperative_members_import_template.xlsx', MEMBER_HEADERS, MEMBER_WIDTHS,
             ['01-033-02-019-000000', 'Member', '2026-01-15'], f'{MEMBER_NOTE_PREFIX} {positions}')
 
@@ -387,7 +361,7 @@ class EquipmentImportTemplateView(_OrgImportView):
         model = DOMAINS[self.domain]['equipment_model']
         note = (f'{EQUIPMENT_NOTE_PREFIX} {", ".join(v for v in model.EquipmentName.values if v != "Other")}. '
                 f'Anything else is recorded as Other with your text. Valid conditions: {", ".join(model.Condition.values)}.')
-        return _template_response(
+        return import_template_response(
             f'{self.domain}_cooperative_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
             _equipment_sample(self.domain), note)
 
@@ -401,7 +375,7 @@ class EquipmentRegistrationTemplateView(APIView):
         model = DOMAINS[self.domain]['equipment_model']
         note = (f'{EQUIPMENT_NOTE_PREFIX} {", ".join(v for v in model.EquipmentName.values if v != "Other")}. '
                 f'Anything else is recorded as Other with your text. Valid conditions: {", ".join(model.Condition.values)}.')
-        return _template_response(
+        return import_template_response(
             f'{self.domain}_cooperative_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
             _equipment_sample(self.domain), note)
 

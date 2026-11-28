@@ -95,7 +95,7 @@ class MemberImportTests(APITestCase):
             self.assertEqual(response.status_code, 200)
             book = load_workbook(io.BytesIO(response.content))
             ws = book.active
-            self.assertEqual([c.value for c in ws[1]][:3], HEADERS)
+            self.assertEqual([c.value for c in ws[3]][:3], HEADERS)
             self.assertTrue(any(str(c.value or '').startswith('Valid positions:') for row in ws.iter_rows() for c in row))
 
     def test_ready_rows_create_memberships_and_first_membership_is_main(self):

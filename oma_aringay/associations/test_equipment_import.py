@@ -45,7 +45,7 @@ class EquipmentImportTests(APITestCase):
             response = self.client.get(self.url(domain, make_org(domain), 'equipment/import/template/'))
             self.assertEqual(response.status_code, 200)
             ws = load_workbook(io.BytesIO(response.content)).active
-            self.assertEqual([c.value for c in ws[1]][:5], HEADERS)
+            self.assertEqual([c.value for c in ws[3]][:5], HEADERS)
             notes = [str(c.value) for row in ws.iter_rows() for c in row if str(c.value or '').startswith('Valid equipment:')]
             self.assertEqual(len(notes), 1)
             self.assertIn(KNOWN[domain], notes[0])

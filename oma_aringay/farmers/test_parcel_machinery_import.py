@@ -82,8 +82,8 @@ class ParcelMachineryImportTests(APITestCase):
         from io import BytesIO
         from openpyxl import load_workbook
         sheet = load_workbook(BytesIO(r.content)).active
-        self.assertEqual([c.value for c in sheet[1]], MACHINERY_HEADERS)
-        self.assertEqual(sheet['A2'].value, 'Hand Tractor')
+        self.assertEqual([c.value for c in sheet[3]][:len(MACHINERY_HEADERS)], MACHINERY_HEADERS)
+        self.assertEqual(sheet['A4'].value, 'Hand Tractor')
 
     def test_the_template_and_the_check_come_back_through_the_same_check(self):
         """The template's own sample row is a valid row, so downloading it and uploading it unchanged works."""
