@@ -43,7 +43,9 @@ const page = fs.readFileSync(new URL('../src/pages/FisheriesRecords/FisheriesRec
 const start = page.indexOf('function StockingRowActions')
 const menu = page.slice(start, page.indexOf('\nfunction ', start + 10))
 eq(/label: 'Cycle & Logs'/.test(menu), false, 'Cycle & Logs is not in the ⋮ menu')
-eq(/label: 'Print Report'/.test(menu), false, 'Print Report is not in the ⋮ menu')
+eq(menu.includes("{ key: 'print', label: 'Print Report', icon: Printer, onClick: onPrint, group: 'crud' }"), true, 'Print Report is in the ⋮ menu')
+eq(menu.indexOf("label: 'Activity Logs'") < menu.indexOf("label: 'Print Report'") && menu.indexOf("label: 'Print Report'") < menu.indexOf("label: 'Force Harvest'"), true, 'after Activity Logs, before Force Harvest')
+eq((page.match(/onPrint=\{\(\) => printCycle\((row\._rec|rec)\)\}/g) || []).length, 2, 'the table menu and the phone card print the same report')
 for (const kept of ["label: 'View Details'", "label: 'Edit'", "label: 'Force Harvest'"]) eq(menu.includes(kept), true, `${kept} stays`)
 eq(page.includes('buildReport'), false, 'the top-level Print Report button above the table was removed (the cycle report in the Cycle & Logs window stays)')
 
