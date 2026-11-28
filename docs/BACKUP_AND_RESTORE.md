@@ -24,17 +24,16 @@ Backups are made **only by hand**. There is no automatic or nightly backup.
 
 The Create backup tab shows what a backup holds, in groups with how many records each has now (`GET /api/backups/summary/`). One choice is optional: **Include the Audit Log and notification history**. It is **unticked by default**: the backup is then smaller and quicker, and a restore of it keeps the notifications already in the system. A request to the API that says nothing (`include_audit` missing) still makes a full backup.
 
-1. Press **Download backup**. Type a name and the **Location** where the file will be kept (both can be left empty; an empty name becomes "Backup of <date and time>"), then **Start Backup**.
-2. A **Save As** window opens: choose where the file goes. The suggested name is `omag-backup-YYYY-MM-DD-HHMM.zip`. Closing the window starts nothing. The window opens before the backup starts because a browser only allows it right after a click.
+1. Press **Download backup**. A **Save As** window opens at once: choose where the file goes. The suggested name is `omag-backup-YYYY-MM-DD-HHMM.zip`. Closing the window starts nothing. The window opens before the backup starts because a browser only allows it right after a click.
    **Browsers without this window** (Firefox, Safari, phones, and some with it switched off) download the file the usual way, usually to Downloads.
-3. The backup runs (a few minutes for a large system). The screen is held ("Creating backup…"): no other page, backup, edit, download or restore until it is done. Keep the page open.
-4. The file is written to the chosen place and the page says how many records and files were saved. **Only then is the online copy removed.** If the file cannot be written, the online copy stays: press **Download** in the entry's row menu. The same applies if the page was closed before the file arrived (the entry says *Waiting to be downloaded*).
+2. The backup runs (a few minutes for a large system). It is named "Backup of <date and time>". The screen is held ("Creating backup…"): no other page, backup, download or restore until it is done. Keep the page open.
+3. The file is written to the chosen place and the page says how many records and files were saved. **Only then is the online copy removed.** If the file cannot be written, the online copy stays: press the **Download** link under the entry's status. The same applies if the page was closed before the file arrived (the entry says *Waiting to be downloaded*).
 
 ## The Backup history
 
 - Every backup stays in the list with its name, date, time, location, kind, who made it, size and status. **Nothing can be deleted from it.**
-- **Edit** (row menu) changes the name, the location and the remarks. The date, the time and the result are facts and cannot be changed.
-- **View result** (row menu of a finished restore) shows what that restore wrote, removed and skipped. Restores made before this version have no result.
+- **Location** fills itself with the name of the saved file. A browser does not tell a website which folder was chosen, so the folder cannot be shown. (A place typed for an older backup stays above the file name.)
+- The table has no actions. The one exception is the **Download** link under *Waiting to be downloaded*. To restore, add the file on the Restore tab. A restore's full result (with the reason for each skipped entry) is shown when it ends; afterwards the history keeps the numbers written, removed and skipped.
 - Kinds: *Manual*, *Before restore* (the safety backup a restore makes), *Restore (settings and lists)*, *Restore (everything)*, *Automatic* (nightly backups made by an earlier version; none are made any more).
 - Each backup keeps the fingerprint (SHA-256) of its file, so that the same file can be recognised when it is added for a restore.
 
@@ -42,7 +41,7 @@ The Create backup tab shows what a backup holds, in groups with how many records
 
 Restoring replaces data, so do it deliberately and when nobody else is using the system.
 
-1. Open the **Restore** tab (or press **Restore** in the row menu of a finished backup in the history).
+1. Open the **Restore** tab.
 2. **Drag the backup file** onto the box, or press **Browse files**. The file is only read: the page shows its name and when and by whom it was taken, and what a restore would change (`POST /api/backups/restore/preview/`). **Nothing is written until you confirm.**
 3. Choose **What to restore**:
    - **Settings and lists** (preselected): the lists of the settings pages and the report signatories. People, farms, ponds and their records, and the uploaded files, are left alone. The table has one row per list.

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 
 const {
-  formatBytes, backupSummary, isRunning, formatDate, formatTime, fileNote, notesProblem, restoreFileProblem, restoreConfirmProblem,
+  formatBytes, backupSummary, isRunning, formatDate, formatTime, fileNote, savedFile, restoreFileProblem, restoreConfirmProblem,
   nextAutoDownload, runningMessage, suggestedFileName, savedMessage, takenLine, RESTORE_SCOPES, offersSettings, defaultScope,
   previewRows, confirmCounts, keptWords, moreSkipped,
 } = await import(new URL('../src/pages/Backup/backupFormat.js', import.meta.url).href)
@@ -44,9 +44,13 @@ eq(fileNote({ kind: 'restore', status: 'done' }), '', 'a restore has no file')
 eq(fileNote({ kind: 'manual', status: 'failed' }), '', 'a failed backup has no file')
 eq(fileNote({ kind: 'manual', status: 'running' }), '', 'a running backup has no file yet')
 
-// the notes of a backup: a name is needed, the rest is optional
-eq(notesProblem({ name: '  ', location: 'x' }), 'Type a name for the backup.', 'no name')
-eq(notesProblem({ name: 'October copy', location: '' }), '', 'a name is enough')
+// Location fills itself: the name of the file once it is saved. A browser never tells a website the folder.
+eq(savedFile({ kind: 'manual', status: 'done', has_file: false, file_name: 'omag-backup-2026-11-28-0832.zip' }), 'omag-backup-2026-11-28-0832.zip', 'the saved file')
+eq(savedFile({ kind: 'safety', status: 'done', has_file: false, file_name: 'my copy.zip' }), 'my copy.zip', 'a safety backup too')
+eq(savedFile({ kind: 'manual', status: 'done', has_file: true, file_name: 'x.zip' }), '', 'not saved yet: the server\'s name is nowhere on the computer')
+eq(savedFile({ kind: 'manual', status: 'running', file_name: '' }), '', 'running')
+eq(savedFile({ kind: 'manual', status: 'failed', file_name: 'x.zip' }), '', 'failed')
+eq(savedFile({ kind: 'restore', status: 'done', has_file: false, file_name: '' }), '', 'a restore saves nothing')
 
 // restore: the file is dropped on the Restore tab (a .zip), then the password confirms
 eq(restoreFileProblem(null), 'Choose the backup file from your computer.', 'no file chosen')
@@ -115,10 +119,9 @@ const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url)
 const page = source('pages/Backup/BackupPage.jsx')
 const createTab = source('pages/Backup/CreateBackupTab.jsx')
 const history = source('pages/Backup/BackupHistory.jsx')
-const notesWindow = source('pages/Backup/BackupNotesModal.jsx')
-const everyScreen = [page, createTab, history, notesWindow].join('\n')
+const everyScreen = [page, createTab, history].join('\n')
 ok(!/Trash2|api\.delete|Delete Backup/.test(everyScreen), 'no Delete on the Backup page')
-ok(!/backup_system|automatically|every night/i.test(createTab + history + notesWindow), 'no automatic backup is promised')
+ok(!/backup_system|automatically|every night/i.test(createTab + history), 'no automatic backup is promised')
 ok(page.includes('title="Backup & Restore"'), 'the page is called Backup & Restore')
 ok(page.includes('<PillTabs') && /id: 'create', label: 'Create backup'/.test(page) && /id: 'restore', label: 'Restore'/.test(page), 'two tabs')
 ok(/useSearchParams/.test(page) && /get\('tab'\) === 'restore'/.test(page), 'the tab is in the address')
@@ -131,19 +134,27 @@ ok(createTab.indexOf('<BackupGroups') < createTab.indexOf('Two things this file 
 ok(createTab.includes('Download backup'), 'the button is Download backup')
 ok(!/Import backup file|ImportFileModal|backups\/import/.test(everyScreen), 'there is no Import backup file: Restore takes the file')
 
-// the place is asked for at the click, before the backup starts; cancelling starts nothing
-const startBackup = page.slice(page.indexOf('const startBackup'), page.indexOf('const saveNotes'))
+// Download backup opens Save As at once: no window of ours comes first. The place is asked for at the click, before the backup
+// starts; cancelling starts nothing
+const startBackup = page.slice(page.indexOf('const startBackup'), page.indexOf('const downloadFromHistory'))
+ok(page.includes('onNew={startBackup}'), 'the button starts it directly')
 ok(startBackup.indexOf('askWhereToSave(') > -1 && startBackup.indexOf('askWhereToSave(') < startBackup.indexOf("api.post('/backups/'"), 'asked before the backup starts')
 ok(startBackup.indexOf('await ') === startBackup.indexOf('await askWhereToSave('), 'nothing is awaited before it, or the browser would refuse')
-ok(startBackup.includes("if (place.kind === 'cancelled') return false"), 'cancelling starts nothing')
-ok(/=== false/.test(notesWindow), 'and keeps the notes window open')
+ok(startBackup.includes("if (place.kind === 'cancelled') return"), 'cancelling starts nothing')
+ok(startBackup.includes('setStarting(true)') && startBackup.includes('setStarting(false)') && createTab.includes('starting'), 'a second click cannot start a second backup')
+ok(startBackup.includes("showToast(err?.response?.data?.detail || 'Failed to start the backup.', 'error')"), 'a backup that cannot start says why')
+ok(!existsSync(new URL('../src/pages/Backup/BackupNotesModal.jsx', import.meta.url)) && !/BackupNotesModal|Backup Details/.test(page + createTab + history), 'the Backup Details window is gone')
 const downloading = page.slice(page.indexOf('const download = useCallback'), page.indexOf('const refresh'))
 ok(downloading.indexOf('writeToHandle(') > -1 && downloading.indexOf('writeToHandle(') < downloading.indexOf('/downloaded/`, { file_name: place.handle.name }'), 'the online copy goes only after the file is written')
 ok(page.includes('The backup could not be saved to the file you chose. It is still online: press Download to try again.'), 'a file that cannot be written keeps the online copy')
 ok((page.match(/askWhereToSave\(/g) || []).length === 2, 'the history Download asks where too')
 ok(page.includes('savedMessage('), 'says what was saved')
 ok(page.includes("'Creating backup'") && page.includes("'Restoring data'"), 'the lock window titles')
-ok(history.includes('View result'), 'a finished restore can be read again')
+// the history has no Actions column; only a file still waiting to be saved keeps a Download link, under its status
+ok(!/ACTIONS|RowActions|'actions'/.test(history), 'no Actions column')
+ok(!/View result|onRestore|onEdit|onViewResult/.test(page + history), 'no View result, Edit or Restore on a row')
+ok(/row\.has_file && \(\s*<button type="button"[^>]*onClick=\{\(\) => onDownload\(row\)\}/.test(history), 'a waiting file can still be downloaded')
+ok(history.includes('savedFile(row)'), 'the Location column fills itself from the saved file')
 // --- the Restore tab: on the page, no popup
 const restoreTab = source('pages/Backup/RestoreTab.jsx')
 const confirmWindow = source('pages/Backup/RestoreConfirmWindow.jsx')
@@ -168,7 +179,7 @@ ok(confirmWindow.includes('confirmCounts(') && confirmWindow.includes('choice.te
 ok(confirmWindow.includes('ModalShell') && confirmWindow.includes('FormTable.jsx') && /<FormCell/.test(confirmWindow), 'a table form like every other window')
 ok(/variant="danger"/.test(confirmWindow), 'Yes, restore is red')
 for (const words of ['Restore complete', 'Written', 'Removed', 'Skipped', 'keptWords(', 'moreSkipped(', 'entry.detail']) ok(resultView.includes(words), `the result has: ${words}`)
-ok(page.includes('<RestoreResult'), 'View result opens the same result')
+ok(restoreTab.includes('<RestoreResult') && !/hint/.test(restoreTab), 'the result shows on the tab; nothing is picked from a history row any more')
 
 // while a backup is being made or saved, or a restore is running, the Admin cannot leave or use the rest of the system
 const lockScreen = readFileSync(new URL('../src/components/UI/WorkLockScreen.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
@@ -187,8 +198,6 @@ const sidebar = readFileSync(new URL('../src/components/Layout/Sidebar.jsx', imp
 ok(sidebar.includes('label: "Backup & Restore"') && !sidebar.includes('label: "Backup" }'), 'the menu entry is Backup & Restore')
 ok(/DataTable/.test(history), 'the list is a table')
 for (const label of ['NAME', 'DATE', 'TIME', 'LOCATION']) ok(history.includes(`label: '${label}'`), `the list has a ${label} column`)
-ok(/CycleField label="Name"/.test(notesWindow) && /CycleField label="Location"/.test(notesWindow) && /CycleField label="Remarks"/.test(notesWindow), 'the notes form is a table of labelled rows')
-ok((page.match(/<BackupNotesModal/g) || []).length === 2, 'the same form makes a backup and edits one')
 
 const manual = readFileSync(new URL('../src/pages/Manual/manualContent.js', import.meta.url), 'utf8')
 ok(!/every night|latest 14|Delete removes one/.test(manual), 'the manual no longer describes the nightly backup, the 14 kept or Delete')

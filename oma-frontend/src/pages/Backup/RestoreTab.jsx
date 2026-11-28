@@ -10,13 +10,12 @@ import {
 
 // Backup & Restore > Restore. The Admin adds a backup's file and the page says what it would change (POST /backups/restore/preview/,
 // which changes nothing): by list for "Settings and lists", by group of records for "Everything". The restore itself is confirmed
-// with the password (RestoreConfirmWindow). `hint` is the backup whose Restore was pressed in the history; `result` is the entry of
-// the restore that has just ended.
+// with the password (RestoreConfirmWindow). `result` is the entry of the restore that has just ended.
 const muted = 'text-[12px] text-[#7A8E7A]'
 const head = 'px-3 py-2 text-[11px] font-semibold tracking-[0.06em]'
 const cell = 'px-3 py-2 text-[13px]'
 
-export default function RestoreTab({ hint, locked, result, onStarted, onClearResult }) {
+export default function RestoreTab({ locked, result, onStarted, onClearResult }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [scope, setScope] = useState('everything')
@@ -113,7 +112,6 @@ export default function RestoreTab({ hint, locked, result, onStarted, onClearRes
         )}
       </div>
 
-      {hint && !file && <p className={`break-all ${muted}`}>You chose to restore &ldquo;{hint.name}&rdquo;. Add its file{hint.file_name ? `: ${hint.file_name}` : ''}.</p>}
       {error && <p className="text-[13px] text-rose-600" role="alert">{error}</p>}
       {isReading && (
         <p role="status" className="flex items-center gap-2 text-[13px] text-[#4A5E4A]"><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Checking what would change…</p>
