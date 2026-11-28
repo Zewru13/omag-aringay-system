@@ -1,4 +1,4 @@
-// The common questions of the Admin and the Focal Person, shown in the User Manual (Manual/ManualQuestions.jsx).
+// The common questions of the Admin and the Focal Person, shown in Help (Manual/ManualQuestions.jsx).
 
 const ADMIN = ['ADMIN']
 
@@ -8,7 +8,7 @@ export const SECTIONS = [
     items: [
       {
         q: 'Can I add the farm parcels while I register a farmer?',
-        a: 'Yes. Fill in the Register Farmer form as usual and press Save Farmer and Add Farm Parcels (in the Farm Parcels and Crops section) instead of Save Farmer. The farmer is saved and the Add Farm Parcels table opens for that farmer: one row per parcel, with the crops planted on each. When you save the parcels you come back to the farmer profile, still under Registration > Farmers.',
+        a: 'Yes. Fill in the Register Farmer form as usual and press Save Farmer & Add Farm Parcels (in the Farm Parcels and Crops section) instead of Save Farmer. The farmer is saved, and their profile opens with the Add Farm Parcels window already open for that farmer.',
       },
       {
         q: 'What is required when I add a farm parcel?',
@@ -16,7 +16,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I add several parcels, or a parcel with its crops?',
-        a: 'In Add Farm Parcels each row is one parcel; press Add Parcel for another. Under a parcel, press Add crop to record what is planted on it, or Import crops to read the crops of that parcel from a spreadsheet (the crops are added to the list so you can check them before saving). That crop form is the same as Add Crop Records, with the same fields and the same rules, and each crop is saved as a planted crop on that parcel. Everything is saved together or not at all. To bring in a whole file of parcels for one farmer, choose the farmer and press Import Farm Parcels.',
+        a: 'Add Farm Parcels has three steps. In Parcel Details, choose the farmer and fill in the parcel; press Add another parcel for each further one, or Import Farm Parcels to bring in a whole file of that farmer\'s parcels. In Add Crops, press Add crop under a parcel to record what is planted on it, or Import crops to read the crops of that parcel from a spreadsheet (they are added to the list so you can check them before saving). That crop form is the same as Add Crop Records, with the same fields and the same rules, and each crop is saved as a planted crop on that parcel. Crops are optional. In Review and Save, check the list and save. Everything is saved together or not at all.',
       },
       {
         q: 'Where do I choose the Crop Status and Crop Owner?',
@@ -24,7 +24,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where do I record a farmer\'s machinery?',
-        a: 'Machinery belongs to the farmer and not to any one parcel. Enter it in the Agricultural Machinery section of Register Farmer (Add machinery, or Import machinery from a spreadsheet), or later from the farmer\'s profile with Add machinery. Each line has the machinery, how many, and whose it is (Owned, Borrowed, Rented or Organization-Owned). Remove a line from the profile\'s table.',
+        a: 'Machinery belongs to the farmer and not to any one parcel. Enter it in the Agricultural Machinery section of Register Farmer (Add machinery, or Import machinery from a spreadsheet), or later from the farmer\'s profile with Add machinery. Each line has the machinery, how many, and whose it is (Owned, Borrowed, Rented or Cooperative-Owned). Remove a line from the profile\'s table.',
       },
       {
         q: 'Why does a crop need a variety?',
@@ -48,7 +48,7 @@ export const SECTIONS = [
       },
       {
         q: 'What do the ⋮ menus on Crop Records do?',
-        a: 'On a parcel: Add crops, Force harvest and Edit parcel. Opening a farmer\'s profile shows their parcels and the crops they planted.',
+        a: 'On a parcel: Add crops, Force harvest, Print report and Edit parcel. Opening a farmer\'s profile shows their parcels and the crops they planted.',
       },
       {
         q: 'What do the rows of Group by show?',
@@ -97,12 +97,12 @@ export const SECTIONS = [
       },
       {
         q: 'How do Activity Suggestions work?',
-        a: 'Activity Suggestions are set per crop in Activity Settings. When you open Log Activity on a crop, the form is already filled in from them: the activity that is due now (or the earliest overdue one), its recommendation and, for Fertilizer Application, the Type of Fertilizer from the list in Crop Settings (Input Types). Change anything you like. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
+        a: 'Activity Suggestions are set per crop in Crop Settings. When you open Log Activity on a crop, the form is already filled in from them: the activity that is due now (or the earliest overdue one), its recommendation and, for Fertilizer Application, the Type of Fertilizer from the list in Crop Settings (Input Types). Change anything you like. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
       },
     ],
   },
   {
-    title: 'Organizations, officers and equipment',
+    title: 'Cooperatives, officers and equipment',
     items: [
       {
         q: 'How do I end an officer\'s term early?',
@@ -110,31 +110,31 @@ export const SECTIONS = [
       },
       {
         q: 'Where do the equipment names in the lists come from?',
-        a: 'From the settings: Crop Settings > Equipment Types for the machinery of a farmer and the equipment of a farmers organization, and Fisheries Settings > Equipment Types for a fisherfolk organization. Both lists start filled with the usual names. Add a name there and it appears in the dropdowns. Choose Other to type a name that is not on the list.',
+        a: 'From the settings: Crop Settings > Equipment Types for the machinery of a farmer and the equipment of a farmers cooperative, and Fisheries Settings > Equipment Types for a fisherfolk cooperative. Both lists start filled with the usual names. Add a name there and it appears in the dropdowns. Choose Other to type a name that is not on the list.',
       },
       {
-        q: 'Can I add equipment when I register an organization?',
-        a: 'Yes. The Add Organization form has an Equipment section: press Add equipment for each kind, then choose it, the number of units and optionally the date acquired and remarks. The equipment is saved together with the organization, in Good condition. Leave the section empty if there is none.',
+        q: 'Can I add equipment when I register a cooperative?',
+        a: 'Yes. The Add New Cooperative form has an Equipment section: press Add equipment for each kind, then choose it, the number of units and optionally the date acquired and remarks. The equipment is saved together with the cooperative, in Good condition. Leave the section empty if there is none.',
       },
       {
-        q: 'Can I add members when I register an organization?',
-        a: 'Yes. The Add Organization form has a Members section: press Add Members to open a table of the registered farmers (or fisherfolk) who are not members yet. Search by name or RSBSA number, tick the people to add and choose each one position (Member or an officer position), then press Add. They are listed in the form, where you can still change a position or the date joined (left blank, the date registered of the organization is used). To use a spreadsheet instead, press Import members, choose the file (Download template gives the columns); when the organization is saved the Import Members window opens with it so you can preview it. The same Members section is in the Edit Organization form. Anyone who cannot be added, for example a person already in other organizations with no main one, is listed after saving and can be added from the organization page.',
+        q: 'Can I add members when I register a cooperative?',
+        a: 'Yes. The Add New Cooperative form has a Members section: press Add Members to open a table of the registered farmers (or fisherfolk) who are not members yet. Search by name or RSBSA number, tick the people to add and choose a position for each one (Member or an officer position), then press Add. They are listed in the form, where you can still change a position or the date joined (left blank, the date registered of the cooperative is used). To use a spreadsheet instead, press Import members, choose the file (Download template gives the columns); when the cooperative is saved the Import Members window opens with it so you can preview it. The same Members section is in the Edit Cooperative form. Anyone who cannot be added, for example a person already in other cooperatives with no main one, is listed after saving and can be added from the cooperative page.',
       },
       {
-        q: 'How do I add equipment to an organization?',
-        a: 'In the organization\'s Equipment tab (Equipment Inventory for staff) choose Add Equipment, then the equipment, how many units, and optionally the date acquired and remarks. There is no condition to choose: new equipment starts as Good. Later, Change condition moves units to Needs Repair, Not Operational, Broken or Lost, and Repair puts repaired units back to Good.',
+        q: 'How do I add equipment to a cooperative?',
+        a: 'On the cooperative profile, staff open Equipment Inventory and choose Add Equipment; a cooperative account uses Add equipment on its Equipment page. Choose the equipment, how many units, and optionally the date acquired and remarks. There is no condition to choose: new equipment starts as Good. Later, Change condition moves units to Needs Repair, Not Operational, Broken or Lost, and Record repair puts repaired units back to Good.',
       },
       {
         q: 'How do I record that members borrowed equipment?',
-        a: 'In an organization account\'s Borrowed tab press Lend equipment. Enter the date it was borrowed, choose the equipment, then tick every member who borrowed it and give each one\'s number of units. Once every unit is given out, no other member can be ticked for that equipment. To lend a different kind of equipment, even to a member already ticked, press Lend another equipment and fill its section the same way. Use it for borrowers who have no account to request equipment themselves. Everything is saved together as Borrowed.',
+        a: 'In a cooperative account, open Equipment and press Lend equipment. Enter the date borrowed, choose the equipment, then tick every member who borrowed it and give each one\'s number of units. Once every unit is given out, no other member can be ticked for that equipment. To lend a different kind of equipment, even to a member already ticked, press Lend another equipment and fill its section the same way. Use it for borrowers who have no account to request equipment themselves. Everything is saved together as borrowed.',
       },
       {
         q: 'Where are borrowed and returned equipment?',
-        a: 'The Borrowed tab lists what is still out, one row per person that opens onto their items: approve or reject a request, and press Mark returned on an item to say what happened: Returned, Damaged (and how damaged) or Not returned (the unit is recorded as Lost). Damaged units leave the lendable stock until they are repaired. An item past its return-by date shows Overdue, and Overdue is also a choice in the Status filter. The Borrowed History tab lists everything that was closed, with when, and what happened to each unit. The equipment list can be filtered by Condition and by Availability (Available units or Not available). Staff accounts see each organization\'s Equipment Inventory, where an item can be lent to one member.',
+        a: 'A cooperative account sees them on its Equipment page, in the Loans tab, in three sections. Requests waits for Approve or Reject. On loan is what is still out, overdue ones first: press Mark returned to say what happened: Returned, Damaged (and how damaged) or Not returned (the unit is recorded as Lost). Damaged units leave the lendable stock until they are repaired. An item past its return-by date shows Overdue. Returned holds every loan that is closed. The search box finds an equipment or a borrower. Staff see what a cooperative owns in the Equipment Inventory on its profile.',
       },
       {
         q: 'Who can request equipment?',
-        a: 'A member with an account can request equipment from their Equipment page, then the organization approves or rejects it. A member without an account is recorded by the organization with Lend equipment.',
+        a: 'A member with an account can ask for equipment from their Borrow equipment page (under More), then the cooperative approves or rejects it. A member without an account is recorded by the cooperative with Lend equipment.',
       },
     ],
   },
@@ -143,7 +143,7 @@ export const SECTIONS = [
     items: [
       {
         q: 'What are the ways to give assistance?',
-        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Organizations gives one assistance to the members of the organizations you tick in a table of registered organizations. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days and the type of training), date and description. The types of training come from the list in Assistance Settings, where you can add, rename or delete them.',
+        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Cooperatives gives one assistance to the members of the cooperatives you tick in a table of registered cooperatives. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days and the type of training), the distribution date, time and place, and a description. The types of training come from the list in Assistance Settings, where you can add, rename or delete them.',
       },
       {
         q: 'How does a distribution go, and can I print it?',
@@ -151,7 +151,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I read the assistance table?',
-        a: 'Each row is one distribution, named after who it was given to: the organization, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Clicking a row lists the members who benefited under it, each with a barangay and a status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
+        a: 'Each row is one distribution, with its date, time and place, named after who it was given to: the cooperative, or the names of the farmers or fisherfolk when it went to selected people (the first two and how many more, when there are more than three). Clicking a row lists the members who benefited under it, each with a barangay and a status. The source agencies show the first three and then Others. A whole distribution cannot be cancelled from this table. A member\'s own record can be viewed or edited, and Remove (not claimed) takes off someone who did not claim it.',
       },
       {
         q: 'How do I add a new type of assistance?',
@@ -159,7 +159,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I give more than one assistance to the same people at once?',
-        a: 'In either distribute window press Add Another Assistance under the first assistance (up to five in all). Every assistance has its own type, quantity and source agency; the date and the description are filled in once for all of them. The review lists each assistance in its own section, so you can untick a person for one of them without changing the others, and the 30-day warnings are checked for each type. Confirm and Distribute saves every assistance as a distribution of its own. A type can be chosen once in a distribution; to give the same type again, start another distribution. Remove Assistance takes a block away.',
+        a: 'In either distribute window press Add Another Assistance under the first assistance (up to five in all). Every assistance has its own type, quantity and source agency; the date, time, place and description are filled in once for all of them. The review lists each assistance in its own section, so you can untick a person for one of them without changing the others, and the 30-day warnings are checked for each type. Confirm and Distribute saves every assistance as a distribution of its own. A type can be chosen once in a distribution; to give the same type again, start another distribution. Remove Assistance takes a block away.',
       },
       {
         q: 'How do I add a type of training?',
@@ -174,8 +174,12 @@ export const SECTIONS = [
         a: 'Every list in the settings (assistance types, source agencies, seed sources, categories, species, feed types, equipment types, activity types, classifications, signatories and the others) accepts a name once. "Rice  Seed", "rice seed" and "Rice-Seed" count as the same name, so the second one is refused with a message naming the entry that already has it. Edit that entry instead, or choose a different name.',
       },
       {
+        q: 'Do people have to confirm that they received assistance?',
+        a: 'No. Nobody has to confirm anything. When you distribute you give the date, time and place to claim it, and people with an account are told right away. It shows Scheduled (under Current) until that date and time, then Received (under History). If someone did not claim it, open the distribution and press Remove (not claimed) beside the name: the entry is kept for audit but leaves the list and the reports. What cooperatives confirmed for members before this change is under Earlier Confirmations on their profile.',
+      },
+      {
         q: 'Why was a member blocked?',
-        a: 'A person who already received the same assistance type from a different organization in the last 30 days cannot receive it again from another one. Only one organization\'s distribution of that type counts per person in that window.',
+        a: 'A person who already received the same assistance type from a different cooperative in the last 30 days cannot receive it again from another one. Only one cooperative\'s distribution of that type counts per person in that window.',
       },
       {
         q: 'I imported the wrong file. Can I undo it?',
@@ -183,7 +187,7 @@ export const SECTIONS = [
       },
       {
         q: 'Can I print or download the assistance history?',
-        a: 'Yes. On the History tab of Crop Assistance and Fisheries Assistance, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution with the people who received it. A farmer\'s or fisherfolk\'s own history (View Assistance History on the profile) and an organization\'s History tab have the same two buttons.',
+        a: 'Yes. On the History tab of Crop Assistance and Fisheries Assistance, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution with the people who received it. A farmer\'s or fisherfolk\'s own history (View Assistance History on the profile) and a cooperative\'s History tab have the same two buttons.',
       },
     ],
   },
@@ -195,8 +199,8 @@ export const SECTIONS = [
         a: 'Open Reports and choose the report in the Report type box; the filters below it change with the report, so set the period and the rest there. The paper preview under the buttons shows the report as it will print and changes as you change the filters. Print Report prints it and Download Report saves it as a PDF: both are the report you see in the preview.',
       },
       {
-        q: 'How do I get the report of just one farmer, fisherfolk or organization?',
-        a: 'In Reports, choose the Registered report (or Organization Assistance) and either search for the person or organization, or click their row in the paper preview. When your search leaves exactly one record, or when you click a row, the report becomes that one record\'s individual report and a bar above says so. Press Show all records to go back to the list; if the search found it, clear the search instead. Print Report and Download Report then give the individual report.',
+        q: 'How do I get the report of just one farmer, fisherfolk or cooperative?',
+        a: 'In Reports, choose the Registered report (or Cooperative Assistance) and either search for the person or cooperative, or click their row in the paper preview. When your search leaves exactly one record, or when you click a row, the report becomes that one record\'s individual report and a bar above says so. Press Show all records to go back to the list; if the search found it, clear the search instead. Print Report and Download Report then give the individual report.',
       },
       {
         q: 'How do I choose who signs a report?',
@@ -208,19 +212,19 @@ export const SECTIONS = [
       },
       {
         q: 'Can I print one parcel or one production cycle?',
-        a: 'Yes. Open the ⋮ menu of a parcel on Crop Records, or of a row on Aquaculture Monitoring, and choose Print report. It prints the details of that one record and the crop records, or the ponds and cages, that belong to it.',
+        a: 'A parcel: yes. On Crop Records, open its ⋮ menu and choose Print report; it prints the details of that parcel and its crop records. A production cycle: on a phone, press Print on its card in Aquaculture Monitoring. On a computer there is no print button for one cycle in the office pages; use Reports for the printed lists.',
       },
       {
         q: 'Can I print or download the crop and fisheries tables?',
-        a: 'Yes, on Capture Monitoring. Crop Records, Crop Monitoring and Aquaculture Monitoring no longer have these two buttons above the table (a parcel or a cycle still prints from its three-dot menu); for the other lists use Reports. On Capture Monitoring, Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
+        a: 'Yes, on Capture Monitoring. Crop Records, Crop Monitoring and Aquaculture Monitoring no longer have these two buttons above the table (one parcel still prints from its three-dot menu); for the other lists use Reports. On Capture Monitoring, Print Report prints, and Download Report saves as a PDF, every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Both give the same report, so set the filters first.',
       },
       {
         q: 'How do I filter by date?',
-        a: 'Open Filters and use the From and To dates: Planted on Crop Records and Crop Monitoring, Stocked on Aquaculture Monitoring, Trip on Capture Monitoring, and Registered on the farmers, fisherfolk and organization tables. Both ends are included and either can be left empty. The To date cannot be before the From date.',
+        a: 'Open Filters and use the From and To dates: Planted on Crop Records and Crop Monitoring, Stocked on Aquaculture Monitoring, Trip on Capture Monitoring, and Registered on the farmers, fisherfolk and cooperative tables. Both ends are included and either can be left empty. The To date cannot be before the From date.',
       },
       {
-        q: 'Can I print or download the farmer, fisherfolk or organization list?',
-        a: 'Yes, in Reports: choose the Registered report, then press Print Report to print or Download Report to save it as a PDF. The Farmers, Fisherfolk and Organizations tables no longer have report buttons of their own, so set the filters in Reports: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
+        q: 'Can I print or download the farmer, fisherfolk or cooperative list?',
+        a: 'Yes, in Reports: choose the Registered report, then press Print Report to print or Download Report to save it as a PDF. The Farmers, Fisherfolk and Cooperatives tables no longer have report buttons of their own, so set the filters in Reports: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
       },
     ],
   },
@@ -237,7 +241,7 @@ export const SECTIONS = [
       },
       {
         q: 'What can a Focal Person do compared with an Admin?',
-        a: 'Both register and manage farmers, fisherfolk, organizations, crop records, monitoring, disasters, assistance and reports. Only an Admin manages the lists under Admin (Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings, Harvest Unit Settings), Signatories, User Management and the audit log, and only an Admin deletes crop records.',
+        a: 'Both register and manage farmers, fisherfolk, cooperatives, crop records, monitoring, disasters, assistance and reports. Only an Admin manages the lists under Admin (Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings, Harvest Unit Settings), Signatories, User Management and the Audit Log and Backup & Restore, and only an Admin deletes crop records.',
       },
       {
         q: 'Where do I add a crop or change its growth duration?',
@@ -256,7 +260,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I give someone an account?',
-        a: 'Admin > User Management. Create the account and choose its role. Farmers, fisherfolk and organizations get their own accounts from their record.',
+        a: 'Admin > User Management. Create the account and choose its role. Farmers, fisherfolk and cooperatives get their own accounts from their record.',
         roles: ADMIN,
       },
       {

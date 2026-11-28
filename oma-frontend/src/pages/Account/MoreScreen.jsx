@@ -8,7 +8,7 @@ import AccountPage from './AccountPage.jsx'
 import { accountKind, accountNav } from './accountNav.js'
 
 // The More page of a farmer, fisherfolk or organization account: everything that is not one of the four main menu entries
-// (forecast, borrowing or officers, the profile, Help, the User Manual), and Log out, which asks first.
+// (forecast, borrowing or officers, the profile, Help), and Log out, which asks first.
 const ROW = 'flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-surface-2'
 
 export default function MoreScreen() {

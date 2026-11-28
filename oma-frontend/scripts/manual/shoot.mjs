@@ -7,11 +7,13 @@
 // (mint them with simplejwt RefreshToken.for_user for the sample accounts; they last 15 minutes, so mint right before running).
 //
 // Each screen in screens.mjs is opened as that account at desktop (1280x800) or phone (390x844) size, the optional `js` runs (open a window, a tab...),
-// then every callout is drawn on the page as an orange numbered box around the element it names, and the picture is saved to public/manual/.
+// then every callout is drawn on the page as a red box around the element it names, with a numbered circle and an arrow (placeMarkers.mjs), and the
+// picture is saved to public/manual/. These pictures are the ones of Help (src/pages/Help).
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { placeMarkers } from './placeMarkers.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '../..')
@@ -64,8 +66,9 @@ const evaluate = async (expression) => {
   return r.result?.result?.value
 }
 
-// Runs in the page: finds each callout's element and draws an orange numbered box around it. Returns the numbers that were not found.
+// Runs in the page: finds each callout's element, draws a red box around it and a numbered circle with an arrow. Returns the numbers that were not found.
 const DRAW = (callouts) => `
+const placeMarkers = ${placeMarkers.toString()}
 const callouts = ${JSON.stringify(callouts)};
 const visible = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' }
 const find = (f) => {
@@ -104,6 +107,9 @@ const shown = (el) => {
 const missing = []
 const lost = []
 const found = []
+const texts = []          // what each number points at, for the REPORT
+const says = (el) => ((el.innerText || el.getAttribute('aria-label') || el.value || el.getAttribute('placeholder') || el.getAttribute('title') || el.tagName.toLowerCase()) + '').trim().replace(/\\s+/g, ' ').slice(0, 70)
+const boxes = []          // { x, y, w, h, n } of every box, in the order of the numbers
 callouts.forEach((c, i) => {
   const finds = Array.isArray(c.find) ? c.find : [c.find]
   const els = finds.map(find).filter(Boolean)
@@ -111,28 +117,64 @@ callouts.forEach((c, i) => {
   const seen = els.filter(shown)
   if (!seen.length) { lost.push(c.label); return }
   found.push(i)
+  texts.push(seen.map(says).join(' || '))
   seen.forEach((el) => {
     const r = el.getBoundingClientRect()
     const pad = c.pad ?? 3
-    const box = document.createElement('div')
-    box.style.cssText = 'position:fixed;border:3px solid #F97316;border-radius:6px;background:rgba(249,115,22,.07);left:' + (r.left - pad) + 'px;top:' + (r.top - pad) + 'px;width:' + (r.width + pad * 2) + 'px;height:' + (r.height + pad * 2) + 'px;'
-    const tag = document.createElement('div')
-    tag.textContent = String(found.length)
-    // the number sits on the corner of its own box, so it cannot be mistaken for the box above it
-    // ...and is kept inside the picture when its box touches an edge of the window
-    const edgeR = r.right + pad + 12 > innerWidth
-    const edgeT = r.top - pad - 12 < 0
-    const side = c.tag === 'left' ? 'left:-12px;' : (edgeR ? 'right:4px;' : 'right:-12px;')
-    tag.style.cssText = 'position:absolute;top:' + (edgeT ? '4px' : '-12px') + ';' + side + 'min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:#F97316;color:#fff;font:700 13px/22px Helvetica,Arial,sans-serif;text-align:center;box-shadow:0 0 0 2px #fff,0 1px 3px rgba(0,0,0,.4);'
-    box.appendChild(tag)
-    layer.appendChild(box)
+    const x = Math.max(r.left - pad, 1), y = Math.max(r.top - pad, 1)
+    boxes.push({ x, y, w: Math.min(r.right + pad, innerWidth - 1) - x, h: Math.min(r.bottom + pad, innerHeight - 1) - y, n: found.length })
   })
 })
-return { missing, found, lost }
+const SIZE = 26
+const RED = '#E53935'
+// where the page's words are, so that a number is put off them when there is room
+const words = []
+const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+for (let node = walker.nextNode(); node && words.length < 2500; node = walker.nextNode()) {
+  if (!node.textContent.trim() || layer.contains(node)) continue
+  const range = document.createRange()
+  range.selectNodeContents(node)
+  for (const r of range.getClientRects()) {
+    if (r.width > 2 && r.height > 2 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth) words.push({ x: r.left, y: r.top, w: r.width, h: r.height })
+  }
+}
+const marks = placeMarkers(boxes, { w: innerWidth, h: innerHeight }, SIZE, words)
+const add = (tag, css, parent = layer) => { const el = document.createElement(tag); el.style.cssText = css; parent.appendChild(el); return el }
+for (const box of boxes) {
+  add('div', 'position:fixed;box-sizing:border-box;border:2.5px solid ' + RED + ';border-radius:8px;left:' + box.x + 'px;top:' + box.y + 'px;width:' + box.w + 'px;height:' + box.h + 'px;')
+}
+const NS = 'http://www.w3.org/2000/svg'
+const svg = document.createElementNS(NS, 'svg')
+svg.setAttribute('width', innerWidth)
+svg.setAttribute('height', innerHeight)
+svg.style.cssText = 'position:fixed;left:0;top:0;overflow:visible;'
+layer.appendChild(svg)
+const shape = (tag, attributes) => { const el = document.createElementNS(NS, tag); Object.entries(attributes).forEach(([k, v]) => el.setAttribute(k, v)); svg.appendChild(el) }
+marks.forEach((mark) => {
+  if (!mark.arrow) return
+  const { x1, y1, x2, y2 } = mark.arrow
+  const length = Math.hypot(x2 - x1, y2 - y1) || 1
+  const ux = (x2 - x1) / length, uy = (y2 - y1) / length
+  const bx = x2 - ux * 8, by = y2 - uy * 8          // the arrow head's base
+  shape('line', { x1, y1, x2: bx, y2: by, stroke: RED, 'stroke-width': 2.5 })
+  shape('polygon', { points: [x2, y2, bx - uy * 5, by + ux * 5, bx + uy * 5, by - ux * 5].join(' '), fill: RED })
+})
+marks.forEach((mark, k) => {
+  const tag = add('div', 'position:fixed;box-sizing:border-box;width:' + SIZE + 'px;height:' + SIZE + 'px;border-radius:50%;border:2.5px solid ' + RED + ';background:#fff;color:#111;font:700 ' + (boxes[k].n > 9 ? 11.5 : 13) + 'px/21px Helvetica,Arial,sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35);left:' + (mark.cx - SIZE / 2) + 'px;top:' + (mark.cy - SIZE / 2) + 'px;')
+  tag.textContent = String(boxes[k].n)
+})
+return { missing, found, lost, texts }
 `
 
 await send('Page.enable')
 await send('Runtime.enable')
+
+// The list of legends is written with retries, as the pictures are: a watcher can hold the file for a moment.
+async function saveManifest() {
+  for (let attempt = 1; ; attempt += 1) {
+    try { fs.writeFileSync(manifestFile, `${MANIFEST_HEAD}${JSON.stringify(manifest, null, 1)}\n`); return } catch (err) { if (attempt >= 8) throw err; await sleep(700 * attempt) }
+  }
+}
 
 try {
   let current = null
@@ -177,7 +219,20 @@ try {
     }
     await send('Page.navigate', { url: BASE + screen.url })
     await sleep((screen.wait || 3500) + 1500)
+    // right after the picture's size changes, a navigation is sometimes lost: ask once more
+    if (!screen.anon && !screen.url.startsWith(await evaluate('return location.pathname'))) {
+      await send('Page.navigate', { url: BASE + screen.url })
+      await sleep((screen.wait || 3500) + 1500)
+    }
+    const landed = await evaluate('return location.pathname')
     if (screen.js) { await evaluate(screen.js); await sleep(screen.after || 1500) }
+    if (process.env.PEEK) {
+      // a plain picture after the screen's steps, without numbers, to see what a screen looks like now
+      const peek = await send('Page.captureScreenshot', { format: 'png' })
+      fs.writeFileSync(path.join(process.env.PEEK, `${screen.id}.png`), Buffer.from(peek.result.data, 'base64'))
+      console.log('peeked', screen.id)
+      continue
+    }
     if (process.env.INVENTORY) {
       // List every visible control of the screen (not a picture): what the manual's legend has to explain.
       const list = await evaluate(`
@@ -203,8 +258,18 @@ return out.join('\\n')`)
       console.log('inventoried', screen.id)
       continue
     }
-    const { missing, found, lost } = await evaluate(DRAW(screen.callouts))
+    const { missing, found, lost, texts } = await evaluate(DRAW(screen.callouts))
     const path_ = await evaluate('return location.pathname')
+    // a screen that sent us somewhere else is not the screen: its picture must not be trusted (decided before the screen's own
+    // steps ran: those may open another page on purpose)
+    const wrongPage = !screen.url.startsWith(landed) && !screen.anon
+    if (process.env.REPORT) {
+      const lines = [`=== ${screen.id}  ${screen.url} -> ${path_}${wrongPage ? '  WRONG PAGE' : ''}`,
+        ...found.map((idx, k) => `${k + 1}. [${screen.callouts[idx].label}] -> ${texts[k]}`)]
+      if (missing.length) lines.push(`MISSING: ${missing.map((m) => screen.callouts[m - 1].label).join(' | ')}`)
+      if (lost.length) lines.push(`NOT VISIBLE: ${lost.join(' | ')}`)
+      fs.appendFileSync(process.env.REPORT, `\n${lines.join('\n')}\n`)
+    }
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
     const file = path.join(outDir, screen.file)
     fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -217,14 +282,13 @@ return out.join('\\n')`)
       legend: found.map((idx, k) => ({ n: k + 1, label: screen.callouts[idx].label, desc: screen.callouts[idx].desc })),
     }
     // saved after every screen, so a stop part-way keeps the legends of the pictures already taken
-    fs.writeFileSync(manifestFile, `${MANIFEST_HEAD}${JSON.stringify(manifest, null, 1)}
-`)
-    console.log(missing.length || lost.length ? 'MISSING' : 'ok', screen.id, path_, missing.length ? `callouts not found: ${missing.join(',')}` : '', lost.length ? `NOT VISIBLE (dropped): ${lost.join(' | ')}` : '')
+    await saveManifest()
+    console.log(wrongPage ? 'WRONG-PAGE' : missing.length || lost.length ? 'MISSING' : 'ok', screen.id, path_, missing.length ? `callouts not found: ${missing.join(',')}` : '', lost.length ? `NOT VISIBLE (dropped): ${lost.join(' | ')}` : '')
     } catch (err) {
       console.log('FAILED', screen.id, String(err.message || err).slice(0, 160))
     }
   }
-  fs.writeFileSync(manifestFile, `${MANIFEST_HEAD}${JSON.stringify(manifest, null, 1)}\n`)
+  await saveManifest()
 } finally {
   ws.close()
   chrome.kill()

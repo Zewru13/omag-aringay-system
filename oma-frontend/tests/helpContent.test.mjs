@@ -23,11 +23,11 @@ assert.ok(SECTIONS.length > 0); n++
 for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
   const text = everything(help)
   for (const [what, needle] of [
-    ['distributing to several organizations', 'Distribute to Organizations gives one assistance to the members of the organizations you tick'],
+    ['distributing to several cooperatives', 'Distribute to Cooperatives gives one assistance to the members of the cooperatives you tick'],
     ['ending a term with a reason', 'Transferred Registration'],
     ['the Others reason', 'choose Others'],
     ['lending to several members', 'Lend equipment'],
-    ['the Borrowed History tab', 'The Borrowed History tab lists everything that was closed'],
+    ['the returned loans', 'Returned holds every loan that is closed'],
     ['equipment without a condition', 'new equipment starts as Good'],
     ['required parcel fields', 'Cropping Schedule'],
     ['crops inside the parcel form', 'same as Add Crop Records'],
@@ -35,10 +35,16 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['crop status and owner', 'Crop Owner'],
     ['no crop status column', 'its status is the Land Ownership of the farm parcel'],
     ['importing crops into a parcel', 'Import crops'],
-    ['adding a parcel', 'press Add Parcel'],
     ['the farmer\'s machinery', 'Machinery belongs to the farmer'],
     ['no Land Preparation or Planting', 'Land Preparation and Planting are never suggested'],
-    ['equipment when registering an organization', 'Equipment section'],
+    ['equipment when registering a cooperative', 'Equipment section'],
+    ['saving a farmer and going on to parcels', 'Save Farmer & Add Farm Parcels'],
+    ['the three steps of Add Farm Parcels', 'Review and Save'],
+    ['another parcel', 'Add another parcel'],
+    ['nothing to confirm', 'Nobody has to confirm anything'],
+    ['when and where to claim', 'date, time and place'],
+    ['removing who did not claim', 'Remove (not claimed)'],
+    ['where suggestions are set', 'set per crop in Crop Settings'],
     ['printing the registration tables', 'press Print Report'],
     ['the distribute windows', 'Distribute Farmer Assistance'],
     ['printing after distributing', 'Print Report: it prints the Assistance Distribution Report'],
@@ -53,9 +59,18 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
   }
 }
 
+// ── what was removed or renamed is not explained any more
+for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
+  const text = everything(help)
+  for (const gone of ['awaiting confirmation', 'reported as not received', 'marked resolved', 'Borrowed tab', 'Borrowed History', 'Distribute to Organizations', 'press Add Parcel', 'Save Farmer and Add Farm Parcels', 'Organization-Owned']) {
+    assert.ok(!text.includes(gone), `${label} help should not mention "${gone}"`); n++
+  }
+  assert.ok(!/\borganizations?\b/i.test(text), `${label} help should say cooperative, not organization`); n++
+}
+
 // ── the individual report of one record
 for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
-  assert.ok(questions(help).includes('How do I get the report of just one farmer, fisherfolk or organization?'), `${label} help should say how to get an individual report`); n++
+  assert.ok(questions(help).includes('How do I get the report of just one farmer, fisherfolk or cooperative?'), `${label} help should say how to get an individual report`); n++
   assert.ok(!everything(help).includes('Preview PDF') && !everything(help).includes('Download Excel') && !everything(help).includes('All records (bulk)'), `${label} help should not mention the removed report buttons`); n++
 }
 

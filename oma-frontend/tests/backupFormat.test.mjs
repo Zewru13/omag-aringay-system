@@ -199,9 +199,9 @@ ok(sidebar.includes('label: "Backup & Restore"') && !sidebar.includes('label: "B
 ok(/DataTable/.test(history), 'the list is a table')
 for (const label of ['NAME', 'DATE', 'TIME', 'LOCATION']) ok(history.includes(`label: '${label}'`), `the list has a ${label} column`)
 
-const manual = readFileSync(new URL('../src/pages/Manual/manualContent.js', import.meta.url), 'utf8')
-ok(!/every night|latest 14|Delete removes one/.test(manual), 'the manual no longer describes the nightly backup, the 14 kept or Delete')
-ok(/Restore/.test(manual), 'the manual explains Restore')
+const topics = source('pages/Help/helpTopics.js')
+ok(!/every night|latest 14|Delete removes one/.test(topics), 'Help does not describe the nightly backup, the 14 kept or Delete')
+ok(/topic\('backup', 'Backup & Restore'/.test(topics), 'Help has Backup & Restore')
 
 // the lock screen box: an animated emblem (spinning arc, rings, a floating icon) instead of a bar and a clock
 const lock2 = readFileSync(new URL('../src/components/UI/WorkLockScreen.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')

@@ -21,7 +21,7 @@ export default {
    {
     "n": 3,
     "label": "Account menu",
-    "desc": "Your name and the type of account. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
+    "desc": "Your name and the type of account; clicking it opens your profile. The arrow beside it opens a menu with Audit Log (Admin only), Help (these pages) and Logout."
    },
    {
     "n": 4,
@@ -35,8 +35,8 @@ export default {
    },
    {
     "n": 6,
-    "label": "Organizations",
-    "desc": "Farmers Organizations and Fisherfolk Organizations: each one's members, officers and equipment."
+    "label": "Cooperatives",
+    "desc": "Farmers Cooperatives and Fisherfolk Cooperatives: each one's members, officers and equipment."
    },
    {
     "n": 7,
@@ -56,7 +56,7 @@ export default {
    {
     "n": 10,
     "label": "Assistance",
-    "desc": "Crop Assistance and Fisheries Assistance: help given to farmers, fisherfolk and organizations."
+    "desc": "Crop Assistance and Fisheries Assistance: help given to farmers, fisherfolk and cooperatives."
    },
    {
     "n": 11,
@@ -96,7 +96,7 @@ export default {
    {
     "n": 3,
     "label": "Account menu",
-    "desc": "Your name and the type of account. Open it for the User Manual (this page), the Activity Log (Admin) and Logout. The first item also leads to your own profile."
+    "desc": "Your name and the type of account; clicking it opens your profile. The arrow beside it opens a menu with Audit Log (Admin only), Help (these pages) and Logout."
    },
    {
     "n": 4,
@@ -110,8 +110,8 @@ export default {
    },
    {
     "n": 6,
-    "label": "Organizations",
-    "desc": "Farmers Organizations and Fisherfolk Organizations: each one's members, officers and equipment."
+    "label": "Cooperatives",
+    "desc": "Farmers Cooperatives and Fisherfolk Cooperatives: each one's members, officers and equipment."
    },
    {
     "n": 7,
@@ -131,7 +131,7 @@ export default {
    {
     "n": 10,
     "label": "Assistance",
-    "desc": "Crop Assistance and Fisheries Assistance: help given to farmers, fisherfolk and organizations."
+    "desc": "Crop Assistance and Fisheries Assistance: help given to farmers, fisherfolk and cooperatives."
    },
    {
     "n": 11,
@@ -161,12 +161,12 @@ export default {
    {
     "n": 2,
     "label": "Crop Sector",
-    "desc": "Registered Farmers (with how many were registered this month) and Farmers Organizations that are active and registered."
+    "desc": "Registered Farmers (with how many were registered this month) and Farmers Cooperatives that are active and registered."
    },
    {
     "n": 3,
     "label": "Fisheries Sector",
-    "desc": "Registered Fisherfolk (with this month's new ones) and Fisherfolk Organizations that are active and registered."
+    "desc": "Registered Fisherfolk (with this month's new ones) and Fisherfolk Cooperatives that are active and registered."
    },
    {
     "n": 4,
@@ -232,11 +232,6 @@ export default {
     "n": 16,
     "label": "Barangay Activity Status",
     "desc": "The same Overdue / Due Today / Upcoming counts for each barangay. The Crop / Fisheries buttons at its top switch the table."
-   },
-   {
-    "n": 17,
-    "label": "Pending Change Requests",
-    "desc": "Requests from farmers, fisherfolk and organizations to change a locked detail (such as name or barangay). Approve applies the change, Reject refuses it, and Review all opens User Management."
    }
   ]
  },
@@ -256,12 +251,12 @@ export default {
    {
     "n": 2,
     "label": "Crop Sector",
-    "desc": "Registered farmers and active farmers organizations."
+    "desc": "Registered farmers and active farmers cooperatives."
    },
    {
     "n": 3,
     "label": "Fisheries Sector",
-    "desc": "Registered fisherfolk and active fisherfolk organizations."
+    "desc": "Registered fisherfolk and active fisherfolk cooperatives."
    },
    {
     "n": 4,
@@ -282,11 +277,6 @@ export default {
     "n": 7,
     "label": "Needs Attention",
     "desc": "Overdue, due today and upcoming crop and fisheries activities, with links to Crop Monitoring and Aquaculture Monitoring."
-   },
-   {
-    "n": 8,
-    "label": "Pending Change Requests",
-    "desc": "Change requests that wait for review: Approve or Reject them here."
    }
   ]
  },
@@ -480,8 +470,8 @@ export default {
    },
    {
     "n": 10,
-    "label": "Farmer Organization",
-    "desc": "Optional. Click the box and type part of the organization's name: the list narrows as you type. Pick it (or Not a member) and the farmer becomes one of its members from the start. It can be changed later from the profile."
+    "label": "Farmer Cooperative",
+    "desc": "Optional. Click the box and type part of the cooperative's name: the list narrows as you type. Pick it (or Not a member) and the farmer becomes one of its members from the start. It can be changed later from the profile."
    },
    {
     "n": 11,
@@ -491,7 +481,7 @@ export default {
    {
     "n": 12,
     "label": "Add machinery",
-    "desc": "Adds one machinery line: choose the machinery, how many, and whether it is Owned, Borrowed, Rented or Organization-Owned. Machinery belongs to the farmer, not to a parcel. Leave it empty if there is none."
+    "desc": "Adds one machinery line: choose the machinery, how many, and whether it is Owned, Borrowed, Rented or Cooperative-Owned. Machinery belongs to the farmer, not to a parcel. Leave it empty if there is none."
    },
    {
     "n": 13,
@@ -518,7 +508,7 @@ export default {
  "admin-farmer-profile": {
   "audience": "admin",
   "title": "Farmer profile",
-  "purpose": "Everything about one farmer: ID, details, organization, machinery, farm parcels, crops and visits.",
+  "purpose": "Everything about one farmer: ID, details, cooperative, machinery, farm parcels, crops and visits.",
   "image": "/manual/admin/farmer-profile.png",
   "width": 1280,
   "height": 1150,
@@ -565,8 +555,8 @@ export default {
    },
    {
     "n": 9,
-    "label": "Organization",
-    "desc": "Every organization the farmer belongs to. The main one is marked Main; a membership that ended is grayed and marked Inactive."
+    "label": "Cooperative",
+    "desc": "Every cooperative the farmer belongs to. The main one is marked Main; a membership that ended is grayed and marked Inactive."
    },
    {
     "n": 10,
@@ -685,8 +675,8 @@ export default {
    },
    {
     "n": 9,
-    "label": "Fisherfolk Organization",
-    "desc": "Optional. Click the box and type part of the organization's name: the list narrows as you type. Pick it (or Not a member) to make the fisherfolk one of its members."
+    "label": "Fisherfolk Cooperative",
+    "desc": "Optional. Click the box and type part of the cooperative's name: the list narrows as you type. Pick it (or Not a member) to make the fisherfolk one of its members."
    },
    {
     "n": 10,
@@ -708,7 +698,7 @@ export default {
  "admin-fisherfolk-profile": {
   "audience": "admin",
   "title": "Fisherfolk profile",
-  "purpose": "Everything about one fisherfolk: ID, details, registration numbers, organizations, records, stocking and ponds.",
+  "purpose": "Everything about one fisherfolk: ID, details, registration numbers, cooperatives, records, stocking and ponds.",
   "image": "/manual/admin/fisherfolk-profile.png",
   "width": 1280,
   "height": 1400,
@@ -755,8 +745,8 @@ export default {
    },
    {
     "n": 9,
-    "label": "Organization",
-    "desc": "The organizations the fisherfolk belongs to."
+    "label": "Cooperative",
+    "desc": "The cooperatives the fisherfolk belongs to."
    },
    {
     "n": 10,
@@ -777,8 +767,8 @@ export default {
  },
  "admin-organizations": {
   "audience": "admin",
-  "title": "Organizations > Farmers Organizations",
-  "purpose": "Each organization with its members, officers and equipment. Fisherfolk Organizations works the same way.",
+  "title": "Cooperatives > Farmers Cooperatives",
+  "purpose": "Each cooperative with its members, officers and equipment. Fisherfolk Cooperatives works the same way.",
   "image": "/manual/admin/organizations.png",
   "width": 1280,
   "height": 800,
@@ -786,7 +776,7 @@ export default {
    {
     "n": 1,
     "label": "Search box",
-    "desc": "Type to find an organization by name or address. The table updates as you type."
+    "desc": "Type to find a cooperative by name or address. The table updates as you type."
    },
    {
     "n": 2,
@@ -795,23 +785,23 @@ export default {
    },
    {
     "n": 3,
-    "label": "Import Organizations",
-    "desc": "Registers many organizations from a spreadsheet, with a preview first."
+    "label": "Import Cooperatives",
+    "desc": "Registers many cooperatives from a spreadsheet, with a preview first."
    },
    {
     "n": 4,
-    "label": "Add Organization",
+    "label": "Add Cooperative",
     "desc": "Opens the registration form, with equipment and members inside it."
    },
    {
     "n": 5,
     "label": "Columns",
-    "desc": "Organization name, address, contact person, contact number and Actions."
+    "desc": "Cooperative name, address, contact person, contact number and Actions."
    },
    {
     "n": 6,
     "label": "Actions menu",
-    "desc": "The three dots of a row open the menu of that organization (next picture)."
+    "desc": "The three dots of a row open the menu of that cooperative (next picture)."
    },
    {
     "n": 7,
@@ -822,33 +812,33 @@ export default {
  },
  "admin-org-menu": {
   "audience": "admin",
-  "title": "The menu of an organization",
-  "purpose": "What the three-dot menu of an organization does.",
+  "title": "The menu of a cooperative",
+  "purpose": "What the three-dot menu of a cooperative does.",
   "image": "/manual/admin/org-menu.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Edit organization",
-    "desc": "Opens the Edit Organization form: the same fields as Add Organization, plus the Members section to add more members."
+    "label": "Edit cooperative",
+    "desc": "Opens the Edit Cooperative form: the same fields as Add Cooperative, plus the Members section to add more members."
    },
    {
     "n": 2,
-    "label": "View organization profile",
-    "desc": "Opens the organization's own page: members, equipment inventory, what it confirmed for members, and its officers."
+    "label": "View cooperative profile",
+    "desc": "Opens the cooperative's own page: members, equipment inventory, what it confirmed for members, and its officers."
    },
    {
     "n": 3,
     "label": "Add assistance",
-    "desc": "Opens the Assistance page with this organization already chosen, to distribute help to its members."
+    "desc": "Opens the Assistance page with this cooperative already chosen, to distribute help to its members."
    }
   ]
  },
  "admin-add-organization": {
   "audience": "admin",
-  "title": "Add New Organization form",
-  "purpose": "Registers an organization together with its contact, equipment and members.",
+  "title": "Add New Cooperative form",
+  "purpose": "Registers a cooperative together with its contact, equipment and members.",
   "image": "/manual/admin/add-organization.png",
   "width": 1280,
   "height": 1850,
@@ -860,7 +850,7 @@ export default {
    },
    {
     "n": 2,
-    "label": "Organization Name",
+    "label": "Cooperative Name",
     "desc": "Required. The name as registered with the agency."
    },
    {
@@ -881,7 +871,7 @@ export default {
    {
     "n": 6,
     "label": "Email, contact person and number",
-    "desc": "Required. The organization's email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them."
+    "desc": "Required. The cooperative's email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them."
    },
    {
     "n": 7,
@@ -891,7 +881,7 @@ export default {
    {
     "n": 8,
     "label": "Members",
-    "desc": "Add Members opens a table of registered farmers who are not members yet. Import members attaches a spreadsheet; when the organization is saved its Import Members window opens so you can check it first."
+    "desc": "Add Members opens a table of registered farmers who are not members yet. Import members attaches a spreadsheet; when the cooperative is saved its Import Members window opens so you can check it first."
    },
    {
     "n": 9,
@@ -900,15 +890,15 @@ export default {
    },
    {
     "n": 10,
-    "label": "Add Organization",
-    "desc": "Saves the organization with the equipment and members you added."
+    "label": "Add Cooperative",
+    "desc": "Saves the cooperative with the equipment and members you added."
    }
   ]
  },
  "admin-edit-organization": {
   "audience": "admin",
-  "title": "Edit Organization form",
-  "purpose": "Changes an organization's details and adds more members.",
+  "title": "Edit Cooperative form",
+  "purpose": "Changes a cooperative's details and adds more members.",
   "image": "/manual/admin/edit-organization.png",
   "width": 1280,
   "height": 1300,
@@ -916,11 +906,11 @@ export default {
    {
     "n": 1,
     "label": "Form title",
-    "desc": "The same fields as Add New Organization, filled with the current details."
+    "desc": "The same fields as Add New Cooperative, filled with the current details."
    },
    {
     "n": 2,
-    "label": "Organization Name",
+    "label": "Cooperative Name",
     "desc": "Required. The name as registered with the agency."
    },
    {
@@ -941,17 +931,17 @@ export default {
    {
     "n": 6,
     "label": "Email, contact person and number",
-    "desc": "Required. The organization's email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them."
+    "desc": "Required. The cooperative's email, then one box for the full name of the contact person and a mobile number (09XXXXXXXXX). The report papers use them."
    },
    {
     "n": 7,
     "label": "Members",
-    "desc": "Add Members opens a table of registered farmers who are not members yet. Import members attaches a spreadsheet; when the organization is saved its Import Members window opens so you can check it first."
+    "desc": "Add Members opens a table of registered farmers who are not members yet. Import members attaches a spreadsheet; when the cooperative is saved its Import Members window opens so you can check it first."
    },
    {
     "n": 8,
-    "label": "Update Organization",
-    "desc": "Saves the changes. Equipment is managed on the organization's page."
+    "label": "Update Cooperative",
+    "desc": "Saves the changes. Equipment is managed on the cooperative's page."
    }
   ]
  },
@@ -966,7 +956,7 @@ export default {
    {
     "n": 1,
     "label": "Window title",
-    "desc": "Lists only the registered farmers who are not members of this organization yet."
+    "desc": "Lists only the registered farmers who are not members of this cooperative yet."
    },
    {
     "n": 2,
@@ -996,14 +986,14 @@ export default {
    {
     "n": 7,
     "label": "Add selected",
-    "desc": "Puts the ticked farmers on the organization's member list. They are saved when the organization is saved."
+    "desc": "Puts the ticked farmers on the cooperative's member list. They are saved when the cooperative is saved."
    }
   ]
  },
  "admin-org-detail": {
   "audience": "admin",
-  "title": "Organization profile",
-  "purpose": "One organization: its registration, contact, members, equipment, confirmations and officers.",
+  "title": "Cooperative profile",
+  "purpose": "One cooperative: its registration, contact, members, equipment, earlier confirmations and officers.",
   "image": "/manual/admin/org-detail.png",
   "width": 1280,
   "height": 1000,
@@ -1011,17 +1001,17 @@ export default {
    {
     "n": 1,
     "label": "Profile header",
-    "desc": "The organization's name, registration number, address, date registered and the agency it is registered with. The tag at the top right says which kind of organization it is."
+    "desc": "The cooperative's name, registration number, address, date registered and the agency it is registered with. The tag at the top right says which kind of cooperative it is."
    },
    {
     "n": 2,
     "label": "Set Up Account / Regenerate Password",
-    "desc": "First asks for the email the organization signs in with, then makes a new random password and shows it once, to be read to its officer. Until an account exists it says Set Up Account. The person must sign in and set their own password within 3 days, or it has to be set up again. Rest the pointer on the icon to read its name."
+    "desc": "First asks for the email the cooperative signs in with, then makes a new random password and shows it once, to be read to its officer. Until an account exists it says Set Up Account. The person must sign in and set their own password within 3 days, or it has to be set up again. Rest the pointer on the icon to read its name."
    },
    {
     "n": 3,
-    "label": "Organization Details",
-    "desc": "The date the organization was organized and when it was added to the system. The registration number, agency, date registered and address are in the profile header."
+    "label": "Cooperative Details",
+    "desc": "The date the cooperative was organized and when it was added to the system. The registration number, agency, date registered and address are in the profile header."
    },
    {
     "n": 4,
@@ -1036,12 +1026,12 @@ export default {
    {
     "n": 6,
     "label": "Equipment Inventory",
-    "desc": "How many equipment lines the organization owns. View opens the inventory."
+    "desc": "How many equipment lines the cooperative owns. View opens the inventory."
    },
    {
     "n": 7,
-    "label": "Confirmed for Members",
-    "desc": "The history of what the organization confirmed for its members. View opens it."
+    "label": "Earlier Confirmations",
+    "desc": "What the cooperative confirmed for its members back when receipt was confirmed. Nothing new is added here. View opens it."
    },
    {
     "n": 8,
@@ -1052,8 +1042,8 @@ export default {
  },
  "admin-org-equipment": {
   "audience": "admin",
-  "title": "Organization profile: Equipment Inventory",
-  "purpose": "What the organization owns, as staff see it.",
+  "title": "Cooperative profile: Equipment Inventory",
+  "purpose": "What the cooperative owns, as staff see it.",
   "image": "/manual/admin/org-equipment.png",
   "width": 1280,
   "height": 900,
@@ -1077,16 +1067,16 @@ export default {
  },
  "admin-org-confirmed": {
   "audience": "admin",
-  "title": "Organization profile: Confirmed for Members",
-  "purpose": "The record of what the organization confirmed for its members.",
+  "title": "Cooperative profile: Earlier Confirmations",
+  "purpose": "What the cooperative confirmed for its members before confirming was removed.",
   "image": "/manual/admin/org-confirmed.png",
   "width": 1280,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Confirmed for Members",
-    "desc": "A table with a row for each assistance the organization confirmed for its members. Click a row to see who was confirmed and their proof photos; the row menu prints or downloads the report of the whole assistance, and each member has a report of their own."
+    "label": "Earlier Confirmations",
+    "desc": "A table with a row for each assistance the cooperative confirmed for its members. Click a row to see who was confirmed and their proof photos; the row menu prints or downloads the report of the whole assistance, and each member has a report of their own."
    }
   ]
  },
@@ -1106,7 +1096,7 @@ export default {
    {
     "n": 2,
     "label": "Member",
-    "desc": "Search this organization's members by name and choose one. Only members can be officers."
+    "desc": "Search this cooperative's members by name and choose one. Only members can be officers."
    },
    {
     "n": 3,
@@ -1117,8 +1107,8 @@ export default {
  },
  "admin-fisherfolk-orgs": {
   "audience": "admin",
-  "title": "Organizations > Fisherfolk Organizations",
-  "purpose": "The same page for fisherfolk organizations.",
+  "title": "Cooperatives > Fisherfolk Cooperatives",
+  "purpose": "The same page for fisherfolk cooperatives.",
   "image": "/manual/admin/fisherfolk-organizations.png",
   "width": 1280,
   "height": 800,
@@ -1126,7 +1116,7 @@ export default {
    {
     "n": 1,
     "label": "Search box",
-    "desc": "Type to find an organization by name or address. The table updates as you type."
+    "desc": "Type to find a cooperative by name or address. The table updates as you type."
    },
    {
     "n": 2,
@@ -1135,18 +1125,18 @@ export default {
    },
    {
     "n": 3,
-    "label": "Import Organizations",
-    "desc": "Registers many fisherfolk organizations from a spreadsheet."
+    "label": "Import Cooperatives",
+    "desc": "Registers many fisherfolk cooperatives from a spreadsheet."
    },
    {
     "n": 4,
-    "label": "Add Organization",
+    "label": "Add Cooperative",
     "desc": "The same form as for farmers, with fisherfolk as members and fishing equipment."
    },
    {
     "n": 5,
     "label": "Columns and Actions",
-    "desc": "Name, address, contact person and number; the Actions menu has Edit organization, View organization profile and Add assistance."
+    "desc": "Name, address, contact person and number; the Actions menu has Edit cooperative, View cooperative profile and Add assistance."
    }
   ]
  },
@@ -1192,11 +1182,6 @@ export default {
     "n": 7,
     "label": "Actions menu",
     "desc": "The three dots of a parcel: Add crops, Force harvest, Print report and Edit parcel (next picture)."
-   },
-   {
-    "n": 8,
-    "label": "Page bar",
-    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
@@ -1232,16 +1217,16 @@ export default {
  },
  "admin-add-parcels": {
   "audience": "admin",
-  "title": "Add Farm Parcels table",
-  "purpose": "Records several parcels of one farmer in one table, with their crops.",
+  "title": "Add Farm Parcels window",
+  "purpose": "Records one or more parcels of one farmer, with their crops, in three steps: Parcel Details, Add Crops, then Review and Save.",
   "image": "/manual/admin/add-parcels.png",
   "width": 1280,
   "height": 1050,
   "legend": [
    {
     "n": 1,
-    "label": "Back to Crop Records",
-    "desc": "Leaves the table without saving."
+    "label": "The three steps",
+    "desc": "Parcel Details comes first. In step 2, Add Crops, each parcel has Add crop and Import crops (crops are optional). Step 3, Review and Save, lists everything before it is saved."
    },
    {
     "n": 2,
@@ -1251,47 +1236,47 @@ export default {
    {
     "n": 3,
     "label": "Import Farm Parcels",
-    "desc": "Reads this farmer's parcels from a spreadsheet into the table, so you can check them before saving."
+    "desc": "Available once the farmer is chosen: adds the parcels of that farmer, with their crops, from a spreadsheet."
    },
    {
     "n": 4,
     "label": "Parcel Number",
-    "desc": "The 17-digit parcel number. Required. The dashes are added as you type."
+    "desc": "Required. The 17-digit parcel number. The dashes are added as you type."
    },
    {
     "n": 5,
     "label": "Barangay and Area",
-    "desc": "Where the parcel is, and its area in hectares. Both required. The crops grown on a parcel together can never be larger than its area."
+    "desc": "Both required. The crops growing on a parcel together can never be larger than its area."
    },
    {
     "n": 6,
     "label": "Land Ownership",
-    "desc": "Required: Owner, Tenant or Lessee. It is never filled in for you. A Tenant or Lessee parcel also needs the land owner's name. The crop status shown elsewhere comes from this."
+    "desc": "Required: Owner, Tenant or Lessee. A Tenant or Lessee parcel also needs the name of the land owner."
    },
    {
     "n": 7,
-    "label": "Tax Dec No.",
-    "desc": "Optional. The tax declaration number."
+    "label": "Farm Type and Cropping Schedule",
+    "desc": "Both required. A Single, Double or Triple Cropping parcel may hold up to 1x, 2x or 3x its area in crops."
    },
    {
     "n": 8,
-    "label": "Farm Type and Cropping Schedule",
-    "desc": "Required: Irrigated, Rainfed Upland and the other farm types; and Single, Double or Triple Cropping (a parcel may then hold up to 1x, 2x or 3x its area in crops)."
+    "label": "Tax Dec No. and Classifications",
+    "desc": "Optional. The tax declaration number, and the classifications that apply (the list is in Classification Settings)."
    },
    {
     "n": 9,
-    "label": "Add Parcel",
-    "desc": "Adds another row for one more parcel. Under each parcel, Add crop records what is planted on it and Import crops reads its crops from a spreadsheet."
+    "label": "Add another parcel",
+    "desc": "Adds one more parcel for the same farmer."
    },
    {
     "n": 10,
     "label": "Cancel",
-    "desc": "Closes the table; nothing is saved."
+    "desc": "Closes the window. What you typed is kept as a draft for next time."
    },
    {
     "n": 11,
-    "label": "Submit Parcel",
-    "desc": "Saves every parcel and crop in the table together, or none of them if one has a problem. You come back to the list."
+    "label": "Next: Add Crops",
+    "desc": "Checks the parcels and goes to step 2. Nothing is saved until you save in step 3; then every parcel and crop is saved together, or none."
    }
   ]
  },
@@ -1311,7 +1296,7 @@ export default {
    {
     "n": 2,
     "label": "Farmer information",
-    "desc": "The farmer the parcel belongs to, with the home barangay and the organization (or Non-organization)."
+    "desc": "The farmer the parcel belongs to, with the home barangay and the cooperative (or No cooperative)."
    },
    {
     "n": 3,
@@ -1451,7 +1436,7 @@ export default {
    {
     "n": 1,
     "label": "Search box",
-    "desc": "Type to find a crop by farmer name, RSBSA number, crop or organization. The table updates as you type."
+    "desc": "Type to find a crop by farmer name, RSBSA number, crop or cooperative. The table updates as you type."
    },
    {
     "n": 2,
@@ -1461,7 +1446,7 @@ export default {
    {
     "n": 3,
     "label": "Columns",
-    "desc": "Crop, variety, farmer, organization, barangay, date planted, expected harvest, actual harvest (kg harvested and how it compares with the estimate), Logs (how many activities were recorded), PCIC insured, status and Actions."
+    "desc": "Crop, variety, farmer, cooperative, barangay, date planted, expected harvest, Logs (how many activities were recorded), PCIC insured, status and Actions. Beside the status, a red triangle means a disaster is still open on the crop, and a green check means it recovered."
    },
    {
     "n": 4,
@@ -1871,7 +1856,7 @@ export default {
   "purpose": "One disaster log.",
   "image": "/manual/admin/disaster-detail.png",
   "width": 1280,
-  "height": 1000,
+  "height": 1150,
   "legend": [
    {
     "n": 1,
@@ -1881,7 +1866,7 @@ export default {
    {
     "n": 2,
     "label": "Farmer",
-    "desc": "The name, barangay and organization of the farmer."
+    "desc": "The name, barangay and cooperative of the farmer."
    },
    {
     "n": 3,
@@ -1981,7 +1966,7 @@ export default {
    {
     "n": 3,
     "label": "Columns",
-    "desc": "Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, organization, pond location, status (a small red alert icon beside it means a disaster is still active on the cycle, a green check means it recovered) and Actions. The estimated and actual harvest of each pond or cage are in the row that opens when you click it."
+    "desc": "Ownership (Tenant, Lease or Owner), species, fisherfolk, culture type (pond or cage), cycle number, date stocked, expected harvest, cooperative, pond location, status (a small red alert icon beside it means a disaster is still active on the cycle, a green check means it recovered) and Actions. The estimated and actual harvest of each pond or cage are in the row that opens when you click it."
    },
    {
     "n": 4,
@@ -2025,16 +2010,21 @@ export default {
    },
    {
     "n": 4,
+    "label": "PCIC insured",
+    "desc": "Only insured cycles, or only cycles without insurance."
+   },
+   {
+    "n": 5,
     "label": "Season",
     "desc": "Dry Season or Wet Season."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Year",
     "desc": "The year the cycle was stocked."
    },
    {
-    "n": 6,
+    "n": 7,
     "label": "Stocked From / To",
     "desc": "The first and last date stocked. Either can be left empty."
    }
@@ -2056,7 +2046,7 @@ export default {
    {
     "n": 2,
     "label": "Edit",
-    "desc": "Opens the Start Production Cycle form filled in with the cycle: change the organization, culture phase, species (until anything is recorded for the cycle), water source, fingerling source, pond location, the stocking and target harvest dates, ownership, and the survival rate, body weight and seed cost. The fisherfolk and the ponds or cages are shown, not edited (PCIC insurance is changed per pond or cage)."
+    "desc": "Opens the Start Production Cycle form filled in with the cycle: change the cooperative, culture phase, species (until anything is recorded for the cycle), water source, fingerling source, pond location, the stocking and target harvest dates, ownership, and the survival rate, body weight and seed cost. The fisherfolk and the ponds or cages are shown, not edited (PCIC insurance is changed per pond or cage)."
    },
    {
     "n": 3,
@@ -2085,8 +2075,8 @@ export default {
    },
    {
     "n": 2,
-    "label": "Organization",
-    "desc": "Optional. The organization the production counts for, if the fisherfolk belongs to one."
+    "label": "Cooperative",
+    "desc": "Optional. The cooperative the production counts for, if the fisherfolk belongs to one."
    },
    {
     "n": 3,
@@ -2296,7 +2286,7 @@ export default {
    {
     "n": 2,
     "label": "Search box",
-    "desc": "Type to find a crop by farmer, RSBSA number, crop or organization. The table updates as you type."
+    "desc": "Type to find a crop by farmer, RSBSA number, crop or cooperative. The table updates as you type."
    },
    {
     "n": 3,
@@ -2438,7 +2428,7 @@ export default {
  "admin-crop-assistance": {
   "audience": "admin",
   "title": "Assistance > Crop Assistance",
-  "purpose": "Help given to farmers and farmers organizations. Fisheries Assistance works the same way.",
+  "purpose": "Help given to farmers and farmers cooperatives. Fisheries Assistance works the same way.",
   "image": "/manual/admin/crop-assistance.png",
   "width": 1280,
   "height": 800,
@@ -2446,7 +2436,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
+    "desc": "Current lists the assistance that is still scheduled, with the date, time and place to claim it. History lists what has passed and shows as Received. Nobody has to confirm anything. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
    },
    {
     "n": 2,
@@ -2455,8 +2445,8 @@ export default {
    },
    {
     "n": 3,
-    "label": "Distribute to Organizations",
-    "desc": "Gives one assistance to the members of the organizations you tick (next pictures)."
+    "label": "Distribute to Cooperatives",
+    "desc": "Gives one assistance to the members of the cooperatives you tick (next pictures)."
    },
    {
     "n": 4,
@@ -2471,7 +2461,7 @@ export default {
    {
     "n": 6,
     "label": "Columns",
-    "desc": "Date given, who it was given to (the organization, or the names of the farmers when it went to selected people), assistance type, source agency, quantity and status."
+    "desc": "The date, time and place, who it was given to (the cooperative, or the names of the farmers when it went to selected people), assistance type, source agency, quantity and status."
    },
    {
     "n": 7,
@@ -2501,7 +2491,7 @@ export default {
    {
     "n": 2,
     "label": "Actions menu",
-    "desc": "View shows the record. Edit changes it while it is still pending or awaiting confirmation. Mark Resolved closes a case that was reported as not received. Confirm for Member / Confirm Received records that the help was received."
+    "desc": "View shows the record. Edit corrects it. Remove (not claimed) takes off a person who did not claim it: the entry is kept for audit but leaves the list and the reports."
    }
   ]
  },
@@ -2557,8 +2547,8 @@ export default {
  },
  "admin-distribute": {
   "audience": "admin",
-  "title": "Distribute to Organizations window",
-  "purpose": "Gives one or more assistance to the members of several organizations.",
+  "title": "Distribute to Cooperatives window",
+  "purpose": "Gives one or more assistance to the members of several cooperatives.",
   "image": "/manual/admin/distribute.png",
   "width": 1280,
   "height": 1300,
@@ -2581,12 +2571,12 @@ export default {
    {
     "n": 4,
     "label": "Add Another Assistance",
-    "desc": "Gives a second (up to five) assistance to the same organizations in one step. Each assistance has its own type, quantity and source agency; the date and description are shared. The same type cannot be chosen twice. Remove Assistance takes one away again."
+    "desc": "Gives a second (up to five) assistance to the same cooperatives in one step. Each assistance has its own type, quantity and source agency; the date, time, place and description are shared. The same type cannot be chosen twice. Remove Assistance takes one away again."
    },
    {
     "n": 5,
-    "label": "Distribution Date",
-    "desc": "Required. Today or a later date. A later date schedules the distribution: it stays Pending until then."
+    "label": "Date, time and place",
+    "desc": "All required. When and where it can be claimed. People with an account are told right away. It shows Scheduled until that date and time, then Received."
    },
    {
     "n": 6,
@@ -2595,18 +2585,18 @@ export default {
    },
    {
     "n": 7,
-    "label": "Search organizations",
-    "desc": "Find an organization by name."
+    "label": "Search cooperatives",
+    "desc": "Find a cooperative by name."
    },
    {
     "n": 8,
     "label": "Tick boxes",
-    "desc": "Tick each organization to give it the assistance, or the top box to tick every organization on the page. Your ticks are kept across pages. The table shows the barangay and the number of members."
+    "desc": "Tick each cooperative to give it the assistance, or the top box to tick every cooperative on the page. Your ticks are kept across pages. The table shows the barangay and the number of members."
    },
    {
     "n": 9,
     "label": "Review Distribution",
-    "desc": "Checks with the server what would happen and saves nothing: it shows who would be blocked (a person who got the same type from another organization in the last 30 days), lets you untick people, then Confirm and Distribute saves it. The result has Print Report."
+    "desc": "Checks with the server what would happen and saves nothing: it shows who would be blocked (a person who got the same type from another cooperative in the last 30 days), lets you untick people, then Confirm and Distribute saves it. The result has Print Report."
    }
   ]
  },
@@ -2621,7 +2611,7 @@ export default {
    {
     "n": 1,
     "label": "Same details",
-    "desc": "Assistance type, source agency, quantity and unit, distribution date and description: exactly as in Distribute to Organizations, including Add Another Assistance to give more than one in a single step."
+    "desc": "Assistance type, source agency, quantity and unit, the distribution date, time and place, and the description: exactly as in Distribute to Cooperatives, including Add Another Assistance to give more than one in a single step."
    },
    {
     "n": 2,
@@ -2643,7 +2633,7 @@ export default {
  "admin-fisheries-assistance": {
   "audience": "admin",
   "title": "Assistance > Fisheries Assistance",
-  "purpose": "The same page for fisherfolk and fisherfolk organizations.",
+  "purpose": "The same page for fisherfolk and fisherfolk cooperatives.",
   "image": "/manual/admin/fisheries-assistance.png",
   "width": 1280,
   "height": 800,
@@ -2651,7 +2641,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
+    "desc": "Current lists the assistance that is still scheduled, with the date, time and place to claim it. History lists what has passed and shows as Received. Nobody has to confirm anything. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
    },
    {
     "n": 2,
@@ -2660,8 +2650,8 @@ export default {
    },
    {
     "n": 3,
-    "label": "Distribute to Organizations",
-    "desc": "Gives one assistance to the members of the fisherfolk organizations you tick."
+    "label": "Distribute to Cooperatives",
+    "desc": "Gives one assistance to the members of the fisherfolk cooperatives you tick."
    },
    {
     "n": 4,
@@ -2826,7 +2816,7 @@ export default {
    {
     "n": 1,
     "label": "Report type",
-    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Cooperatives; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Cooperative Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -2857,7 +2847,7 @@ export default {
  },
  "admin-report-registered": {
   "audience": "admin",
-  "title": "Report: Registered Farmers, Fisherfolk & Organizations",
+  "title": "Report: Registered Farmers, Fisherfolk & Cooperatives",
   "purpose": "Registration records, ready to print.",
   "image": "/manual/admin/report-registered.png",
   "width": 1280,
@@ -2866,12 +2856,12 @@ export default {
    {
     "n": 1,
     "label": "Report type",
-    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Cooperatives; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Cooperative Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
     "label": "Report on",
-    "desc": "Chooses what the report is about: Farmers, Fisherfolk, Farmers Organizations or Fisherfolk Organizations."
+    "desc": "Chooses what the report is about: Farmers, Fisherfolk, Farmers Cooperatives or Fisherfolk Cooperatives."
    },
    {
     "n": 3,
@@ -2921,7 +2911,7 @@ export default {
    {
     "n": 1,
     "label": "Report type",
-    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Cooperatives; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Cooperative Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -2951,7 +2941,7 @@ export default {
    {
     "n": 7,
     "label": "Print-ready preview",
-    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Barangay, farmer, organization, crop, area planted and area harvested (ha), the estimated and actual harvest dates, and the estimated yield and actual yield (kg)."
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Barangay, farmer, cooperative, crop, area planted and area harvested (ha), the estimated and actual harvest dates, and the estimated yield and actual yield (kg)."
    }
   ]
  },
@@ -2966,7 +2956,7 @@ export default {
    {
     "n": 1,
     "label": "Report type",
-    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Cooperatives; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Cooperative Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -2996,7 +2986,7 @@ export default {
    {
     "n": 7,
     "label": "Print-ready preview",
-    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Barangay, fisherfolk, organization, species, culture type, date stocked, harvest date, quantity (kg) and whether it is the final harvest of the cycle."
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Its columns: Barangay, fisherfolk, cooperative, species, culture type, date stocked, harvest date, quantity (kg) and whether it is the final harvest of the cycle."
    }
   ]
  },
@@ -3011,7 +3001,7 @@ export default {
    {
     "n": 1,
     "label": "Report type",
-    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Cooperatives; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Cooperative Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
@@ -3052,8 +3042,8 @@ export default {
  },
  "admin-report-org-assistance": {
   "audience": "admin",
-  "title": "Report: Organization Assistance",
-  "purpose": "The assistance organizations gave to their members.",
+  "title": "Report: Cooperative Assistance",
+  "purpose": "The assistance cooperatives gave to their members.",
   "image": "/manual/admin/report-org-assistance.png",
   "width": 1280,
   "height": 1400,
@@ -3061,17 +3051,17 @@ export default {
    {
     "n": 1,
     "label": "Report type",
-    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Organizations; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Organization Assistance. The filters under it change with the report."
+    "desc": "Chooses the report: Registered Farmers, Fisherfolk & Cooperatives; Crop Records Harvested; Fisheries Production Harvested; Aquaculture Records; Fisheries Disaster Reports; Crop / Parcel Disaster Reports; or Cooperative Assistance. The filters under it change with the report."
    },
    {
     "n": 2,
     "label": "Report on",
-    "desc": "Chooses Farmers Organizations, Fisherfolk Organizations, Individual Farmers or Individual Fisherfolk. The two organization reports show what each organization gave to its members; the individual ones show the assistance given directly to farmers or fisherfolk, not through an organization (there the search box finds the person)."
+    "desc": "Chooses Farmers Cooperatives, Fisherfolk Cooperatives, Individual Farmers or Individual Fisherfolk. The two cooperative reports show what each cooperative gave to its members; the individual ones show the assistance given directly to farmers or fisherfolk, not through a cooperative (there the search box finds the person)."
    },
    {
     "n": 3,
     "label": "Search box",
-    "desc": "Type to find the organization. The table updates as you type."
+    "desc": "Type to find the cooperative. The table updates as you type."
    },
    {
     "n": 4,
@@ -3101,7 +3091,7 @@ export default {
    {
     "n": 9,
     "label": "Print-ready preview",
-    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Click a row to see that one record's individual report. Its columns: Organization, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status. Under it, the Recipients table names every member who received the assistance: organization, recipient, recipient type, barangay, assistance, source agency, date given, quantity, status and date confirmed. The individual reports have only the Recipients table, without the organization."
+    "desc": "The report as it will print: the letterhead, the title, the period, the tables and the signature lines of the signers you chose. It changes as you change the filters or the signers. Click a row to see that one record's individual report. Its columns: Cooperative, date given, assistance, source agency, quantity, how many members received it, how many confirmed, and the status. Under it, the Recipients table names every member who received the assistance: cooperative, recipient, recipient type, barangay, assistance, source agency, date given, quantity, status and date confirmed. The individual reports have only the Recipients table, without the cooperative."
    }
   ]
  },
@@ -3116,7 +3106,7 @@ export default {
    {
     "n": 1,
     "label": "Tabs",
-    "desc": "Crop Options (the crops), Categories, Seed Sources, Varieties, Input Types (fertilizers, pesticides and so on) and Equipment Types (one list of machinery names: it is the Machinery dropdown of a farmer and the Equipment dropdown of a farmers organization, and it starts filled with the usual names). Each tab has its own table."
+    "desc": "Crop Options (the crops), Categories, Seed Sources, Varieties, Input Types (fertilizers, pesticides and so on) and Equipment Types (one list of machinery names: it is the Machinery dropdown of a farmer and the Equipment dropdown of a farmers cooperative, and it starts filled with the usual names). Each tab has its own table."
    },
    {
     "n": 2,
@@ -3241,7 +3231,7 @@ export default {
    {
     "n": 1,
     "label": "Tabs",
-    "desc": "Species, Categories, Feed Types (for the Feeding Log), Diseases (for the Health Log), Fingerling Sources (for Start Production Cycle), Equipment Types (the Equipment dropdown of fisherfolk organizations; it starts filled with the usual names) and Fishing Gear (for Log Catch)."
+    "desc": "Species, Categories, Feed Types (for the Feeding Log), Diseases (for the Health Log), Fingerling Sources (for Start Production Cycle), Equipment Types (the Equipment dropdown of fisherfolk cooperatives; it starts filled with the usual names) and Fishing Gear (for Log Catch)."
    },
    {
     "n": 2,
@@ -3396,7 +3386,7 @@ export default {
    {
     "n": 1,
     "label": "Account kinds",
-    "desc": "Staff (Admin and Focal Person), Fisherfolk, Farmers and Organizations: one table for each kind of account."
+    "desc": "Staff (Admin and Focal Person), Fisherfolk, Farmers and Cooperatives: one table for each kind of account."
    },
    {
     "n": 2,
@@ -3416,7 +3406,7 @@ export default {
    {
     "n": 5,
     "label": "Columns",
-    "desc": "Name, email, role and Actions. The Staff tab also has a status column. Farmer, fisherfolk and organization accounts are never deactivated; those tabs list the accounts that are set up."
+    "desc": "Name, email, role and Actions. The Staff tab also has a status column. Farmer, fisherfolk and cooperative accounts are never deactivated; those tabs list the accounts that are set up."
    },
    {
     "n": 6,
@@ -3427,86 +3417,126 @@ export default {
  },
  "admin-audit-log": {
   "audience": "admin",
-  "title": "Activity Log (Admin)",
-  "purpose": "Who changed what, and when. Open it from the account menu at the top right.",
+  "title": "Audit Log (Admin)",
+  "purpose": "Who did what, and when. Open it from the account menu at the top right.",
   "image": "/manual/admin/audit-log.png",
   "width": 1280,
-  "height": 1900,
+  "height": 1000,
   "legend": [
    {
     "n": 1,
+    "label": "Tabs",
+    "desc": "All Activity lists every action. Farmer History, Fisherfolk History and Cooperative History show what is on record about one of them (the third picture)."
+   },
+   {
+    "n": 2,
+    "label": "Search box",
+    "desc": "Type a name, or words of what happened."
+   },
+   {
+    "n": 3,
     "label": "Filters",
     "desc": "Opens the filter row (next picture)."
    },
    {
-    "n": 2,
+    "n": 4,
     "label": "Columns",
-    "desc": "The date and time, the user, the action (Create, Update or Delete), the model (what kind of record) and a description of the change."
+    "desc": "The date and time, who did it, what happened and the part of the system (module)."
    },
    {
-    "n": 3,
-    "label": "Previous / Next",
-    "desc": "Moves through the pages of the log, newest first."
+    "n": 5,
+    "label": "An entry",
+    "desc": "Click a row to see its details. When it is about one farmer, fisherfolk or cooperative, View history opens that history."
+   },
+   {
+    "n": 6,
+    "label": "Pages",
+    "desc": "How many entries there are, and the page numbers. The newest come first."
    }
   ]
  },
  "admin-audit-log-filters": {
   "audience": "admin",
-  "title": "Activity Log filters",
-  "purpose": "Find one kind of change.",
+  "title": "Audit Log filters",
+  "purpose": "Find one kind of action.",
   "image": "/manual/admin/audit-log-filters.png",
-  "width": 1280,
+  "width": 1440,
   "height": 800,
   "legend": [
    {
     "n": 1,
-    "label": "Model",
-    "desc": "Only one kind of record (Farmer, Farm Parcel, Fisherfolk, Beneficiary Record and the others)."
+    "label": "Module",
+    "desc": "Only one part of the system: Registration, Assistance, Disaster, Backup & Restore, Sign-in & Account and the others."
    },
    {
     "n": 2,
     "label": "Action",
-    "desc": "Only Create, Update or Delete."
+    "desc": "Only one kind of action: Create, Update, Delete, Approve, Reject, Import, Download, Sign in, Sign out, Failed sign-in, Backup or Restore."
    },
    {
     "n": 3,
-    "label": "Date From / To",
-    "desc": "Only changes made in that period. On a phone each date is a row of its own."
+    "label": "From Date / To Date",
+    "desc": "Only what happened in that period. Either can be left empty."
+   },
+   {
+    "n": 4,
+    "label": "Reset Filters",
+    "desc": "Clears every filter."
    }
   ]
  },
  "admin-backup": {
   "audience": "admin",
-  "title": "Admin > Backup & Restore",
-  "purpose": "Makes a copy of the whole system and saves it to your computer, or puts one back.",
+  "title": "Backup & Restore: Create backup",
+  "purpose": "Saves a copy of the whole system as one file.",
   "image": "/manual/admin/backup.png",
-  "width": 1280,
-  "height": 1500,
+  "width": 1440,
+  "height": 1420,
   "legend": [
    {
     "n": 1,
-    "label": "Download backup",
-    "desc": "Opens Download Backup: type a name and the Location where you will keep the file (both can be left empty), then Start Backup. A backup is made only when you press this. When it is done, its file (.zip) is saved to your computer and is no longer kept online. While one runs, nothing else can be done on this page."
+    "label": "Create backup",
+    "desc": "This tab makes a backup and lists every backup made."
    },
    {
     "n": 2,
     "label": "Restore",
-    "desc": "Opens the Restore Backup form (next picture): drop a backup file, see what it would change, then confirm with your password."
+    "desc": "This tab puts a backup file back."
    },
    {
     "n": 3,
-    "label": "What a backup holds",
-    "desc": "One card for each group of records, with how many there are now. A backup also holds every uploaded photo and file."
+    "label": "Download backup",
+    "desc": "Opens Save As at once: choose where the file goes. Closing that window starts nothing. A browser without it downloads the file the usual way."
    },
    {
     "n": 4,
-    "label": "Audit trail and notifications",
-    "desc": "Optional. Tick it to put the activity log and the notifications in the file too. Left unticked the backup is smaller and quicker, and a restore of it keeps the activity log and notifications already in the system."
+    "label": "What the file holds",
+    "desc": "One card for each group of records, with how many there are now. Every uploaded file is in the backup too."
    },
    {
     "n": 5,
+    "label": "Audit Log and notifications",
+    "desc": "Optional. Left unticked, the backup is smaller and quicker. A restore always keeps the Audit Log."
+   },
+   {
+    "n": 6,
+    "label": "What the file cannot hold",
+    "desc": "The program itself, and the settings and keys kept on the server."
+   },
+   {
+    "n": 7,
     "label": "Backup history",
-    "desc": "Every backup, newest first: its name, date, time, location (where you keep its file), kind (Manual, Before restore or Restore), who made it, size and status. Nothing is removed from this list. The three dots at the end of a row open its menu: Download saves the file while it is still online, Edit changes the name, the location and the remarks (not the date or the time), and Restore opens the Restore form."
+    "desc": "Every backup, safety backup and restore, newest first. Nothing is removed from it."
+   },
+   {
+    "n": 8,
+    "label": "Location",
+    "desc": "The name of the saved file, filled in by itself. A browser cannot tell the system which folder you chose."
+   },
+   {
+    "n": 9,
+    "label": "Status",
+    "desc": "Done, Running or Failed. A file that could not be saved says Waiting to be downloaded, with a Download link."
    }
   ]
  },
@@ -3556,7 +3586,7 @@ export default {
   "purpose": "What needs you today, then your crops.",
   "image": "/manual/farmer/home.png",
   "width": 1280,
-  "height": 900,
+  "height": 1300,
   "legend": [
    {
     "n": 1,
@@ -3571,7 +3601,7 @@ export default {
    {
     "n": 3,
     "label": "Bell and your name",
-    "desc": "The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out."
+    "desc": "The bell lists your notices. Your name opens your profile; the arrow beside it opens a short menu with Help and Logout."
    },
    {
     "n": 4,
@@ -3586,7 +3616,7 @@ export default {
    {
     "n": 6,
     "label": "The button of a to-do",
-    "desc": "Log activity, Record harvest, Received or Not received opens that form right here; View loan opens Borrow equipment."
+    "desc": "View assistance opens your Assistance page. Log activity and Record harvest open that form right here. View loan opens Borrow equipment."
    },
    {
     "n": 7,
@@ -3606,7 +3636,7 @@ export default {
   "purpose": "What the office has on record about you.",
   "image": "/manual/farmer/profile.png",
   "width": 1280,
-  "height": 1300,
+  "height": 1600,
   "legend": [
    {
     "n": 1,
@@ -3721,7 +3751,7 @@ export default {
    {
     "n": 1,
     "label": "Page heading",
-    "desc": "Help recorded for you by the office or your organization."
+    "desc": "Help recorded for you by the office or your cooperative."
    },
    {
     "n": 2,
@@ -3731,24 +3761,24 @@ export default {
    {
     "n": 3,
     "label": "Columns",
-    "desc": "What was given, how much, from which agency, on which day, and where it stands."
+    "desc": "What was given, how much, from which agency, the date, time and place, and the status."
    },
    {
     "n": 4,
     "label": "Sections",
-    "desc": "Waiting for you, Being followed up, Scheduled and History."
+    "desc": "Scheduled first: what you can still claim. History is what has passed."
    },
    {
     "n": 5,
-    "label": "Received / Not received",
-    "desc": "Your answer for assistance that has reached its date. Not received asks for the reason, and the office follows it up."
+    "label": "Status",
+    "desc": "Scheduled means claim it on that date, at that time and place. After that time it shows as Received. There is nothing for you to press."
    }
   ]
  },
  "farmer-equipment": {
   "audience": "farmer",
   "title": "Borrow equipment (Farmer)",
-  "purpose": "Equipment your organization lends, under More.",
+  "purpose": "Equipment your cooperative lends, under More.",
   "image": "/manual/farmer/equipment.png",
   "width": 1280,
   "height": 800,
@@ -3756,7 +3786,7 @@ export default {
    {
     "n": 1,
     "label": "Available to borrow",
-    "desc": "Your organization's equipment with units free now. Open one to ask for it: how many units and when you will return it."
+    "desc": "Your cooperative's equipment with units free now. Open one to ask for it: how many units and when you will return it."
    },
    {
     "n": 2,
@@ -3801,22 +3831,22 @@ export default {
    {
     "n": 1,
     "label": "Page heading",
-    "desc": "Help recorded for you by the office or your organization."
+    "desc": "Help recorded for you by the office or your cooperative."
    },
    {
     "n": 2,
     "label": "Columns",
-    "desc": "What was given, how much, from which agency, on which day, and where it stands."
+    "desc": "What was given, how much, from which agency, the date, time and place, and the status."
    },
    {
     "n": 3,
     "label": "Sections",
-    "desc": "Waiting for you, Being followed up, Scheduled and History."
+    "desc": "Scheduled first: what you can still claim. History is what has passed."
    },
    {
     "n": 4,
-    "label": "Received / Not received",
-    "desc": "Your answer for assistance that has reached its date."
+    "label": "Status",
+    "desc": "Scheduled means claim it on that date, at that time and place. After that time it shows as Received. There is nothing for you to press."
    }
   ]
  },
@@ -3857,8 +3887,8 @@ export default {
  },
  "org-home": {
   "audience": "org",
-  "title": "Home (Organization)",
-  "purpose": "What needs your organization today.",
+  "title": "Home (Cooperative)",
+  "purpose": "What needs your cooperative today.",
   "image": "/manual/org/home.png",
   "width": 1280,
   "height": 800,
@@ -3876,12 +3906,12 @@ export default {
    {
     "n": 3,
     "label": "Bell and your name",
-    "desc": "The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out."
+    "desc": "The bell lists your notices. Your name opens your profile; the arrow beside it opens a short menu with Help and Logout."
    },
    {
     "n": 4,
     "label": "Page heading",
-    "desc": "The organization's name, the kind of account and today's date."
+    "desc": "The cooperative's name, the kind of account and today's date."
    },
    {
     "n": 5,
@@ -3897,8 +3927,8 @@ export default {
  },
  "org-members": {
   "audience": "org",
-  "title": "Members (Organization)",
-  "purpose": "Everyone in your organization.",
+  "title": "Members (Cooperative)",
+  "purpose": "Everyone in your cooperative.",
   "image": "/manual/org/members.png",
   "width": 1280,
   "height": 800,
@@ -3910,21 +3940,26 @@ export default {
    },
    {
     "n": 2,
+    "label": "Log activity",
+    "desc": "For members who have no activated account: choose the work and the date once, tick their crops (cycles for a fisherfolk cooperative), and it is saved on each."
+   },
+   {
+    "n": 3,
     "label": "Add member / Import",
     "desc": "Add member finds registered people by name, several at a time. Import adds many from a spreadsheet (download its template first)."
    },
    {
-    "n": 3,
+    "n": 4,
     "label": "Search box",
     "desc": "Type to narrow the list to a member, an RSBSA number or a position. The words can be in any order."
    },
    {
-    "n": 4,
+    "n": 5,
     "label": "Columns",
-    "desc": "The name, the RSBSA number, the position, the date joined and whether this is the person's main organization."
+    "desc": "The name, the RSBSA number, the position, the date joined and whether this is the person's main cooperative."
    },
    {
-    "n": 5,
+    "n": 6,
     "label": "Sections",
     "desc": "Active and Inactive."
    }
@@ -3932,7 +3967,7 @@ export default {
  },
  "org-add-member": {
   "audience": "org",
-  "title": "Add member (Organization)",
+  "title": "Add member (Cooperative)",
   "purpose": "Only registered farmers or fisherfolk can be added.",
   "image": "/manual/org/add-member.png",
   "width": 1280,
@@ -3941,14 +3976,14 @@ export default {
    {
     "n": 1,
     "label": "Add member",
-    "desc": "Search a name and pick the person, then search for the next and pick again: everyone picked is listed under Members to Add. Choose the date joined and add them all together. Someone already in another organization is shown, and can belong to both."
+    "desc": "Search a name and pick the person, then search for the next and pick again: everyone picked is listed under Members to Add. Choose the date joined and add them all together. Someone already in another cooperative is shown, and can belong to both."
    }
   ]
  },
  "org-equipment": {
   "audience": "org",
-  "title": "Equipment (Organization)",
-  "purpose": "What your organization owns, and what it lends.",
+  "title": "Equipment (Cooperative)",
+  "purpose": "What your cooperative owns, and what it lends.",
   "image": "/manual/org/equipment.png",
   "width": 1280,
   "height": 800,
@@ -3977,7 +4012,7 @@ export default {
  },
  "org-officers": {
   "audience": "org",
-  "title": "Officers (Organization)",
+  "title": "Officers (Cooperative)",
   "purpose": "Who holds each position now, under More.",
   "image": "/manual/org/officers.png",
   "width": 1280,
@@ -4002,8 +4037,8 @@ export default {
  },
  "org-assistance": {
   "audience": "org",
-  "title": "Assistance (Organization)",
-  "purpose": "Assistance your organization gave its members.",
+  "title": "Assistance (Cooperative)",
+  "purpose": "Assistance your cooperative gave its members.",
   "image": "/manual/org/assistance.png",
   "width": 1280,
   "height": 800,
@@ -4011,44 +4046,39 @@ export default {
    {
     "n": 1,
     "label": "Distribute assistance",
-    "desc": "Asks first whether it goes to one member or to all members (see the picture after next)."
+    "desc": "Records new assistance. It asks first whether it goes to one member or to all members."
    },
    {
     "n": 2,
-    "label": "To do / History / Confirm for members",
-    "desc": "To do: assistance still waiting. History: what was received. Confirm for members: members who cannot confirm for themselves."
-   }
-  ]
- },
- "org-confirm-members": {
-  "audience": "org",
-  "title": "Confirm for members (Organization)",
-  "purpose": "For members who have no working account.",
-  "image": "/manual/org/confirm-members.png",
-  "width": 1280,
-  "height": 900,
-  "legend": [
-   {
-    "n": 1,
-    "label": "Search members",
-    "desc": "Type the name of a member, a barangay or an assistance to narrow the list. What you already ticked stays ticked."
-   },
-   {
-    "n": 2,
-    "label": "Assistance heading",
-    "desc": "What was given: the type, the date, the quantity and the agency, and how many members are listed under it. The box in the heading ticks every member of that assistance."
+    "label": "Scheduled / History",
+    "desc": "Scheduled is what members can still claim. History is what has passed, with Earlier confirmations under it."
    },
    {
     "n": 3,
-    "label": "Confirm the ticked ones",
-    "desc": "How many are ticked, Select all, and the button that confirms them together with at least two proof photos."
+    "label": "Search member",
+    "desc": "Type a member's name to find the assistance given to that person."
+   },
+   {
+    "n": 4,
+    "label": "Filters",
+    "desc": "Narrows the list by status, kind of assistance, source agency and dates."
+   },
+   {
+    "n": 5,
+    "label": "Columns",
+    "desc": "The date, time and place, what was given and by which agency, how much, how many members, and the status."
+   },
+   {
+    "n": 6,
+    "label": "One distribution",
+    "desc": "One row for each time you gave assistance. Click the row to see its members (next picture)."
    }
   ]
  },
  "org-profile": {
   "audience": "org",
-  "title": "Organization profile",
-  "purpose": "Your organization's details and account.",
+  "title": "Cooperative profile",
+  "purpose": "Your cooperative's details and account.",
   "image": "/manual/org/profile.png",
   "width": 1280,
   "height": 1400,
@@ -4056,7 +4086,7 @@ export default {
    {
     "n": 1,
     "label": "Your name and picture",
-    "desc": "The organization's name and logo, and its registration number. Change photo (or Change logo) replaces the picture at once."
+    "desc": "The cooperative's name and logo, and its registration number. Change photo (or Change logo) replaces the picture at once."
    },
    {
     "n": 2,
@@ -4267,7 +4297,7 @@ export default {
  },
  "org-p-home": {
   "audience": "org",
-  "title": "Home on a phone (Organization)",
+  "title": "Home on a phone (Cooperative)",
   "purpose": "The same Home, with the menu along the bottom.",
   "image": "/manual/org/phone-home.png",
   "phone": true,
@@ -4293,7 +4323,7 @@ export default {
  },
  "org-p-members": {
   "audience": "org",
-  "title": "Members on a phone (Organization)",
+  "title": "Members on a phone (Cooperative)",
   "purpose": "One card per member.",
   "image": "/manual/org/phone-members.png",
   "phone": true,
@@ -4302,16 +4332,21 @@ export default {
   "legend": [
    {
     "n": 1,
+    "label": "Log activity",
+    "desc": "Records farm work for members who have no activated account: choose it once, then tick their crops or cycles."
+   },
+   {
+    "n": 2,
     "label": "Import / Add member",
     "desc": "Add several members at once by searching and picking each, or from a spreadsheet."
    },
    {
-    "n": 2,
+    "n": 3,
     "label": "A member",
     "desc": "The name, the position and the date joined."
    },
    {
-    "n": 3,
+    "n": 4,
     "label": "Bottom menu",
     "desc": "Home, Members, Assistance, Equipment and More. The open one is highlighted. More holds everything else, and Log out."
    }
@@ -4345,7 +4380,7 @@ export default {
  "admin-report-individual": {
   "audience": "admin",
   "title": "Report: an individual report",
-  "purpose": "The report of one farmer, fisherfolk or organization.",
+  "purpose": "The report of one farmer, fisherfolk or cooperative.",
   "image": "/manual/admin/report-individual.png",
   "width": 1280,
   "height": 1400,
@@ -4378,7 +4413,7 @@ export default {
    {
     "n": 6,
     "label": "Print-ready preview",
-    "desc": "The individual report as it will print: the details of the record, then its parcels and organizations (or members), with the signature lines."
+    "desc": "The individual report as it will print: the details of the record, then its parcels and cooperatives (or members), with the signature lines."
    }
   ]
  },
@@ -4404,11 +4439,6 @@ export default {
     "n": 3,
     "label": "A group row",
     "desc": "One farmer with the personal facts and the totals of their parcels. Click it to drop down the parcels, with the same three-dot menu as the ordinary list."
-   },
-   {
-    "n": 4,
-    "label": "Page bar",
-    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
@@ -4434,18 +4464,13 @@ export default {
     "n": 3,
     "label": "A group row",
     "desc": "One farmer with the personal facts and the totals of their crops. Click it to drop down the crops, with the same three-dot menu as the ordinary list."
-   },
-   {
-    "n": 4,
-    "label": "Page bar",
-    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
  "admin-assistance-history": {
   "audience": "admin",
   "title": "Assistance History",
-  "purpose": "The assistance that was received and confirmed, or resolved, with a report you can print or download.",
+  "purpose": "The assistance that was received, with a report you can print or download.",
   "image": "/manual/admin/assistance-history.png",
   "width": 1280,
   "height": 800,
@@ -4453,7 +4478,7 @@ export default {
    {
     "n": 1,
     "label": "Current / History",
-    "desc": "Current lists the assistance that is scheduled, awaiting confirmation or needs follow-up (the recipients who reported that they did not receive it, so the office can look into each one). History lists what was received and confirmed, or resolved. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
+    "desc": "Current lists the assistance that is still scheduled, with the date, time and place to claim it. History lists what has passed and shows as Received. Nobody has to confirm anything. On History, Print Report and Download Report give the list as filtered, and the three dots of a row print or download that one distribution."
    },
    {
     "n": 2,
@@ -4473,52 +4498,57 @@ export default {
    {
     "n": 5,
     "label": "Columns",
-    "desc": "Date given, who it was given to, assistance type, source agency, quantity and status."
+    "desc": "The date, time and place, who it was given to, assistance type, source agency, quantity and status."
    },
    {
     "n": 6,
     "label": "Row menu",
     "desc": "The three dots of a distribution: Print Report and Download Report give a report of that one distribution, with the people who received it."
-   },
-   {
-    "n": 7,
-    "label": "Page bar",
-    "desc": "How many rows match, and Previous page / Next page buttons to move through them. The list shows a page at a time."
    }
   ]
  },
  "admin-restore": {
   "audience": "admin",
-  "title": "Admin > Backup & Restore: Restore Backup",
-  "purpose": "Drop a backup file, see what it would change, then confirm with your password.",
+  "title": "Backup & Restore: Restore",
+  "purpose": "Add a backup file, see what it would change, then confirm with your password.",
   "image": "/manual/admin/restore.png",
   "width": 1280,
   "height": 1500,
   "legend": [
    {
     "n": 1,
-    "label": "Drag the file here, or Browse files",
-    "desc": "Drop the .zip file saved from this page, or press Browse files to choose it. Choose another file starts again. A backup made on another copy of the system is accepted too. Reading the file changes nothing."
+    "label": "Nothing is written yet",
+    "desc": "Drag the .zip file onto the page or press Browse files. Reading it changes nothing."
    },
    {
     "n": 2,
-    "label": "Which backup it is",
-    "desc": "The name, when it was made and by whom, where it was kept, the file, and how many records and files it holds next to how many records the system holds now."
+    "label": "Change file",
+    "desc": "Picks another file instead."
    },
    {
     "n": 3,
-    "label": "What a restore does",
-    "desc": "Group by group: the records in the backup, the records now, and what a restore does (records put back, records removed, no change). A group the file leaves out, such as the activity log of a backup made without the audit trail, is kept as it is."
+    "label": "Remove",
+    "desc": "Takes the file away."
    },
    {
     "n": 4,
-    "label": "Your password",
-    "desc": "Required. It confirms that you are the one restoring."
+    "label": "Settings and lists",
+    "desc": "Chosen to start with. Puts back the lists of the settings pages and the signatories; people, farms, ponds and their records stay as they are. An entry that records use is never removed or renamed."
    },
    {
     "n": 5,
-    "label": "Restore",
-    "desc": "Makes a safety backup of how things are now and saves it to your computer, then puts the backup back: records, uploaded files, user accounts and passwords. While it runs, nothing else can be done on the page: keep it open."
+    "label": "Everything",
+    "desc": "Also replaces accounts, registrations and all records. Anything recorded since the backup was taken is lost."
+   },
+   {
+    "n": 6,
+    "label": "What would change",
+    "desc": "For each list (or, for Everything, each group of records): how many are in the file next to how many the system has now."
+   },
+   {
+    "n": 7,
+    "label": "Restore settings / Restore everything",
+    "desc": "Asks for your password. A safety backup is made first. When it ends, the page shows what was Written, Removed and Skipped, with the reason for each skipped entry."
    }
   ]
  },
@@ -4559,7 +4589,7 @@ export default {
  },
  "admin-farmer-crop-details": {
   "audience": "admin",
-  "title": "Crop details of a crop grown",
+  "title": "Crop details from the farmer profile",
   "purpose": "The full details of a crop on a parcel, up to its harvest.",
   "image": "/manual/admin/farmer-crop-details.png",
   "width": 1280,
@@ -4567,18 +4597,18 @@ export default {
   "legend": [
    {
     "n": 1,
-    "label": "Crop Grown",
-    "desc": "What was declared for the crop: the variety, the area, whether it is the main crop, the seeds or trees, the seed source and PCIC insurance."
+    "label": "Crop details",
+    "desc": "The crop and variety, the parcel and its place, the crop status and owner, the season, area, seeds, PCIC insurance, dates, status and yields."
    },
    {
     "n": 2,
-    "label": "Planting",
-    "desc": "Each planting of this crop on the parcel, with its season, dates, area, estimated and actual yield and status. Only the details are shown here: the activities are in Crop Monitoring."
+    "label": "Activities",
+    "desc": "The activities logged on the crop, with the date, the plant condition and the notes."
    },
    {
     "n": 3,
-    "label": "Harvest",
-    "desc": "Once a planting is harvested: the harvest date, the volume, the area harvested, the yield per hectare and whether it was early or late."
+    "label": "Disasters",
+    "desc": "Disasters reported on the crop. Pest and disease reports are listed above it, and remarks below."
    },
    {
     "n": 4,
@@ -4639,8 +4669,8 @@ export default {
  },
  "admin-org-members": {
   "audience": "admin",
-  "title": "Organization profile: Members",
-  "purpose": "The members of the organization.",
+  "title": "Cooperative profile: Members",
+  "purpose": "The members of the cooperative.",
   "image": "/manual/admin/org-members.png",
   "width": 1280,
   "height": 900,
@@ -4658,14 +4688,14 @@ export default {
    {
     "n": 3,
     "label": "Members table",
-    "desc": "Full name, RSBSA number, position, date joined and Main (marks the organization that is this member's main one when they belong to several; Set as main changes it)."
+    "desc": "Full name, RSBSA number, position, date joined and Main (marks the cooperative that is this member's main one when they belong to several; Set as main changes it)."
    }
   ]
  },
  "admin-org-officers": {
   "audience": "admin",
-  "title": "Organization profile: Officers",
-  "purpose": "The officers of the organization and their terms.",
+  "title": "Cooperative profile: Officers",
+  "purpose": "The officers of the cooperative and their terms.",
   "image": "/manual/admin/org-officers.png",
   "width": 1280,
   "height": 1000,
@@ -4678,7 +4708,7 @@ export default {
    {
     "n": 2,
     "label": "Assign Officer",
-    "desc": "Gives a position to one of the organization's members (next picture)."
+    "desc": "Gives a position to one of the cooperative's members (next picture)."
    },
    {
     "n": 3,
@@ -4703,7 +4733,7 @@ export default {
    {
     "n": 2,
     "label": "Buttons",
-    "desc": "Record Harvest opens once half of the growing time has passed; before that it says when. Force Harvest harvests early when a storm or flood is coming. Report Disaster is not offered for a harvested crop."
+    "desc": "Log Activity records work done on the crop. Record Harvest opens once half of the growing time has passed; before that it says when. Force Harvest harvests early when a storm or flood is coming. Report Disaster is not offered for a harvested crop."
    }
   ]
  },
@@ -4768,7 +4798,7 @@ export default {
    {
     "n": 1,
     "label": "Pages",
-    "desc": "Forecast, Borrow equipment (when you belong to an organization), My profile, the User Manual, and Log out."
+    "desc": "Forecast, Borrow equipment (when you belong to a cooperative), My profile, Help, and Log out."
    }
   ]
  },
@@ -4793,7 +4823,7 @@ export default {
    {
     "n": 3,
     "label": "Bell and your name",
-    "desc": "The bell lists your notices. Your name opens a short menu with your profile, Help, the User Manual and Log out."
+    "desc": "The bell lists your notices. Your name opens your profile; the arrow beside it opens a short menu with Help and Logout."
    },
    {
     "n": 4,
@@ -4939,7 +4969,7 @@ export default {
  },
  "org-item-details": {
   "audience": "org",
-  "title": "An item's details (Organization)",
+  "title": "An item's details (Cooperative)",
   "purpose": "One kind of equipment, by condition.",
   "image": "/manual/org/item-details.png",
   "width": 1280,
@@ -4954,7 +4984,7 @@ export default {
  },
  "org-loans": {
   "audience": "org",
-  "title": "Loans (Organization)",
+  "title": "Loans (Cooperative)",
   "purpose": "Borrow requests, what is out, and what came back.",
   "image": "/manual/org/loans.png",
   "width": 1280,
@@ -4979,7 +5009,7 @@ export default {
  },
  "org-distribute-choice": {
   "audience": "org",
-  "title": "Distribute assistance (Organization)",
+  "title": "Distribute assistance (Cooperative)",
   "purpose": "Who receives it?",
   "image": "/manual/org/distribute-choice.png",
   "width": 1280,
@@ -4988,7 +5018,7 @@ export default {
    {
     "n": 1,
     "label": "One member or all members",
-    "desc": "One member: tick the members by name. All members: every current member gets the same. Both then ask what was given, by which agency and when."
+    "desc": "Give to one member: pick the members by name. Give to all members: every current member gets the same. Both then ask what is given, by which agency, and the date, time and place to claim it."
    }
   ]
  },
@@ -5004,7 +5034,7 @@ export default {
    {
     "n": 1,
     "label": "Pages",
-    "desc": "Forecast, Borrow equipment, My profile, the User Manual and Log out."
+    "desc": "Forecast, Borrow equipment, My profile, Help and Log out."
    },
    {
     "n": 2,
@@ -5067,7 +5097,7 @@ export default {
  },
  "org-p-equipment": {
   "audience": "org",
-  "title": "Equipment on a phone (Organization)",
+  "title": "Equipment on a phone (Cooperative)",
   "purpose": "Answer borrow requests with one tap.",
   "image": "/manual/org/phone-equipment.png",
   "phone": true,
@@ -5088,6 +5118,81 @@ export default {
     "n": 3,
     "label": "Bottom menu",
     "desc": "Home, Members, Assistance, Equipment and More. The open one is highlighted. More holds everything else, and Log out."
+   }
+  ]
+ },
+ "admin-audit-log-history": {
+  "audience": "admin",
+  "title": "Farmer History",
+  "purpose": "Everything on record about one farmer, newest first. Fisherfolk History and Cooperative History work the same way.",
+  "image": "/manual/admin/audit-log-history.png",
+  "width": 1280,
+  "height": 1000,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Search and pick",
+    "desc": "Type at least two letters of the name, then pick the farmer from the list."
+   },
+   {
+    "n": 2,
+    "label": "Pick another",
+    "desc": "Clears this history so you can pick someone else."
+   },
+   {
+    "n": 3,
+    "label": "The history",
+    "desc": "The date, what happened and the part of the system."
+   }
+  ]
+ },
+ "org-assistance-members": {
+  "audience": "org",
+  "title": "A distribution's members (Cooperative)",
+  "purpose": "Who is on the list of one distribution.",
+  "image": "/manual/org/assistance-members.png",
+  "width": 1280,
+  "height": 800,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Members",
+    "desc": "Everyone who was given this assistance, each with a status. Nobody has to confirm anything."
+   },
+   {
+    "n": 2,
+    "label": "Remove from the list",
+    "desc": "Takes off a member who did not claim it."
+   }
+  ]
+ },
+ "admin-aquaculture-records": {
+  "audience": "admin",
+  "title": "Fisheries Management > Aquaculture Records",
+  "purpose": "Every production cycle on record, and where a new one is started.",
+  "image": "/manual/admin/aquaculture-records.png",
+  "width": 1280,
+  "height": 1000,
+  "legend": [
+   {
+    "n": 1,
+    "label": "Search box",
+    "desc": "Type to find a cycle by fisherfolk name, RSBSA number, species or barangay. The table updates as you type."
+   },
+   {
+    "n": 2,
+    "label": "Filters",
+    "desc": "Opens or closes the filter row under the buttons. Each filter narrows the table."
+   },
+   {
+    "n": 3,
+    "label": "Start Production Cycle",
+    "desc": "Opens the form for a new cycle (next picture)."
+   },
+   {
+    "n": 4,
+    "label": "Columns",
+    "desc": "Ownership, cycle, species, fisherfolk, barangay, where the pond or cage is, culture type, cooperative, date stocked and whether it has PCIC insurance. Follow a cycle and record its harvest in Aquaculture Monitoring."
    }
   ]
  }

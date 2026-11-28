@@ -9,8 +9,8 @@ import { FarmerHeader, FarmerTabBar } from './FarmerChrome.jsx'
 // green for a farmer and a farmers' organization). PageLayout renders this instead of the sidebar layout on a phone for those
 // accounts; tablets, desktops and every other role keep the sidebar layout.
 //
-// The tabs are the account's menu (pages/Account/accountNav.js), the same five entries the sidebar shows. The profile, Help, the
-// User Manual and Log out are on the More tab, so the header has no menu of its own.
+// The tabs are the account's menu (pages/Account/accountNav.js), the same five entries the sidebar shows. The profile, Help
+// and Log out are on the More tab, so the header has no menu of its own.
 
 export default function CitizenPhoneShell({ title, action, children }) {
   const navigate = useNavigate()

@@ -18,7 +18,7 @@ import { labels } from './labels.js'
 // `button { font: inherit }` outside any layer, which discards font utilities
 // placed directly on a <button> (see the note at the top of citizenUI.jsx).
 
-// `onManual` (optional) adds the User Manual.
+// `onManual` (optional) adds Help.
 function MenuPanel({ onProfile, onManual, onLogout, onClose, className, menuLabels }) {
   const M = menuLabels || labels.farmerChrome.menu
   const item = 'flex h-[36px] w-full items-center gap-3 px-4 text-left transition-colors hover:bg-cz-page'
@@ -34,7 +34,7 @@ function MenuPanel({ onProfile, onManual, onLogout, onClose, className, menuLabe
       {onManual && (
         <button type="button" role="menuitem" className={item} onClick={() => { onClose(); onManual() }}>
           <BookOpen size={15} className="shrink-0 text-cz-text-2" aria-hidden="true" />
-          <span className="text-[13px] text-cz-text">{M.manual || 'User Manual'}</span>
+          <span className="text-[13px] text-cz-text">{M.manual || 'Help'}</span>
         </button>
       )}
       <div className="mx-1.5 my-0.5 border-t-[0.5px] border-cz-border" />
