@@ -1,6 +1,5 @@
 import uuid
 from datetime import date, timedelta
-from io import BytesIO
 
 from django.db import transaction
 from django.db.models import Case, IntegerField, Q, When
@@ -57,7 +56,7 @@ from .serializers import (
     FisherfolkOrganizationOfficerSerializer,
     OrganizationOfficerSerializer,
 )
-from core.exports import SafeWorkbook
+from core.import_templates import import_template_response
 
 
 # ─── Phase B: shared is_main resolution/enforcement ─────────────────────────
@@ -1246,38 +1245,6 @@ ORG_TEMPLATE_HEADERS = [
 ORG_TEMPLATE_COL_WIDTHS = [30, 20, 28, 24, 24, 22, 20, 28, 22, 18]
 
 
-def _org_import_template_response(filename, sample_row, agency_note):
-    from django.http import HttpResponse
-    from openpyxl.styles import Font, PatternFill
-
-    wb = SafeWorkbook()
-    ws = wb.active
-    ws.title = 'Cooperative Import'
-
-    green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
-    white_font = Font(color='FFFFFF', bold=True)
-    for col, (header, width) in enumerate(zip(ORG_TEMPLATE_HEADERS, ORG_TEMPLATE_COL_WIDTHS), 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.fill = green_fill
-        cell.font = white_font
-        ws.column_dimensions[cell.column_letter].width = width
-
-    for col, value in enumerate(sample_row, 1):
-        ws.cell(row=2, column=col, value=value)
-    ws.cell(row=4, column=1, value=agency_note)
-
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-
-    response = HttpResponse(
-        buf.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
-
-
 FARMERS_ORG_TEMPLATE_SAMPLE = [
     'Aringay Farmers Alliance', 'Poblacion', 'Purok 1', '2020-03-15', '2020-06-01',
     'FA-2020-001', 'CDA', 'org@example.com', 'Juan Dela Cruz', '09171234567',
@@ -1510,10 +1477,11 @@ class FarmersOrganizationImportTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _org_import_template_response(
-            'farmers_cooperatives_import_template.xlsx',
+        return import_template_response(
+            'farmers_cooperatives_import_template.xlsx', ORG_TEMPLATE_HEADERS, ORG_TEMPLATE_COL_WIDTHS,
             FARMERS_ORG_TEMPLATE_SAMPLE,
             'Registration Agency must be one of: SEC / CDA / DOLE',
+            sheet_title='Cooperative Import',
         )
 
 
@@ -1531,10 +1499,11 @@ class FisherfolkOrganizationImportTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _org_import_template_response(
-            'fisherfolk_cooperatives_import_template.xlsx',
+        return import_template_response(
+            'fisherfolk_cooperatives_import_template.xlsx', ORG_TEMPLATE_HEADERS, ORG_TEMPLATE_COL_WIDTHS,
             FISHERFOLK_ORG_TEMPLATE_SAMPLE,
             'Registration Agency must be one of: SEC / CDA / DOLE / BFAR',
+            sheet_title='Cooperative Import',
         )
 
 

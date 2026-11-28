@@ -269,7 +269,8 @@ class RsbsaUpdateImportPreviewView(APIView):
         # the whole preview (unlike the one-time command, this runs against
         # live, less-controlled uploads, not one known-good file). ──
         parsed = []
-        for i, row in enumerate(rows, start=2):  # row 1 is the header
+        for row in rows:
+            i = row['_row_number']                  # the row in the file, wherever its heading row is
             disposition, reason = classify_row(row)
             if disposition == 'HOLD-BACK':
                 parsed.append({'row': row, 'row_number': i, 'disposition': disposition, 'reason': reason, 'incoming': None})

@@ -102,7 +102,7 @@ class ParcelCropRecordsImportTests(APITestCase):
         res = self.client.get(TEMPLATE)
         self.assertEqual(res.status_code, 200)
         sheet = load_workbook(BytesIO(res.content)).active
-        self.assertEqual([c.value for c in sheet[1]], CROP_RECORD_HEADERS)
+        self.assertEqual([c.value for c in sheet[3]][:len(CROP_RECORD_HEADERS)], CROP_RECORD_HEADERS)
         upload = SimpleUploadedFile('t.xlsx', res.content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         # an untouched template has only its sample row, which is skipped: nothing to add
         res = self.client.post(URL, {'file': upload}, format='multipart')

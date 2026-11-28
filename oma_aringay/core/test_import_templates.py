@@ -28,7 +28,8 @@ def _routes(patterns=None, prefix=''):
             yield route
 
 
-class TemplateRoundTripTests(APITestCase):
+class TemplateSetup(APITestCase):
+    """A staff account, a cooperative of each kind and a farmer; and every template with the import that reads it."""
     @classmethod
     def setUpTestData(cls):
         cls.admin = get_user_model().objects.create_user(username='tpl-admin', password='pw', role='ADMIN', email='tpl@x.test')
@@ -62,6 +63,8 @@ class TemplateRoundTripTests(APITestCase):
         self.assertIn('spreadsheetml', res['Content-Type'], url)
         return SimpleUploadedFile('template.xlsx', res.content, content_type=res['Content-Type'])
 
+
+class TemplateRoundTripTests(TemplateSetup):
     def test_each_template_is_accepted_by_its_import_and_holds_nothing_to_import(self):
         for name, (template_url, import_url) in self.pairs().items():
             with self.subTest(name):
@@ -88,8 +91,8 @@ class TemplateRoundTripTests(APITestCase):
         res = self.client.get('/api/farmers/rsbsa-import/template/')
         book = openpyxl.load_workbook(io.BytesIO(res.content))
         first = book.worksheets[0]
-        self.assertEqual([c.value for c in first[1]], EXPECTED_HEADERS_V2)
-        self.assertEqual(first.max_row, 1, 'the data sheet carries headers only')
+        self.assertEqual([c.value for c in first[3]], EXPECTED_HEADERS_V2)
+        self.assertEqual(first.max_row, 4, 'banner, instructions, headings and the sample: nothing else')
         self.assertGreaterEqual(len(book.worksheets), 2)       # a "how to fill this in" sheet
 
     def test_only_staff_download_the_registry_template(self):

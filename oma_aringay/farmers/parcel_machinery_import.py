@@ -17,10 +17,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
+from core.import_templates import import_template_response
 
 from .machinery_labels import SHOWN_AS, ownership_label
 from .models import FarmMachinery
-from .parcel_import import _choice, _read, _serializer_errors, _template_response, _text
+from .parcel_import import _choice, _read, _serializer_errors, _text
 from .serializers import FarmMachinerySerializer
 
 MACHINERY_HEADERS = ['Machinery Type', 'Quantity', 'Ownership', 'Machinery Name (if Other)']
@@ -37,7 +38,7 @@ MAX_QUANTITY = 9999
 MACHINERY_NOTE = (
     f'{MACHINERY_NOTE_PREFIX} one row per kind of machinery. Machinery Type: {", ".join(MACHINERY_TYPES)} (anything else is recorded as '
     'Other with your text, or write Other and give its name in the last column). Quantity: a whole number, 1 if blank. '
-    f'Ownership: {", ".join(OWNERSHIPS_SHOWN)} (who owns the equipment, not the land; Owned if blank). Delete the sample row.'
+    f'Ownership: {", ".join(OWNERSHIPS_SHOWN)} (who owns the equipment, not the land; Owned if blank).'
 )
 
 
@@ -93,7 +94,7 @@ class ParcelMachineryTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _template_response('farm_parcel_machinery_import_template.xlsx', MACHINERY_HEADERS, MACHINERY_WIDTHS, MACHINERY_SAMPLE, MACHINERY_NOTE)
+        return import_template_response('farm_parcel_machinery_import_template.xlsx', MACHINERY_HEADERS, MACHINERY_WIDTHS, MACHINERY_SAMPLE, MACHINERY_NOTE)
 
 
 class ParcelMachineryParseView(APIView):

@@ -44,7 +44,7 @@ from .serializers import (
     FisherfolkBeneficiaryRecordCreateSerializer,
     FisherfolkBeneficiaryRecordUpdateSerializer,
 )
-from core.exports import SafeWorkbook
+from core.import_templates import import_template_response
 
 
 class PendingOnlyEditMixin(CurrentStatusMixin):
@@ -600,39 +600,9 @@ ASSISTANCE_NOTE_PREFIX = 'Assistance Type must be one of'
 
 
 def _assistance_import_template_response(filename, id_label, sample_row, type_note):
-    from io import BytesIO
-
-    from django.http import HttpResponse
-    from openpyxl.styles import Font, PatternFill
-
-    wb = SafeWorkbook()
-    ws = wb.active
-    ws.title = 'Assistance Import'
-
-    headers = list(ASSISTANCE_TEMPLATE_HEADERS)
-    headers[0] = id_label
-    green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
-    white_font = Font(color='FFFFFF', bold=True)
-    for col, (header, width) in enumerate(zip(headers, ASSISTANCE_TEMPLATE_COL_WIDTHS), 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.fill = green_fill
-        cell.font = white_font
-        ws.column_dimensions[cell.column_letter].width = width
-
-    for col, value in enumerate(sample_row, 1):
-        ws.cell(row=2, column=col, value=value)
-    ws.cell(row=4, column=1, value=type_note)
-
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-
-    response = HttpResponse(
-        buf.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
+    headers = [id_label, *ASSISTANCE_TEMPLATE_HEADERS[1:]]
+    return import_template_response(filename, headers, ASSISTANCE_TEMPLATE_COL_WIDTHS, sample_row, type_note,
+                                    sheet_title='Assistance Import')
 
 
 def _run_assistance_import(person_model, record_model, serializer_class, person_field, text_field, file, dry_run, user):
